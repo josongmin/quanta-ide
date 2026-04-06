@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en" data-aurora="violet">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>p0 Labs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #0d0d12;
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+      line-height: 1.42;
+      letter-spacing: -0.02em;
+    }
+
+    /*
+     * Aurora 블롭 색상 — html[data-aurora="이름"] 블록에서 --blob1-a … --blob4-b 만 수정하면 됨.
+     * 프리셋: violet…void (아래 html[data-aurora] 블록과 동일 이름)
+     */
+    html[data-aurora="violet"] {
+      --blob1-a: #c084fc; --blob1-b: #7c3aed; --blob1-c: #3b0764;
+      --blob2-a: #38bdf8; --blob2-b: #6366f1; --blob2-c: #1e1b4b;
+      --blob3-a: #a78bfa; --blob3-b: #4f46e5;
+      --blob4-a: #22d3ee; --blob4-b: #818cf8;
+    }
+    html[data-aurora="ocean"] {
+      --blob1-a: #60a5fa; --blob1-b: #2563eb; --blob1-c: #1e3a8a;
+      --blob2-a: #22d3ee; --blob2-b: #0891b2; --blob2-c: #164e63;
+      --blob3-a: #38bdf8; --blob3-b: #0284c7;
+      --blob4-a: #a5f3fc; --blob4-b: #0ea5e9;
+    }
+    html[data-aurora="emerald"] {
+      --blob1-a: #34d399; --blob1-b: #059669; --blob1-c: #064e3b;
+      --blob2-a: #6ee7b7; --blob2-b: #10b981; --blob2-c: #14532d;
+      --blob3-a: #86efac; --blob3-b: #16a34a;
+      --blob4-a: #d9f99d; --blob4-b: #84cc16;
+    }
+    html[data-aurora="sunset"] {
+      --blob1-a: #fb923c; --blob1-b: #ea580c; --blob1-c: #7c2d12;
+      --blob2-a: #f472b6; --blob2-b: #db2777; --blob2-c: #831843;
+      --blob3-a: #fbbf24; --blob3-b: #d97706;
+      --blob4-a: #fda4af; --blob4-b: #f43f5e;
+    }
+    html[data-aurora="rose"] {
+      --blob1-a: #f9a8d4; --blob1-b: #ec4899; --blob1-c: #831843;
+      --blob2-a: #e879f9; --blob2-b: #a855f7; --blob2-c: #581c87;
+      --blob3-a: #fbcfe8; --blob3-b: #be185d;
+      --blob4-a: #fce7f3; --blob4-b: #f472b6;
+    }
+    html[data-aurora="slate"] {
+      --blob1-a: #94a3b8; --blob1-b: #64748b; --blob1-c: #1e293b;
+      --blob2-a: #cbd5e1; --blob2-b: #475569; --blob2-c: #0f172a;
+      --blob3-a: #a8b2bd; --blob3-b: #334155;
+      --blob4-a: #e2e8f0; --blob4-b: #64748b;
+    }
+    html[data-aurora="midnight"] {
+      --blob1-a: #312e81; --blob1-b: #1e1b4b; --blob1-c: #0f172a;
+      --blob2-a: #4f46e5; --blob2-b: #3730a3; --blob2-c: #1e1b4b;
+      --blob3-a: #6366f1; --blob3-b: #4338ca;
+      --blob4-a: #818cf8; --blob4-b: #4f46e5;
+    }
+    html[data-aurora="lavender"] {
+      --blob1-a: #ddd6fe; --blob1-b: #a78bfa; --blob1-c: #5b21b6;
+      --blob2-a: #e9d5ff; --blob2-b: #c084fc; --blob2-c: #6b21a8;
+      --blob3-a: #f0abfc; --blob3-b: #d946ef;
+      --blob4-a: #fce7f3; --blob4-b: #f0abfc;
+    }
+    html[data-aurora="amber"] {
+      --blob1-a: #fcd34d; --blob1-b: #f59e0b; --blob1-c: #78350f;
+      --blob2-a: #fde68a; --blob2-b: #d97706; --blob2-c: #713f12;
+      --blob3-a: #fbbf24; --blob3-b: #b45309;
+      --blob4-a: #fef3c7; --blob4-b: #f59e0b;
+    }
+    html[data-aurora="mint"] {
+      --blob1-a: #99f6e4; --blob1-b: #2dd4bf; --blob1-c: #134e4a;
+      --blob2-a: #a7f3d0; --blob2-b: #14b8a6; --blob2-c: #115e59;
+      --blob3-a: #5eead4; --blob3-b: #0d9488;
+      --blob4-a: #ccfbf1; --blob4-b: #5eead4;
+    }
+    html[data-aurora="berry"] {
+      --blob1-a: #f43f5e; --blob1-b: #be123c; --blob1-c: #4c0519;
+      --blob2-a: #fb7185; --blob2-b: #9f1239; --blob2-c: #881337;
+      --blob3-a: #fda4af; --blob3-b: #e11d48;
+      --blob4-a: #fecdd3; --blob4-b: #f43f5e;
+    }
+    html[data-aurora="neon"] {
+      --blob1-a: #c084fc; --blob1-b: #d946ef; --blob1-c: #581c87;
+      --blob2-a: #a3e635; --blob2-b: #22c55e; --blob2-c: #14532d;
+      --blob3-a: #f472b6; --blob3-b: #ec4899;
+      --blob4-a: #fde047; --blob4-b: #eab308;
+    }
+    html[data-aurora="dusk"] {
+      --blob1-a: #fda4af; --blob1-b: #fb7185; --blob1-c: #9f1239;
+      --blob2-a: #c4b5fd; --blob2-b: #7c3aed; --blob2-c: #4c1d95;
+      --blob3-a: #fcd34d; --blob3-b: #ea580c;
+      --blob4-a: #fce7f3; --blob4-b: #db2777;
+    }
+    html[data-aurora="glacier"] {
+      --blob1-a: #e0f2fe; --blob1-b: #7dd3fc; --blob1-c: #0369a1;
+      --blob2-a: #bae6fd; --blob2-b: #38bdf8; --blob2-c: #0c4a6e;
+      --blob3-a: #cffafe; --blob3-b: #22d3ee;
+      --blob4-a: #f8fafc; --blob4-b: #94a3b8;
+    }
+    html[data-aurora="moss"] {
+      --blob1-a: #bbf7d0; --blob1-b: #4ade80; --blob1-c: #166534;
+      --blob2-a: #86efac; --blob2-b: #15803d; --blob2-c: #14532d;
+      --blob3-a: #fef08a; --blob3-b: #65a30d;
+      --blob4-a: #d9f99d; --blob4-b: #84cc16;
+    }
+    html[data-aurora="wine"] {
+      --blob1-a: #9f1239; --blob1-b: #881337; --blob1-c: #450a0a;
+      --blob2-a: #fb7185; --blob2-b: #be123c; --blob2-c: #4c0519;
+      --blob3-a: #fda4af; --blob3-b: #9f1239;
+      --blob4-a: #fecdd3; --blob4-b: #e11d48;
+    }
+    html[data-aurora="candy"] {
+      --blob1-a: #fce7f3; --blob1-b: #f472b6; --blob1-c: #db2777;
+      --blob2-a: #cffafe; --blob2-b: #22d3ee; --blob2-c: #0e7490;
+      --blob3-a: #fef3c7; --blob3-b: #fbbf24;
+      --blob4-a: #ddd6fe; --blob4-b: #a78bfa;
+    }
+    html[data-aurora="storm"] {
+      --blob1-a: #64748b; --blob1-b: #334155; --blob1-c: #0f172a;
+      --blob2-a: #a78bfa; --blob2-b: #6366f1; --blob2-c: #312e81;
+      --blob3-a: #38bdf8; --blob3-b: #0ea5e9;
+      --blob4-a: #e2e8f0; --blob4-b: #64748b;
+    }
+    html[data-aurora="jungle"] {
+      --blob1-a: #22c55e; --blob1-b: #15803d; --blob1-c: #14532d;
+      --blob2-a: #4ade80; --blob2-b: #166534; --blob2-c: #052e16;
+      --blob3-a: #fde047; --blob3-b: #ca8a04;
+      --blob4-a: #86efac; --blob4-b: #22c55e;
+    }
+    html[data-aurora="sakura"] {
+      --blob1-a: #fce7f3; --blob1-b: #fbcfe8; --blob1-c: #be185d;
+      --blob2-a: #fecdd3; --blob2-b: #fda4af; --blob2-c: #9f1239;
+      --blob3-a: #fff1f2; --blob3-b: #fb7185;
+      --blob4-a: #fdf2f8; --blob4-b: #f472b6;
+    }
+    html[data-aurora="honey"] {
+      --blob1-a: #fef3c7; --blob1-b: #fbbf24; --blob1-c: #b45309;
+      --blob2-a: #fde68a; --blob2-b: #d97706; --blob2-c: #78350f;
+      --blob3-a: #fed7aa; --blob3-b: #ea580c;
+      --blob4-a: #ffedd5; --blob4-b: #fb923c;
+    }
+    html[data-aurora="void"] {
+      --blob1-a: #1e1b4b; --blob1-b: #0f0f12; --blob1-c: #020617;
+      --blob2-a: #4c1d95; --blob2-b: #312e81; --blob2-c: #0f172a;
+      --blob3-a: #6366f1; --blob3-b: #3730a3;
+      --blob4-a: #a78bfa; --blob4-b: #4c1d95;
+    }
+
+    /* ── Aurora blobs ── */
+    .aurora {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      aspect-ratio: 1;
+      will-change: transform;
+      filter: blur(128px);
+    }
+    /* 보라 — 왼쪽 상단권 유영 (동일 가로·세로 + circle 그라데이션으로 원형에 가깝게) */
+    .blob-1 {
+      width: min(72vmin, 78vw);
+      height: min(72vmin, 78vw);
+      left: -14vmin; top: -6vmin;
+      background: radial-gradient(circle at 50% 55%, var(--blob1-a) 0%, var(--blob1-b) 40%, var(--blob1-c) 70%, transparent 90%);
+      opacity: 0.88;
+      animation: float-a 32s ease-in-out infinite;
+    }
+    /* 시안 — 오른쪽 중앙권 유영 */
+    .blob-2 {
+      width: min(68vmin, 74vw);
+      height: min(68vmin, 74vw);
+      right: -18vmin; top: 18vh;
+      background: radial-gradient(circle at 50% 55%, var(--blob2-a) 0%, var(--blob2-b) 45%, var(--blob2-c) 70%, transparent 90%);
+      opacity: 0.78;
+      animation: float-b 38s ease-in-out infinite;
+      animation-delay: -9s;
+    }
+    /* 인디고 — 중앙 심층 유영 */
+    .blob-3 {
+      width: min(64vmin, 70vw);
+      height: min(64vmin, 70vw);
+      left: 10vw; top: 28vh;
+      background: radial-gradient(circle at 50% 55%, var(--blob3-a) 0%, var(--blob3-b) 50%, transparent 85%);
+      opacity: 0.62;
+      animation: float-c 44s ease-in-out infinite;
+      animation-delay: -5s;
+    }
+    /* 청록 — 하단·측면 유영 */
+    .blob-4 {
+      width: min(60vmin, 66vw);
+      height: min(60vmin, 66vw);
+      right: -11vmin; bottom: -18vmin;
+      top: auto;
+      background: radial-gradient(circle at 50% 55%, var(--blob4-a) 0%, var(--blob4-b) 50%, transparent 85%);
+      opacity: 0.52;
+      animation: float-d 36s ease-in-out infinite;
+      animation-delay: -14s;
+    }
+
+    /* 닫힌 곡선 루프 — 시작·끝 동일해 끊김 없음, ease-in-out으로 키프레임 사이도 부드럽게 */
+    @keyframes float-a {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      20%      { transform: translate3d(18vw, 14vh, 0); }
+      45%      { transform: translate3d(8vw, -12vh, 0); }
+      70%      { transform: translate3d(-12vw, 8vh, 0); }
+      88%      { transform: translate3d(-4vw, 18vh, 0); }
+    }
+    @keyframes float-b {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      22%      { transform: translate3d(-16vw, 18vh, 0); }
+      48%      { transform: translate3d(-6vw, -16vh, 0); }
+      72%      { transform: translate3d(14vw, -6vh, 0); }
+      90%      { transform: translate3d(10vw, 12vh, 0); }
+    }
+    @keyframes float-c {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      25%      { transform: translate3d(14vw, -20vh, 0); }
+      50%      { transform: translate3d(-18vw, -10vh, 0); }
+      75%      { transform: translate3d(-8vw, 16vh, 0); }
+    }
+    @keyframes float-d {
+      0%, 100% { transform: translate3d(0, 0, 0); }
+      18%      { transform: translate3d(-14vw, -22vh, 0); }
+      42%      { transform: translate3d(10vw, -8vh, 0); }
+      65%      { transform: translate3d(16vw, 12vh, 0); }
+      85%      { transform: translate3d(-6vw, 20vh, 0); }
+    }
+
+    /* ── dot canvas ── */
+    #dot-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%; height: 100%;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* ── Page layout ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* ── Nav — viewport 좌상단 / 우상단 고정 (스티치 랜딩형) ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      width: 100%;
+      padding-top: max(16px, env(safe-area-inset-top, 0px));
+      padding-bottom: 16px;
+      padding-left: max(clamp(20px, 5vw, 56px), env(safe-area-inset-left, 0px));
+      padding-right: max(clamp(20px, 5vw, 56px), env(safe-area-inset-right, 0px));
+      pointer-events: none;
+    }
+    .nav-inner {
+      max-width: 1000px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: auto;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .badge {
+      font-size: 0.58rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 4px;
+      padding: 2px 7px;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.6);
+    }
+    .try-btn {
+      background: #fff;
+      color: #111;
+      border: none;
+      border-radius: 999px;
+      padding: 10px 26px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+    }
+    .try-btn:hover {
+      background: #ececec;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(0,0,0,.4);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .aurora-picker {
+      position: relative;
+    }
+    .aurora-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 19;
+      background: rgba(5, 5, 10, 0.45);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.2s ease, visibility 0.2s;
+    }
+    .aurora-backdrop.is-open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .aurora-trigger {
+      position: relative;
+      z-index: 22;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.85);
+      font-family: inherit;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.18s, border-color 0.18s;
+    }
+    .aurora-trigger:hover {
+      background: rgba(255,255,255,.1);
+      border-color: rgba(255,255,255,.3);
+    }
+    .aurora-trigger-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.35);
+      flex-shrink: 0;
+    }
+    .aurora-trigger-chevron {
+      opacity: 0.55;
+      transition: transform 0.2s ease;
+    }
+    .aurora-picker.is-open .aurora-trigger-chevron {
+      transform: rotate(180deg);
+    }
+    .aurora-panel[hidden] {
+      display: none !important;
+    }
+    .aurora-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 22;
+      width: min(300px, calc(100vw - 32px));
+      max-height: min(420px, 70vh);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(14, 12, 28, 0.94);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 16px 48px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(-6px);
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    }
+    .aurora-picker.is-open .aurora-panel {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .aurora-panel-title {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.4);
+      margin: 4px 6px 10px;
+    }
+    .aurora-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      overflow-y: auto;
+      padding: 2px;
+      scrollbar-width: thin;
+    }
+    .aurora-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: none;
+      border-radius: 12px;
+      background: rgba(255,255,255,.04);
+      color: rgba(255,255,255,.88);
+      font-family: inherit;
+      font-size: 0.8rem;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .aurora-option:hover {
+      background: rgba(255,255,255,.1);
+    }
+    .aurora-option.is-active {
+      background: rgba(255,255,255,.14);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
+    }
+    .aurora-opt-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,.25);
+      flex-shrink: 0;
+    }
+    .aurora-opt-label {
+      flex: 1;
+      min-width: 0;
+      line-height: 1.18;
+    }
+
+    /* 미리보기 그라데이션 — 트리거 점 + 패널 스와치 공통 */
+    .aurora-trigger[data-aurora="violet"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="violet"] .aurora-opt-swatch { background: linear-gradient(135deg, #c084fc, #38bdf8); }
+    .aurora-trigger[data-aurora="ocean"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="ocean"] .aurora-opt-swatch { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+    .aurora-trigger[data-aurora="emerald"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="emerald"] .aurora-opt-swatch { background: linear-gradient(135deg, #34d399, #10b981); }
+    .aurora-trigger[data-aurora="sunset"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="sunset"] .aurora-opt-swatch { background: linear-gradient(135deg, #fb923c, #f472b6); }
+    .aurora-trigger[data-aurora="rose"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="rose"] .aurora-opt-swatch { background: linear-gradient(135deg, #f472b6, #e879f9); }
+    .aurora-trigger[data-aurora="slate"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="slate"] .aurora-opt-swatch { background: linear-gradient(135deg, #94a3b8, #64748b); }
+    .aurora-trigger[data-aurora="midnight"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="midnight"] .aurora-opt-swatch { background: linear-gradient(135deg, #312e81, #6366f1); }
+    .aurora-trigger[data-aurora="lavender"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="lavender"] .aurora-opt-swatch { background: linear-gradient(135deg, #ddd6fe, #d946ef); }
+    .aurora-trigger[data-aurora="amber"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="amber"] .aurora-opt-swatch { background: linear-gradient(135deg, #fcd34d, #f59e0b); }
+    .aurora-trigger[data-aurora="mint"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="mint"] .aurora-opt-swatch { background: linear-gradient(135deg, #99f6e4, #14b8a6); }
+    .aurora-trigger[data-aurora="berry"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="berry"] .aurora-opt-swatch { background: linear-gradient(135deg, #fb7185, #be123c); }
+    .aurora-trigger[data-aurora="neon"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="neon"] .aurora-opt-swatch { background: linear-gradient(135deg, #a3e635, #d946ef); }
+    .aurora-trigger[data-aurora="dusk"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="dusk"] .aurora-opt-swatch { background: linear-gradient(135deg, #fda4af, #7c3aed); }
+    .aurora-trigger[data-aurora="glacier"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="glacier"] .aurora-opt-swatch { background: linear-gradient(135deg, #e0f2fe, #0369a1); }
+    .aurora-trigger[data-aurora="moss"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="moss"] .aurora-opt-swatch { background: linear-gradient(135deg, #bbf7d0, #15803d); }
+    .aurora-trigger[data-aurora="wine"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="wine"] .aurora-opt-swatch { background: linear-gradient(135deg, #fb7185, #450a0a); }
+    .aurora-trigger[data-aurora="candy"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="candy"] .aurora-opt-swatch { background: linear-gradient(135deg, #f472b6, #22d3ee); }
+    .aurora-trigger[data-aurora="storm"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="storm"] .aurora-opt-swatch { background: linear-gradient(135deg, #64748b, #6366f1); }
+    .aurora-trigger[data-aurora="jungle"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="jungle"] .aurora-opt-swatch { background: linear-gradient(135deg, #22c55e, #fde047); }
+    .aurora-trigger[data-aurora="sakura"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="sakura"] .aurora-opt-swatch { background: linear-gradient(135deg, #fce7f3, #fb7185); }
+    .aurora-trigger[data-aurora="honey"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="honey"] .aurora-opt-swatch { background: linear-gradient(135deg, #fef3c7, #ea580c); }
+    .aurora-trigger[data-aurora="void"] .aurora-trigger-dot,
+    .aurora-option[data-aurora="void"] .aurora-opt-swatch { background: linear-gradient(135deg, #1e1b4b, #a78bfa); }
+
+    /* ── Hero (display: Outfit, medium + tight tracking) ── */
+    .hero {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 0;
+      text-align: center;
+      font-family: 'Outfit', system-ui, sans-serif;
+      /* 고정 nav 높이만큼 상단 여유 — 카드는 하단 고정 */
+      padding: max(48px, calc(env(safe-area-inset-top, 0px) + 88px)) clamp(20px, 5vw, 56px)
+        max(20px, env(safe-area-inset-bottom, 0px));
+    }
+    .hero-copy {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      width: 100%;
+      padding-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: clamp(3rem, 7.5vw, 5.6rem);
+      font-weight: 500;
+      line-height: 0.92;
+      letter-spacing: -0.03em;
+      max-width: 860px;
+      color: #fff;
+    }
+    .hero h1 .hero-line2 {
+      display: inline-block;
+      font-size: 1.06em;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+      word-spacing: 0.02em;
+    }
+    .hero .sub {
+      font-size: 1.05rem;
+      font-weight: 400;
+      color: #fff;
+      opacity: 0.55;
+      max-width: 480px;
+      line-height: 1.42;
+      letter-spacing: -0.025em;
+    }
+
+    /* ── Prompt card (하단 고정) ── */
+    .card-wrap {
+      width: 100%;
+      max-width: 780px;
+      flex-shrink: 0;
+      margin-top: auto;
+      margin-bottom: 28px;
+      padding-bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px));
+    }
+    .card {
+      font-family: 'Inter', system-ui, sans-serif;
+      /* 살짝 유리: 얕은 하이라이트 + 반투명 틴트 */
+      background:
+        linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
+        rgba(16, 14, 34, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 22px;
+      backdrop-filter: blur(40px) saturate(1.15);
+      -webkit-backdrop-filter: blur(40px) saturate(1.15);
+      padding: 26px 26px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow:
+        0 10px 44px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    }
+    .card textarea {
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      color: rgba(255,255,255,.4);
+      font-size: 1.22rem;
+      font-family: inherit;
+      min-height: 148px;
+      width: 100%;
+      line-height: 1.45;
+      letter-spacing: -0.025em;
+    }
+    .card textarea::placeholder { color: rgba(255,255,255,.3); }
+    .card textarea:focus { color: rgba(255,255,255,.82); }
+
+    .card-divider {
+      height: 1px;
+      background: rgba(255,255,255,.07);
+    }
+
+    /* toolbar */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .toolbar-left  { display: flex; align-items: center; gap: 4px; }
+    .toolbar-right { display: flex; align-items: center; gap: 6px; }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      transition: background 0.18s, color 0.18s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
+
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      border: none;
+      border-radius: 999px;
+      padding: 6px 13px;
+      font-size: 0.78rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+      font-family: inherit;
+    }
+    .tab-btn.active   { background: rgba(255,255,255,.11); color: #fff; }
+    .tab-btn.inactive { background: transparent; color: rgba(255,255,255,.4); }
+    .tab-btn:hover    { background: rgba(255,255,255,.09); color: rgba(255,255,255,.9); }
+    .tab-btn svg      { width: 13px; height: 13px; flex-shrink: 0; }
+
+    .model-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: rgba(255,255,255,.7);
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.18s, border-color 0.18s;
+      white-space: nowrap;
+    }
+    .model-btn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.18); }
+    .gem { color: #c084fc; }
+
+    .send-btn {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.11);
+      border: none;
+      color: rgba(255,255,255,.42);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.18s, color 0.18s;
+    }
+    .send-btn:hover { background: rgba(255,255,255,.22); color: #fff; }
+  </style>
+</head>
+<body>
+  <script>
+    try {
+      var _aur = localStorage.getItem('p0-aurora');
+      if (_aur && /^(violet|ocean|emerald|sunset|rose|slate|midnight|lavender|amber|mint|berry|neon|dusk|glacier|moss|wine|candy|storm|jungle|sakura|honey|void)$/.test(_aur))
+        document.documentElement.setAttribute('data-aurora', _aur);
+    } catch (e) {}
+  </script>
+
+  <div class="aurora">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+  </div>
+  <canvas id="dot-canvas"></canvas>
+
+  <div class="page">
+
+    <!-- Nav -->
+    <nav>
+      <div class="nav-inner">
+      <div class="logo">
+        p0 Labs
+        <span class="badge">BETA</span>
+      </div>
+      <div class="nav-actions">
+        <div class="aurora-picker" id="aurora-picker">
+          <div class="aurora-backdrop" id="aurora-backdrop" aria-hidden="true" tabindex="-1"></div>
+          <button type="button" class="aurora-trigger" id="aurora-trigger" aria-expanded="false" aria-haspopup="dialog" aria-controls="aurora-panel" data-aurora="violet">
+            <span class="aurora-trigger-dot" aria-hidden="true"></span>
+            <span class="aurora-trigger-text">Palette</span>
+            <svg class="aurora-trigger-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+          <div class="aurora-panel" id="aurora-panel" role="dialog" aria-label="Aurora palette" hidden>
+            <p class="aurora-panel-title">Choose palette</p>
+            <div class="aurora-grid" role="listbox" aria-label="Aurora presets">
+              <button type="button" class="aurora-option" data-aurora="violet" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Violet</span></button>
+              <button type="button" class="aurora-option" data-aurora="ocean" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Ocean</span></button>
+              <button type="button" class="aurora-option" data-aurora="emerald" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Emerald</span></button>
+              <button type="button" class="aurora-option" data-aurora="sunset" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Sunset</span></button>
+              <button type="button" class="aurora-option" data-aurora="rose" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Rose</span></button>
+              <button type="button" class="aurora-option" data-aurora="slate" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Slate</span></button>
+              <button type="button" class="aurora-option" data-aurora="midnight" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Midnight</span></button>
+              <button type="button" class="aurora-option" data-aurora="lavender" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Lavender</span></button>
+              <button type="button" class="aurora-option" data-aurora="amber" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Amber</span></button>
+              <button type="button" class="aurora-option" data-aurora="mint" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Mint</span></button>
+              <button type="button" class="aurora-option" data-aurora="berry" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Berry</span></button>
+              <button type="button" class="aurora-option" data-aurora="neon" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Neon</span></button>
+              <button type="button" class="aurora-option" data-aurora="dusk" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Dusk</span></button>
+              <button type="button" class="aurora-option" data-aurora="glacier" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Glacier</span></button>
+              <button type="button" class="aurora-option" data-aurora="moss" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Moss</span></button>
+              <button type="button" class="aurora-option" data-aurora="wine" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Wine</span></button>
+              <button type="button" class="aurora-option" data-aurora="candy" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Candy</span></button>
+              <button type="button" class="aurora-option" data-aurora="storm" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Storm</span></button>
+              <button type="button" class="aurora-option" data-aurora="jungle" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Jungle</span></button>
+              <button type="button" class="aurora-option" data-aurora="sakura" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Sakura</span></button>
+              <button type="button" class="aurora-option" data-aurora="honey" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Honey</span></button>
+              <button type="button" class="aurora-option" data-aurora="void" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Void</span></button>
+            </div>
+          </div>
+        </div>
+        <button class="try-btn">Try now</button>
+      </div>
+      </div>
+    </nav>
+
+    <!-- Hero -->
+    <main class="hero">
+      <div class="hero-copy">
+      <h1>An agent that actually<br><span class="hero-line2">gets your code</span></h1>
+      <p class="sub">Repo-wide reasoning—not keyword soup. It traces your stack, respects intent, and thinks in systems: the kind of sharp that only comes from truly reading what’s on the screen.</p>
+      </div>
+
+      <!-- Prompt card -->
+      <div class="card-wrap">
+        <div class="card">
+
+          <textarea
+            rows="3"
+            placeholder="What native mobile app shall we design?"
+            aria-label="Design prompt"
+          ></textarea>
+
+          <div class="card-divider"></div>
+
+          <div class="toolbar">
+            <div class="toolbar-left">
+
+              <!-- + attach -->
+              <button class="icon-btn" title="Attach">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5"  y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+
+              <!-- App tab -->
+              <button class="tab-btn active" id="tab-app">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="5" y="2" width="14" height="20" rx="3"/>
+                  <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/>
+                </svg>
+                App
+              </button>
+
+              <!-- Web tab -->
+              <button class="tab-btn inactive" id="tab-web">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="2"/>
+                  <line x1="2" y1="9" x2="22" y2="9"/>
+                  <circle cx="5.5"  cy="6.5" r="1" fill="currentColor" stroke="none"/>
+                  <circle cx="8.5"  cy="6.5" r="1" fill="currentColor" stroke="none"/>
+                </svg>
+                Web
+              </button>
+
+            </div>
+
+            <div class="toolbar-right">
+
+              <!-- Emoji / tone -->
+              <button class="icon-btn" title="Tone">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                  <circle cx="9"  cy="9" r="1" fill="currentColor" stroke="none"/>
+                  <circle cx="15" cy="9" r="1" fill="currentColor" stroke="none"/>
+                </svg>
+              </button>
+
+              <!-- Model pill -->
+              <button class="model-btn">
+                <span class="gem">✦</span>
+                3.0 Flash
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </button>
+
+              <!-- Sliders -->
+              <button class="icon-btn" title="Options">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                  <line x1="3"  y1="6"  x2="21" y2="6"/>
+                  <line x1="3"  y1="12" x2="21" y2="12"/>
+                  <line x1="3"  y1="18" x2="21" y2="18"/>
+                  <circle cx="7"  cy="6"  r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="15" cy="12" r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
+                  <circle cx="10" cy="18" r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
+                </svg>
+              </button>
+
+              <!-- Send -->
+              <button class="send-btn" title="Submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5"/>
+                  <polyline points="5 12 12 5 19 12"/>
+                </svg>
+              </button>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /* ── Tab toggle ── */
+    const tabApp  = document.getElementById('tab-app');
+    const tabWeb  = document.getElementById('tab-web');
+    const textarea = document.querySelector('textarea');
+
+    tabApp.addEventListener('click', () => {
+      tabApp.className = 'tab-btn active';
+      tabWeb.className = 'tab-btn inactive';
+      textarea.placeholder = 'What native mobile app shall we design?';
+    });
+    tabWeb.addEventListener('click', () => {
+      tabWeb.className = 'tab-btn active';
+      tabApp.className = 'tab-btn inactive';
+      textarea.placeholder = 'What web application shall we design?';
+    });
+
+    textarea.addEventListener('input', () => {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    });
+
+    /* ── Aurora palette (블롭 색) — 트리거 + 선택 패널 ── */
+    (function () {
+      const KEY = 'p0-aurora';
+      const picker = document.getElementById('aurora-picker');
+      const backdrop = document.getElementById('aurora-backdrop');
+      const trigger = document.getElementById('aurora-trigger');
+      const panel = document.getElementById('aurora-panel');
+      const options = document.querySelectorAll('.aurora-option');
+      if (!picker || !trigger || !panel) return;
+
+      function syncFromTheme() {
+        const cur = document.documentElement.getAttribute('data-aurora') || 'violet';
+        trigger.setAttribute('data-aurora', cur);
+        options.forEach((btn) => {
+          const on = btn.dataset.aurora === cur;
+          btn.classList.toggle('is-active', on);
+          btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+      }
+
+      function openPicker() {
+        picker.classList.add('is-open');
+        backdrop.classList.add('is-open');
+        backdrop.setAttribute('aria-hidden', 'false');
+        panel.hidden = false;
+        trigger.setAttribute('aria-expanded', 'true');
+      }
+
+      function closePicker() {
+        picker.classList.remove('is-open');
+        backdrop.classList.remove('is-open');
+        backdrop.setAttribute('aria-hidden', 'true');
+        panel.hidden = true;
+        trigger.setAttribute('aria-expanded', 'false');
+      }
+
+      function applyTheme(v) {
+        if (!v) return;
+        document.documentElement.setAttribute('data-aurora', v);
+        try { localStorage.setItem(KEY, v); } catch (e) {}
+        syncFromTheme();
+      }
+
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (picker.classList.contains('is-open')) closePicker();
+        else openPicker();
+      });
+      backdrop.addEventListener('click', closePicker);
+      options.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          applyTheme(btn.dataset.aurora);
+          closePicker();
+        });
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closePicker();
+      });
+
+      syncFromTheme();
+    })();
+
+    /* ── Dot ripple canvas ── */
+    const dc  = document.getElementById('dot-canvas');
+    const dctx = dc.getContext('2d');
+
+    const SPACING = 14;
+    let cols, rows, dots;
+    let mouse = { x: 0, y: 0 };
+    let targetMouse = { x: 0, y: 0 };
+    let lastClient = { x: 0, y: 0 };
+    let lastMoveTime = performance.now();
+    let waveTime = 0;
+    let idleBlend = 0;
+    let pointerInside = true;
+    const IDLE_MS = 1600;
+    const IDLE_BLEND_SMOOTH = 0.032;
+
+    function buildGrid() {
+      dc.width  = window.innerWidth;
+      dc.height = window.innerHeight;
+      cols = Math.ceil(dc.width  / SPACING) + 1;
+      rows = Math.ceil(dc.height / SPACING) + 1;
+      dots = [];
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          dots.push({ bx: c * SPACING, by: r * SPACING });
+        }
+      }
+    }
+    buildGrid();
+    (function initPointer() {
+      const cx = dc.width * 0.5;
+      const cy = dc.height * 0.5;
+      lastClient.x = cx;
+      lastClient.y = cy;
+      mouse.x = mouse.y = cx;
+      targetMouse.x = targetMouse.y = cx;
+    })();
+    window.addEventListener('resize', buildGrid);
+
+    window.addEventListener('mousemove', e => {
+      targetMouse.x = e.clientX;
+      targetMouse.y = e.clientY;
+      lastClient.x = e.clientX;
+      lastClient.y = e.clientY;
+      lastMoveTime = performance.now();
+    });
+    window.addEventListener('mouseleave', () => {
+      pointerInside = false;
+    });
+    window.addEventListener('mouseenter', () => {
+      pointerInside = true;
+      lastMoveTime = performance.now();
+    });
+
+    const RADIUS     = 1200;  // 영향 반경 (중력홀 크기)
+    const STRENGTH   = 70;    // 최대 변위(px)
+    const DOT_R      = 0.9;   // 도트 반지름
+    const BASE_ALPHA = 0.38;  // 기본 투명도
+    const BOOST      = 0.7;   // 마우스 근처 밝기 부스트
+
+    function drawDots(t) {
+      dctx.clearRect(0, 0, dc.width, dc.height);
+
+      const now = performance.now();
+      const stale = now - lastMoveTime >= IDLE_MS;
+      const useIdle = !pointerInside || stale;
+
+      const targetBlend = useIdle ? 1 : 0;
+      idleBlend += (targetBlend - idleBlend) * IDLE_BLEND_SMOOTH;
+
+      waveTime += 0.012;
+
+      const drift = Math.min(dc.width, dc.height) * 0.045;
+      const ax = lastClient.x;
+      const ay = lastClient.y;
+      const idleEx = ax + Math.sin(waveTime * 0.36) * drift * 0.45;
+      const idleEy = ay + Math.cos(waveTime * 0.29) * drift * 0.4;
+      const activeEx = targetMouse.x;
+      const activeEy = targetMouse.y;
+      const ex = activeEx + (idleEx - activeEx) * idleBlend;
+      const ey = activeEy + (idleEy - activeEy) * idleBlend;
+
+      mouse.x += (ex - mouse.x) * 0.08;
+      mouse.y += (ey - mouse.y) * 0.08;
+
+      for (const d of dots) {
+        const dx   = d.bx - mouse.x;
+        const dy   = d.by - mouse.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const infl = Math.max(0, 1 - dist / RADIUS);
+
+        // ripple displacement: 마우스 중심에서 바깥쪽으로 밀어냄
+        const angle  = Math.atan2(dy, dx);
+        const push   = infl * infl * STRENGTH;
+        let px = d.bx + Math.cos(angle) * push;
+        let py = d.by + Math.sin(angle) * push;
+
+        /* 전체 화면 파동 — 중심에서 퍼지는 링 + 격자 전체 진행파 (유휴일 때 진폭↑ ) */
+        const wt = waveTime;
+        const boost = 0.38 + idleBlend * 0.62;
+        const cx = dc.width * 0.5;
+        const cy = dc.height * 0.5;
+        const rdx = d.bx - cx;
+        const rdy = d.by - cy;
+        const rd = Math.sqrt(rdx * rdx + rdy * rdy) + 0.001;
+        const ux = rdx / rd;
+        const uy = rdy / rd;
+        const ring1 = Math.sin(wt * 0.9 - rd * 0.0115) * 8.5;
+        const ring2 = Math.sin(wt * 0.52 - rd * 0.021) * 3.5;
+        const ring = (ring1 + ring2) * boost;
+        const gx = d.bx * 0.033;
+        const gy = d.by * 0.028;
+        const planeX = Math.sin(wt * 0.86 + gx + gy * 0.62) * 6.5;
+        const planeY = Math.cos(wt * 0.79 - gx * 0.68 + gy) * 6;
+        const planeX2 = Math.sin(wt * 0.58 + gy * 1.05 - gx * 0.42) * 4.5;
+        const diag = Math.sin(wt * 0.66 + (d.bx + d.by) * 0.024) * 4.5;
+        px += (ux * ring + planeX + planeX2 * 0.45 + diag * 0.85) * boost;
+        py += (uy * ring + planeY + planeX2 * 0.38 + diag * 0.85) * boost;
+
+        // 도트 opacity — 가장자리 vignette + 마우스 근처 밝게
+        const vigDx = (d.bx - cx) / (dc.width  * 0.72);
+        const vigDy = (d.by - cy) / (dc.height * 0.72);
+        const vig   = Math.max(0, 1 - (vigDx * vigDx + vigDy * vigDy));
+        const alpha = Math.min(1, BASE_ALPHA * vig + infl * BOOST * vig);
+
+        if (alpha < 0.01) continue;
+
+        dctx.beginPath();
+        dctx.arc(px, py, DOT_R, 0, Math.PI * 2);
+        dctx.fillStyle = `rgba(210, 190, 255, ${alpha})`;
+        dctx.fill();
+      }
+
+      requestAnimationFrame(drawDots);
+    }
+
+    requestAnimationFrame(drawDots);
+  </script>
+</body>
+</html>
