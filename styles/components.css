@@ -1,0 +1,413 @@
+/* =============================================================================
+   components.css — nav, hero, scroll-panels, prompt card
+   ============================================================================= */
+
+/* ── Nav ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
+  width: 100%;
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: 16px;
+  padding-left: max(clamp(20px, 5vw, 56px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(20px, 5vw, 56px), env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+.nav-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: auto;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 4px;
+  padding: 2px 7px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.6);
+}
+.try-btn {
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 26px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+}
+.try-btn:hover {
+  background: #ececec;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Hero ── */
+.hero {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  text-align: center;
+  font-family: 'Outfit', system-ui, sans-serif;
+  padding:
+    max(48px, calc(env(safe-area-inset-top, 0px) + 88px))
+    clamp(20px, 5vw, 56px)
+    clamp(200px, 32vh, 300px);
+}
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 100%;
+}
+.hero h1 {
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  max-width: 860px;
+  color: #fff;
+}
+.hero h1 .hero-line2 {
+  display: inline-block;
+  font-size: 1em;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(100deg,
+    color-mix(in srgb, var(--blob1-a, #c084fc) 100%, #fff 0%) 20%,
+    color-mix(in srgb, var(--blob2-a, #60a5fa) 100%, #fff 0%) 80%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero .sub {
+  font-size: 1rem;
+  font-weight: 400;
+  color: rgba(255,255,255,.42);
+  max-width: 34em;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+/* ── Scroll panels ── */
+
+/*
+ * Each .scroll-panel is a full-viewport section.
+ * The inner content starts invisible and slides/fades in when
+ * .is-in-view is toggled by scroll.js (IntersectionObserver or GSAP).
+ *
+ * For GSAP ScrollTrigger pin+scrub:
+ *   - Add `data-gsap-pin` to any section you want pinned.
+ *   - scroll.js picks up that attribute and sets up the ScrollTrigger.
+ *   - Remove the CSS transition below for those sections (GSAP owns timing).
+ */
+.scroll-panel {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding:
+    max(80px, 12vh)
+    clamp(24px, 5vw, 56px)
+    clamp(180px, 28vh, 260px);
+  text-align: center;
+  font-family: 'Outfit', system-ui, sans-serif;
+}
+.scroll-panel-inner {
+  max-width: 720px;
+  margin: 0 auto;
+  will-change: opacity, transform, filter;
+}
+
+/* default reveal state */
+.scroll-panel:not(.is-in-view) .scroll-panel-inner {
+  opacity: 0;
+  transform: translate3d(0, 2.75rem, 0);
+  filter: blur(10px);
+}
+.scroll-panel.is-in-view .scroll-panel-inner {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  filter: blur(0);
+  transition:
+    opacity  0.95s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.95s cubic-bezier(0.16, 1, 0.3, 1),
+    filter   0.85s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* GSAP-controlled panels skip the CSS transition (GSAP drives all values) */
+.scroll-panel[data-gsap-pin] .scroll-panel-inner {
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-panel:not(.is-in-view) .scroll-panel-inner,
+  .scroll-panel.is-in-view .scroll-panel-inner {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+}
+
+.scroll-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+  margin-bottom: 1.25rem;
+}
+.scroll-headline {
+  font-size: clamp(2rem, 5.2vw, 3.25rem);
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  color: #fff;
+  margin-bottom: 1.25rem;
+}
+.scroll-body {
+  font-size: clamp(1.05rem, 2.1vw, 1.2rem);
+  font-weight: 400;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.52);
+  max-width: 34em;
+  margin: 0 auto;
+}
+
+/* ── Prompt card (viewport-bottom fixed dock) ── */
+.card-wrap {
+  position: fixed;
+  z-index: 8;
+  left: 0; right: 0;
+  bottom: 22px;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 0 clamp(20px, 5vw, 56px) max(12px, calc(env(safe-area-inset-bottom, 0px) + 10px));
+  pointer-events: none;
+}
+.card-wrap .card-border .card { pointer-events: auto; }
+
+/* 세포 분열 링: 규칙적 linear 회전 (반대 방향) */
+.card-border {
+  position: relative;
+  border-radius: 26px;
+  padding: 4px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.card-border::before,
+.card-border::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 220%;
+  height: 220%;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+}
+.card-border::before {
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in srgb, var(--blob1-a, #c084fc) 62%, transparent),
+    color-mix(in srgb, var(--blob2-a, #38bdf8) 48%, transparent),
+    color-mix(in srgb, var(--blob3-a, #a78bfa) 55%, transparent),
+    color-mix(in srgb, var(--blob4-a, #818cf8) 42%, transparent),
+    color-mix(in srgb, var(--blob1-b, #7c3aed) 50%, transparent),
+    color-mix(in srgb, var(--blob1-a, #c084fc) 62%, transparent)
+  );
+  animation: card-mitosis-spin-a 10s linear infinite;
+}
+.card-border::after {
+  background: conic-gradient(
+    from 180deg,
+    color-mix(in srgb, var(--blob2-a, #38bdf8) 18%, transparent),
+    color-mix(in srgb, var(--blob1-a, #c084fc) 22%, transparent),
+    color-mix(in srgb, var(--blob3-a, #a78bfa) 24%, transparent),
+    color-mix(in srgb, var(--blob4-b, #818cf8) 16%, transparent),
+    color-mix(in srgb, var(--blob2-a, #38bdf8) 18%, transparent)
+  );
+  opacity: 0.38;
+  animation: card-mitosis-spin-b 13s linear infinite;
+}
+@keyframes card-mitosis-spin-a {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes card-mitosis-spin-b {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-border::before,
+  .card-border::after {
+    animation: none;
+    opacity: 0.45;
+    transform: translate(-50%, -50%);
+  }
+  .card-border::after { opacity: 0.22; }
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  font-family: 'Inter', system-ui, sans-serif;
+  background:
+    linear-gradient(165deg, rgba(255,255,255,0.035) 0%, transparent 55%),
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--blob1-a, #c084fc) 6%, transparent) 0%,
+      color-mix(in srgb, var(--blob2-a, #38bdf8) 4%, transparent) 100%
+    ),
+    rgba(14, 12, 30, 0.72);
+  border: 1px solid color-mix(in srgb, var(--blob1-a, #c084fc) 22%, rgba(255,255,255,.08));
+  border-radius: 22px; /* 26px 외곽 − 4px 링 */
+  backdrop-filter: blur(40px) saturate(1.18);
+  -webkit-backdrop-filter: blur(40px) saturate(1.18);
+  padding: 26px 26px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow:
+    0 10px 44px rgba(0,0,0,.34),
+    inset 0 1px 0 rgba(255,255,255,.09),
+    inset 0 -1px 0 rgba(255,255,255,.04);
+}
+
+.card textarea {
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  color: rgba(255,255,255,.68);
+  font-size: 1.22rem;
+  font-weight: 300;
+  font-family: inherit;
+  min-height: 148px;
+  width: 100%;
+  line-height: 1.45;
+  letter-spacing: -0.025em;
+}
+.card textarea::placeholder { color: rgba(255,255,255,.48); }
+.card textarea:focus         { color: rgba(255,255,255,.93); }
+
+.card-divider {
+  height: 1px;
+  background: color-mix(in srgb, var(--blob1-a, #c084fc) 18%, rgba(255,255,255,.06));
+}
+
+/* toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.toolbar-left  { display: flex; align-items: center; gap: 4px; }
+.toolbar-right { display: flex; align-items: center; gap: 6px; }
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(255,255,255,.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  transition: background 0.18s, color 0.18s;
+}
+.icon-btn:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
+
+.tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  font-family: inherit;
+}
+.tab-btn.active   { background: rgba(255,255,255,.11); color: #fff; }
+.tab-btn.inactive { background: transparent; color: rgba(255,255,255,.4); }
+.tab-btn:hover    { background: rgba(255,255,255,.09); color: rgba(255,255,255,.9); }
+.tab-btn svg      { width: 13px; height: 13px; flex-shrink: 0; }
+
+.model-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: rgba(255,255,255,.7);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.18s, border-color 0.18s;
+  white-space: nowrap;
+}
+.model-btn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.18); }
+.gem { color: #c084fc; }
+
+.send-btn {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.11);
+  border: none;
+  color: rgba(255,255,255,.42);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s, color 0.18s;
+}
+.send-btn:hover { background: rgba(255,255,255,.22); color: #fff; }

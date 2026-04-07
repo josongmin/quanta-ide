@@ -4,1082 +4,474 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>p0 Labs</title>
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
 
-    body {
-      font-family: 'Inter', system-ui, sans-serif;
-      background: #0d0d12;
-      color: #fff;
-      min-height: 100vh;
-      overflow-x: hidden;
-      line-height: 1.42;
-      letter-spacing: -0.02em;
-    }
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles/base.css" />
+  <link rel="stylesheet" href="styles/aurora.css" />
+  <link rel="stylesheet" href="styles/components.css" />
+  <link rel="stylesheet" href="styles/scenes.css" />
 
-    /*
-     * Aurora 블롭 색상 — html[data-aurora="이름"] 블록에서 --blob1-a … --blob4-b 만 수정하면 됨.
-     * 프리셋: violet…void (아래 html[data-aurora] 블록과 동일 이름)
-     */
-    html[data-aurora="violet"] {
-      --blob1-a: #c084fc; --blob1-b: #7c3aed; --blob1-c: #3b0764;
-      --blob2-a: #38bdf8; --blob2-b: #6366f1; --blob2-c: #1e1b4b;
-      --blob3-a: #a78bfa; --blob3-b: #4f46e5;
-      --blob4-a: #22d3ee; --blob4-b: #818cf8;
-    }
-    html[data-aurora="ocean"] {
-      --blob1-a: #60a5fa; --blob1-b: #2563eb; --blob1-c: #1e3a8a;
-      --blob2-a: #22d3ee; --blob2-b: #0891b2; --blob2-c: #164e63;
-      --blob3-a: #38bdf8; --blob3-b: #0284c7;
-      --blob4-a: #a5f3fc; --blob4-b: #0ea5e9;
-    }
-    html[data-aurora="emerald"] {
-      --blob1-a: #34d399; --blob1-b: #059669; --blob1-c: #064e3b;
-      --blob2-a: #6ee7b7; --blob2-b: #10b981; --blob2-c: #14532d;
-      --blob3-a: #86efac; --blob3-b: #16a34a;
-      --blob4-a: #d9f99d; --blob4-b: #84cc16;
-    }
-    html[data-aurora="sunset"] {
-      --blob1-a: #fb923c; --blob1-b: #ea580c; --blob1-c: #7c2d12;
-      --blob2-a: #f472b6; --blob2-b: #db2777; --blob2-c: #831843;
-      --blob3-a: #fbbf24; --blob3-b: #d97706;
-      --blob4-a: #fda4af; --blob4-b: #f43f5e;
-    }
-    html[data-aurora="rose"] {
-      --blob1-a: #f9a8d4; --blob1-b: #ec4899; --blob1-c: #831843;
-      --blob2-a: #e879f9; --blob2-b: #a855f7; --blob2-c: #581c87;
-      --blob3-a: #fbcfe8; --blob3-b: #be185d;
-      --blob4-a: #fce7f3; --blob4-b: #f472b6;
-    }
-    html[data-aurora="slate"] {
-      --blob1-a: #94a3b8; --blob1-b: #64748b; --blob1-c: #1e293b;
-      --blob2-a: #cbd5e1; --blob2-b: #475569; --blob2-c: #0f172a;
-      --blob3-a: #a8b2bd; --blob3-b: #334155;
-      --blob4-a: #e2e8f0; --blob4-b: #64748b;
-    }
-    html[data-aurora="midnight"] {
-      --blob1-a: #312e81; --blob1-b: #1e1b4b; --blob1-c: #0f172a;
-      --blob2-a: #4f46e5; --blob2-b: #3730a3; --blob2-c: #1e1b4b;
-      --blob3-a: #6366f1; --blob3-b: #4338ca;
-      --blob4-a: #818cf8; --blob4-b: #4f46e5;
-    }
-    html[data-aurora="lavender"] {
-      --blob1-a: #ddd6fe; --blob1-b: #a78bfa; --blob1-c: #5b21b6;
-      --blob2-a: #e9d5ff; --blob2-b: #c084fc; --blob2-c: #6b21a8;
-      --blob3-a: #f0abfc; --blob3-b: #d946ef;
-      --blob4-a: #fce7f3; --blob4-b: #f0abfc;
-    }
-    html[data-aurora="amber"] {
-      --blob1-a: #fcd34d; --blob1-b: #f59e0b; --blob1-c: #78350f;
-      --blob2-a: #fde68a; --blob2-b: #d97706; --blob2-c: #713f12;
-      --blob3-a: #fbbf24; --blob3-b: #b45309;
-      --blob4-a: #fef3c7; --blob4-b: #f59e0b;
-    }
-    html[data-aurora="mint"] {
-      --blob1-a: #99f6e4; --blob1-b: #2dd4bf; --blob1-c: #134e4a;
-      --blob2-a: #a7f3d0; --blob2-b: #14b8a6; --blob2-c: #115e59;
-      --blob3-a: #5eead4; --blob3-b: #0d9488;
-      --blob4-a: #ccfbf1; --blob4-b: #5eead4;
-    }
-    html[data-aurora="berry"] {
-      --blob1-a: #f43f5e; --blob1-b: #be123c; --blob1-c: #4c0519;
-      --blob2-a: #fb7185; --blob2-b: #9f1239; --blob2-c: #881337;
-      --blob3-a: #fda4af; --blob3-b: #e11d48;
-      --blob4-a: #fecdd3; --blob4-b: #f43f5e;
-    }
-    html[data-aurora="neon"] {
-      --blob1-a: #c084fc; --blob1-b: #d946ef; --blob1-c: #581c87;
-      --blob2-a: #a3e635; --blob2-b: #22c55e; --blob2-c: #14532d;
-      --blob3-a: #f472b6; --blob3-b: #ec4899;
-      --blob4-a: #fde047; --blob4-b: #eab308;
-    }
-    html[data-aurora="dusk"] {
-      --blob1-a: #fda4af; --blob1-b: #fb7185; --blob1-c: #9f1239;
-      --blob2-a: #c4b5fd; --blob2-b: #7c3aed; --blob2-c: #4c1d95;
-      --blob3-a: #fcd34d; --blob3-b: #ea580c;
-      --blob4-a: #fce7f3; --blob4-b: #db2777;
-    }
-    html[data-aurora="glacier"] {
-      --blob1-a: #e0f2fe; --blob1-b: #7dd3fc; --blob1-c: #0369a1;
-      --blob2-a: #bae6fd; --blob2-b: #38bdf8; --blob2-c: #0c4a6e;
-      --blob3-a: #cffafe; --blob3-b: #22d3ee;
-      --blob4-a: #f8fafc; --blob4-b: #94a3b8;
-    }
-    html[data-aurora="moss"] {
-      --blob1-a: #bbf7d0; --blob1-b: #4ade80; --blob1-c: #166534;
-      --blob2-a: #86efac; --blob2-b: #15803d; --blob2-c: #14532d;
-      --blob3-a: #fef08a; --blob3-b: #65a30d;
-      --blob4-a: #d9f99d; --blob4-b: #84cc16;
-    }
-    html[data-aurora="wine"] {
-      --blob1-a: #9f1239; --blob1-b: #881337; --blob1-c: #450a0a;
-      --blob2-a: #fb7185; --blob2-b: #be123c; --blob2-c: #4c0519;
-      --blob3-a: #fda4af; --blob3-b: #9f1239;
-      --blob4-a: #fecdd3; --blob4-b: #e11d48;
-    }
-    html[data-aurora="candy"] {
-      --blob1-a: #fce7f3; --blob1-b: #f472b6; --blob1-c: #db2777;
-      --blob2-a: #cffafe; --blob2-b: #22d3ee; --blob2-c: #0e7490;
-      --blob3-a: #fef3c7; --blob3-b: #fbbf24;
-      --blob4-a: #ddd6fe; --blob4-b: #a78bfa;
-    }
-    html[data-aurora="storm"] {
-      --blob1-a: #64748b; --blob1-b: #334155; --blob1-c: #0f172a;
-      --blob2-a: #a78bfa; --blob2-b: #6366f1; --blob2-c: #312e81;
-      --blob3-a: #38bdf8; --blob3-b: #0ea5e9;
-      --blob4-a: #e2e8f0; --blob4-b: #64748b;
-    }
-    html[data-aurora="jungle"] {
-      --blob1-a: #22c55e; --blob1-b: #15803d; --blob1-c: #14532d;
-      --blob2-a: #4ade80; --blob2-b: #166534; --blob2-c: #052e16;
-      --blob3-a: #fde047; --blob3-b: #ca8a04;
-      --blob4-a: #86efac; --blob4-b: #22c55e;
-    }
-    html[data-aurora="sakura"] {
-      --blob1-a: #fce7f3; --blob1-b: #fbcfe8; --blob1-c: #be185d;
-      --blob2-a: #fecdd3; --blob2-b: #fda4af; --blob2-c: #9f1239;
-      --blob3-a: #fff1f2; --blob3-b: #fb7185;
-      --blob4-a: #fdf2f8; --blob4-b: #f472b6;
-    }
-    html[data-aurora="honey"] {
-      --blob1-a: #fef3c7; --blob1-b: #fbbf24; --blob1-c: #b45309;
-      --blob2-a: #fde68a; --blob2-b: #d97706; --blob2-c: #78350f;
-      --blob3-a: #fed7aa; --blob3-b: #ea580c;
-      --blob4-a: #ffedd5; --blob4-b: #fb923c;
-    }
-    html[data-aurora="void"] {
-      --blob1-a: #1e1b4b; --blob1-b: #0f0f12; --blob1-c: #020617;
-      --blob2-a: #4c1d95; --blob2-b: #312e81; --blob2-c: #0f172a;
-      --blob3-a: #6366f1; --blob3-b: #3730a3;
-      --blob4-a: #a78bfa; --blob4-b: #4c1d95;
-    }
+  <!-- GSAP + ScrollTrigger -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js"></script>
 
-    /* ── Aurora blobs ── */
-    .aurora {
-      position: fixed;
-      inset: 0;
-      z-index: 0;
-      pointer-events: none;
-      overflow: hidden;
-    }
-    .blob {
-      position: absolute;
-      border-radius: 50%;
-      aspect-ratio: 1;
-      will-change: transform;
-      filter: blur(128px);
-    }
-    /* 보라 — 왼쪽 상단권 유영 (동일 가로·세로 + circle 그라데이션으로 원형에 가깝게) */
-    .blob-1 {
-      width: min(72vmin, 78vw);
-      height: min(72vmin, 78vw);
-      left: -14vmin; top: -6vmin;
-      background: radial-gradient(circle at 50% 55%, var(--blob1-a) 0%, var(--blob1-b) 40%, var(--blob1-c) 70%, transparent 90%);
-      opacity: 0.88;
-      animation: float-a 32s ease-in-out infinite;
-    }
-    /* 시안 — 오른쪽 중앙권 유영 */
-    .blob-2 {
-      width: min(68vmin, 74vw);
-      height: min(68vmin, 74vw);
-      right: -18vmin; top: 18vh;
-      background: radial-gradient(circle at 50% 55%, var(--blob2-a) 0%, var(--blob2-b) 45%, var(--blob2-c) 70%, transparent 90%);
-      opacity: 0.78;
-      animation: float-b 38s ease-in-out infinite;
-      animation-delay: -9s;
-    }
-    /* 인디고 — 중앙 심층 유영 */
-    .blob-3 {
-      width: min(64vmin, 70vw);
-      height: min(64vmin, 70vw);
-      left: 10vw; top: 28vh;
-      background: radial-gradient(circle at 50% 55%, var(--blob3-a) 0%, var(--blob3-b) 50%, transparent 85%);
-      opacity: 0.62;
-      animation: float-c 44s ease-in-out infinite;
-      animation-delay: -5s;
-    }
-    /* 청록 — 하단·측면 유영 */
-    .blob-4 {
-      width: min(60vmin, 66vw);
-      height: min(60vmin, 66vw);
-      right: -11vmin; bottom: -18vmin;
-      top: auto;
-      background: radial-gradient(circle at 50% 55%, var(--blob4-a) 0%, var(--blob4-b) 50%, transparent 85%);
-      opacity: 0.52;
-      animation: float-d 36s ease-in-out infinite;
-      animation-delay: -14s;
-    }
-
-    /* 닫힌 곡선 루프 — 시작·끝 동일해 끊김 없음, ease-in-out으로 키프레임 사이도 부드럽게 */
-    @keyframes float-a {
-      0%, 100% { transform: translate3d(0, 0, 0); }
-      20%      { transform: translate3d(18vw, 14vh, 0); }
-      45%      { transform: translate3d(8vw, -12vh, 0); }
-      70%      { transform: translate3d(-12vw, 8vh, 0); }
-      88%      { transform: translate3d(-4vw, 18vh, 0); }
-    }
-    @keyframes float-b {
-      0%, 100% { transform: translate3d(0, 0, 0); }
-      22%      { transform: translate3d(-16vw, 18vh, 0); }
-      48%      { transform: translate3d(-6vw, -16vh, 0); }
-      72%      { transform: translate3d(14vw, -6vh, 0); }
-      90%      { transform: translate3d(10vw, 12vh, 0); }
-    }
-    @keyframes float-c {
-      0%, 100% { transform: translate3d(0, 0, 0); }
-      25%      { transform: translate3d(14vw, -20vh, 0); }
-      50%      { transform: translate3d(-18vw, -10vh, 0); }
-      75%      { transform: translate3d(-8vw, 16vh, 0); }
-    }
-    @keyframes float-d {
-      0%, 100% { transform: translate3d(0, 0, 0); }
-      18%      { transform: translate3d(-14vw, -22vh, 0); }
-      42%      { transform: translate3d(10vw, -8vh, 0); }
-      65%      { transform: translate3d(16vw, 12vh, 0); }
-      85%      { transform: translate3d(-6vw, 20vh, 0); }
-    }
-
-    /* ── dot canvas ── */
-    #dot-canvas {
-      position: fixed;
-      inset: 0;
-      width: 100%; height: 100%;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    /* ── Page layout ── */
-    .page {
-      position: relative;
-      z-index: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    /* ── Nav — viewport 좌상단 / 우상단 고정 (스티치 랜딩형) ── */
-    nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 10;
-      width: 100%;
-      padding-top: max(16px, env(safe-area-inset-top, 0px));
-      padding-bottom: 16px;
-      padding-left: max(clamp(20px, 5vw, 56px), env(safe-area-inset-left, 0px));
-      padding-right: max(clamp(20px, 5vw, 56px), env(safe-area-inset-right, 0px));
-      pointer-events: none;
-    }
-    .nav-inner {
-      max-width: 1000px;
-      margin: 0 auto;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      pointer-events: auto;
-    }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-family: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Monaco, Consolas, monospace;
-      font-size: 1.05rem;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-    }
-    .badge {
-      font-size: 0.58rem;
-      font-weight: 700;
-      letter-spacing: 0.07em;
-      background: rgba(255,255,255,.1);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 4px;
-      padding: 2px 7px;
-      text-transform: uppercase;
-      color: rgba(255,255,255,.6);
-    }
-    .try-btn {
-      background: #fff;
-      color: #111;
-      border: none;
-      border-radius: 999px;
-      padding: 10px 26px;
-      font-size: 0.88rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
-    }
-    .try-btn:hover {
-      background: #ececec;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(0,0,0,.4);
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    .aurora-picker {
-      position: relative;
-    }
-    .aurora-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 19;
-      background: rgba(5, 5, 10, 0.45);
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-      transition: opacity 0.2s ease, visibility 0.2s;
-    }
-    .aurora-backdrop.is-open {
-      opacity: 1;
-      visibility: visible;
-      pointer-events: auto;
-    }
-    .aurora-trigger {
-      position: relative;
-      z-index: 22;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 10px 6px 8px;
-      border-radius: 999px;
-      border: 1px solid rgba(255,255,255,.2);
-      background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.85);
-      font-family: inherit;
-      font-size: 0.78rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.18s, border-color 0.18s;
-    }
-    .aurora-trigger:hover {
-      background: rgba(255,255,255,.1);
-      border-color: rgba(255,255,255,.3);
-    }
-    .aurora-trigger-dot {
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      border: 1px solid rgba(255,255,255,.35);
-      flex-shrink: 0;
-    }
-    .aurora-trigger-chevron {
-      opacity: 0.55;
-      transition: transform 0.2s ease;
-    }
-    .aurora-picker.is-open .aurora-trigger-chevron {
-      transform: rotate(180deg);
-    }
-    .aurora-panel[hidden] {
-      display: none !important;
-    }
-    .aurora-panel {
-      position: absolute;
-      top: calc(100% + 8px);
-      right: 0;
-      z-index: 22;
-      width: min(300px, calc(100vw - 32px));
-      max-height: min(420px, 70vh);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      padding: 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,.18);
-      background: rgba(14, 12, 28, 0.94);
-      backdrop-filter: blur(24px);
-      -webkit-backdrop-filter: blur(24px);
-      box-shadow: 0 16px 48px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08);
-      opacity: 0;
-      visibility: hidden;
-      transform: translateY(-6px);
-      pointer-events: none;
-      transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
-    }
-    .aurora-picker.is-open .aurora-panel {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-      pointer-events: auto;
-    }
-    .aurora-panel-title {
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,.4);
-      margin: 4px 6px 10px;
-    }
-    .aurora-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      overflow-y: auto;
-      padding: 2px;
-      scrollbar-width: thin;
-    }
-    .aurora-option {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 10px;
-      border: none;
-      border-radius: 12px;
-      background: rgba(255,255,255,.04);
-      color: rgba(255,255,255,.88);
-      font-family: inherit;
-      font-size: 0.8rem;
-      text-align: left;
-      cursor: pointer;
-      transition: background 0.15s;
-    }
-    .aurora-option:hover {
-      background: rgba(255,255,255,.1);
-    }
-    .aurora-option.is-active {
-      background: rgba(255,255,255,.14);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.22);
-    }
-    .aurora-opt-swatch {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: 1px solid rgba(255,255,255,.25);
-      flex-shrink: 0;
-    }
-    .aurora-opt-label {
-      flex: 1;
-      min-width: 0;
-      line-height: 1.18;
-    }
-
-    /* 미리보기 그라데이션 — 트리거 점 + 패널 스와치 공통 */
-    .aurora-trigger[data-aurora="violet"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="violet"] .aurora-opt-swatch { background: linear-gradient(135deg, #c084fc, #38bdf8); }
-    .aurora-trigger[data-aurora="ocean"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="ocean"] .aurora-opt-swatch { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
-    .aurora-trigger[data-aurora="emerald"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="emerald"] .aurora-opt-swatch { background: linear-gradient(135deg, #34d399, #10b981); }
-    .aurora-trigger[data-aurora="sunset"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="sunset"] .aurora-opt-swatch { background: linear-gradient(135deg, #fb923c, #f472b6); }
-    .aurora-trigger[data-aurora="rose"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="rose"] .aurora-opt-swatch { background: linear-gradient(135deg, #f472b6, #e879f9); }
-    .aurora-trigger[data-aurora="slate"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="slate"] .aurora-opt-swatch { background: linear-gradient(135deg, #94a3b8, #64748b); }
-    .aurora-trigger[data-aurora="midnight"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="midnight"] .aurora-opt-swatch { background: linear-gradient(135deg, #312e81, #6366f1); }
-    .aurora-trigger[data-aurora="lavender"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="lavender"] .aurora-opt-swatch { background: linear-gradient(135deg, #ddd6fe, #d946ef); }
-    .aurora-trigger[data-aurora="amber"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="amber"] .aurora-opt-swatch { background: linear-gradient(135deg, #fcd34d, #f59e0b); }
-    .aurora-trigger[data-aurora="mint"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="mint"] .aurora-opt-swatch { background: linear-gradient(135deg, #99f6e4, #14b8a6); }
-    .aurora-trigger[data-aurora="berry"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="berry"] .aurora-opt-swatch { background: linear-gradient(135deg, #fb7185, #be123c); }
-    .aurora-trigger[data-aurora="neon"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="neon"] .aurora-opt-swatch { background: linear-gradient(135deg, #a3e635, #d946ef); }
-    .aurora-trigger[data-aurora="dusk"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="dusk"] .aurora-opt-swatch { background: linear-gradient(135deg, #fda4af, #7c3aed); }
-    .aurora-trigger[data-aurora="glacier"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="glacier"] .aurora-opt-swatch { background: linear-gradient(135deg, #e0f2fe, #0369a1); }
-    .aurora-trigger[data-aurora="moss"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="moss"] .aurora-opt-swatch { background: linear-gradient(135deg, #bbf7d0, #15803d); }
-    .aurora-trigger[data-aurora="wine"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="wine"] .aurora-opt-swatch { background: linear-gradient(135deg, #fb7185, #450a0a); }
-    .aurora-trigger[data-aurora="candy"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="candy"] .aurora-opt-swatch { background: linear-gradient(135deg, #f472b6, #22d3ee); }
-    .aurora-trigger[data-aurora="storm"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="storm"] .aurora-opt-swatch { background: linear-gradient(135deg, #64748b, #6366f1); }
-    .aurora-trigger[data-aurora="jungle"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="jungle"] .aurora-opt-swatch { background: linear-gradient(135deg, #22c55e, #fde047); }
-    .aurora-trigger[data-aurora="sakura"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="sakura"] .aurora-opt-swatch { background: linear-gradient(135deg, #fce7f3, #fb7185); }
-    .aurora-trigger[data-aurora="honey"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="honey"] .aurora-opt-swatch { background: linear-gradient(135deg, #fef3c7, #ea580c); }
-    .aurora-trigger[data-aurora="void"] .aurora-trigger-dot,
-    .aurora-option[data-aurora="void"] .aurora-opt-swatch { background: linear-gradient(135deg, #1e1b4b, #a78bfa); }
-
-    /* ── Hero (display: Outfit, medium + tight tracking) ── */
-    .hero {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 0;
-      text-align: center;
-      font-family: 'Outfit', system-ui, sans-serif;
-      /* 고정 nav 높이만큼 상단 여유 — 카드는 하단 고정 */
-      padding: max(48px, calc(env(safe-area-inset-top, 0px) + 88px)) clamp(20px, 5vw, 56px)
-        max(20px, env(safe-area-inset-bottom, 0px));
-    }
-    .hero-copy {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 18px;
-      width: 100%;
-      padding-bottom: 16px;
-    }
-    .hero h1 {
-      font-size: clamp(3rem, 7.5vw, 5.6rem);
-      font-weight: 500;
-      line-height: 0.92;
-      letter-spacing: -0.03em;
-      max-width: 860px;
-      color: #fff;
-    }
-    .hero h1 .hero-line2 {
-      display: inline-block;
-      font-size: 1.06em;
-      font-weight: 500;
-      letter-spacing: -0.03em;
-      word-spacing: 0.02em;
-    }
-    .hero .sub {
-      font-size: 1.05rem;
-      font-weight: 400;
-      color: #fff;
-      opacity: 0.55;
-      max-width: 480px;
-      line-height: 1.42;
-      letter-spacing: -0.025em;
-    }
-
-    /* ── Prompt card (하단 고정) ── */
-    .card-wrap {
-      width: 100%;
-      max-width: 780px;
-      flex-shrink: 0;
-      margin-top: auto;
-      margin-bottom: 28px;
-      padding-bottom: max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px));
-    }
-    .card {
-      font-family: 'Inter', system-ui, sans-serif;
-      /* 살짝 유리: 얕은 하이라이트 + 반투명 틴트 */
-      background:
-        linear-gradient(165deg, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
-        rgba(16, 14, 34, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 22px;
-      backdrop-filter: blur(40px) saturate(1.15);
-      -webkit-backdrop-filter: blur(40px) saturate(1.15);
-      padding: 26px 26px 18px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      box-shadow:
-        0 10px 44px rgba(0, 0, 0, 0.42),
-        inset 0 1px 0 rgba(255, 255, 255, 0.14),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.05);
-    }
-    .card textarea {
-      background: transparent;
-      border: none;
-      outline: none;
-      resize: none;
-      color: rgba(255,255,255,.4);
-      font-size: 1.22rem;
-      font-family: inherit;
-      min-height: 148px;
-      width: 100%;
-      line-height: 1.45;
-      letter-spacing: -0.025em;
-    }
-    .card textarea::placeholder { color: rgba(255,255,255,.3); }
-    .card textarea:focus { color: rgba(255,255,255,.82); }
-
-    .card-divider {
-      height: 1px;
-      background: rgba(255,255,255,.07);
-    }
-
-    /* toolbar */
-    .toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-    .toolbar-left  { display: flex; align-items: center; gap: 4px; }
-    .toolbar-right { display: flex; align-items: center; gap: 6px; }
-
-    .icon-btn {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      color: rgba(255,255,255,.4);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px; height: 32px;
-      border-radius: 50%;
-      transition: background 0.18s, color 0.18s;
-    }
-    .icon-btn:hover { background: rgba(255,255,255,.07); color: rgba(255,255,255,.85); }
-
-    .tab-btn {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      border: none;
-      border-radius: 999px;
-      padding: 6px 13px;
-      font-size: 0.78rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.18s, color 0.18s;
-      font-family: inherit;
-    }
-    .tab-btn.active   { background: rgba(255,255,255,.11); color: #fff; }
-    .tab-btn.inactive { background: transparent; color: rgba(255,255,255,.4); }
-    .tab-btn:hover    { background: rgba(255,255,255,.09); color: rgba(255,255,255,.9); }
-    .tab-btn svg      { width: 13px; height: 13px; flex-shrink: 0; }
-
-    .model-btn {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: rgba(255,255,255,.07);
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 999px;
-      padding: 5px 11px;
-      font-size: 0.76rem;
-      font-weight: 500;
-      color: rgba(255,255,255,.7);
-      cursor: pointer;
-      font-family: inherit;
-      transition: background 0.18s, border-color 0.18s;
-      white-space: nowrap;
-    }
-    .model-btn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.18); }
-    .gem { color: #c084fc; }
-
-    .send-btn {
-      width: 30px; height: 30px;
-      border-radius: 50%;
-      background: rgba(255,255,255,.11);
-      border: none;
-      color: rgba(255,255,255,.42);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.18s, color 0.18s;
-    }
-    .send-btn:hover { background: rgba(255,255,255,.22); color: #fff; }
-  </style>
-</head>
-<body>
+  <!-- Persist chosen aurora theme before first paint (no flash) -->
   <script>
     try {
-      var _aur = localStorage.getItem('p0-aurora');
-      if (_aur && /^(violet|ocean|emerald|sunset|rose|slate|midnight|lavender|amber|mint|berry|neon|dusk|glacier|moss|wine|candy|storm|jungle|sakura|honey|void)$/.test(_aur))
-        document.documentElement.setAttribute('data-aurora', _aur);
-    } catch (e) {}
+      var _a = localStorage.getItem('p0-aurora');
+      var _valid = /^(violet|ocean|emerald|sunset|rose|slate|midnight|lavender|amber|mint|berry|neon|dusk|glacier|moss|wine|candy|storm|jungle|sakura|honey|void)$/;
+      if (_a && _valid.test(_a)) document.documentElement.setAttribute('data-aurora', _a);
+    } catch (_) {}
   </script>
+</head>
 
-  <div class="aurora">
+<body>
+
+  <!-- ── Background: aurora blobs ── -->
+  <div class="aurora" aria-hidden="true">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
     <div class="blob blob-4"></div>
   </div>
-  <canvas id="dot-canvas"></canvas>
 
+  <!-- ── Background: dot-grid canvas ── -->
+  <canvas id="dot-canvas" aria-hidden="true"></canvas>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       PAGE
+       ══════════════════════════════════════════════════════════════════════ -->
   <div class="page">
 
-    <!-- Nav -->
+    <!-- ── Nav ── -->
     <nav>
       <div class="nav-inner">
-      <div class="logo">
-        p0 Labs
-        <span class="badge">BETA</span>
-      </div>
-      <div class="nav-actions">
-        <div class="aurora-picker" id="aurora-picker">
-          <div class="aurora-backdrop" id="aurora-backdrop" aria-hidden="true" tabindex="-1"></div>
-          <button type="button" class="aurora-trigger" id="aurora-trigger" aria-expanded="false" aria-haspopup="dialog" aria-controls="aurora-panel" data-aurora="violet">
-            <span class="aurora-trigger-dot" aria-hidden="true"></span>
-            <span class="aurora-trigger-text">Palette</span>
-            <svg class="aurora-trigger-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </button>
-          <div class="aurora-panel" id="aurora-panel" role="dialog" aria-label="Aurora palette" hidden>
-            <p class="aurora-panel-title">Choose palette</p>
-            <div class="aurora-grid" role="listbox" aria-label="Aurora presets">
-              <button type="button" class="aurora-option" data-aurora="violet" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Violet</span></button>
-              <button type="button" class="aurora-option" data-aurora="ocean" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Ocean</span></button>
-              <button type="button" class="aurora-option" data-aurora="emerald" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Emerald</span></button>
-              <button type="button" class="aurora-option" data-aurora="sunset" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Sunset</span></button>
-              <button type="button" class="aurora-option" data-aurora="rose" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Rose</span></button>
-              <button type="button" class="aurora-option" data-aurora="slate" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Slate</span></button>
-              <button type="button" class="aurora-option" data-aurora="midnight" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Midnight</span></button>
-              <button type="button" class="aurora-option" data-aurora="lavender" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Lavender</span></button>
-              <button type="button" class="aurora-option" data-aurora="amber" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Amber</span></button>
-              <button type="button" class="aurora-option" data-aurora="mint" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Mint</span></button>
-              <button type="button" class="aurora-option" data-aurora="berry" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Berry</span></button>
-              <button type="button" class="aurora-option" data-aurora="neon" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Neon</span></button>
-              <button type="button" class="aurora-option" data-aurora="dusk" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Dusk</span></button>
-              <button type="button" class="aurora-option" data-aurora="glacier" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Glacier</span></button>
-              <button type="button" class="aurora-option" data-aurora="moss" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Moss</span></button>
-              <button type="button" class="aurora-option" data-aurora="wine" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Wine</span></button>
-              <button type="button" class="aurora-option" data-aurora="candy" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Candy</span></button>
-              <button type="button" class="aurora-option" data-aurora="storm" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Storm</span></button>
-              <button type="button" class="aurora-option" data-aurora="jungle" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Jungle</span></button>
-              <button type="button" class="aurora-option" data-aurora="sakura" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Sakura</span></button>
-              <button type="button" class="aurora-option" data-aurora="honey" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Honey</span></button>
-              <button type="button" class="aurora-option" data-aurora="void" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Void</span></button>
-            </div>
-          </div>
+
+        <div class="logo">
+          p0 Labs
+          <span class="badge">BETA</span>
         </div>
-        <button class="try-btn">Try now</button>
-      </div>
-      </div>
+
+        <div class="nav-actions">
+
+          <!-- Aurora palette picker -->
+          <div class="aurora-picker" id="aurora-picker">
+            <div class="aurora-backdrop" id="aurora-backdrop" aria-hidden="true" tabindex="-1"></div>
+
+            <button
+              type="button"
+              class="aurora-trigger"
+              id="aurora-trigger"
+              aria-expanded="false"
+              aria-haspopup="dialog"
+              aria-controls="aurora-panel"
+              data-aurora="violet"
+            >
+              <span class="aurora-trigger-dot" aria-hidden="true"></span>
+              <span class="aurora-trigger-text">Palette</span>
+              <svg class="aurora-trigger-chevron" width="14" height="14" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+
+            <div class="aurora-panel" id="aurora-panel" role="dialog" aria-label="Aurora palette" hidden>
+              <p class="aurora-panel-title">Choose palette</p>
+              <div class="aurora-grid" role="listbox" aria-label="Aurora presets">
+                <!-- Add new presets here + matching CSS block in aurora.css -->
+                <button type="button" class="aurora-option" data-aurora="violet"   role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Violet</span></button>
+                <button type="button" class="aurora-option" data-aurora="ocean"    role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Ocean</span></button>
+                <button type="button" class="aurora-option" data-aurora="emerald"  role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Emerald</span></button>
+                <button type="button" class="aurora-option" data-aurora="sunset"   role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Sunset</span></button>
+                <button type="button" class="aurora-option" data-aurora="rose"     role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Rose</span></button>
+                <button type="button" class="aurora-option" data-aurora="slate"    role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Slate</span></button>
+                <button type="button" class="aurora-option" data-aurora="midnight" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Midnight</span></button>
+                <button type="button" class="aurora-option" data-aurora="lavender" role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Lavender</span></button>
+                <button type="button" class="aurora-option" data-aurora="amber"    role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Amber</span></button>
+                <button type="button" class="aurora-option" data-aurora="mint"     role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Mint</span></button>
+                <button type="button" class="aurora-option" data-aurora="berry"    role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Berry</span></button>
+                <button type="button" class="aurora-option" data-aurora="neon"     role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Neon</span></button>
+                <button type="button" class="aurora-option" data-aurora="dusk"     role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Dusk</span></button>
+                <button type="button" class="aurora-option" data-aurora="glacier"  role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Glacier</span></button>
+                <button type="button" class="aurora-option" data-aurora="moss"     role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Moss</span></button>
+                <button type="button" class="aurora-option" data-aurora="wine"     role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Wine</span></button>
+                <button type="button" class="aurora-option" data-aurora="candy"    role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Candy</span></button>
+                <button type="button" class="aurora-option" data-aurora="storm"    role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Storm</span></button>
+                <button type="button" class="aurora-option" data-aurora="jungle"   role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Jungle</span></button>
+                <button type="button" class="aurora-option" data-aurora="sakura"   role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Sakura</span></button>
+                <button type="button" class="aurora-option" data-aurora="honey"    role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Honey</span></button>
+                <button type="button" class="aurora-option" data-aurora="void"     role="option"><span class="aurora-opt-swatch" aria-hidden="true"></span><span class="aurora-opt-label">Void</span></button>
+              </div>
+            </div>
+          </div><!-- /.aurora-picker -->
+
+          <button class="try-btn">Try now</button>
+        </div><!-- /.nav-actions -->
+
+      </div><!-- /.nav-inner -->
     </nav>
 
-    <!-- Hero -->
-    <main class="hero">
+    <!-- ── Hero ── -->
+    <main class="hero" id="hero">
       <div class="hero-copy">
-      <h1>An agent that actually<br><span class="hero-line2">gets your code</span></h1>
-      <p class="sub">Repo-wide reasoning—not keyword soup. It traces your stack, respects intent, and thinks in systems: the kind of sharp that only comes from truly reading what’s on the screen.</p>
-      </div>
-
-      <!-- Prompt card -->
-      <div class="card-wrap">
-        <div class="card">
-
-          <textarea
-            rows="3"
-            placeholder="What native mobile app shall we design?"
-            aria-label="Design prompt"
-          ></textarea>
-
-          <div class="card-divider"></div>
-
-          <div class="toolbar">
-            <div class="toolbar-left">
-
-              <!-- + attach -->
-              <button class="icon-btn" title="Attach">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-                  <line x1="12" y1="5" x2="12" y2="19"/>
-                  <line x1="5"  y1="12" x2="19" y2="12"/>
-                </svg>
-              </button>
-
-              <!-- App tab -->
-              <button class="tab-btn active" id="tab-app">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="5" y="2" width="14" height="20" rx="3"/>
-                  <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/>
-                </svg>
-                App
-              </button>
-
-              <!-- Web tab -->
-              <button class="tab-btn inactive" id="tab-web">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <rect x="2" y="4" width="20" height="16" rx="2"/>
-                  <line x1="2" y1="9" x2="22" y2="9"/>
-                  <circle cx="5.5"  cy="6.5" r="1" fill="currentColor" stroke="none"/>
-                  <circle cx="8.5"  cy="6.5" r="1" fill="currentColor" stroke="none"/>
-                </svg>
-                Web
-              </button>
-
-            </div>
-
-            <div class="toolbar-right">
-
-              <!-- Emoji / tone -->
-              <button class="icon-btn" title="Tone">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-                  <circle cx="9"  cy="9" r="1" fill="currentColor" stroke="none"/>
-                  <circle cx="15" cy="9" r="1" fill="currentColor" stroke="none"/>
-                </svg>
-              </button>
-
-              <!-- Model pill -->
-              <button class="model-btn">
-                <span class="gem">✦</span>
-                3.0 Flash
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
-              </button>
-
-              <!-- Sliders -->
-              <button class="icon-btn" title="Options">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                  <line x1="3"  y1="6"  x2="21" y2="6"/>
-                  <line x1="3"  y1="12" x2="21" y2="12"/>
-                  <line x1="3"  y1="18" x2="21" y2="18"/>
-                  <circle cx="7"  cy="6"  r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
-                  <circle cx="15" cy="12" r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
-                  <circle cx="10" cy="18" r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
-                </svg>
-              </button>
-
-              <!-- Send -->
-              <button class="send-btn" title="Submit">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="12" y1="19" x2="12" y2="5"/>
-                  <polyline points="5 12 12 5 19 12"/>
-                </svg>
-              </button>
-
-            </div>
-          </div>
-        </div>
+        <h1>
+          Stop explaining your codebase.<br>
+          <span class="hero-line2">Let <em>p0</em> read it.</span>
+        </h1>
+        <p class="sub">
+          Every other agent starts from a blank slate. p0 starts from your system.<br>
+          No ticket-writing. No context dumps. Just results that hold together.
+        </p>
       </div>
     </main>
-  </div>
 
-  <script>
-    /* ── Tab toggle ── */
-    const tabApp  = document.getElementById('tab-app');
-    const tabWeb  = document.getElementById('tab-web');
-    const textarea = document.querySelector('textarea');
+    <!-- ══════════════════════════════════════════════════════════════════════
+         SCENE 1 · FILE NETWORK
+         SVG graph centered, text block below
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div class="scene" id="scene-network">
+      <div class="scene-stage">
 
-    tabApp.addEventListener('click', () => {
-      tabApp.className = 'tab-btn active';
-      tabWeb.className = 'tab-btn inactive';
-      textarea.placeholder = 'What native mobile app shall we design?';
-    });
-    tabWeb.addEventListener('click', () => {
-      tabWeb.className = 'tab-btn active';
-      tabApp.className = 'tab-btn inactive';
-      textarea.placeholder = 'What web application shall we design?';
-    });
+        <!-- SVG network graph -->
+        <div class="net-graph-wrap" aria-hidden="true">
+          <svg id="network-svg" viewBox="0 0 580 290" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <filter id="nglow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="3.5" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+              <filter id="nglow2" x="-60%" y="-60%" width="220%" height="220%">
+                <feGaussianBlur stdDeviation="6" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
 
-    textarea.addEventListener('input', () => {
-      textarea.style.height = 'auto';
-      textarea.style.height = textarea.scrollHeight + 'px';
-    });
+            <!--
+              Layout (x, y of each node top-left):
+              auth.ts        10, 24    → hub, top-left
+              cache.ts      390, 10    → top-right
+              api/route.ts  220, 100   → center
+              session.ts      4, 118   → mid-left
+              db/client.ts  390, 180   → bottom-right
+              models/user   108, 210   → bottom-center-left
+            -->
 
-    /* ── Aurora palette (블롭 색) — 트리거 + 선택 패널 ── */
-    (function () {
-      const KEY = 'p0-aurora';
-      const picker = document.getElementById('aurora-picker');
-      const backdrop = document.getElementById('aurora-backdrop');
-      const trigger = document.getElementById('aurora-trigger');
-      const panel = document.getElementById('aurora-panel');
-      const options = document.querySelectorAll('.aurora-option');
-      if (!picker || !trigger || !panel) return;
+            <!-- Edges drawn first (behind nodes) -->
+            <path id="e1" class="conn-line" d="M 174 50  C 280 50,  280 110, 300 126"/>
+            <path id="e2" class="conn-line" d="M 174 50  C 380 50,  408 48,  390 42"/>
+            <path id="e3" class="conn-line" d="M 174 70  C 160 108, 120 122,  80 134"/>
+            <path id="e4" class="conn-line" d="M 380 126 C 408 126, 426 154, 410 196"/>
+            <path id="e5" class="conn-line" d="M 300 152 C 290 190, 250 210, 240 226"/>
+            <path id="e6" class="conn-line" d="M  80 152 C  90 190, 130 216, 164 228"/>
 
-      function syncFromTheme() {
-        const cur = document.documentElement.getAttribute('data-aurora') || 'violet';
-        trigger.setAttribute('data-aurora', cur);
-        options.forEach((btn) => {
-          const on = btn.dataset.aurora === cur;
-          btn.classList.toggle('is-active', on);
-          btn.setAttribute('aria-selected', on ? 'true' : 'false');
-        });
-      }
+            <!-- Pulses -->
+            <circle class="conn-pulse" r="3"><animateMotion dur="2.8s" repeatCount="indefinite" begin="0s"><mpath href="#e1"/></animateMotion></circle>
+            <circle class="conn-pulse" r="3"><animateMotion dur="3.4s" repeatCount="indefinite" begin="1.6s"><mpath href="#e2"/></animateMotion></circle>
+            <circle class="conn-pulse" r="3"><animateMotion dur="3.0s" repeatCount="indefinite" begin="0.8s"><mpath href="#e3"/></animateMotion></circle>
+            <circle class="conn-pulse" r="3"><animateMotion dur="2.6s" repeatCount="indefinite" begin="2.2s"><mpath href="#e5"/></animateMotion></circle>
 
-      function openPicker() {
-        picker.classList.add('is-open');
-        backdrop.classList.add('is-open');
-        backdrop.setAttribute('aria-hidden', 'false');
-        panel.hidden = false;
-        trigger.setAttribute('aria-expanded', 'true');
-      }
+            <!-- auth.ts — hub node, slightly larger glow -->
+            <g class="file-node" transform="translate(10,24)" filter="url(#nglow2)">
+              <rect class="file-node-rect" width="164" height="52" rx="10" style="stroke:rgba(167,139,250,.45);stroke-width:1.5"/>
+              <circle cx="15" cy="16" r="5" fill="#a78bfa"/>
+              <text class="file-node-title" x="30" y="21">auth.ts</text>
+              <text class="file-node-sub"   x="15" y="39">AuthService · 214 ln</text>
+            </g>
 
-      function closePicker() {
-        picker.classList.remove('is-open');
-        backdrop.classList.remove('is-open');
-        backdrop.setAttribute('aria-hidden', 'true');
-        panel.hidden = true;
-        trigger.setAttribute('aria-expanded', 'false');
-      }
+            <!-- cache.ts — top right -->
+            <g class="file-node" transform="translate(390,10)" filter="url(#nglow)">
+              <rect class="file-node-rect" width="154" height="52" rx="10"/>
+              <circle cx="15" cy="16" r="4.5" fill="#fbbf24"/>
+              <text class="file-node-title" x="30" y="21">cache.ts</text>
+              <text class="file-node-sub"   x="15" y="39">Redis · 67 ln</text>
+            </g>
 
-      function applyTheme(v) {
-        if (!v) return;
-        document.documentElement.setAttribute('data-aurora', v);
-        try { localStorage.setItem(KEY, v); } catch (e) {}
-        syncFromTheme();
-      }
+            <!-- api/route.ts — center -->
+            <g class="file-node" transform="translate(220,100)" filter="url(#nglow)">
+              <rect class="file-node-rect" width="160" height="52" rx="10"/>
+              <circle cx="15" cy="16" r="4.5" fill="#60a5fa"/>
+              <text class="file-node-title" x="30" y="21">api/route.ts</text>
+              <text class="file-node-sub"   x="15" y="39">Router · 89 ln</text>
+            </g>
 
-      trigger.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (picker.classList.contains('is-open')) closePicker();
-        else openPicker();
-      });
-      backdrop.addEventListener('click', closePicker);
-      options.forEach((btn) => {
-        btn.addEventListener('click', () => {
-          applyTheme(btn.dataset.aurora);
-          closePicker();
-        });
-      });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closePicker();
-      });
+            <!-- session.ts — mid left -->
+            <g class="file-node" transform="translate(4,118)" filter="url(#nglow)">
+              <rect class="file-node-rect" width="164" height="52" rx="10"/>
+              <circle cx="15" cy="16" r="4.5" fill="#fb7185"/>
+              <text class="file-node-title" x="30" y="21">session.ts</text>
+              <text class="file-node-sub"   x="15" y="39">SessionStore · 103 ln</text>
+            </g>
 
-      syncFromTheme();
-    })();
+            <!-- db/client.ts — bottom right -->
+            <g class="file-node" transform="translate(388,180)" filter="url(#nglow)">
+              <rect class="file-node-rect" width="156" height="52" rx="10"/>
+              <circle cx="15" cy="16" r="4.5" fill="#86efac"/>
+              <text class="file-node-title" x="30" y="21">db/client.ts</text>
+              <text class="file-node-sub"   x="15" y="39">Prisma · 42 ln</text>
+            </g>
 
-    /* ── Dot ripple canvas ── */
-    const dc  = document.getElementById('dot-canvas');
-    const dctx = dc.getContext('2d');
+            <!-- models/user.ts — bottom center -->
+            <g class="file-node" transform="translate(164,210)" filter="url(#nglow)">
+              <rect class="file-node-rect" width="168" height="52" rx="10"/>
+              <circle cx="15" cy="16" r="4.5" fill="#f0abfc"/>
+              <text class="file-node-title" x="30" y="21">models/user.ts</text>
+              <text class="file-node-sub"   x="15" y="39">UserModel · 178 ln</text>
+            </g>
+          </svg>
+        </div>
 
-    const SPACING = 14;
-    let cols, rows, dots;
-    let mouse = { x: 0, y: 0 };
-    let targetMouse = { x: 0, y: 0 };
-    let lastClient = { x: 0, y: 0 };
-    let lastMoveTime = performance.now();
-    let waveTime = 0;
-    let idleBlend = 0;
-    let pointerInside = true;
-    const IDLE_MS = 1600;
-    const IDLE_BLEND_SMOOTH = 0.032;
+        <!-- Text block below the SVG -->
+        <div class="net-text-block">
+          <p class="net-eyebrow">Dependency graph</p>
+          <h2 class="net-headline">Before touching a line,
+it maps your entire system.</h2>
+          <p class="net-body">Every import chain, every shared invariant, every hidden contract — resolved. Other agents guess. p0 knows.</p>
+        </div>
 
-    function buildGrid() {
-      dc.width  = window.innerWidth;
-      dc.height = window.innerHeight;
-      cols = Math.ceil(dc.width  / SPACING) + 1;
-      rows = Math.ceil(dc.height / SPACING) + 1;
-      dots = [];
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          dots.push({ bx: c * SPACING, by: r * SPACING });
-        }
-      }
-    }
-    buildGrid();
-    (function initPointer() {
-      const cx = dc.width * 0.5;
-      const cy = dc.height * 0.5;
-      lastClient.x = cx;
-      lastClient.y = cy;
-      mouse.x = mouse.y = cx;
-      targetMouse.x = targetMouse.y = cx;
-    })();
-    window.addEventListener('resize', buildGrid);
+      </div><!-- /.scene-stage -->
+    </div><!-- /#scene-network -->
 
-    window.addEventListener('mousemove', e => {
-      targetMouse.x = e.clientX;
-      targetMouse.y = e.clientY;
-      lastClient.x = e.clientX;
-      lastClient.y = e.clientY;
-      lastMoveTime = performance.now();
-    });
-    window.addEventListener('mouseleave', () => {
-      pointerInside = false;
-    });
-    window.addEventListener('mouseenter', () => {
-      pointerInside = true;
-      lastMoveTime = performance.now();
-    });
 
-    const RADIUS     = 1200;  // 영향 반경 (중력홀 크기)
-    const STRENGTH   = 70;    // 최대 변위(px)
-    const DOT_R      = 0.9;   // 도트 반지름
-    const BASE_ALPHA = 0.38;  // 기본 투명도
-    const BOOST      = 0.7;   // 마우스 근처 밝기 부스트
+    <!-- ══════════════════════════════════════════════════════════════════════
+         SCENE 2 · CODE READER
+         Centered code window, insight chips + copy below
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div class="scene" id="scene-code">
+      <div class="scene-stage">
 
-    function drawDots(t) {
-      dctx.clearRect(0, 0, dc.width, dc.height);
+        <div class="code-window" aria-label="p0 reading auth.ts" role="img">
+          <div class="code-titlebar">
+            <span class="code-titlebar-dot"></span>
+            <span class="code-titlebar-dot"></span>
+            <span class="code-titlebar-dot"></span>
+            <span class="code-titlebar-name">auth.ts — p0 is reading…</span>
+          </div>
+          <div class="code-body">
+            <div class="code-scan-bar"></div>
+            <div class="code-line"><span class="code-ln">1</span><span class="code-text"><span class="t-kw">import</span> <span class="t-op">{</span> db <span class="t-op">}</span>      <span class="t-kw">from</span> <span class="t-str">'./db/client'</span>   <span class="t-cm">// Prisma — connection pooled</span></span></div>
+            <div class="code-line"><span class="code-ln">2</span><span class="code-text"><span class="t-kw">import</span> <span class="t-op">{</span> cache <span class="t-op">}</span>   <span class="t-kw">from</span> <span class="t-str">'./cache'</span>         <span class="t-cm">// Redis, TTL 300s</span></span></div>
+            <div class="code-line"><span class="code-ln">3</span><span class="code-text"><span class="t-kw">import</span> <span class="t-op">{</span> session <span class="t-op">}</span> <span class="t-kw">from</span> <span class="t-str">'./session'</span>       <span class="t-cm">// side-effect: bumps TTL</span></span></div>
+            <div class="code-line"><span class="code-ln">4</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="code-ln">5</span><span class="code-text"><span class="t-kw">export async function</span> <span class="t-fn">verifyToken</span><span class="t-op">(</span>token<span class="t-op">: string</span><span class="t-op">) {</span></span></div>
+            <div class="code-line"><span class="code-ln">6</span><span class="code-text">  <span class="t-kw">const</span> cached <span class="t-op">=</span> <span class="t-kw">await</span> cache.<span class="t-fn">get</span><span class="t-op">(</span><span class="t-str">`auth:${token}`</span><span class="t-op">)</span>    <span class="t-cm">// ← fast path</span></span></div>
+            <div class="code-line"><span class="code-ln">7</span><span class="code-text">  <span class="t-kw">if</span> <span class="t-op">(</span>cached<span class="t-op">)</span> <span class="t-kw">return</span> <span class="t-fn">JSON</span>.<span class="t-fn">parse</span><span class="t-op">(</span>cached<span class="t-op">)</span></span></div>
+            <div class="code-line"><span class="code-ln">8</span><span class="code-text"></span></div>
+            <div class="code-line"><span class="code-ln">9</span><span class="code-text">  <span class="t-kw">const</span> user <span class="t-op">=</span> <span class="t-kw">await</span> db.user.<span class="t-fn">findUnique</span><span class="t-op">({</span> where<span class="t-op">: {</span> token <span class="t-op">}</span> <span class="t-op">})</span></span></div>
+            <div class="code-line"><span class="code-ln">10</span><span class="code-text">  <span class="t-kw">if</span> <span class="t-op">(!</span>user<span class="t-op">)</span> <span class="t-kw">throw new</span> <span class="t-fn">AuthError</span><span class="t-op">(</span><span class="t-str">'INVALID_TOKEN'</span><span class="t-op">)</span></span></div>
+            <div class="code-line"><span class="code-ln">11</span><span class="code-text">  <span class="t-kw">await</span> session.<span class="t-fn">refresh</span><span class="t-op">(</span>user.id<span class="t-op">)</span>            <span class="t-cm">// must happen after DB read</span></span></div>
+            <div class="code-line"><span class="code-ln">12</span><span class="code-text">  <span class="t-kw">await</span> cache.<span class="t-fn">set</span><span class="t-op">(</span><span class="t-str">`auth:${token}`</span><span class="t-op">,</span> <span class="t-fn">JSON</span>.<span class="t-fn">stringify</span><span class="t-op">(</span>user<span class="t-op">),</span> <span class="t-num">300</span><span class="t-op">)</span></span></div>
+            <div class="code-line"><span class="code-ln">13</span><span class="code-text">  <span class="t-kw">return</span> user</span></div>
+            <div class="code-line"><span class="code-ln">14</span><span class="code-text"><span class="t-op">}</span></span></div>
+          </div>
+        </div><!-- /.code-window -->
 
-      const now = performance.now();
-      const stale = now - lastMoveTime >= IDLE_MS;
-      const useIdle = !pointerInside || stale;
+        <!-- Insight strip -->
+        <div class="insight-strip">
+          <div class="insight-chips" aria-label="p0 observations">
+            <span class="insight-chip"><span class="chip-dot" style="background:#a78bfa"></span>cache-first pattern</span>
+            <span class="insight-chip"><span class="chip-dot" style="background:#fb7185"></span>ordering invariant: DB → session</span>
+            <span class="insight-chip"><span class="chip-dot" style="background:#fbbf24"></span>TTL 300s in two places</span>
+            <span class="insight-chip"><span class="chip-dot" style="background:#60a5fa"></span>3 cross-file contracts</span>
+            <span class="insight-chip"><span class="chip-dot" style="background:#86efac"></span>no retry on DB miss</span>
+          </div>
+          <h2 class="insight-copy-h">It sees what you meant,<br>not just what you wrote.</h2>
+          <p class="insight-copy-p">p0 infers the ordering invariant on line 11 from structure alone — <code style="font-family:'JetBrains Mono',monospace;font-size:.85em;color:rgba(167,139,250,.85)">session.refresh()</code> must follow the DB read. No comment needed. No docs required.</p>
+        </div>
 
-      const targetBlend = useIdle ? 1 : 0;
-      idleBlend += (targetBlend - idleBlend) * IDLE_BLEND_SMOOTH;
+      </div><!-- /.scene-stage -->
+    </div><!-- /#scene-code -->
 
-      waveTime += 0.012;
 
-      const drift = Math.min(dc.width, dc.height) * 0.045;
-      const ax = lastClient.x;
-      const ay = lastClient.y;
-      const idleEx = ax + Math.sin(waveTime * 0.36) * drift * 0.45;
-      const idleEy = ay + Math.cos(waveTime * 0.29) * drift * 0.4;
-      const activeEx = targetMouse.x;
-      const activeEy = targetMouse.y;
-      const ex = activeEx + (idleEx - activeEx) * idleBlend;
-      const ey = activeEy + (idleEy - activeEy) * idleBlend;
+    <!-- ══════════════════════════════════════════════════════════════════════
+         SCENE 3 · DIFF VIEW
+         Headline at top, diff window below
+         ══════════════════════════════════════════════════════════════════════ -->
+    <div class="scene" id="scene-compare">
+      <div class="scene-stage">
 
-      mouse.x += (ex - mouse.x) * 0.08;
-      mouse.y += (ey - mouse.y) * 0.08;
+        <div class="diff-copy">
+          <p class="diff-eyebrow">One prompt. Three files. Zero regressions.</p>
+          <h2 class="diff-headline">You said "add rate limiting."
+It understood the whole chain.</h2>
+          <p class="diff-sub">p0 found every callsite, respected the ordering invariant it discovered in auth.ts, and delivered a coherent change across cache, auth, and session — atomically.</p>
+        </div>
 
-      for (const d of dots) {
-        const dx   = d.bx - mouse.x;
-        const dy   = d.by - mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        const infl = Math.max(0, 1 - dist / RADIUS);
+        <div class="diff-window" aria-label="p0 diff output">
+          <div class="diff-titlebar">
+            <span class="diff-titlebar-dot"></span>
+            <span class="diff-titlebar-dot"></span>
+            <span class="diff-titlebar-dot"></span>
+            <span class="diff-titlebar-name">p0 · 3 files changed · +21 −3</span>
+          </div>
+          <div class="diff-body">
 
-        // ripple displacement: 마우스 중심에서 바깥쪽으로 밀어냄
-        const angle  = Math.atan2(dy, dx);
-        const push   = infl * infl * STRENGTH;
-        let px = d.bx + Math.cos(angle) * push;
-        let py = d.by + Math.sin(angle) * push;
+            <div class="diff-hunk">@@ cache.ts — new: rate limit bucket</div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">1</span><span class="diff-text"><span class="t-kw">import</span> redis <span class="t-kw">from</span> <span class="t-str">'./redis'</span></span></div>
+            <div class="diff-row is-add"><span class="diff-sign">+</span><span class="diff-ln">2</span><span class="diff-text"><span class="t-kw">import</span> <span class="t-op">{</span> RateBucket <span class="t-op">}</span> <span class="t-kw">from</span> <span class="t-str">'./rate-bucket'</span></span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">3</span><span class="diff-text"></span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">14</span><span class="diff-text"><span class="t-kw">export async function</span> <span class="t-fn">get</span><span class="t-op">(</span>key<span class="t-op">: string</span><span class="t-op">) {</span></span></div>
+            <div class="diff-row is-remove"><span class="diff-sign">−</span><span class="diff-ln">15</span><span class="diff-text">  <span class="t-kw">return</span> redis.<span class="t-fn">get</span><span class="t-op">(</span>key<span class="t-op">)</span></span></div>
+            <div class="diff-row is-add"><span class="diff-sign">+</span><span class="diff-ln">15</span><span class="diff-text">  <span class="t-kw">const</span> <span class="t-op">[</span>val, ttl<span class="t-op">]</span> <span class="t-op">=</span> <span class="t-kw">await</span> redis.<span class="t-fn">multi</span><span class="t-op">()</span>.<span class="t-fn">get</span><span class="t-op">(</span>key<span class="t-op">)</span>.<span class="t-fn">ttl</span><span class="t-op">(</span>key<span class="t-op">)</span>.<span class="t-fn">exec</span><span class="t-op">()</span></span></div>
+            <div class="diff-row is-add"><span class="diff-sign">+</span><span class="diff-ln">16</span><span class="diff-text">  <span class="t-kw">if</span> <span class="t-op">(</span>ttl <span class="t-op">&lt;</span> <span class="t-num">30</span><span class="t-op">)</span> <span class="t-kw">await</span> redis.<span class="t-fn">expire</span><span class="t-op">(</span>key<span class="t-op">,</span> <span class="t-num">300</span><span class="t-op">)</span>  <span class="t-cm">// sliding window</span></span></div>
+            <div class="diff-row is-add"><span class="diff-sign">+</span><span class="diff-ln">17</span><span class="diff-text">  <span class="t-kw">return</span> val</span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">18</span><span class="diff-text"><span class="t-op">}</span></span></div>
 
-        /* 전체 화면 파동 — 중심에서 퍼지는 링 + 격자 전체 진행파 (유휴일 때 진폭↑ ) */
-        const wt = waveTime;
-        const boost = 0.38 + idleBlend * 0.62;
-        const cx = dc.width * 0.5;
-        const cy = dc.height * 0.5;
-        const rdx = d.bx - cx;
-        const rdy = d.by - cy;
-        const rd = Math.sqrt(rdx * rdx + rdy * rdy) + 0.001;
-        const ux = rdx / rd;
-        const uy = rdy / rd;
-        const ring1 = Math.sin(wt * 0.9 - rd * 0.0115) * 8.5;
-        const ring2 = Math.sin(wt * 0.52 - rd * 0.021) * 3.5;
-        const ring = (ring1 + ring2) * boost;
-        const gx = d.bx * 0.033;
-        const gy = d.by * 0.028;
-        const planeX = Math.sin(wt * 0.86 + gx + gy * 0.62) * 6.5;
-        const planeY = Math.cos(wt * 0.79 - gx * 0.68 + gy) * 6;
-        const planeX2 = Math.sin(wt * 0.58 + gy * 1.05 - gx * 0.42) * 4.5;
-        const diag = Math.sin(wt * 0.66 + (d.bx + d.by) * 0.024) * 4.5;
-        px += (ux * ring + planeX + planeX2 * 0.45 + diag * 0.85) * boost;
-        py += (uy * ring + planeY + planeX2 * 0.38 + diag * 0.85) * boost;
+            <div class="diff-hunk">@@ auth.ts — rate check on every path</div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">6</span><span class="diff-text">  <span class="t-kw">const</span> cached <span class="t-op">=</span> <span class="t-kw">await</span> cache.<span class="t-fn">get</span><span class="t-op">(</span><span class="t-str">`auth:${token}`</span><span class="t-op">)</span></span></div>
+            <div class="diff-row is-remove"><span class="diff-sign">−</span><span class="diff-ln">7</span><span class="diff-text">  <span class="t-kw">if</span> <span class="t-op">(</span>cached<span class="t-op">)</span> <span class="t-kw">return</span> <span class="t-fn">JSON</span>.<span class="t-fn">parse</span><span class="t-op">(</span>cached<span class="t-op">)</span></span></div>
+            <div class="diff-row is-add"><span class="diff-sign">+</span><span class="diff-ln">7</span><span class="diff-text">  <span class="t-kw">if</span> <span class="t-op">(</span>cached<span class="t-op">)</span> <span class="t-op">{</span> RateBucket.<span class="t-fn">hit</span><span class="t-op">(</span>token<span class="t-op">);</span> <span class="t-kw">return</span> <span class="t-fn">JSON</span>.<span class="t-fn">parse</span><span class="t-op">(</span>cached<span class="t-op">)</span> <span class="t-op">}</span>  <span class="t-cm">// still tracked</span></span></div>
+            <div class="diff-row is-add"><span class="diff-sign">+</span><span class="diff-ln">8</span><span class="diff-text">  RateBucket.<span class="t-fn">check</span><span class="t-op">(</span>token<span class="t-op">)</span>  <span class="t-cm">// throws TooManyRequests if exceeded</span></span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">9</span><span class="diff-text">  <span class="t-kw">const</span> user <span class="t-op">=</span> <span class="t-kw">await</span> db.user.<span class="t-fn">findUnique</span><span class="t-op">({</span> where<span class="t-op">: {</span> token <span class="t-op">}</span> <span class="t-op">})</span></span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">10</span><span class="diff-text">  <span class="t-kw">if</span> <span class="t-op">(!</span>user<span class="t-op">)</span> <span class="t-kw">throw new</span> <span class="t-fn">AuthError</span><span class="t-op">(</span><span class="t-str">'INVALID_TOKEN'</span><span class="t-op">)</span></span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">11</span><span class="diff-text">  <span class="t-kw">await</span> session.<span class="t-fn">refresh</span><span class="t-op">(</span>user.id<span class="t-op">)</span>  <span class="t-cm">// ordering preserved ✓</span></span></div>
 
-        // 도트 opacity — 가장자리 vignette + 마우스 근처 밝게
-        const vigDx = (d.bx - cx) / (dc.width  * 0.72);
-        const vigDy = (d.by - cy) / (dc.height * 0.72);
-        const vig   = Math.max(0, 1 - (vigDx * vigDx + vigDy * vigDy));
-        const alpha = Math.min(1, BASE_ALPHA * vig + infl * BOOST * vig);
+            <div class="diff-hunk">@@ session.ts — reset bucket on new session</div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">29</span><span class="diff-text">  <span class="t-kw">async</span> <span class="t-fn">refresh</span><span class="t-op">(</span>userId<span class="t-op">: string</span><span class="t-op">) {</span></span></div>
+            <div class="diff-row is-add"><span class="diff-sign">+</span><span class="diff-ln">30</span><span class="diff-text">    <span class="t-kw">await</span> RateBucket.<span class="t-fn">reset</span><span class="t-op">(</span>userId<span class="t-op">)</span>  <span class="t-cm">// clean slate on re-auth</span></span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">31</span><span class="diff-text">    <span class="t-kw">return</span> <span class="t-kw">this</span>.store.<span class="t-fn">set</span><span class="t-op">(</span>userId<span class="t-op">,</span> Date.<span class="t-fn">now</span><span class="t-op">())</span></span></div>
+            <div class="diff-row is-context"><span class="diff-sign"> </span><span class="diff-ln">32</span><span class="diff-text">  <span class="t-op">}</span></span></div>
 
-        if (alpha < 0.01) continue;
+          </div><!-- /.diff-body -->
+        </div><!-- /.diff-window -->
 
-        dctx.beginPath();
-        dctx.arc(px, py, DOT_R, 0, Math.PI * 2);
-        dctx.fillStyle = `rgba(210, 190, 255, ${alpha})`;
-        dctx.fill();
-      }
+      </div><!-- /.scene-stage -->
+    </div><!-- /#scene-compare -->
 
-      requestAnimationFrame(drawDots);
-    }
 
-    requestAnimationFrame(drawDots);
-  </script>
+    <!-- ══════════════════════════════════════════════════════════════════════
+         CTA
+         ══════════════════════════════════════════════════════════════════════ -->
+    <section class="cta-section" data-scroll-panel aria-labelledby="cta-h">
+      <div class="cta-inner scroll-panel-inner">
+        <p class="cta-eyebrow">Early access · Free while in beta</p>
+        <h2 class="cta-headline" id="cta-h">
+          Stop explaining your codebase.<br>
+          <em>Let p0 read it.</em>
+        </h2>
+        <p class="cta-sub">
+          Every other agent starts from a blank slate. p0 starts from your system.<br>
+          No ticket-writing. No context dumps. Just results that hold together.
+        </p>
+        <button class="cta-btn">
+          Request early access
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"/>
+            <polyline points="12 5 19 12 12 19"/>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Prompt card (fixed to viewport bottom) ── -->
+    <div class="card-wrap" id="prompt-dock">
+      <div class="card-border">
+      <div class="card">
+
+        <textarea
+          rows="3"
+          placeholder="What native mobile app shall we design?"
+          aria-label="Design prompt"
+        ></textarea>
+
+        <div class="card-divider"></div>
+
+        <div class="toolbar">
+          <div class="toolbar-left">
+
+            <button class="icon-btn" title="Attach">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5"  y1="12" x2="19" y2="12"/>
+              </svg>
+            </button>
+
+            <button class="tab-btn active" id="tab-app">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="3"/>
+                <circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+              App
+            </button>
+
+            <button class="tab-btn inactive" id="tab-web">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <line x1="2" y1="9" x2="22" y2="9"/>
+                <circle cx="5.5"  cy="6.5" r="1" fill="currentColor" stroke="none"/>
+                <circle cx="8.5"  cy="6.5" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+              Web
+            </button>
+
+          </div><!-- /.toolbar-left -->
+
+          <div class="toolbar-right">
+
+            <button class="icon-btn" title="Tone">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+                <circle cx="9"  cy="9" r="1" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="9" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            </button>
+
+            <button class="model-btn">
+              <span class="gem">✦</span>
+              3.0 Flash
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+
+            <button class="icon-btn" title="Options">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <line x1="3"  y1="6"  x2="21" y2="6"/>
+                <line x1="3"  y1="12" x2="21" y2="12"/>
+                <line x1="3"  y1="18" x2="21" y2="18"/>
+                <circle cx="7"  cy="6"  r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
+                <circle cx="15" cy="12" r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
+                <circle cx="10" cy="18" r="2.5" fill="#0d0d12" stroke="currentColor" stroke-width="2"/>
+              </svg>
+            </button>
+
+            <button class="send-btn" title="Submit">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5"/>
+                <polyline points="5 12 12 5 19 12"/>
+              </svg>
+            </button>
+
+          </div><!-- /.toolbar-right -->
+        </div><!-- /.toolbar -->
+
+      </div><!-- /.card -->
+      </div><!-- /.card-border -->
+    </div><!-- /.card-wrap -->
+
+  </div><!-- /.page -->
+
+  <!-- Scripts -->
+  <script src="scripts/dots.js"></script>
+  <script src="scripts/aurora.js"></script>
+  <script src="scripts/scroll.js"></script>
+  <script src="scripts/scenes.js"></script>
+
 </body>
 </html>
