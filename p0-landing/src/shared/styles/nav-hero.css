@@ -1,0 +1,175 @@
+/* ── Nav ── */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 10;
+  width: 100%;
+  padding-top: max(16px, env(safe-area-inset-top, 0px));
+  padding-bottom: 16px;
+  padding-left: max(clamp(20px, 5vw, 56px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(20px, 5vw, 56px), env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+.nav-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: auto;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 4px;
+  padding: 2px 7px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.6);
+}
+.try-btn {
+  background: #fff;
+  color: #111;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 26px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+}
+.try-btn:hover {
+  background: #ececec;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Hero ── */
+.hero {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  text-align: center;
+  font-family: 'Outfit', var(--font-outfit), system-ui, sans-serif;
+  padding:
+    max(48px, calc(env(safe-area-inset-top, 0px) + 88px))
+    clamp(20px, 5vw, 56px)
+    clamp(200px, 32vh, 300px);
+}
+.hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 100%;
+}
+.hero h1 {
+  font-size: clamp(2.5rem, 5.8vw, 4.6rem);
+  font-weight: 500;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+  max-width: none;
+  color: #fff;
+  white-space: nowrap;
+}
+.hero h1 .hero-line2 {
+  display: inline-block;
+  font-size: 1em;
+  font-weight: 500;
+  letter-spacing: -0.045em;
+}
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(100deg,
+    color-mix(in srgb, var(--blob1-a, #c084fc) 100%, #fff 0%) 20%,
+    color-mix(in srgb, var(--blob2-a, #60a5fa) 100%, #fff 0%) 80%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero .sub {
+  font-size: 1rem;
+  font-weight: 400;
+  color: rgba(255,255,255,.42);
+  max-width: 34em;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+/* ── Repo select trigger ── */
+.repo-select {
+  position: relative;
+  margin-top: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.repo-select-label {
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: rgba(255,255,255,.5);
+  letter-spacing: -0.005em;
+}
+.repo-select-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.92);
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+.repo-select-trigger:hover {
+  background: rgba(255,255,255,.07);
+  border-color: rgba(255,255,255,.18);
+}
+.repo-select-trigger .repo-select-name {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.82rem;
+}
+.repo-select-chev {
+  opacity: 0.55;
+}
+.repo-select-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dot, #a78bfa);
+  box-shadow: 0 0 8px var(--dot, #a78bfa);
+}

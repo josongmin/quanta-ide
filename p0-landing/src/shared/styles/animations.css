@@ -1,0 +1,38 @@
+/* Complex keyframe animations — kept in CSS for GPU acceleration */
+
+@keyframes float-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(6%, -4%) scale(1.03); }
+  50%      { transform: translate(-3%, 6%) scale(0.97); }
+  75%      { transform: translate(4%, 3%) scale(1.02); }
+}
+@keyframes float-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25%      { transform: translate(-5%, 3%) scale(1.02); }
+  50%      { transform: translate(4%, -5%) scale(0.98); }
+  75%      { transform: translate(-2%, 4%) scale(1.01); }
+}
+@keyframes float-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(5%, 5%) scale(1.04); }
+  66%      { transform: translate(-4%, -3%) scale(0.96); }
+}
+@keyframes float-d {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  20%      { transform: translate(-3%, -4%) scale(1.01); }
+  40%      { transform: translate(6%, 2%) scale(0.98); }
+  60%      { transform: translate(-5%, 5%) scale(1.03); }
+  80%      { transform: translate(3%, -3%) scale(0.99); }
+}
+@keyframes card-mitosis-spin-a {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes card-mitosis-spin-b {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to   { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.4; }
+}
