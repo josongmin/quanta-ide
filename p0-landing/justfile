@@ -1,0 +1,22 @@
+# p0-landing justfile (Vite)
+
+dev:
+    #!/usr/bin/env bash
+    lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+    sleep 0.3
+    pnpm dev
+
+build:
+    pnpm build
+
+lint:
+    pnpm lint
+
+typecheck:
+    pnpm tsc --noEmit
+
+install:
+    pnpm install
+
+clean:
+    rm -rf dist node_modules/.vite

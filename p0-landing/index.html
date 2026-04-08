@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" data-aurora="violet">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>p0 Labs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script>
+    try {
+      var _a = localStorage.getItem('p0-aurora');
+      if (_a) { var _p = JSON.parse(_a); var _v = (_p.state && _p.state.aurora) || _a;
+        if (/^(violet|ocean|emerald|sunset|rose|slate|midnight|lavender|amber|mint|berry|neon|dusk|glacier|moss|wine|candy|storm|jungle|sakura|honey|void)$/.test(_v))
+          document.documentElement.setAttribute('data-aurora', _v);
+      }
+    } catch(_){}
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

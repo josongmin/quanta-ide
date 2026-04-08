@@ -1,0 +1,87 @@
+/* =============================================================================
+   base.css — reset, tokens, body, layout scaffolding
+   ============================================================================= */
+
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Scroll ── */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* ── Body ── */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: #0d0d12;
+  color: #fff;
+  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
+  line-height: 1.42;
+  letter-spacing: -0.02em;
+}
+
+/* Hide everything below the hero — single-screen mode */
+.scene,
+.cta-section { display: none !important; }
+
+/* ── Page wrapper ── */
+.page {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Background layers (aurora + dot canvas sit behind everything) ── */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+#dot-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ── Pointer-follow radial glow (same footprint as former .p0-cursor-trace) ── */
+#pointer-glow {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9;
+  background: radial-gradient(
+    circle at 42% 38%,
+    color-mix(in srgb, var(--blob1-a, #c084fc) 18%, transparent),
+    color-mix(in srgb, var(--blob2-a, #38bdf8) 8%, transparent) 48%,
+    transparent 72%
+  );
+  filter: blur(12px);
+  opacity: 0.48;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  #pointer-glow {
+    display: none;
+  }
+}
