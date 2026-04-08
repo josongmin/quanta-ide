@@ -6,12 +6,14 @@ import { RepoModal } from "@/features/repo-modal/ui/RepoModal";
 
 export function App() {
   return (
-    <div className="page">
+    <>
       <Backgrounds />
-      <Nav />
-      <Hero />
-      <PromptCard />
-      <RepoModal />
-    </div>
+      <div className="page">
+        <Nav />
+        <Hero />
+        <PromptCard />
+        <RepoModal />
+      </div>
+    </>
   );
 }

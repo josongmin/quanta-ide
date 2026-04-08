@@ -21,7 +21,7 @@ export function Hero() {
           No ticket-writing. No context dumps. Just results that hold together.
         </p>
         <div className="repo-select">
-          <span className="repo-select-label">Try on</span>
+          <span className="repo-select-label">Stress test p0 on</span>
           <button type="button" className="repo-select-trigger" onClick={open} aria-haspopup="dialog">
             <span className="repo-select-dot" style={{ "--dot": repo.color } as React.CSSProperties} />
             <span className="repo-select-name">{current}</span>
