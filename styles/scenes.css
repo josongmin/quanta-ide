@@ -2,6 +2,16 @@
    scenes.css — verified against rendered output
    ============================================================================= */
 
+/* ── scenes disabled: force all scene content visible ── */
+.file-node, .conn-line, .conn-pulse,
+.net-eyebrow, .net-headline, .net-body,
+.code-window, .code-line, .code-scan-bar,
+.insight-chip, .insight-copy-h, .insight-copy-p,
+.diff-eyebrow, .diff-headline, .diff-sub, .diff-window, .diff-row, .diff-hunk {
+  opacity: 1 !important;
+}
+.conn-line { stroke-dashoffset: 0 !important; }
+
 /* ── shell ── */
 .scene {
   position: relative;

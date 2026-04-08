@@ -19,8 +19,8 @@
 
   /* ── Tuning ── */
   const SPACING        = 14;    // grid cell size (px)
-  const RADIUS         = 1200;  // mouse influence radius (px)
-  const STRENGTH       = 70;    // max mouse-push displacement (px)
+  const RADIUS         = 4800;  // mouse influence radius (px) — 넓은 중력장
+  const STRENGTH       = 36;    // max mouse-push displacement (px) — 기존 대비 ~½
   const DOT_R          = 0.9;   // dot radius (px)
   const BASE_ALPHA     = 0.38;  // base dot opacity
   const BOOST          = 0.7;   // extra brightness near mouse

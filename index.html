@@ -43,6 +43,8 @@
   <!-- ── Background: dot-grid canvas ── -->
   <canvas id="dot-canvas" aria-hidden="true"></canvas>
 
+  <div id="pointer-glow" aria-hidden="true"></div>
+
   <!-- ══════════════════════════════════════════════════════════════════════
        PAGE
        ══════════════════════════════════════════════════════════════════════ -->
@@ -128,6 +130,18 @@
           Every other agent starts from a blank slate. p0 starts from your system.<br>
           No ticket-writing. No context dumps. Just results that hold together.
         </p>
+
+        <!-- ── Repo picker (opens modal) ── -->
+        <div class="repo-select" id="repo-select">
+          <span class="repo-select-label">Try on</span>
+          <button type="button" class="repo-select-trigger" id="repo-select-trigger" aria-haspopup="dialog">
+            <span class="repo-select-dot" style="--dot:#a78bfa"></span>
+            <span class="repo-select-name">acme/payments-api</span>
+            <svg class="repo-select-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </main>
 
@@ -465,13 +479,92 @@ It understood the whole chain.</h2>
       </div><!-- /.card-border -->
     </div><!-- /.card-wrap -->
 
+    <!-- ── Repo detail modal (glassmorphism) ── -->
+    <div class="repo-modal" id="repo-modal" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="repo-modal-name">
+      <div class="repo-modal-backdrop" data-modal-close></div>
+
+      <div class="repo-modal-shell">
+        <div class="repo-modal-card">
+
+          <button type="button" class="repo-modal-close" data-modal-close aria-label="Close">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+              <line x1="6"  y1="6"  x2="18" y2="18"/>
+              <line x1="18" y1="6"  x2="6"  y2="18"/>
+            </svg>
+          </button>
+
+          <div class="repo-modal-tabs" id="repo-modal-tabs" role="tablist">
+            <button type="button" class="repo-modal-tab is-active" role="tab" data-name="acme/payments-api" data-color="#a78bfa">
+              <span class="repo-modal-tab-dot" style="--dot:#a78bfa"></span>
+              acme/payments-api
+            </button>
+            <button type="button" class="repo-modal-tab" role="tab" data-name="orbit/web-dashboard" data-color="#60a5fa">
+              <span class="repo-modal-tab-dot" style="--dot:#60a5fa"></span>
+              orbit/web-dashboard
+            </button>
+            <button type="button" class="repo-modal-tab" role="tab" data-name="kettle/data-pipeline" data-color="#86efac">
+              <span class="repo-modal-tab-dot" style="--dot:#86efac"></span>
+              kettle/data-pipeline
+            </button>
+            <button type="button" class="repo-modal-tab" role="tab" data-name="forge/checkout-saas" data-color="#fbbf24">
+              <span class="repo-modal-tab-dot" style="--dot:#fbbf24"></span>
+              forge/checkout-saas
+            </button>
+          </div>
+
+          <header class="repo-modal-head">
+            <div class="repo-modal-head-row">
+              <span class="repo-modal-dot" id="repo-modal-dot"></span>
+              <h2 class="repo-modal-name" id="repo-modal-name">acme/payments-api</h2>
+              <span class="repo-modal-status">
+                <span class="repo-modal-status-pulse"></span>
+                Indexed
+              </span>
+            </div>
+            <p class="repo-modal-desc" id="repo-modal-desc">Production-grade Node.js payment gateway with Stripe + PayPal adapters, idempotent webhooks, and a 5-year-old refund flow that no one trusts.</p>
+            <div class="repo-modal-stack" id="repo-modal-stack"></div>
+          </header>
+
+          <div class="repo-modal-meta-row" id="repo-modal-meta"></div>
+
+          <div class="repo-modal-body">
+            <section class="repo-modal-col repo-modal-col-left">
+              <div class="repo-modal-section-label">SCENARIO</div>
+              <p class="repo-modal-scenario" id="repo-modal-scenario"></p>
+
+              <div class="repo-modal-section-label">TRY ASKING</div>
+              <div class="repo-modal-seeds" id="repo-modal-seeds"></div>
+            </section>
+
+            <section class="repo-modal-col repo-modal-col-right">
+              <div class="repo-modal-section-label">STRUCTURE</div>
+              <pre class="repo-modal-tree" id="repo-modal-tree"></pre>
+            </section>
+          </div>
+
+          <footer class="repo-modal-foot">
+            <button type="button" class="repo-modal-cta">
+              Run p0 on this repo
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"/>
+                <polyline points="12 5 19 12 12 19"/>
+              </svg>
+            </button>
+          </footer>
+
+        </div>
+      </div>
+    </div>
+
   </div><!-- /.page -->
 
   <!-- Scripts -->
   <script src="scripts/dots.js"></script>
+  <script src="scripts/pointer-glow.js"></script>
   <script src="scripts/aurora.js"></script>
   <script src="scripts/scroll.js"></script>
   <script src="scripts/scenes.js"></script>
+  <script src="scripts/repo-select.js"></script>
 
 </body>
 </html>

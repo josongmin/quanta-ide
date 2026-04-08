@@ -5,6 +5,9 @@
 (function () {
   'use strict';
 
+  // DISABLED — scroll scenes temporarily off
+  return;
+
   if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') {
     console.warn('scenes.js: GSAP/ScrollTrigger not loaded — showing everything.');
     document.querySelectorAll(
