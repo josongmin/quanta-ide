@@ -48,4 +48,74 @@ describe("RepoModal", () => {
     await user.click(screen.getByLabelText("Close"));
     expect(useModalStore.getState().isOpen).toBe(false);
   });
+
+  it("switches repo when sidebar tab is clicked", async () => {
+    const user = userEvent.setup();
+    useRepoStore.setState({ current: "acme/payments-api" });
+    useModalStore.setState({ isOpen: true });
+    render(<RepoModal />);
+
+    const tabs = screen.getAllByRole("button").filter(b => b.classList.contains("repo-modal-tab"));
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- textContent can be null per DOM spec
+    const eventMeshTab = tabs.find(t => t.textContent?.includes("switchyard/event-mesh"));
+    expect(eventMeshTab).toBeDefined();
+    await user.click(eventMeshTab!);
+    expect(useRepoStore.getState().current).toBe("switchyard/event-mesh");
+  });
+
+  it("expands question accordion on click", async () => {
+    const user = userEvent.setup();
+    useRepoStore.setState({ current: "acme/payments-api" });
+    useModalStore.setState({ isOpen: true });
+    render(<RepoModal />);
+
+    const secondQuestion = screen.getByText("Who actually owns refund state?");
+    await user.click(secondQuestion);
+    expect(screen.getByText("Refund ownership is split across route, service, and ledger layers")).toBeInTheDocument();
+  });
+
+  it("toggles tree expansion", async () => {
+    const user = userEvent.setup();
+    useRepoStore.setState({ current: "acme/payments-api" });
+    useModalStore.setState({ isOpen: true });
+    render(<RepoModal />);
+
+    const toggle = screen.getByText("Show more");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    expect(screen.getByText("Show less")).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("renders complexity signals with tooltips", () => {
+    useRepoStore.setState({ current: "acme/payments-api" });
+    useModalStore.setState({ isOpen: true });
+    render(<RepoModal />);
+    const signal = screen.getByText("14-file webhook chain");
+    expect(signal).toHaveAttribute("title");
+  });
+
+  it("renders meta stats with CountUp", () => {
+    useRepoStore.setState({ current: "acme/payments-api" });
+    useModalStore.setState({ isOpen: true });
+    render(<RepoModal />);
+    expect(screen.getByText("Files")).toBeInTheDocument();
+    expect(screen.getByText("Lines")).toBeInTheDocument();
+  });
+
+  it("renders footer CTA buttons", () => {
+    useModalStore.setState({ isOpen: true });
+    render(<RepoModal />);
+    expect(screen.getByText("Try hardest question")).toBeInTheDocument();
+    expect(screen.getByText(/Analyze this repo/)).toBeInTheDocument();
+  });
+
+  it("closes on backdrop click", async () => {
+    const user = userEvent.setup();
+    useModalStore.setState({ isOpen: true });
+    render(<RepoModal />);
+    const backdrop = document.querySelector(".repo-modal-backdrop");
+    expect(backdrop).toBeTruthy();
+    await user.click(backdrop!);
+    expect(useModalStore.getState().isOpen).toBe(false);
+  });
 });
