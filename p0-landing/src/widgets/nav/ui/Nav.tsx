@@ -18,7 +18,13 @@ export function Nav() {
         </div>
         <div className="nav-actions">
           <AuroraPicker />
-          <button className="try-btn">Contact us</button>
+          <button
+            type="button"
+            className="try-btn"
+            onClick={() => { window.location.hash = "#/ide"; }}
+          >
+            Open IDE
+          </button>
         </div>
       </div>
     </nav>

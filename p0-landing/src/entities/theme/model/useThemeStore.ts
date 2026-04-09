@@ -10,5 +10,5 @@ export type AuroraPreset = (typeof AURORA_PRESETS)[number];
 
 interface ThemeState { aurora: AuroraPreset; setAurora: (p: AuroraPreset) => void; }
 export const useThemeStore = create<ThemeState>()(
-  persist((set) => ({ aurora: "violet", setAurora: (aurora) => set({ aurora }) }), { name: "p0-aurora" }),
+  persist((set) => ({ aurora: "candy" as AuroraPreset, setAurora: (aurora) => set({ aurora }) }), { name: "p0-aurora" }),
 );

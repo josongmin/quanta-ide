@@ -13,8 +13,8 @@ describe("Nav", () => {
     expect(screen.getByText("BETA")).toBeInTheDocument();
   });
 
-  it("renders Contact us button", () => {
+  it("renders Open IDE button", () => {
     render(<Nav />);
-    expect(screen.getByText("Contact us")).toBeInTheDocument();
+    expect(screen.getByText("Open IDE")).toBeInTheDocument();
   });
 });

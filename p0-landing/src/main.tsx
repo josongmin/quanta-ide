@@ -5,6 +5,7 @@ import "./index.css";
 import "@/shared/styles/base.css";
 import "@/shared/styles/aurora.css";
 import "@/shared/styles/components.css";
+import "@/shared/styles/ide.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element not found");

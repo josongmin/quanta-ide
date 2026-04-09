@@ -1,0 +1,97 @@
+# =============================================================================
+# quanta-landing — root .gitignore
+# =============================================================================
+
+# --- Dependencies ---
+node_modules/
+
+# --- Build & bundles ---
+dist/
+dist-ssr/
+build/
+out/
+.output/
+*.tsbuildinfo
+
+# Vite (pre-bundle cache when not under node_modules)
+.vite/
+
+# --- Environment & secrets (never commit) ---
+.env
+.env.*
+!.env.example
+!.env*.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+.secrets/
+
+# --- Logs & diagnostics ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Test & coverage ---
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# --- Caches & tool output ---
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.prettiercache
+.turbo/
+*.tmp
+*.temp
+
+# --- OS junk ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# --- Editors & IDEs ---
+# Track only recommended extensions; keep personal settings local.
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+*.orig
+
+# --- Local / machine-only overrides ---
+*.local
+.local/
+
+# --- Deploy & SaaS CLI artifacts (regenerate locally) ---
+.vercel/
+.netlify/
+
+# --- Optional: Yarn Berry (uncomment if you adopt PnP) ---
+# .pnp.*
+# .yarn/*
+# !.yarn/patches
+# !.yarn/plugins
+# !.yarn/releases
+# !.yarn/sdks
+# !.yarn/versions

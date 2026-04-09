@@ -11,6 +11,6 @@ describe("App", () => {
   it("renders main sections", () => {
     render(<App />);
     expect(screen.getByText(/Stop explaining your codebase/)).toBeInTheDocument();
-    expect(screen.getByText("Contact us")).toBeInTheDocument();
+    expect(screen.getByText("Open IDE")).toBeInTheDocument();
   });
 });
