@@ -44,7 +44,7 @@ export function Nav() {
               </div>
             </div>
           </div>
-          <button className="try-btn">Try now</button>
+          <button className="try-btn">Contact us</button>
         </div>
       </div>
     </nav>

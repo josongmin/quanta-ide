@@ -3,8 +3,10 @@ import { useEffect, useRef, useCallback } from "react";
 interface Dot { bx: number; by: number; }
 
 const SPACING = 14;
-const RADIUS = 4800;
-const STRENGTH = 36;
+const RADIUS = 800;
+const STRENGTH = 80;
+const VORTEX_SPIN = 5.5;
+const PULL_RATIO = 0.6;
 const DOT_R = 0.9;
 const BASE_ALPHA = 0.38;
 const BOOST = 0.7;
@@ -71,9 +73,7 @@ export function useInteractiveDots() {
       const w = c.width, h = c.height;
       ctx.clearRect(0, 0, w, h);
 
-      const stale = performance.now() - st.lastMove >= IDLE_MS;
-      const useIdle = !st.pointerInside || stale;
-      st.idleBlend += ((useIdle ? 1 : 0) - st.idleBlend) * IDLE_SMOOTH;
+      st.idleBlend = 1;
       st.waveTime += 0.012;
       const wt = st.waveTime;
 
@@ -92,12 +92,18 @@ export function useInteractiveDots() {
       for (const d of st.dots) {
         const dx = d.bx - st.mouse.x;
         const dy = d.by - st.mouse.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dist = Math.sqrt(dx * dx + dy * dy) + 0.001;
         const infl = Math.max(0, 1 - dist / RADIUS);
         const angle = Math.atan2(dy, dx);
-        const push = infl * infl * STRENGTH;
-        let px = d.bx + Math.cos(angle) * push;
-        let py = d.by + Math.sin(angle) * push;
+        // vortex: rotate tangentially + pull inward
+        const swirl = infl * infl * STRENGTH;
+        const vortexAngle = angle + VORTEX_SPIN * infl + wt * 3.15;
+        const tangentX = Math.cos(vortexAngle) * swirl * (1 - PULL_RATIO);
+        const tangentY = Math.sin(vortexAngle) * swirl * (1 - PULL_RATIO);
+        const pullX = -Math.cos(angle) * swirl * PULL_RATIO;
+        const pullY = -Math.sin(angle) * swirl * PULL_RATIO;
+        let px = d.bx + tangentX + pullX;
+        let py = d.by + tangentY + pullY;
 
         // ambient ring + plane waves
         const rdx = d.bx - cx, rdy = d.by - cy;

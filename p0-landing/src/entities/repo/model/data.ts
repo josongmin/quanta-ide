@@ -7,7 +7,7 @@ export const REPOS = {
     language: "TypeScript",
     desc: "Production payment backend with webhook retries, adapter sprawl, and a refund path nobody wants to debug by hand.",
     stack: ["TypeScript", "Node.js", "Fastify", "PostgreSQL", "Redis"],
-    meta: [{ k: "Files", v: "1,284" }, { k: "Lines", v: "92.4k" }, { k: "Tokens", v: "318k" }, { k: "Age", v: "5y" }],
+    meta: [{ k: "Files", v: "1,284" }, { k: "Lines", v: "92.4k" }, { k: "Deps", v: "47" }, { k: "Age", v: "5y" }],
     pain: "Refund state is split across routes, adapters, ledger writes, and webhook retries. The hard part is not reading code. It is reconstructing the real transaction lifecycle without trusting any single file to tell the truth.",
     outcome: "p0 traces the payment lifecycle end to end, isolates duplicate state transitions, and shows which files are most likely to cause a silent double-refund or a stuck payout.",
     signals: ["14-file webhook chain", "3 payment providers", "7 refund states", "2 retry loops", "9 shared DB writes", "No ownership docs"],
@@ -153,7 +153,7 @@ export const REPOS = {
     language: "TypeScript",
     desc: "A React analytics surface with shared filters, duplicated cache assumptions, and one page that slowly became its own platform.",
     stack: ["React 18", "TypeScript", "Vite", "TanStack Query", "Zustand"],
-    meta: [{ k: "Files", v: "412" }, { k: "Components", v: "38" }, { k: "Lines", v: "34.1k" }, { k: "Tokens", v: "128k" }],
+    meta: [{ k: "Files", v: "412" }, { k: "Components", v: "38" }, { k: "Lines", v: "34.1k" }, { k: "Deps", v: "31" }],
     pain: "Every visible bug spans UI, derived state, and caching. The page looks manageable until one filter or optimistic update mutates a shape that three other panels quietly depend on.",
     outcome: "p0 reads the component graph, tracks state ownership, and marks the cache or prop boundaries most likely to create stale views, duplicated fetches, or impossible refactors.",
     signals: ["1,212-line OrdersTable", "6 data hooks", "3 cache layers", "11 derived selectors", "4 modal stacks", "Shared filters everywhere"],
@@ -204,7 +204,7 @@ export const REPOS = {
     language: "Python",
     desc: "A 5-year-old ETL platform with Airflow, dbt, and enough lineage ambiguity to make one column change feel like a roulette spin.",
     stack: ["Python 3.11", "Airflow", "dbt", "Snowflake", "Pandas"],
-    meta: [{ k: "DAGs", v: "47" }, { k: "Models", v: "128" }, { k: "Lines", v: "61.7k" }, { k: "Tokens", v: "244k" }],
+    meta: [{ k: "DAGs", v: "47" }, { k: "Models", v: "128" }, { k: "Lines", v: "61.7k" }, { k: "Deps", v: "19" }],
     pain: "The scary part is hidden coupling: a staging column becomes a mart field, becomes a dashboard dependency, becomes a weekly incident. Nobody wants to trace that by hand.",
     outcome: "p0 reconstructs lineage across DAGs, models, and transforms so you can see what depends on a table, a column, or an ingestion job before you touch production.",
     signals: ["47 DAGs", "128 dbt models", "9 upstream sources", "26 critical tables", "13 ownerless transforms", "3 code styles"],
@@ -298,5 +298,318 @@ export const REPOS = {
   },
 } as const satisfies Record<string, RepoData>;
 
+export const INCIDENTS = {
+  "axios/axios": {
+    color: "#ef4444",
+    kind: "Supply Chain Backdoor",
+    language: "JavaScript",
+    desc: "North Korean state actor Sapphire Sleet hijacked the primary maintainer's npm account and published backdoored versions 1.14.1 and 0.30.4. A new dependency 'plain-crypto-js' deployed the WAVESHAPER.V2 RAT across Windows, macOS, and Linux. Axios has 100M+ weekly downloads.",
+    stack: ["JavaScript", "npm", "Node.js"],
+    meta: [{ k: "Downloads/wk", v: "100M+" }, { k: "Infected ver", v: "2" }, { k: "Live window", v: "3h" }, { k: "Threat actor", v: "DPRK" }],
+    pain: "A single compromised maintainer account was enough to backdoor 100M+ weekly downloads. The malicious version looked identical to the legitimate one — only a new internal dependency gave it away, buried in the dependency tree.",
+    outcome: "p0 diffs 1.14.0 → 1.14.1 and flags 'plain-crypto-js' immediately — zero npm history, obfuscated eval chain, OS-specific binaries, and outbound C2 beaconing on import. Maintainer email change 48h prior also surfaced as a provenance anomaly.",
+    signals: ["New dep with 0 download history", "OS-specific binary payloads", "C2 beacon on require()", "Obfuscated eval chain", "Maintainer email changed 48h prior"],
+    questions: [
+      {
+        ask: "What changed between v1.14.0 and v1.14.1?",
+        answerTitle: "One new dependency rewrites the entire risk profile",
+        answerSummary: "p0 diffs the dependency manifest and traces plain-crypto-js through every import chain. The package has no version history, a single anonymous maintainer, and its index.js decodes a base64 payload on first require().",
+        answerBullets: ["plain-crypto-js added with no prior npm history", "index.js runs base64-decode → eval() on import", "Native binaries bundled for win32/darwin/linux"],
+        stats: [{ k: "Changed files", v: "2" }, { k: "New dep age", v: "0 days" }, { k: "Eval chains", v: "3" }],
+        artifacts: ["Dependency diff report", "plain-crypto-js code trace", "Eval chain map"],
+      },
+      {
+        ask: "Where does plain-crypto-js phone home?",
+        answerTitle: "C2 beacon hardcoded behind two layers of obfuscation",
+        answerSummary: "p0 de-obfuscates the payload and resolves the C2 endpoint — a domain registered 6 days before the malicious publish. It beacons with hostname, platform, and process env on every Node.js startup.",
+        answerBullets: ["C2 domain registered 6 days before publish", "Sends hostname + platform + env vars on startup", "Establishes persistent reverse shell on success"],
+        stats: [{ k: "Obfusc. layers", v: "2" }, { k: "C2 domains", v: "1" }, { k: "Exfil fields", v: "7" }],
+        artifacts: ["De-obfuscated payload", "C2 domain trace", "Exfiltration field list"],
+      },
+      {
+        ask: "Which files execute automatically on install?",
+        answerTitle: "preinstall and postinstall both fire before any code runs",
+        answerSummary: "p0 maps every lifecycle hook in the dependency tree. plain-crypto-js registers both preinstall and postinstall — postinstall drops a platform-native binary and adds it to shell startup files for persistence.",
+        answerBullets: ["preinstall: downloads platform binary from C2", "postinstall: persists binary in shell startup", "Binary grants persistent remote access"],
+        stats: [{ k: "Lifecycle hooks", v: "2" }, { k: "Persist paths", v: "3" }, { k: "Platforms", v: "3" }],
+        artifacts: ["Lifecycle hook map", "Persistence mechanism trace", "Affected startup files"],
+      },
+    ],
+    tree: `axios/axios (v1.14.1 — backdoored)
+├── lib/
+│   ├── axios.js
+│   └── core/dispatch.js
+├── package.json              ← plain-crypto-js added here
+└── node_modules/
+    └── plain-crypto-js/      ← injected malicious dep
+        ├── index.js           ← base64 → eval() loader
+        ├── package.json       ← preinstall + postinstall
+        └── native/
+            ├── win32.dll      ← WAVESHAPER.V2 RAT
+            ├── darwin.dylib
+            └── linux.so`,
+    incident: true,
+    cve: "N/A",
+    severity: "Critical",
+    date: "2026.03",
+    impact: "~3% of userbase downloaded the backdoor in a 3-hour window. RAT deployed silently across all platforms.",
+  },
+  "tj-actions/changed-files": {
+    color: "#f97316",
+    kind: "CI/CD Pipeline Attack",
+    language: "TypeScript / YAML",
+    desc: "An attacker repointed all version tags to a malicious commit containing a base64-encoded payload that scanned CI runner memory for credentials and dumped them to workflow logs. 23,000+ repos affected. CISA issued an emergency alert.",
+    stack: ["GitHub Actions", "TypeScript", "Node.js"],
+    meta: [{ k: "Repos affected", v: "23K+" }, { k: "CVE", v: "2025-30066" }, { k: "Tags modified", v: "All" }, { k: "CISA alert", v: "Yes" }],
+    pain: "Every workflow using this Action by tag silently received the malicious version. No PR, no commit, no diff visible in the consuming repo — just a tag that now pointed somewhere else.",
+    outcome: "p0 decodes the base64 blob, traces the /proc memory scan and credential regex writes to stdout, and flags the tag-repointing as a provenance anomaly. The upstream reviewdog compromise is also surfaced in the attack chain.",
+    signals: ["Base64 payload in Action entrypoint", "Process memory scan syscalls", "Credential regex in stdout", "All tags repointed to one commit", "Upstream reviewdog compromised"],
+    questions: [
+      {
+        ask: "What was injected into the Action entrypoint?",
+        answerTitle: "Base64-encoded Node.js credential scanner hidden in dist/index.js",
+        answerSummary: "p0 decodes the base64 blob and traces its execution — it spawns a child process that iterates /proc/*/environ on Linux, scanning for credential patterns matching AWS, GitHub, npm, and SSH key formats, then writes them to GITHUB_OUTPUT.",
+        answerBullets: ["Base64 blob decodes to 47-line credential scanner", "Scans /proc memory for 12 credential patterns", "Writes matches to GITHUB_OUTPUT log"],
+        stats: [{ k: "Cred patterns", v: "12" }, { k: "Memory regions", v: "All /proc" }, { k: "Obfusc. layers", v: "1" }],
+        artifacts: ["Decoded payload source", "Credential pattern list", "Memory scan trace"],
+      },
+      {
+        ask: "How did the attacker gain write access to the repo?",
+        answerTitle: "3-hop attack chain starting from reviewdog/action-setup",
+        answerSummary: "p0 reconstructs the upstream compromise: reviewdog/action-setup was compromised first, leaking a GitHub PAT with write access to the tj-actions org. That PAT was used to force-push all tags to the malicious commit 72h later.",
+        answerBullets: ["reviewdog PAT leaked 72h before tj-actions hit", "PAT had write:repo scope on tj-actions org", "Force-push rewrote all tags without new commit SHA"],
+        stats: [{ k: "Attack chain hops", v: "3" }, { k: "PAT scope", v: "write:repo" }, { k: "Hours between", v: "72h" }],
+        artifacts: ["Attack chain graph", "PAT scope analysis", "Tag mutation timeline"],
+      },
+      {
+        ask: "Which repos are still running the compromised Action?",
+        answerTitle: "Any workflow pinned to a tag (not SHA) is still vulnerable",
+        answerSummary: "p0 scans for uses: tj-actions/changed-files@v* patterns and separates SHA-pinned from mutable tag refs. Tag-pinned workflows silently received the malicious code without any visible diff in the consuming repo.",
+        answerBullets: ["Tag-pinned refs: execute malicious code on next run", "SHA-pinned refs: safe (point to original commit)", "No diff visible in repo — only tag metadata changed"],
+        stats: [{ k: "Tag-pinned", v: "~18K" }, { k: "SHA-pinned (safe)", v: "~5K" }, { k: "Detectable w/o p0", v: "None" }],
+        artifacts: ["Affected workflow list", "Safe vs vulnerable ref report", "Remediation patch set"],
+      },
+    ],
+    tree: `tj-actions/changed-files (2025.03.12)
+├── .github/workflows/
+├── action.yml              ← entrypoint → dist/index.js
+├── dist/
+│   └── index.js            ← base64 payload injected here
+│       ├── [legitimate code]
+│       └── eval(atob("...")); ← credential scanner
+└── package.json
+[All tags v1..v45 repointed to this commit]`,
+    incident: true,
+    cve: "CVE-2025-30066",
+    severity: "Critical",
+    date: "2025.03",
+    impact: "AWS keys, GitHub PATs, npm tokens, and RSA keys leaked from CI runners across 23,000+ repos.",
+  },
+  "@ctrl/tinycolor": {
+    color: "#a855f7",
+    kind: "Self-Replicating Worm",
+    language: "JavaScript",
+    desc: "A self-replicating npm worm phished maintainer credentials, injected malicious post-install scripts into 500+ packages, and used stolen tokens to spread to each victim's other maintained packages. CISA issued an emergency alert.",
+    stack: ["npm", "JavaScript", "Node.js"],
+    meta: [{ k: "Packages hit", v: "500+" }, { k: "Maintainers", v: "350+" }, { k: "Public repos", v: "25K+" }, { k: "CISA alert", v: "Yes" }],
+    pain: "The worm was self-sustaining. Each new victim's package became a new infection vector. By the time CISA issued the alert, 500+ packages had been modified and 350+ maintainer accounts had been used to spread it further.",
+    outcome: "p0 flags the new postinstall script not present in prior versions, traces npm token read access, detects GitHub API calls creating public repos, and identifies the self-replication publish logic targeting the victim's other packages.",
+    signals: ["New postinstall not in prior versions", "npm token read from env", "GitHub API calls in install hook", "Self-replication publish logic", "Bulk package mutations"],
+    questions: [
+      {
+        ask: "What does the post-install script actually do?",
+        answerTitle: "Four-stage payload: steal → exfil → enumerate → replicate",
+        answerSummary: "p0 traces the postinstall execution: stage 1 reads npm tokens from ~/.npmrc and env vars, stage 2 exfiltrates to C2, stage 3 fetches the victim's full package list from the npm registry, stage 4 publishes infected versions of each package.",
+        answerBullets: ["Stage 1: reads NPM_TOKEN, .npmrc, and CI env vars", "Stage 3: lists all packages by same maintainer", "Stage 4: publishes new patch version with worm injected"],
+        stats: [{ k: "Payload stages", v: "4" }, { k: "Token sources", v: "6" }, { k: "Avg pkgs/victim", v: "3.2" }],
+        artifacts: ["Postinstall execution trace", "Token harvest map", "Replication logic flow"],
+      },
+      {
+        ask: "How does the worm avoid detection during publish?",
+        answerTitle: "Minified 6-line injection into an existing file as a patch bump",
+        answerSummary: "p0 byte-diffs the infected version against the prior. The worm appends 6 minified lines to an existing utility file rather than creating new files — appearing as a routine patch update, invisible to file-count anomaly detection.",
+        answerBullets: ["Injects 6 minified lines into existing utility file", "Bumps patch version to appear as routine update", "No new files — bypasses file-count anomaly detection"],
+        stats: [{ k: "Injected lines", v: "6" }, { k: "Version bump", v: "patch" }, { k: "New files", v: "0" }],
+        artifacts: ["Byte-diff of payload", "Minification reverse trace", "Version bump history"],
+      },
+      {
+        ask: "Which packages in my dependency tree are infected?",
+        answerTitle: "p0 cross-references your lockfile against the infection timeline",
+        answerSummary: "p0 checks every package in your dependency graph against the 500+ infected packages and the exact version ranges. Any version published Sep 3–11, 2025 by a compromised maintainer is flagged with a safe pin.",
+        answerBullets: ["Checks all transitive deps against infection window", "Flags versions published Sep 3–11 by compromised accounts", "Provides exact safe version to pin for each affected package"],
+        stats: [{ k: "Infection window", v: "9 days" }, { k: "Compromised accs", v: "350+" }, { k: "Safe pins provided", v: "All" }],
+        artifacts: ["Infected dependency list", "Safe version pin report", "Compromised maintainer index"],
+      },
+    ],
+    tree: `@ctrl/tinycolor (v4.1.3 — infected)
+├── src/index.ts
+├── dist/
+│   └── index.js       ← worm payload appended (6 lines)
+│       ├── [original tinycolor code]
+│       └── // injected: steal→exfil→replicate
+├── package.json       ← postinstall script added
+└── .npmrc             ← read by worm for NPM_TOKEN`,
+    incident: true,
+    cve: "N/A",
+    severity: "Critical",
+    date: "2025.09",
+    impact: "500+ packages infected, cloud tokens stolen, secrets exposed in 25,000+ public GitHub repos.",
+  },
+  "BerriAI/litellm": {
+    color: "#06b6d4",
+    kind: "CI/CD Chain Attack",
+    language: "Python",
+    desc: "Threat actor TeamPCP first compromised the Trivy security scanner, then used that foothold to backdoor LiteLLM's CI/CD pipeline. Malicious .pth files auto-execute on every Python process startup — credential stealing before any import runs. 95M+ monthly downloads.",
+    stack: ["Python", "PyPI", "pip"],
+    meta: [{ k: "Downloads/mo", v: "95M+" }, { k: "Cloud presence", v: "36%" }, { k: "Attack hops", v: "3" }, { k: "Infected ver", v: "2" }],
+    pain: "The attack chain was: security scanner → AI framework → every downstream user. The entry point was the tool being used to protect LiteLLM. By the time it was discovered, the .pth file had been auto-executing on every Python start in affected environments.",
+    outcome: "p0 flags the .pth file with executable code — Python's silent auto-run mechanism. It traces the exfiltration domain, reconstructs the 3-hop attack chain, and detects the CI/CD provenance deviation from the compromised Trivy scanner.",
+    signals: [".pth file with executable code", "Auto-executes before any import", "Fake exfil domain mimics pypi.org", "CI/CD provenance deviation", "Security scanner compromised upstream"],
+    questions: [
+      {
+        ask: "How does the .pth file execute before any import?",
+        answerTitle: ".pth files are Python's silent auto-run — almost nobody audits them",
+        answerSummary: "p0 explains the attack vector: Python processes every .pth file in site-packages on startup, before user code runs. litellm_init.pth contains executable Python that runs unconditionally — in subprocesses, cron jobs, and lambdas alike.",
+        answerBullets: [".pth files in site-packages run at every Python startup", "Executes in all child processes, cron jobs, lambdas", "No import required — invisible to static import analysis"],
+        stats: [{ k: "Trigger", v: "Every Python start" }, { k: "Scope", v: "All processes" }, { k: "Import needed", v: "No" }],
+        artifacts: [".pth execution trace", "Affected process tree", "Auto-run mechanism map"],
+      },
+      {
+        ask: "How did TeamPCP get into LiteLLM's CI pipeline?",
+        answerTitle: "Trivy security scanner was the entry point — 3-hop attack chain",
+        answerSummary: "p0 reconstructs the full chain: TeamPCP compromised Trivy first, injected malicious scan output that triggered a CI publish step, then used LiteLLM access to continue to Checkmarx KICS. The security tool itself was the attack vector.",
+        answerBullets: ["Hop 1: Trivy compromise via maintainer credential theft", "Hop 2: Malicious scan output triggers LiteLLM CI publish", "Hop 3: LiteLLM access used to compromise KICS"],
+        stats: [{ k: "Chain hops", v: "3" }, { k: "Projects hit", v: "3" }, { k: "Days undetected", v: "5" }],
+        artifacts: ["Full attack chain graph", "CI pipeline exploit trace", "Trivy→LiteLLM→KICS map"],
+      },
+      {
+        ask: "What credentials does litellm_init.pth harvest?",
+        answerTitle: "Every secret in the environment — 14 cloud provider patterns",
+        answerSummary: "p0 de-obfuscates the .pth payload and enumerates targets: OpenAI/Anthropic API keys, AWS/GCP/Azure credentials, GitHub tokens, database URLs, and any env var matching *_KEY, *_TOKEN, *_SECRET — exfiltrated to a domain mimicking pypi.org.",
+        answerBullets: ["Targets 14 cloud provider credential patterns", "Reads all env vars matching *_KEY, *_TOKEN, *_SECRET", "Exfiltrates to fake domain mimicking pypi.org"],
+        stats: [{ k: "Cred patterns", v: "14" }, { k: "Exfil dest", v: "Fake PyPI" }, { k: "Encoding", v: "base64+xor" }],
+        artifacts: ["Credential harvest list", "De-obfuscated payload", "Exfil domain analysis"],
+      },
+    ],
+    tree: `BerriAI/litellm (v1.82.7 — backdoored)
+├── litellm/
+│   ├── __init__.py
+│   ├── main.py
+│   └── utils.py
+├── site-packages/
+│   └── litellm_init.pth   ← auto-exec on every Python start
+│       └── [14-pattern credential harvester]
+└── [Published via compromised Trivy CI — bypassed review]`,
+    incident: true,
+    cve: "N/A",
+    severity: "Critical",
+    date: "2026.03",
+    impact: "Credential theft from every Python process on infected systems. 95M monthly downloads, 36% cloud environment penetration.",
+  },
+  "langflow-ai/langflow": {
+    color: "#eab308",
+    kind: "Unauthenticated RCE",
+    language: "Python",
+    desc: "An unauthenticated API endpoint in this 79K-star AI orchestration platform passed user input directly to Python's exec() with no auth check and no sandboxing. Added to CISA's Known Exploited Vulnerabilities catalog within 5 days of disclosure.",
+    stack: ["Python", "FastAPI", "Docker"],
+    meta: [{ k: "GitHub stars", v: "79K+" }, { k: "CVE", v: "2025-3248" }, { k: "CVSS", v: "9.8" }, { k: "CISA KEV", v: "Yes" }],
+    pain: "A dev-tooling endpoint shipped to production with zero auth. The taint path from HTTP request to exec() was 4 hops with no sanitization at any step. First exploitation attempt was 4 hours after CVE disclosure.",
+    outcome: "p0 traces POST /api/v1/validate/code directly to exec() — a 4-hop taint path with zero sanitization. Flags the missing auth middleware on a code-execution endpoint as a critical finding before any CVE exists.",
+    signals: ["Unauthenticated route to exec()", "Direct user input → exec() taint", "No auth middleware on /validate/code", "No sandbox or AST validation", "Dev endpoint shipped to prod"],
+    questions: [
+      {
+        ask: "What is the exact code path from HTTP request to exec()?",
+        answerTitle: "4-hop taint path — raw user input reaches exec() unmodified",
+        answerSummary: "p0 traces the full call chain: POST /api/v1/validate/code → validate_code() → build_custom_component() → exec(code_string). Every hop passes the raw user-controlled string forward without modification, validation, or sandboxing.",
+        answerBullets: ["POST body 'code' field flows unmodified through 4 functions", "exec() called with raw string at hop 4", "No AST parsing, no sandbox, no type checking"],
+        stats: [{ k: "Taint hops", v: "4" }, { k: "Sanitization", v: "0 checks" }, { k: "Auth checks", v: "0" }],
+        artifacts: ["Full taint trace", "Call chain graph", "Unprotected route report"],
+      },
+      {
+        ask: "Why was there no auth on a code execution endpoint?",
+        answerTitle: "Dev-tooling endpoint shipped to production unreviewed for 8 months",
+        answerSummary: "p0 traces the commit history: /validate/code was introduced in a dev branch 8 months before disclosure. Auth middleware was applied to the parent router via decorator but this route was added outside that scope and never caught in review.",
+        answerBullets: ["Endpoint introduced in dev branch 8 months prior", "Auth decorator applied to parent — not this route", "Included in production Docker image without security review"],
+        stats: [{ k: "Months exposed", v: "8" }, { k: "Auth decorator", v: "Missed 1 route" }, { k: "Routes protected", v: "47 / 48" }],
+        artifacts: ["Commit history trace", "Auth coverage map", "Decorator scope analysis"],
+      },
+      {
+        ask: "How quickly was this exploited after disclosure?",
+        answerTitle: "Mass exploitation within 24 hours of CVE publication",
+        answerSummary: "p0 correlates the disclosure timeline with honeypot data: first exploit attempt 4h after CVE-2025-3248 was published. Mass scanning within 24h. CISA KEV listing on day 5. With p0, this would have been flagged before the CVE existed.",
+        answerBullets: ["First exploit attempt: 4h after CVE disclosure", "Mass scanning: 24h after disclosure", "CISA KEV listing: day 5"],
+        stats: [{ k: "Time to exploit", v: "4h" }, { k: "Time to mass scan", v: "24h" }, { k: "Days to KEV", v: "5" }],
+        artifacts: ["Exploitation timeline", "Honeypot log analysis", "Pre-CVE detection report"],
+      },
+    ],
+    tree: `langflow-ai/langflow
+├── src/backend/langflow/
+│   ├── api/v1/
+│   │   └── validate.py       ← POST /validate/code (no auth)
+│   │       └── exec(body["code"])  ← direct taint sink
+│   ├── processing/process.py ← build_custom_component()
+│   └── auth/middleware.py    ← never applied to /validate
+└── Dockerfile`,
+    incident: true,
+    cve: "CVE-2025-3248",
+    severity: "CVSS 9.8",
+    date: "2025.05",
+    impact: "Full server compromise with zero credentials. Active exploitation within 4 hours of disclosure.",
+  },
+  "n8n-io/n8n": {
+    color: "#ec4899",
+    kind: "Auth Bypass + RCE",
+    language: "TypeScript",
+    desc: "A CVSS 10.0 vulnerability allowed Content-Type header manipulation to bypass authentication entirely — giving unauthenticated attackers access to all secrets, admin token forgery, and arbitrary command execution. Two additional CVEs in the same release scored 9.9.",
+    stack: ["TypeScript", "Node.js", "Docker"],
+    meta: [{ k: "CVE", v: "2026-21858" }, { k: "CVSS", v: "10.0" }, { k: "Related CVEs", v: "2 × 9.9" }, { k: "Auth required", v: "None" }],
+    pain: "The auth bypass required only a single manipulated HTTP header. Once bypassed, the Python Code Node provided direct RCE with zero sandboxing. The full chain from anonymous request to shell execution was 3 steps.",
+    outcome: "p0 traces the Content-Type parser through the auth middleware and detects the unhandled branch that falls to a legacy anonymous session with admin-level defaults. The Python Code Node execution path is separately flagged as an unsandboxed RCE vector.",
+    signals: ["Content-Type bypass in auth middleware", "Unhandled type → legacy admin session", "Secrets accessible without token", "Admin forgery via header", "Python Code Node unsandboxed"],
+    questions: [
+      {
+        ask: "How does Content-Type confusion bypass authentication?",
+        answerTitle: "Unhandled Content-Type falls through to legacy session with admin defaults",
+        answerSummary: "p0 traces the auth middleware: when Content-Type is neither 'application/json' nor 'multipart/form-data', the parser falls to a legacy code path that skips JWT validation and creates an anonymous session — which inherits admin-level defaults from a config that was never updated.",
+        answerBullets: ["Content-Type 'text/xml' hits unhandled parser branch", "Unhandled branch creates legacy anonymous session", "Legacy session inherits admin defaults from stale config"],
+        stats: [{ k: "Auth branches", v: "3 (1 unhandled)" }, { k: "Unhandled types", v: "∞" }, { k: "Legacy level", v: "Admin" }],
+        artifacts: ["Auth middleware flow trace", "Content-Type branch map", "Legacy session analysis"],
+      },
+      {
+        ask: "What secrets can an unauthenticated attacker extract?",
+        answerTitle: "All stored credentials — every integration token and API key",
+        answerSummary: "p0 maps the secrets accessible via the bypass session: GET /credentials returns all stored integration credentials in plaintext when invoked with the legacy anonymous session. No rate limiting or audit logging triggers.",
+        answerBullets: ["All stored creds returned by /credentials endpoint", "OAuth tokens, API keys, DB passwords, webhook secrets", "No rate limiting or anomaly detection triggered"],
+        stats: [{ k: "Cred types", v: "All" }, { k: "Rate limit", v: "None" }, { k: "Audit log", v: "Not triggered" }],
+        artifacts: ["Exposed credential list", "API endpoint trace", "Audit log gap report"],
+      },
+      {
+        ask: "How do CVE-2026-21858 and CVE-2025-68668 chain together?",
+        answerTitle: "Bypass → admin access → Python Node → shell — 3 steps, zero creds",
+        answerSummary: "p0 chains both CVEs: Content-Type bypass grants admin session (CVE-2026-21858), admin session unlocks Python Code Node, and the Node executes in the n8n process without sandboxing (CVE-2025-68668) — completing the chain from anonymous to RCE.",
+        answerBullets: ["Step 1: Content-Type bypass → implicit admin session", "Step 2: Admin session unlocks Python Code Node", "Step 3: Python Code Node → RCE as n8n process user"],
+        stats: [{ k: "Chain steps", v: "3" }, { k: "Auth required", v: "None" }, { k: "Sandbox", v: "None" }],
+        artifacts: ["Full exploit chain trace", "CVE correlation map", "RCE path diagram"],
+      },
+    ],
+    tree: `n8n-io/n8n
+├── packages/cli/src/
+│   ├── middlewares/
+│   │   └── auth.middleware.ts  ← Content-Type bypass here
+│   ├── controllers/
+│   │   └── credentials.ts      ← exposes all secrets
+│   └── nodes/Code/
+│       └── Code.node.ts        ← unsandboxed exec()
+└── docker-compose.yml`,
+    incident: true,
+    cve: "CVE-2026-21858",
+    severity: "CVSS 10.0",
+    date: "2026.01",
+    impact: "Full system takeover — all secrets, admin forgery, arbitrary RCE. Zero credentials required.",
+  },
+} as const satisfies Record<string, RepoData>;
+
 export type RepoName = keyof typeof REPOS;
 export const REPO_NAMES = Object.keys(REPOS) as RepoName[];
+export type IncidentName = keyof typeof INCIDENTS;
+export const INCIDENT_NAMES = Object.keys(INCIDENTS) as IncidentName[];

@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+/* ── p0 design tokens ── */
+:root {
+  --accent: #a78bfa;
+}
+
+@theme {
+  /* Paper — single deep tone, no gradients */
+  --color-paper: #0d0d12;
+  --color-paper-2: #111116;
+  --color-paper-3: #16161d;
+  --color-paper-4: #1c1c25;
+
+  /* Ink */
+  --color-ink: #e4e4e7;
+  --color-ink-2: #a1a1aa;
+  --color-ink-3: #71717a;
+  --color-ink-4: #52525b;
+
+  /* Lines */
+  --color-line: rgba(255,255,255,.06);
+  --color-line-2: rgba(255,255,255,.03);
+
+  /* Backward compat */
+  --color-surface-0: #0d0d12;
+  --color-surface-1: #111116;
+  --color-surface-2: #14141a;
+  --color-surface-3: #18181f;
+  --color-surface-4: #1e1e28;
+  --color-text-primary: #e4e4e7;
+  --color-text-secondary: #a1a1aa;
+  --color-text-muted: #71717a;
+  --color-border: rgba(255,255,255,.06);
+  --color-border-subtle: rgba(255,255,255,.03);
+  --color-border-glass: rgba(255,255,255,.08);
+
+  /* Risk */
+  --color-risk-critical: #f43f5e;
+  --color-risk-warning: #f59e0b;
+  --color-risk-caution: #eab308;
+  --color-risk-safe: #22c55e;
+  --color-risk-info: #818cf8;
+  --color-risk-dead: #3f3f46;
+
+  /* Brand — p0 violet */
+  --color-brand: #a78bfa;
+
+  /* Font */
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Body — flat dark, no fancy backgrounds ── */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: #0d0d12;
+  color: #e4e4e7;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Section label (// COMMENT style — p0 signature) ── */
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-brand);
+  opacity: 0.65;
+}
+
+/* ── Pill (subtle, IDE-friendly) ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #a1a1aa;
+  white-space: nowrap;
+}
+
+/* ── Scrollbar — minimal ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.06); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.12); }
+
+/* ── Selection ── */
+::selection { background: rgba(167,139,250,.25); }
+
+/* ── Focus ── */
+:focus-visible {
+  outline: 1.5px solid rgba(167,139,250,.5);
+  outline-offset: -1px;
+  border-radius: 2px;
+}
+
+/* ── Transitions ── */
+button, a, [role="button"] {
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+}
+
+/* ── CodeMirror ── */
+.cm-editor { height: 100% !important; }
+.cm-editor.cm-focused { outline: none !important; }
+.cm-scroller { font-variant-ligatures: contextual; }
+.cm-p0-gutter { width: 22px; }
