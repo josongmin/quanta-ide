@@ -301,6 +301,18 @@ html[data-aurora="void"] {
   transform: translateY(0);
   pointer-events: auto;
 }
+.aurora-panel[data-open="true"] {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.aurora-panel[data-open="false"] {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  pointer-events: none;
+}
 .aurora-panel-title {
   font-size: 0.65rem;
   font-weight: 700;

@@ -525,6 +525,17 @@ nav {
 }
 /* accent strip removed */
 
+.circuit-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.55;
+  z-index: 0;
+}
+
 /* ── Modal blobs ── */
 .repo-modal-blob {
   position: absolute;
@@ -630,7 +641,7 @@ nav {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-3);
-  padding-left: 2px;
+  padding: 0 2px 6px;
 }
 .repo-modal-content {
   display: flex;
@@ -703,16 +714,8 @@ nav {
   gap: 8px;
 }
 .repo-modal-tab-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-  color: var(--accent);
-  flex: 0 0 auto;
+  flex-shrink: 0;
+  opacity: 0.45;
 }
 .repo-modal-tab-kind {
   font-size: 0.64rem;
@@ -1021,6 +1024,7 @@ nav {
   border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   border-top: none;
   border-radius: 0 0 12px 12px;
+  overflow: hidden;
 }
 .repo-modal-preview-inner {
   display: flex;
@@ -1147,6 +1151,18 @@ nav {
   letter-spacing: -0.005em;
 }
 
+.repo-modal-tree-toggle {
+  font-size: 0.68rem;
+  color: var(--ink-3);
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 6px 0;
+}
+.repo-modal-tree-toggle:hover {
+  color: var(--ink-2);
+}
+
 /* ── Foot ── */
 .repo-modal-foot {
   flex: 0 0 auto;
@@ -1213,129 +1229,6 @@ nav {
   background: rgba(255,255,255,.06);
   border-color: rgba(255,255,255,.14);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
-}
-
-/* ── Incident Modal overrides ── */
-.incident-modal .repo-modal-status {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: #f87171;
-}
-.incident-modal .repo-modal-status-pulse {
-  background: #ef4444;
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
-}
-
-/* Severity badge */
-.incident-severity {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.incident-severity-critical {
-  background: rgba(239, 68, 68, 0.15);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: #f87171;
-}
-.incident-severity-high {
-  background: rgba(249, 115, 22, 0.15);
-  border: 1px solid rgba(249, 115, 22, 0.3);
-  color: #fb923c;
-}
-
-/* Incident date badge */
-.incident-date {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.62rem;
-  font-weight: 500;
-  color: var(--ink-3);
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(255,255,255,.04);
-  border: 1px solid var(--line);
-}
-
-/* How p0 catches section */
-.incident-catch-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--accent) 5%, var(--paper-2));
-  border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
-}
-.incident-catch-text {
-  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
-  font-size: 0.92rem;
-  font-weight: 300;
-  line-height: 1.7;
-  color: var(--ink-2);
-  letter-spacing: -0.01em;
-}
-
-/* Impact card */
-.incident-impact-card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 12px;
-  background: rgba(239, 68, 68, 0.06);
-  border: 1px solid rgba(239, 68, 68, 0.12);
-}
-.incident-impact-text {
-  font-size: 0.86rem;
-  font-weight: 400;
-  line-height: 1.55;
-  color: #fca5a5;
-}
-
-/* Tab severity dot in sidebar */
-.incident-tab-severity {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.56rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-.incident-tab-severity-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ef4444;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
-}
-
-/* Incident trigger button */
-.incident-trigger {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(239, 68, 68, 0.08);
-  color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  border-radius: 999px;
-  padding: 7px 14px;
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  cursor: pointer;
-  transition: background 0.18s, border-color 0.18s, transform 0.15s;
-}
-.incident-trigger:hover {
-  background: rgba(239, 68, 68, 0.14);
-  border-color: rgba(239, 68, 68, 0.35);
-  transform: translateY(-1px);
 }
 
 /* ── Mobile ── */
@@ -1443,3 +1336,7 @@ nav {
     justify-content: center;
   }
 }
+
+.repo-modal-content-anim { display: contents; }
+.repo-modal-tree-hash { color: var(--ink-3); }
+.repo-modal-placeholder { color: var(--ink-3); font-size: 0.88rem; }

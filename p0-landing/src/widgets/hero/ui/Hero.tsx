@@ -1,11 +1,7 @@
-import { useRepoStore } from "@/app/stores/useRepoStore";
-import { useModalStore } from "@/app/stores/useModalStore";
-import { REPOS } from "@/entities/repo/model/data";
+import { useRepoSelection } from "@/shared/hooks/useRepoSelection";
 
 export function Hero() {
-  const { current } = useRepoStore();
-  const { open } = useModalStore();
-  const repo = REPOS[current];
+  const { current, open, repo } = useRepoSelection();
 
   return (
     <main className="hero" id="hero">

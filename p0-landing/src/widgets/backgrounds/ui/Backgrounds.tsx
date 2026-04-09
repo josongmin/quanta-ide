@@ -1,5 +1,4 @@
-import { useInteractiveDots } from "@/shared/hooks/useInteractiveDots";
-import { usePointerGlow } from "@/shared/hooks/usePointerGlow";
+import { useInteractiveDots, usePointerGlow } from "@/shared/hooks";
 
 export function Backgrounds() {
   const canvasRef = useInteractiveDots();

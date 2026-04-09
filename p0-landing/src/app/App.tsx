@@ -1,8 +1,8 @@
-import { Backgrounds } from "@/widgets/backgrounds/ui/Backgrounds";
-import { Nav } from "@/widgets/nav/ui/Nav";
-import { Hero } from "@/widgets/hero/ui/Hero";
-import { PromptCard } from "@/features/prompt-card/ui/PromptCard";
-import { RepoModal } from "@/features/repo-modal/ui/RepoModal";
+import { Backgrounds } from "@/widgets/backgrounds";
+import { Nav } from "@/widgets/nav";
+import { Hero } from "@/widgets/hero";
+import { PromptCard } from "@/features/prompt-card";
+import { RepoModal } from "@/features/repo-modal";
 
 export function App() {
   return (
