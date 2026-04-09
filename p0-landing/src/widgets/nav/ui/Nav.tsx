@@ -1,5 +1,5 @@
-import { useThemeStore } from "@/entities/theme";
 import { useEffect } from "react";
+import { useThemeStore } from "@/entities/theme";
 import { AuroraPicker } from "./AuroraPicker";
 
 export function Nav() {

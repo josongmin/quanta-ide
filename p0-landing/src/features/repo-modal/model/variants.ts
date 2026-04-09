@@ -11,7 +11,7 @@ export const MODAL_SHELL = {
   initial: { y: 10, scale: 0.985 },
   animate: { y: 0, scale: 1 },
   exit: { y: 10, scale: 0.985 },
-  transition: { duration: 0.26, ease: [0.2, 0.85, 0.2, 1] },
+  transition: { duration: 0.26, ease: [0.2, 0.85, 0.2, 1] as const },
 };
 
 export const crossfade = {

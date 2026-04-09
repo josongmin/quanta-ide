@@ -1,5 +1,5 @@
 import { useRepoStore, REPOS } from "@/entities/repo";
-import { useModalStore } from "@/features/repo-modal/model/useModalStore";
+import { useModalStore } from "./useModalStore";
 
 export function useRepoSelection() {
   const { current, setCurrent } = useRepoStore();

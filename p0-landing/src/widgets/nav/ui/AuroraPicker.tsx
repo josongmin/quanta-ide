@@ -1,5 +1,5 @@
-import { useThemeStore, AURORA_PRESETS } from "@/entities/theme";
 import { useState, useRef } from "react";
+import { useThemeStore, AURORA_PRESETS } from "@/entities/theme";
 import { useEscapeKey, useClickOutside } from "@/shared/hooks";
 
 export function AuroraPicker() {
@@ -7,16 +7,17 @@ export function AuroraPicker() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEscapeKey(open, () => setOpen(false));
-  useClickOutside(ref, open, () => setOpen(false));
+  useEscapeKey(open, () => { setOpen(false); });
+  useClickOutside(ref, open, () => { setOpen(false); });
 
   return (
     <div className="aurora-picker" ref={ref}>
-      {open && <div className="aurora-backdrop is-open" onClick={() => setOpen(false)} />}
-      <button type="button" className="aurora-trigger" data-aurora={aurora} onClick={() => setOpen(!open)} aria-expanded={open}>
+      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- decorative backdrop */}
+      {open && <div className="aurora-backdrop is-open" onClick={() => { setOpen(false); }} />}
+      <button type="button" className="aurora-trigger" data-aurora={aurora} onClick={() => { setOpen(!open); }} aria-expanded={open}>
         <span className="aurora-trigger-dot" />
         <span className="aurora-trigger-text">Palette</span>
-        <svg className={`aurora-trigger-chevron${open ? " rotate-180" : ""}`} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+        <svg className="aurora-trigger-chevron" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
       </button>
       <div className="aurora-panel" data-open={open}>
         <p className="aurora-panel-title">Choose palette</p>

@@ -29,10 +29,6 @@ body {
   letter-spacing: -0.02em;
 }
 
-/* Hide everything below the hero — single-screen mode */
-.scene,
-.cta-section { display: none !important; }
-
 /* ── Page wrapper ── */
 .page {
   position: relative;

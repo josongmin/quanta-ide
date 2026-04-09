@@ -1,4 +1,4 @@
-import { useRepoSelection } from "@/shared/hooks/useRepoSelection";
+import { useRepoSelection } from "@/features/repo-modal/model/useRepoSelection";
 
 export function Hero() {
   const { current, open, repo } = useRepoSelection();

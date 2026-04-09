@@ -269,7 +269,7 @@ html[data-aurora="void"] {
   opacity: 0.55;
   transition: transform 0.2s ease;
 }
-.aurora-picker.is-open .aurora-trigger-chevron { transform: rotate(180deg); }
+.aurora-trigger[aria-expanded="true"] .aurora-trigger-chevron { transform: rotate(180deg); }
 
 .aurora-panel[hidden] { display: none !important; }
 .aurora-panel {
@@ -295,23 +295,11 @@ html[data-aurora="void"] {
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
 }
-.aurora-picker.is-open .aurora-panel {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-  pointer-events: auto;
-}
 .aurora-panel[data-open="true"] {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
   pointer-events: auto;
-}
-.aurora-panel[data-open="false"] {
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-6px);
-  pointer-events: none;
 }
 .aurora-panel-title {
   font-size: 0.65rem;

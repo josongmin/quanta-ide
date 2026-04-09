@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 
 export function CountUp({ value, duration = 0.7 }: { value: string; duration?: number }) {
-  const [display, setDisplay] = useState(value);
+  const spanRef = useRef<HTMLSpanElement>(null);
   const rafRef = useRef(0);
   const prevRef = useRef(value);
 
   useEffect(() => {
+    const span = spanRef.current;
+    if (!span) return;
+
     const prev = prevRef.current;
     prevRef.current = value;
 
     const extract = (s: string) => {
-      const m = s.match(/^([0-9][0-9,]*\.?\d*)/);
+      const m = /^([0-9][0-9,]*\.?\d*)/.exec(s);
       if (!m) return null;
       const suffix = s.slice(m[0].length);
       const num = parseFloat(m[0].replace(/,/g, ""));
@@ -23,7 +26,7 @@ export function CountUp({ value, duration = 0.7 }: { value: string; duration?: n
     const to = extract(value);
 
     if (!from || !to || from.num === to.num) {
-      setDisplay(value);
+      span.textContent = value;
       return;
     }
 
@@ -40,13 +43,13 @@ export function CountUp({ value, duration = 0.7 }: { value: string; duration?: n
     const tick = (now: number) => {
       const t = Math.min((now - start) / (duration * 1000), 1);
       const ease = 1 - Math.pow(1 - t, 3);
-      setDisplay(fmt(from.num + (to.num - from.num) * ease));
+      span.textContent = fmt(from.num + (to.num - from.num) * ease);
       if (t < 1) rafRef.current = requestAnimationFrame(tick);
     };
 
     rafRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafRef.current);
+    return () => { cancelAnimationFrame(rafRef.current); };
   }, [value, duration]);
 
-  return <>{display}</>;
+  return <span ref={spanRef}>{value}</span>;
 }

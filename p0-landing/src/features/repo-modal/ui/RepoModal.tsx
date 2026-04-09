@@ -1,23 +1,30 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEscapeKey } from "@/shared/hooks";
-import { useRepoSelection } from "@/shared/hooks/useRepoSelection";
 import { REPOS, REPO_NAMES, type RepoName } from "@/entities/repo";
-import { CircuitCanvas } from "./CircuitCanvas";
 import { CountUp } from "@/shared/ui";
+import { useRepoSelection } from "../model/useRepoSelection";
 import { getSignalTooltip } from "../model/signal-tooltips";
 import { crossfade, EASE_SMOOTH, MODAL_FADE, MODAL_SHELL } from "../model/variants";
+import { CircuitCanvas } from "./CircuitCanvas";
 
 export function RepoModal() {
   const { isOpen, close, current, setCurrent } = useRepoSelection();
+
+  return (
+    <AnimatePresence>
+      {isOpen && <RepoModalContent close={close} current={current} setCurrent={setCurrent} />}
+    </AnimatePresence>
+  );
+}
+
+function RepoModalContent({ close, current, setCurrent }: { close: () => void; current: RepoName; setCurrent: (n: RepoName) => void }) {
   const [local, setLocal] = useState<RepoName>(current);
   const [activeQuestion, setActiveQuestion] = useState(0);
   const [treeExpanded, setTreeExpanded] = useState(false);
   const seedsRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { if (isOpen) setLocal(current); }, [isOpen, current]);
-  useEffect(() => { setActiveQuestion(0); setTreeExpanded(false); }, [local]);
-  useEscapeKey(isOpen, close);
+  useEscapeKey(true, close);
 
   const handleSeedKeyDown = useCallback((e: React.KeyboardEvent<HTMLButtonElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
@@ -30,16 +37,19 @@ export function RepoModal() {
     const next = e.key === "ArrowDown"
       ? buttons[(idx + 1) % buttons.length]
       : buttons[(idx - 1 + buttons.length) % buttons.length];
-    next?.focus();
+    next.focus();
   }, []);
 
-  const pick = (n: RepoName) => { setLocal(n); setCurrent(n); };
+  const pick = (n: RepoName) => {
+    setLocal(n);
+    setCurrent(n);
+    setActiveQuestion(0);
+    setTreeExpanded(false);
+  };
   const data = REPOS[local];
   const preview = data.questions[activeQuestion] ?? data.questions[0];
 
   return (
-    <AnimatePresence>
-      {isOpen && (
         <motion.div className="repo-modal is-open" role="dialog" aria-modal="true"
           {...MODAL_FADE}>
           <motion.div className="repo-modal-backdrop" onClick={close} />
@@ -57,7 +67,7 @@ export function RepoModal() {
                       {REPO_NAMES.map((n, i) => {
                         const repo = REPOS[n];
                         return (
-                        <motion.button key={n} type="button" className={`repo-modal-tab${n === local ? " is-active" : ""}`} onClick={() => pick(n)}
+                        <motion.button key={n} type="button" className={`repo-modal-tab${n === local ? " is-active" : ""}`} onClick={() => { pick(n); }}
                           initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: i * 0.04, ease: EASE_SMOOTH }}>
                           <div className="repo-modal-tab-topline">
                             <span className="repo-modal-tab-kind">{repo.kind}</span>
@@ -71,7 +81,9 @@ export function RepoModal() {
                           <div className="repo-modal-tab-path">{repo.tree.split("\n").slice(1, 4).map((line) => line.replace(/^[│├└─\s]+/, "").replace(/\/$/, "")).join("  /  ")}</div>
                           <div className="repo-modal-tab-meta">
                             <span>{repo.language}</span>
+                            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: meta array may be sparse */}
                             <span>{repo.meta.find((item) => item.k === "Lines")?.v ?? repo.meta[1]?.v} LoC</span>
+                            {/* eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- defensive: meta array may be sparse */}
                             <span>{repo.meta[0]?.v} {repo.meta[0]?.k}</span>
                           </div>
                         </motion.button>
@@ -120,7 +132,7 @@ export function RepoModal() {
                         const isActive = index === activeQuestion;
                         return (
                           <div key={question.ask} className="repo-modal-accordion">
-                            <button type="button" className={`repo-modal-seed${isActive ? " is-active" : ""}`} onClick={() => setActiveQuestion(index)} onKeyDown={handleSeedKeyDown}>
+                            <button type="button" className={`repo-modal-seed${isActive ? " is-active" : ""}`} onClick={() => { setActiveQuestion(index); }} onKeyDown={handleSeedKeyDown}>
                               {question.ask}
                             </button>
                             <AnimatePresence>
@@ -167,7 +179,7 @@ export function RepoModal() {
                       <button
                         type="button"
                         className="repo-modal-tree-toggle"
-                        onClick={() => setTreeExpanded((v) => !v)}
+                        onClick={() => { setTreeExpanded((v) => !v); }}
                         aria-expanded={treeExpanded}
                       >
                         {treeExpanded ? "Show less" : "Show more"}
@@ -194,7 +206,5 @@ export function RepoModal() {
             </footer>
           </motion.div>
         </motion.div>
-      )}
-    </AnimatePresence>
   );
 }

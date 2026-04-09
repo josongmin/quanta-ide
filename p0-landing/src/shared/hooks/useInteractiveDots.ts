@@ -10,9 +10,6 @@ const PULL_RATIO = 0.6;
 const DOT_R = 0.9;
 const BASE_ALPHA = 0.38;
 const BOOST = 0.7;
-const IDLE_MS = 1600;
-const IDLE_SMOOTH = 0.032;
-
 export function useInteractiveDots() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const s = useRef({
@@ -20,7 +17,7 @@ export function useInteractiveDots() {
     mouse: { x: 0, y: 0 },
     target: { x: 0, y: 0 },
     lastClient: { x: 0, y: 0 },
-    lastMove: performance.now(),
+    lastMove: 0,
     waveTime: 0,
     idleBlend: 0,
     pointerInside: true,
@@ -37,8 +34,8 @@ export function useInteractiveDots() {
     const cols = Math.ceil(c.width / SPACING) + 1;
     const rows = Math.ceil(c.height / SPACING) + 1;
     for (let r = 0; r < rows; r++)
-      for (let col = 0; col < cols; col++)
-        st.dots.push({ bx: col * SPACING, by: r * SPACING });
+      {for (let col = 0; col < cols; col++)
+        {st.dots.push({ bx: col * SPACING, by: r * SPACING });}}
     // center pointer on init
     const cx = c.width * 0.5, cy = c.height * 0.5;
     st.mouse.x = cx; st.mouse.y = cy;
@@ -54,7 +51,7 @@ export function useInteractiveDots() {
     const st = s.current;
     buildGrid();
 
-    const onResize = () => buildGrid();
+    const onResize = () => { buildGrid(); };
     const onMove = (e: MouseEvent) => {
       st.target.x = e.clientX; st.target.y = e.clientY;
       st.lastClient.x = e.clientX; st.lastClient.y = e.clientY;

@@ -2,9 +2,9 @@ import { useEffect, useRef } from "react";
 
 const PULSE_COLORS = ["rgba(139,92,246,", "rgba(99,102,241,", "rgba(167,139,250,", "rgba(196,181,253,"];
 
-type Node = { x: number; y: number };
-type Edge = { a: Node; b: Node };
-type Pulse = { edge: Edge; t: number; speed: number; color: string };
+interface Node { x: number; y: number }
+interface Edge { a: Node; b: Node }
+interface Pulse { edge: Edge; t: number; speed: number; color: string }
 
 export function CircuitCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
