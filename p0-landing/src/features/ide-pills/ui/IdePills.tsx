@@ -1,5 +1,8 @@
+import { useTranslation } from "react-i18next";
+
 export interface Pill {
-  label: string;
+  pillKey: string;
+  pillParams?: Record<string, string | number>;
   risk?: 1 | 2 | 3 | "hot";
 }
 
@@ -8,11 +11,12 @@ interface IdePillsProps {
 }
 
 export function IdePills({ items }: IdePillsProps) {
+  const { t } = useTranslation();
   return (
     <div className="ide-pills">
       {items.map((p) => (
-        <span key={p.label} className="ide-pill" data-risk={p.risk ?? 1}>
-          {p.label}
+        <span key={p.pillKey} className="ide-pill" data-risk={p.risk ?? 1}>
+          {t(`ide.pills.${p.pillKey}`, p.pillParams ?? {})}
         </span>
       ))}
     </div>

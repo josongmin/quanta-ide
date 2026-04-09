@@ -1,7 +1,9 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useRiskDrawer, RISK_BREAKDOWN, RISK_HISTORY, RISK_RECENT } from "../model/useRiskDrawer";
 
 export function RiskDrawer() {
+  const { t } = useTranslation();
   const { isOpen, close } = useRiskDrawer();
 
   useEffect(() => {
@@ -34,8 +36,8 @@ export function RiskDrawer() {
       <div className="rdw-backdrop" onClick={close} />
       <aside className="rdw-panel" role="dialog" aria-modal="true">
         <header className="rdw-head">
-          <div className="rdw-head-label">// SYSTEM RISK</div>
-          <button type="button" className="rdw-close" onClick={close} aria-label="Close">
+          <div className="rdw-head-label">{t("ide.risk.head")}</div>
+          <button type="button" className="rdw-close" onClick={close} aria-label={t("ide.risk.closeAria")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <line x1="6" y1="6" x2="18" y2="18" />
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -48,18 +50,18 @@ export function RiskDrawer() {
             <div className="rdw-score">
               <div className="rdw-score-num">78</div>
               <div className="rdw-score-meta">
-                <div className="rdw-score-label">Risk Score</div>
-                <div className="rdw-score-state">above warning threshold (80)</div>
+                <div className="rdw-score-label">{t("ide.risk.scoreLabel")}</div>
+                <div className="rdw-score-state">{t("ide.risk.scoreState")}</div>
               </div>
             </div>
           </section>
 
           <section className="rdw-section">
-            <div className="rdw-section-label">Breakdown</div>
+            <div className="rdw-section-label">{t("ide.risk.breakdown")}</div>
             <div className="rdw-breakdown">
               {RISK_BREAKDOWN.map((b) => (
-                <div key={b.k} className="rdw-bar-row">
-                  <div className="rdw-bar-k">{b.k}</div>
+                <div key={b.kKey} className="rdw-bar-row">
+                  <div className="rdw-bar-k">{t(`ide.risk.${b.kKey}`)}</div>
                   <div className="rdw-bar-track">
                     <div
                       className="rdw-bar-fill"
@@ -73,7 +75,7 @@ export function RiskDrawer() {
           </section>
 
           <section className="rdw-section">
-            <div className="rdw-section-label">Last 7 days</div>
+            <div className="rdw-section-label">{t("ide.risk.last7")}</div>
             <div className="rdw-spark-wrap">
               <svg
                 viewBox={`0 0 ${W.toString()} ${H.toString()}`}
@@ -102,18 +104,18 @@ export function RiskDrawer() {
               </svg>
               <div className="rdw-spark-meta">
                 <span>{min}</span>
-                <span>peak {max}</span>
+                <span>{t("ide.risk.peak", { n: max })}</span>
               </div>
             </div>
           </section>
 
           <section className="rdw-section">
-            <div className="rdw-section-label">Recent Changes</div>
+            <div className="rdw-section-label">{t("ide.risk.recent")}</div>
             <div className="rdw-recent">
               {RISK_RECENT.map((r, i) => (
                 <div key={i} className="rdw-recent-row">
                   <span className={`rdw-delta${r.delta.startsWith("−") ? " is-down" : ""}`}>{r.delta}</span>
-                  <span className="rdw-recent-reason">{r.reason}</span>
+                  <span className="rdw-recent-reason">{t(`ide.risk.${r.reasonKey}`)}</span>
                 </div>
               ))}
             </div>

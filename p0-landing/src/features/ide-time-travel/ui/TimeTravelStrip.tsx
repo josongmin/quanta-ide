@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { SNAPSHOTS, useTimeTravel, type Snapshot } from "../model/useTimeTravel";
 
 export function TimeTravelStrip() {
+  const { t } = useTranslation();
   const { isOpen, close, selectedId, select } = useTimeTravel();
   const [hovered, setHovered] = useState<Snapshot | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { close(); }
+      if (e.key === "Escape") { e.preventDefault(); close(); }
     };
     window.addEventListener("keydown", handler);
     return () => { window.removeEventListener("keydown", handler); };
@@ -22,7 +24,7 @@ export function TimeTravelStrip() {
   return (
     <div className="tt-root">
       <div className="tt-strip">
-        <div className="tt-label">// TIME TRAVEL</div>
+        <div className="tt-label">{t("ide.timeTravel.banner")}</div>
 
         <div className="tt-track">
           <div className="tt-track-line" />
@@ -48,14 +50,14 @@ export function TimeTravelStrip() {
         </div>
 
         <div className="tt-meta">
-          <span className="tt-meta-k">Blast</span>
+          <span className="tt-meta-k">{t("ide.metrics.blast")}</span>
           <span className="tt-meta-v">{selected.blast}</span>
           <span className="tt-meta-sep">·</span>
-          <span className="tt-meta-k">Taint</span>
+          <span className="tt-meta-k">{t("ide.metrics.taint")}</span>
           <span className="tt-meta-v">{selected.taint}</span>
         </div>
 
-        <button type="button" className="tt-close" onClick={close} aria-label="Close timeline">
+        <button type="button" className="tt-close" onClick={close} aria-label={t("ide.timeTravel.closeAria")}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
             <line x1="6" y1="6" x2="18" y2="18" />
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -67,11 +69,11 @@ export function TimeTravelStrip() {
         <div className="tt-tooltip">
           <div className="tt-tooltip-head">{hovered.label}</div>
           <div className="tt-tooltip-row">
-            <span className="tt-tooltip-k">Blast</span>
+            <span className="tt-tooltip-k">{t("ide.metrics.blast")}</span>
             <span className="tt-tooltip-v">{hovered.blast}</span>
           </div>
           <div className="tt-tooltip-row">
-            <span className="tt-tooltip-k">Taint</span>
+            <span className="tt-tooltip-k">{t("ide.metrics.taint")}</span>
             <span className="tt-tooltip-v">{hovered.taint}</span>
           </div>
           {hovered.commits.map((c) => (

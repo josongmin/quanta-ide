@@ -1,6 +1,8 @@
 import type { ReactNode, MouseEvent as ReactMouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { useEditorHover, type LineContext, type SymbolInfo } from "@/features/ide-editor-hover";
 import { useFlowTrace } from "@/features/ide-flow-trace";
+import { useInspectorContext } from "@/features/ide-inspector-context";
 
 export interface CodeLine {
   no: number;
@@ -23,6 +25,7 @@ interface IdeEditorProps {
 }
 
 export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impactBanner, onTabClick, onTabClose }: IdeEditorProps) {
+  const { t } = useTranslation();
   const setLine = useEditorHover((s) => s.setLine);
   const setSymbol = useEditorHover((s) => s.setSymbol);
   const hoveredLineNo = useEditorHover((s) => s.hoveredLine?.lineNo);
@@ -63,9 +66,16 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
               <span
                 className="ide-editor-tab-close"
                 role="button"
-                tabIndex={-1}
+                tabIndex={0}
+                aria-label={t("ide.editor.closeTabNamed", { name: tab.name })}
                 onClick={(e) => { e.stopPropagation(); onTabClose(tab.name); }}
-                onKeyDown={() => undefined}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onTabClose(tab.name);
+                  }
+                }}
               >
                 ×
               </span>
@@ -144,6 +154,8 @@ function SymbolizedCode({
  */
 export function HoverSymbol({ info, children }: { info: SymbolInfo; children: ReactNode }) {
   const setSymbol = useEditorHover((s) => s.setSymbol);
+  const { context, setSymbolContext } = useInspectorContext();
+  const currentFileName = context.mode === "file" ? context.fileName : context.fileName;
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- mouse-only symbol info
     <span
@@ -153,6 +165,22 @@ export function HoverSymbol({ info, children }: { info: SymbolInfo; children: Re
         setSymbol({ info, x: rect.left, y: rect.bottom });
       }}
       onMouseLeave={() => { setSymbol(null); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (info.kind === "function") {
+          setSymbolContext({
+            name: info.name,
+            kind: info.kind,
+            taint: info.taint,
+            callers: info.callers,
+            complexity: info.complexity,
+            blame: info.blame,
+            origin: info.origin,
+            flowsTo: info.flowsTo,
+            fileName: currentFileName,
+          });
+        }
+      }}
     >
       {children}
     </span>

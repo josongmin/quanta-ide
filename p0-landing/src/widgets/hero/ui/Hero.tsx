@@ -1,23 +1,29 @@
+import { useTranslation } from "react-i18next";
 import { useRepoSelection } from "@/features/repo-modal/model/useRepoSelection";
 
 export function Hero() {
+  const { t } = useTranslation();
   const { current, open, repo } = useRepoSelection();
 
   return (
     <main className="hero" id="hero">
       <div className="hero-copy">
         <h1>
-          Stop explaining your codebase.
+          {t("landing.hero.line1")}
           <br />
-          <span className="hero-line2">Let <em>p0</em> read it.</span>
+          <span className="hero-line2">
+            {t("landing.hero.line2a")}
+            <em>p0</em>
+            {t("landing.hero.line2b")}
+          </span>
         </h1>
         <p className="sub">
-          Every other agent starts from a blank slate. p0 starts from your system.
+          {t("landing.hero.sub1")}
           <br />
-          No ticket-writing. No context dumps. Just results that hold together.
+          {t("landing.hero.sub2")}
         </p>
         <div className="repo-select">
-          <span className="repo-select-label">Stress test p0 on</span>
+          <span className="repo-select-label">{t("landing.hero.repoLabel")}</span>
           <button type="button" className="repo-select-trigger" onClick={open} aria-haspopup="dialog">
             <span className="repo-select-dot" style={{ "--dot": repo.color } as React.CSSProperties} />
             <span className="repo-select-name">{current}</span>

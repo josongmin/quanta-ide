@@ -1,4 +1,5 @@
 import { useMemo, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { BLAST_NODES, type BlastNode } from "../model/blast-data";
 
 interface PositionedNode extends BlastNode {
@@ -43,10 +44,12 @@ function layoutNodes(nodes: BlastNode[]): PositionedNode[] {
 }
 
 interface BlastRadiusVizProps {
+  centerLabel?: string;
   onNodeClick?: (label: string) => void;
 }
 
-export function BlastRadiusViz({ onNodeClick }: BlastRadiusVizProps = {}) {
+export function BlastRadiusViz({ centerLabel = "processRefund", onNodeClick }: BlastRadiusVizProps = {}) {
+  const { t } = useTranslation();
   const [hovered, setHovered] = useState<PositionedNode | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const nodes = useMemo(() => layoutNodes(BLAST_NODES), []);
@@ -63,15 +66,15 @@ export function BlastRadiusViz({ onNodeClick }: BlastRadiusVizProps = {}) {
     <div className="brviz">
       <div className="brviz-stats">
         <div className="brviz-stat">
-          <span className="brviz-stat-k">Total</span>
+          <span className="brviz-stat-k">{t("ide.blastViz.total")}</span>
           <span className="brviz-stat-v">{total}</span>
         </div>
         <div className="brviz-stat">
-          <span className="brviz-stat-k">Direct</span>
+          <span className="brviz-stat-k">{t("ide.blastViz.direct")}</span>
           <span className="brviz-stat-v">{direct}</span>
         </div>
         <div className="brviz-stat">
-          <span className="brviz-stat-k">Hot path</span>
+          <span className="brviz-stat-k">{t("ide.blastViz.hotPath")}</span>
           <span className="brviz-stat-v">{hot}</span>
         </div>
       </div>
@@ -128,6 +131,12 @@ export function BlastRadiusViz({ onNodeClick }: BlastRadiusVizProps = {}) {
             return (
               <g
                 key={n.id}
+                role="button"
+                aria-label={t("ide.blastViz.nodeAria", {
+                  label: n.label,
+                  n: n.ring,
+                  hot: n.hot === true ? t("ide.blastViz.hotSuffix") : "",
+                })}
                 onMouseEnter={() => { setHovered(n); }}
                 onMouseLeave={() => { setHovered(null); }}
                 onClick={() => { handleNodeClick(n); }}
@@ -164,7 +173,7 @@ export function BlastRadiusViz({ onNodeClick }: BlastRadiusVizProps = {}) {
           <circle cx={CENTER} cy={CENTER} r="4" fill="var(--paper)" />
         </svg>
 
-        <div className="brviz-center-label">processRefund</div>
+        <div className="brviz-center-label">{centerLabel}</div>
 
         {hovered && (
           <div
@@ -176,8 +185,8 @@ export function BlastRadiusViz({ onNodeClick }: BlastRadiusVizProps = {}) {
           >
             <div className="brviz-tooltip-name">{hovered.label}</div>
             <div className="brviz-tooltip-meta">
-              ring {hovered.ring}
-              {hovered.hot === true && <> · hot</>}
+              {t("ide.blastViz.tooltipRing", { n: hovered.ring })}
+              {hovered.hot === true && <> · {t("ide.blastViz.hot")}</>}
               {hovered.tag && <> · {hovered.tag}</>}
             </div>
           </div>
@@ -185,9 +194,9 @@ export function BlastRadiusViz({ onNodeClick }: BlastRadiusVizProps = {}) {
       </div>
 
       <div className="brviz-legend">
-        <span className="brviz-legend-item"><i className="brviz-dot brviz-dot-3" /> direct</span>
-        <span className="brviz-legend-item"><i className="brviz-dot brviz-dot-2" /> transitive</span>
-        <span className="brviz-legend-item"><i className="brviz-dot brviz-dot-1" /> distant</span>
+        <span className="brviz-legend-item"><i className="brviz-dot brviz-dot-3" /> {t("ide.blastViz.legendDirect")}</span>
+        <span className="brviz-legend-item"><i className="brviz-dot brviz-dot-2" /> {t("ide.blastViz.legendTransitive")}</span>
+        <span className="brviz-legend-item"><i className="brviz-dot brviz-dot-1" /> {t("ide.blastViz.legendDistant")}</span>
       </div>
     </div>
   );

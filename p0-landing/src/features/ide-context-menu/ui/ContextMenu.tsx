@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { dispatchCommand } from "@/features/ide-command-palette/model/dispatcher";
 import { CONTEXT_ITEMS, useContextMenu } from "../model/useContextMenu";
 
 export function ContextMenu() {
+  const { t } = useTranslation();
   const { isOpen, x, y, hoveredId, close, setHovered } = useContextMenu();
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -49,6 +51,8 @@ export function ContextMenu() {
               type="button"
               className={`ctxmenu-row${isHovered ? " is-active" : ""}`}
               role="menuitem"
+              aria-label={`${t(item.labelKey)}${item.shortcut !== undefined ? ` (${item.shortcut})` : ""}`}
+              data-active={isHovered}
               onMouseEnter={() => { setHovered(item.id); }}
               onMouseLeave={() => { setHovered(null); }}
               onClick={() => {
@@ -56,7 +60,7 @@ export function ContextMenu() {
                 dispatchCommand(item.id);
               }}
             >
-              <span className="ctxmenu-label">{item.label}</span>
+              <span className="ctxmenu-label">{t(item.labelKey)}</span>
               {item.shortcut && <span className="ctxmenu-kbd">{item.shortcut}</span>}
             </button>
           );
@@ -65,7 +69,7 @@ export function ContextMenu() {
 
       {ghost && (
         <div className="ctxmenu-ghost" style={{ left: left + menuW + 8, top }}>
-          <div className="ctxmenu-ghost-title">Preview</div>
+          <div className="ctxmenu-ghost-title">{t("ide.ctx.preview")}</div>
           <pre className="ctxmenu-ghost-code">
             <span className="ctxmenu-ghost-dim">{ghost.before}</span>
             {"\n"}

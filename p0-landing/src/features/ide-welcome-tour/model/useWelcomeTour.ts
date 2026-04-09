@@ -20,42 +20,15 @@ function markSeen(): void {
 
 export interface TourStep {
   target: "topbar" | "files" | "editor" | "inspector" | "command";
-  title: string;
-  body: string;
   position: "bottom-left" | "bottom-right" | "right" | "left" | "center";
 }
 
 export const TOUR_STEPS: TourStep[] = [
-  {
-    target: "topbar",
-    title: "System risk at a glance",
-    body: "Risk score updates as you edit. Click to drill into what's driving it.",
-    position: "bottom-right",
-  },
-  {
-    target: "files",
-    title: "Risk lives in the tree",
-    body: "Files show issue counts before you open them. Hot paths are first.",
-    position: "right",
-  },
-  {
-    target: "editor",
-    title: "Hover any line",
-    body: "Get instant context. Hover variables for taint flow, complexity, blame.",
-    position: "right",
-  },
-  {
-    target: "inspector",
-    title: "Inspector is the brain",
-    body: "Blast radius, call graph, data flow, and one-click fixes — all live.",
-    position: "left",
-  },
-  {
-    target: "command",
-    title: "Press ⌘K to ask anything",
-    body: "Simulate changes, find taint paths, suggest refactors. Ask in plain English.",
-    position: "center",
-  },
+  { target: "topbar", position: "bottom-right" },
+  { target: "files", position: "right" },
+  { target: "editor", position: "right" },
+  { target: "inspector", position: "left" },
+  { target: "command", position: "center" },
 ];
 
 interface TourState {

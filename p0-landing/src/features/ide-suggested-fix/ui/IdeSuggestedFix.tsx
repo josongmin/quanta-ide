@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 interface IdeSuggestedFixProps {
   title: string;
@@ -9,6 +10,7 @@ interface IdeSuggestedFixProps {
 }
 
 export function IdeSuggestedFix({ title, code, meta, onApply, onDismiss }: IdeSuggestedFixProps) {
+  const { t } = useTranslation();
   return (
     <div className="ide-fix">
       <div className="ide-fix-title">{title}</div>
@@ -23,10 +25,10 @@ export function IdeSuggestedFix({ title, code, meta, onApply, onDismiss }: IdeSu
       </div>
       <div className="ide-fix-actions">
         <button type="button" className="ide-btn" onClick={onDismiss}>
-          Dismiss<span className="ide-btn-key">⎋</span>
+          {t("ide.suggestedFix.dismiss")}<span className="ide-btn-key">⎋</span>
         </button>
         <button type="button" className="ide-btn is-primary" onClick={onApply}>
-          Apply<span className="ide-btn-key">⏎</span>
+          {t("ide.suggestedFix.apply")}<span className="ide-btn-key">⏎</span>
         </button>
       </div>
     </div>

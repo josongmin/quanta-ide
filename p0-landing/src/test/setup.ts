@@ -1,6 +1,9 @@
 import "@testing-library/jest-dom/vitest";
+import { beforeAll } from "vitest";
 
-// Mock matchMedia for jsdom
+window.scrollTo = () => undefined;
+
+// Mock matchMedia for the DOM test environment
 Object.defineProperty(window, "matchMedia", {
   writable: true,
   value: (query: string) => ({
@@ -30,3 +33,8 @@ Object.defineProperty(window, "localStorage", {
 
 // Mock canvas getContext
 HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
+
+beforeAll(async () => {
+  const { default: i18n } = await import("@/i18n/i18n");
+  await i18n.changeLanguage("en");
+});

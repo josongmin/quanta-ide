@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import { SNAPSHOTS, useTimeTravel } from "../model/useTimeTravel";
 
 export function TimeTravelCompare() {
+  const { t } = useTranslation();
   const { isOpen, selectedId } = useTimeTravel();
   if (!isOpen) return null;
 
@@ -14,12 +16,12 @@ export function TimeTravelCompare() {
   return (
     <div className="ttcmp">
       <div className="ttcmp-head">
-        <span className="ttcmp-label">// COMPARE</span>
-        <span className="ttcmp-range">{selected.label} → today</span>
+        <span className="ttcmp-label">{t("ide.timeTravel.compareHead")}</span>
+        <span className="ttcmp-range">{selected.label} → {t("ide.timeTravel.today")}</span>
       </div>
       <div className="ttcmp-grid">
         <div className="ttcmp-metric">
-          <span className="ttcmp-k">Blast</span>
+          <span className="ttcmp-k">{t("ide.metrics.blast")}</span>
           <span className="ttcmp-v">
             {selected.blast} → {current.blast}
             <span className={`ttcmp-delta${blastDiff < 0 ? " is-down" : ""}`}>
@@ -28,7 +30,7 @@ export function TimeTravelCompare() {
           </span>
         </div>
         <div className="ttcmp-metric">
-          <span className="ttcmp-k">Taint</span>
+          <span className="ttcmp-k">{t("ide.metrics.taint")}</span>
           <span className="ttcmp-v">
             {selected.taint} → {current.taint}
             <span className={`ttcmp-delta${taintDiff < 0 ? " is-down" : ""}`}>
@@ -39,7 +41,7 @@ export function TimeTravelCompare() {
       </div>
       {selected.commits.length > 0 && (
         <div className="ttcmp-commits">
-          <span className="ttcmp-commits-label">Commits since</span>
+          <span className="ttcmp-commits-label">{t("ide.timeTravel.commitsSince")}</span>
           {selected.commits.map((c) => (
             <div key={c.hash} className="ttcmp-commit">
               <span className="ttcmp-hash">{c.hash}</span>

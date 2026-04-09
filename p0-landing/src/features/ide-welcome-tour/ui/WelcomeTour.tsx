@@ -1,7 +1,9 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { TOUR_STEPS, useWelcomeTour } from "../model/useWelcomeTour";
 
 export function WelcomeTour() {
+  const { t } = useTranslation();
   const { isOpen, step, next, prev, skip } = useWelcomeTour();
 
   useEffect(() => {
@@ -30,20 +32,21 @@ export function WelcomeTour() {
         <div className="tour-step">
           {(step + 1).toString()} <span className="tour-step-sep">/</span> {total}
         </div>
-        <div className="tour-title">{current.title}</div>
-        <div className="tour-body">{current.body}</div>
+        <div className="tour-title">{t(`ide.tour.s${step.toString()}title`)}</div>
+        <div className="tour-body">{t(`ide.tour.s${step.toString()}body`)}</div>
         <div className="tour-actions">
           <button type="button" className="tour-btn-skip" onClick={skip}>
-            Skip
+            {t("ide.tour.skip")}
           </button>
           <div className="tour-actions-right">
             {step > 0 && (
               <button type="button" className="ide-btn" onClick={prev}>
-                Back
+                {t("ide.tour.back")}
               </button>
             )}
             <button type="button" className="ide-btn is-primary" onClick={next}>
-              {isLast ? "Got it" : "Next"} <span className="ide-btn-key">⏎</span>
+              {isLast ? t("ide.tour.done") : t("ide.tour.next")}{" "}
+              <span className="ide-btn-key">⏎</span>
             </button>
           </div>
         </div>

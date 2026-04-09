@@ -9,4 +9,9 @@ export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
+  build: {
+    // Skip gzip size reporting — lowers peak RSS during `vite build` (Rollup output walk).
+    reportCompressedSize: false,
+    target: "es2022",
+  },
 });

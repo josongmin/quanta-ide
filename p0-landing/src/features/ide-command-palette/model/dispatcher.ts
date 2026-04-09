@@ -1,10 +1,21 @@
+import { useChangeCard } from "@/features/ide-change-card";
 import { useFlowTrace, MOCK_TRACE } from "@/features/ide-flow-trace";
+import { useOwnershipMap } from "@/features/ide-ownership-map";
+import { usePrDisaster } from "@/features/ide-pr-disaster";
 import { useRiskDrawer } from "@/features/ide-risk-drawer";
+import { useSemanticPr } from "@/features/ide-semantic-pr";
 import { useSimulateChange } from "@/features/ide-simulate-change";
 import { useTimeTravel } from "@/features/ide-time-travel";
 import { useCommandPalette } from "./useCommandPalette";
 
 export type DispatchTarget = string;
+
+/** Resolved by IdePage at runtime to inject the active file's proposal. */
+let suggestedProposalResolver: (() => unknown) | null = null;
+
+export function setSuggestedProposalResolver(fn: () => unknown): void {
+  suggestedProposalResolver = fn;
+}
 
 /**
  * Dispatch a command action. Call after selecting an item from
@@ -12,7 +23,6 @@ export type DispatchTarget = string;
  */
 export function dispatchCommand(id: DispatchTarget): void {
   switch (id) {
-    // scroll to inspector section
     case "callgraph":
     case "x2":
       scrollInspectorTo("Call Graph");
@@ -22,11 +32,21 @@ export function dispatchCommand(id: DispatchTarget): void {
       scrollInspectorTo("Blast Radius");
       break;
     case "fix":
-    case "x4":
+    case "x4": {
+      // Open ChangeCard with the active file's proposal if available,
+      // otherwise just scroll the Inspector to the Suggested Fix section.
+      if (suggestedProposalResolver) {
+        const proposal = suggestedProposalResolver();
+        if (proposal) {
+          // dynamic typing: dispatcher is wired by IdePage which knows the type
+          (useChangeCard.getState().open as (p: unknown) => void)(proposal);
+          break;
+        }
+      }
       scrollInspectorTo("Suggested Fix");
       break;
+    }
 
-    // open panels
     case "simulate":
     case "x1":
     case "a2":
@@ -45,26 +65,33 @@ export function dispatchCommand(id: DispatchTarget): void {
       useCommandPalette.getState().open();
       break;
 
-    // risk drawer
     case "dead":
       useRiskDrawer.getState().open();
       break;
 
-    // extract = simulate in extract mode (for demo, same panel)
     case "extract":
     case "x5":
       useSimulateChange.getState().open();
       break;
 
-    // find references — scroll to call graph as proxy
     case "refs":
       scrollInspectorTo("Call Graph");
       break;
 
-    // "ask" type commands — open command palette pre-filled
+    case "pr":
+      useSemanticPr.getState().open();
+      break;
+
+    case "preflight":
+      usePrDisaster.getState().open();
+      break;
+
+    case "ownership":
+      useOwnershipMap.getState().toggle();
+      break;
+
     case "a1": case "a3": case "a4":
     case "r1": case "r2": case "r3":
-      // already handled by palette close — just close
       break;
 
     default:
@@ -77,7 +104,6 @@ function scrollInspectorTo(labelText: string): void {
   for (const el of labels) {
     if (el.textContent.includes(labelText)) {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
-      // brief highlight
       const section = el.closest(".ide-inspector-section");
       if (section) {
         section.classList.add("is-flash");

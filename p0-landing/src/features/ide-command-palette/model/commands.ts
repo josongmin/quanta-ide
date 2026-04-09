@@ -1,33 +1,42 @@
+import type { TFunction } from "i18next";
+
 export interface Command {
   id: string;
-  label: string;
+  /** i18n key (e.g. ide.cmd.r1) or omit if `label` is literal */
+  labelKey?: string;
+  label?: string;
+  hintKey?: string;
   hint?: string;
   group: "ask" | "action" | "navigate" | "recent";
   shortcut?: string;
   icon?: "spark" | "search" | "fix" | "flow" | "graph" | "time" | "file" | "play";
 }
 
+function commandLabel(c: Command, t: TFunction): string {
+  if (c.labelKey !== undefined) return t(c.labelKey);
+  return c.label ?? "";
+}
+
+function commandHint(c: Command, t: TFunction): string {
+  if (c.hintKey !== undefined) return t(c.hintKey);
+  return c.hint ?? "";
+}
+
 export const COMMANDS: Command[] = [
-  // Recent
-  { id: "r1", label: "Why is processRefund risky?", group: "recent", icon: "spark" },
-  { id: "r2", label: "Show all taint paths", group: "recent", icon: "flow" },
-  { id: "r3", label: "Suggest safe refactor", group: "recent", icon: "fix" },
-
-  // Ask
-  { id: "a1", label: "Explain this function", group: "ask", icon: "spark", hint: "selection" },
-  { id: "a2", label: "Simulate change", group: "ask", icon: "play", shortcut: "⌘⇧S" },
-  { id: "a3", label: "Why is this risky?", group: "ask", icon: "spark" },
-  { id: "a4", label: "Find similar incidents", group: "ask", icon: "search" },
-
-  // Actions
-  { id: "x1", label: "Show data flow", group: "action", icon: "flow", shortcut: "⌘." },
-  { id: "x2", label: "Show call graph", group: "action", icon: "graph", shortcut: "⌘G" },
-  { id: "x3", label: "Show blast radius", group: "action", icon: "spark", shortcut: "⌘B" },
-  { id: "x4", label: "Suggest fix", group: "action", icon: "fix", shortcut: "⌘F" },
-  { id: "x5", label: "Extract method", group: "action", icon: "fix", shortcut: "⌘E" },
-  { id: "x6", label: "Time travel…", group: "action", icon: "time", shortcut: "⌘T" },
-
-  // Navigate
+  { id: "r1", labelKey: "ide.cmd.r1", group: "recent", icon: "spark" },
+  { id: "r2", labelKey: "ide.cmd.r2", group: "recent", icon: "flow" },
+  { id: "r3", labelKey: "ide.cmd.r3", group: "recent", icon: "fix" },
+  { id: "a1", labelKey: "ide.cmd.a1", group: "ask", icon: "spark", hintKey: "ide.cmd.hint.selection" },
+  { id: "a2", labelKey: "ide.cmd.a2", group: "ask", icon: "play", shortcut: "⌘⇧S" },
+  { id: "a3", labelKey: "ide.cmd.a3", group: "ask", icon: "spark" },
+  { id: "a4", labelKey: "ide.cmd.a4", group: "ask", icon: "search" },
+  { id: "x1", labelKey: "ide.cmd.x1", group: "action", icon: "flow", shortcut: "⌘." },
+  { id: "x2", labelKey: "ide.cmd.x2", group: "action", icon: "graph", shortcut: "⌘G" },
+  { id: "x3", labelKey: "ide.cmd.x3", group: "action", icon: "spark", shortcut: "⌘B" },
+  { id: "x4", labelKey: "ide.cmd.x4", group: "action", icon: "fix", shortcut: "⌘F" },
+  { id: "x5", labelKey: "ide.cmd.x5", group: "action", icon: "fix", shortcut: "⌘E" },
+  { id: "x6", labelKey: "ide.cmd.x6", group: "action", icon: "time", shortcut: "⌘T" },
+  { id: "ownership", labelKey: "ide.cmd.ownership", group: "action", icon: "graph", shortcut: "⌘⇧O" },
   { id: "n1", label: "refund.ts", group: "navigate", icon: "file", hint: "src/payments" },
   { id: "n2", label: "charge.ts", group: "navigate", icon: "file", hint: "src/payments" },
   { id: "n3", label: "ledger.ts", group: "navigate", icon: "file", hint: "src/payments" },
@@ -35,21 +44,17 @@ export const COMMANDS: Command[] = [
   { id: "n5", label: "handler.ts", group: "navigate", icon: "file", hint: "src/webhooks" },
 ];
 
-const GROUP_LABELS: Record<Command["group"], string> = {
-  recent: "Recent",
-  ask: "Ask",
-  action: "Actions",
-  navigate: "Navigate",
-};
-
 const GROUP_ORDER: Command["group"][] = ["recent", "ask", "action", "navigate"];
 
-export function filterCommands(query: string): { group: Command["group"]; label: string; items: Command[] }[] {
+export function filterCommands(
+  query: string,
+  t: TFunction,
+): { group: Command["group"]; label: string; items: Command[] }[] {
   const q = query.trim().toLowerCase();
   const matched = q
     ? COMMANDS.filter((c) => {
-        if (c.label.toLowerCase().includes(q)) return true;
-        if (c.hint?.toLowerCase().includes(q) === true) return true;
+        if (commandLabel(c, t).toLowerCase().includes(q)) return true;
+        if (commandHint(c, t).toLowerCase().includes(q)) return true;
         if (c.shortcut?.toLowerCase().includes(q) === true) return true;
         return false;
       })
@@ -58,12 +63,11 @@ export function filterCommands(query: string): { group: Command["group"]; label:
   const grouped = GROUP_ORDER
     .map((g) => ({
       group: g,
-      label: GROUP_LABELS[g],
+      label: t(`ide.cmd.group.${g}`),
       items: matched.filter((c) => c.group === g),
     }))
     .filter((g) => g.items.length > 0);
 
-  // when searching, hide "recent"
   if (q) return grouped.filter((g) => g.group !== "recent");
   return grouped;
 }

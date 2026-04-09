@@ -12,9 +12,14 @@ export default defineConfig({
   },
   test: {
     globals: true,
-    environment: "jsdom",
+    environment: "happy-dom",
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    // Lower peak memory: sequential test files + single worker + no concurrent tests per file.
+    pool: "forks",
+    maxWorkers: 1,
+    fileParallelism: false,
+    maxConcurrency: 1,
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

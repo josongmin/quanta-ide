@@ -2,34 +2,34 @@ import { create } from "zustand";
 
 export interface ContextMenuItem {
   id: string;
-  label: string;
+  labelKey: string;
   shortcut?: string;
   divider?: boolean;
   ghost?: { before: string; after: string };
 }
 
 export const CONTEXT_ITEMS: ContextMenuItem[] = [
-  { id: "callgraph", label: "Show call graph", shortcut: "⌘G" },
-  { id: "dataflow", label: "Show data flow", shortcut: "⌘." },
-  { id: "blast", label: "Show blast radius", shortcut: "⌘B" },
-  { id: "taint", label: "Trace taint path" },
-  { id: "div1", label: "", divider: true },
-  { id: "simulate", label: "Simulate change", shortcut: "⌘⇧S" },
-  { id: "extract", label: "Extract method", shortcut: "⌘E" },
+  { id: "callgraph", labelKey: "ide.ctx.callgraph", shortcut: "⌘G" },
+  { id: "dataflow", labelKey: "ide.ctx.dataflow", shortcut: "⌘." },
+  { id: "blast", labelKey: "ide.ctx.blast", shortcut: "⌘B" },
+  { id: "taint", labelKey: "ide.ctx.taint" },
+  { id: "div1", labelKey: "", divider: true },
+  { id: "simulate", labelKey: "ide.ctx.simulate", shortcut: "⌘⇧S" },
+  { id: "extract", labelKey: "ide.ctx.extract", shortcut: "⌘E" },
   {
     id: "fix",
-    label: "Suggest fix",
+    labelKey: "ide.ctx.fix",
     shortcut: "⌘F",
     ghost: {
       before: "  const amount = req.body.amount;",
       after: "  const safe = sanitizeAmount(amount);",
     },
   },
-  { id: "div2", label: "", divider: true },
-  { id: "refs", label: "Find references", shortcut: "⇧F12" },
-  { id: "history", label: "Open history", shortcut: "⌘H" },
-  { id: "dead", label: "Check dead code" },
-  { id: "ask", label: "Ask p0…", shortcut: "⌘K" },
+  { id: "div2", labelKey: "", divider: true },
+  { id: "refs", labelKey: "ide.ctx.refs", shortcut: "⇧F12" },
+  { id: "history", labelKey: "ide.ctx.history", shortcut: "⌘H" },
+  { id: "dead", labelKey: "ide.ctx.dead" },
+  { id: "ask", labelKey: "ide.ctx.ask", shortcut: "⌘K" },
 ];
 
 interface ContextMenuState {

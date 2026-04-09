@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useThemeStore, AURORA_PRESETS } from "@/entities/theme";
 import { useEscapeKey, useClickOutside } from "@/shared/hooks";
 
 export function IdeAuroraPicker() {
+  const { t } = useTranslation();
   const { aurora, setAurora } = useThemeStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -22,7 +24,7 @@ export function IdeAuroraPicker() {
         className="ide-aurora-trigger"
         onClick={() => { setOpen(!open); }}
         aria-expanded={open}
-        title="Change color theme"
+        title={t("ide.aurora.triggerTitle")}
       >
         <span className="ide-aurora-swatch" data-aurora={aurora} />
       </button>

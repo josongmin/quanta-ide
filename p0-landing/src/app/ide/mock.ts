@@ -19,22 +19,22 @@ export const MOCK_FILES: FileNode[] = [
 ];
 
 export const MOCK_METRICS: Metric[] = [
-  { k: "Cpx", v: "8.2" },
-  { k: "Tests", v: "0", delta: "/14" },
-  { k: "Callers", v: "14" },
-  { k: "Blast", v: "31" },
+  { key: "cpx", v: "8.2" },
+  { key: "tests", v: "0", delta: "/14" },
+  { key: "callers", v: "14" },
+  { key: "blast", v: "31" },
 ];
 
 export const MOCK_PILLS: Pill[] = [
-  { label: "taint source", risk: 3 },
-  { label: "no tests", risk: 2 },
-  { label: "hot path", risk: "hot" },
-  { label: "14 callers", risk: 1 },
+  { pillKey: "refund.taintSource", risk: 3 },
+  { pillKey: "refund.noTests", risk: 2 },
+  { pillKey: "refund.hotPath", risk: "hot" },
+  { pillKey: "refund.callers", pillParams: { count: 14 }, risk: 1 },
 ];
 
 export const MOCK_CALL_GRAPH: CallNode[] = [
   { name: "processRefund", depth: 0 },
-  { name: "validateUser", depth: 1, tag: "tested" },
+  { name: "validateUser", depth: 1, tag: "external" },
   { name: "buildTransaction", depth: 1 },
   { name: "db.update", depth: 1, tag: "unsafe" },
   { name: "ledger.write", depth: 2, isLast: true },
@@ -42,8 +42,8 @@ export const MOCK_CALL_GRAPH: CallNode[] = [
 ];
 
 export const MOCK_DATA_FLOW: FlowStep[] = [
-  { label: "req.body.amount", tag: "source" },
-  { label: "parse(amount)" },
-  { label: "build(validated)" },
-  { label: "db.update({ amount })", tag: "sink", sink: true },
+  { group: "refund", step: "amount", tag: "source" },
+  { group: "refund", step: "parse" },
+  { group: "refund", step: "build" },
+  { group: "refund", step: "db", tag: "sink", sink: true },
 ];

@@ -18,16 +18,16 @@ export const LEDGER_LINES: CodeLine[] = [
 ];
 
 export const LEDGER_METRICS: Metric[] = [
-  { k: "Cpx", v: "2.4" },
-  { k: "Tests", v: "6", delta: "/6" },
-  { k: "Callers", v: "4" },
-  { k: "Blast", v: "8" },
+  { key: "cpx", v: "2.4" },
+  { key: "tests", v: "6", delta: "/6" },
+  { key: "callers", v: "4" },
+  { key: "blast", v: "8" },
 ];
 
 export const LEDGER_PILLS: Pill[] = [
-  { label: "tested", risk: "hot" },
-  { label: "immutable write", risk: 1 },
-  { label: "dead code in file", risk: 2 },
+  { pillKey: "ledger.tested", risk: "hot" },
+  { pillKey: "ledger.immutableWrite", risk: 1 },
+  { pillKey: "ledger.deadInFile", risk: 2 },
 ];
 
 export const LEDGER_CALL_GRAPH: CallNode[] = [
@@ -38,6 +38,6 @@ export const LEDGER_CALL_GRAPH: CallNode[] = [
 ];
 
 export const LEDGER_DATA_FLOW: FlowStep[] = [
-  { label: "entry (param)", tag: "source" },
-  { label: "db.insertLedger", tag: "sink", sink: true },
+  { group: "ledger", step: "entry", tag: "source" },
+  { group: "ledger", step: "insert", tag: "sink", sink: true },
 ];

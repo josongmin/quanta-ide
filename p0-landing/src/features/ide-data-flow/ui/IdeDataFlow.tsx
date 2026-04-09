@@ -1,6 +1,9 @@
+import { useTranslation } from "react-i18next";
+
 export interface FlowStep {
-  label: string;
-  tag?: string;
+  group: "refund" | "charge" | "ledger";
+  step: string;
+  tag?: "source" | "sink";
   sink?: boolean;
 }
 
@@ -9,12 +12,13 @@ interface IdeDataFlowProps {
 }
 
 export function IdeDataFlow({ steps }: IdeDataFlowProps) {
+  const { t } = useTranslation();
   return (
     <div className="ide-flow">
       {steps.map((s, i) => (
-        <div key={`${s.label}-${i.toString()}`} className={`ide-flow-row${s.sink ? " is-sink" : ""}`}>
-          <span>{s.label}</span>
-          {s.tag && <span className="ide-flow-tag">{s.tag}</span>}
+        <div key={`${s.group}-${s.step}-${i.toString()}`} className={`ide-flow-row${s.sink ? " is-sink" : ""}`}>
+          <span>{t(`ide.dataFlow.${s.group}.${s.step}`)}</span>
+          {s.tag !== undefined && <span className="ide-flow-tag">{t(`ide.dataFlow.tags.${s.tag}`)}</span>}
         </div>
       ))}
     </div>

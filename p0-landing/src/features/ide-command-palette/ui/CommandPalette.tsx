@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useCommandPalette } from "../model/useCommandPalette";
 import { filterCommands, flattenGroups, type Command } from "../model/commands";
 import { dispatchCommand } from "../model/dispatcher";
@@ -18,10 +19,11 @@ interface InnerProps {
 }
 
 function CommandPaletteInner({ query, setQuery, close }: InnerProps) {
+  const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
 
-  const groups = useMemo(() => filterCommands(query), [query]);
+  const groups = useMemo(() => filterCommands(query, t), [query, t]);
   const flat = useMemo(() => flattenGroups(groups), [groups]);
 
   // focus input on mount
@@ -72,7 +74,7 @@ function CommandPaletteInner({ query, setQuery, close }: InnerProps) {
             ref={inputRef}
             type="text"
             className="cmdk-input"
-            placeholder="Ask anything…"
+            placeholder={t("ide.cmd.placeholder")}
             value={query}
             onChange={(e) => { setQuery(e.target.value); }}
             spellCheck={false}
@@ -83,14 +85,14 @@ function CommandPaletteInner({ query, setQuery, close }: InnerProps) {
 
         <div className="cmdk-list">
           {groups.length === 0 && (
-            <div className="cmdk-empty">No matches</div>
+            <div className="cmdk-empty">{t("ide.cmd.empty")}</div>
           )}
           {groups.map((g) => (
             <div key={g.group} className="cmdk-group">
               <div className="cmdk-group-label">{g.label}</div>
               {g.items.map((cmd) => {
                 const isActive = indexMap.get(cmd.id) === activeIdx;
-                return <CommandRow key={cmd.id} cmd={cmd} isActive={isActive} onActivate={close} />;
+                return <CommandRow key={cmd.id} cmd={cmd} isActive={isActive} onActivate={close} t={t} />;
               })}
             </div>
           ))}
@@ -98,9 +100,9 @@ function CommandPaletteInner({ query, setQuery, close }: InnerProps) {
 
         <div className="cmdk-foot">
           <div className="cmdk-foot-hint">
-            <span className="cmdk-kbd">↑↓</span> navigate
-            <span className="cmdk-kbd">⏎</span> select
-            <span className="cmdk-kbd">⎋</span> close
+            <span className="cmdk-kbd">↑↓</span> {t("ide.cmd.footNavigate")}
+            <span className="cmdk-kbd">⏎</span> {t("ide.cmd.footSelect")}
+            <span className="cmdk-kbd">⎋</span> {t("ide.cmd.footClose")}
           </div>
           <div className="cmdk-foot-brand">p0</div>
         </div>
@@ -109,8 +111,20 @@ function CommandPaletteInner({ query, setQuery, close }: InnerProps) {
   );
 }
 
-function CommandRow({ cmd, isActive, onActivate }: { cmd: Command; isActive: boolean; onActivate: () => void }) {
+function CommandRow({
+  cmd,
+  isActive,
+  onActivate,
+  t,
+}: {
+  cmd: Command;
+  isActive: boolean;
+  onActivate: () => void;
+  t: (k: string) => string;
+}) {
   const ref = useRef<HTMLButtonElement>(null);
+  const label = cmd.labelKey !== undefined ? t(cmd.labelKey) : (cmd.label ?? "");
+  const hint = cmd.hintKey !== undefined ? t(cmd.hintKey) : (cmd.hint ?? "");
   useEffect(() => {
     if (isActive) {
       ref.current?.scrollIntoView({ block: "nearest" });
@@ -121,6 +135,9 @@ function CommandRow({ cmd, isActive, onActivate }: { cmd: Command; isActive: boo
     <button
       ref={ref}
       type="button"
+      role="option"
+      aria-selected={isActive}
+      aria-current={isActive ? "true" : undefined}
       className={`cmdk-row${isActive ? " is-active" : ""}`}
       onClick={() => {
         onActivate();
@@ -128,8 +145,8 @@ function CommandRow({ cmd, isActive, onActivate }: { cmd: Command; isActive: boo
       }}
     >
       <span className="cmdk-row-icon"><CommandIcon kind={cmd.icon} /></span>
-      <span className="cmdk-row-label">{cmd.label}</span>
-      {cmd.hint && <span className="cmdk-row-hint">{cmd.hint}</span>}
+      <span className="cmdk-row-label">{label}</span>
+      {hint !== "" && <span className="cmdk-row-hint">{hint}</span>}
       {cmd.shortcut && <span className="cmdk-row-kbd">{cmd.shortcut}</span>}
     </button>
   );

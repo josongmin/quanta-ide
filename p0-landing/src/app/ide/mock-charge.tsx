@@ -17,16 +17,16 @@ export const CHARGE_LINES: CodeLine[] = [
 ];
 
 export const CHARGE_METRICS: Metric[] = [
-  { k: "Cpx", v: "5.1" },
-  { k: "Tests", v: "8", delta: "/12" },
-  { k: "Callers", v: "12" },
-  { k: "Blast", v: "18" },
+  { key: "cpx", v: "5.1" },
+  { key: "tests", v: "8", delta: "/12" },
+  { key: "callers", v: "12" },
+  { key: "blast", v: "18" },
 ];
 
 export const CHARGE_PILLS: Pill[] = [
-  { label: "external API", risk: 2 },
-  { label: "tested", risk: "hot" },
-  { label: "12 callers", risk: 1 },
+  { pillKey: "charge.externalApi", risk: 2 },
+  { pillKey: "charge.tested", risk: "hot" },
+  { pillKey: "charge.callers", pillParams: { count: 12 }, risk: 1 },
 ];
 
 export const CHARGE_CALL_GRAPH: CallNode[] = [
@@ -37,7 +37,7 @@ export const CHARGE_CALL_GRAPH: CallNode[] = [
 ];
 
 export const CHARGE_DATA_FLOW: FlowStep[] = [
-  { label: "customerId (param)", tag: "source" },
-  { label: "stripe.createIntent" },
-  { label: "db.insert", tag: "sink", sink: true },
+  { group: "charge", step: "param", tag: "source" },
+  { group: "charge", step: "stripe" },
+  { group: "charge", step: "insert", tag: "sink", sink: true },
 ];

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { useFileTooltip } from "../model/useFileTooltip";
 
 function riskDots(level: number, max = 5) {
@@ -6,9 +7,10 @@ function riskDots(level: number, max = 5) {
   ));
 }
 
-const RISK_LABELS = ["", "low", "moderate", "elevated", "high", "critical"];
+const RISK_KEYS = ["", "low", "moderate", "elevated", "high", "critical"] as const;
 
 export function FileTooltip() {
+  const { t } = useTranslation();
   const { meta, x, y } = useFileTooltip();
   if (!meta) return null;
 
@@ -18,13 +20,23 @@ export function FileTooltip() {
 
   const isFile = meta.type === "file";
 
+  const riskWord = (level: number) => {
+    const key = RISK_KEYS[level];
+    return key ? t(`ide.fileTooltip.riskLevel.${key}`) : "";
+  };
+
   return (
     <div className="ftip" style={{ left, top, width: W }}>
       <div className="ftip-head">
         <span className="ftip-name">{meta.name}</span>
         <span className="ftip-path">
           {meta.path}
-          {isFile ? "" : `${meta.fileCount?.toString() ?? ""} files · ${meta.totalLoc ?? ""} L`}
+          {isFile
+            ? ""
+            : t("ide.fileTooltip.filesLocLine", {
+                count: meta.fileCount ?? 0,
+                loc: meta.totalLoc ?? 0,
+              })}
         </span>
       </div>
 
@@ -32,19 +44,19 @@ export function FileTooltip() {
         {/* Risk / Health */}
         {isFile && meta.risk !== undefined && (
           <div className="ftip-row">
-            <span className="ftip-k">Risk</span>
+            <span className="ftip-k">{t("ide.fileTooltip.riskLabel")}</span>
             <span className="ftip-v ftip-dots">
               {riskDots(meta.risk)}
-              <span className="ftip-risk-label">{RISK_LABELS[meta.risk]}</span>
+              <span className="ftip-risk-label">{riskWord(meta.risk)}</span>
             </span>
           </div>
         )}
         {!isFile && meta.health !== undefined && (
           <div className="ftip-row">
-            <span className="ftip-k">Health</span>
+            <span className="ftip-k">{t("ide.fileTooltip.health")}</span>
             <span className="ftip-v ftip-dots">
               {riskDots(meta.health)}
-              <span className="ftip-risk-label">{RISK_LABELS[meta.health]}</span>
+              <span className="ftip-risk-label">{riskWord(meta.health)}</span>
             </span>
           </div>
         )}
@@ -52,29 +64,33 @@ export function FileTooltip() {
         {/* Blast */}
         {isFile && meta.blast !== undefined && (
           <div className="ftip-row">
-            <span className="ftip-k">Blast</span>
-            <span className="ftip-v">{meta.blast} files affected</span>
+            <span className="ftip-k">{t("ide.changeCard.blast")}</span>
+            <span className="ftip-v">
+              {meta.blast} {t("ide.fileTooltip.blastFiles")}
+            </span>
           </div>
         )}
         {!isFile && meta.hottest && (
           <div className="ftip-row">
-            <span className="ftip-k">Hottest</span>
-            <span className="ftip-v">{meta.hottest.name} (blast {meta.hottest.blast})</span>
+            <span className="ftip-k">{t("ide.fileTooltip.hottest")}</span>
+            <span className="ftip-v">
+              {t("ide.fileTooltip.hottestFmt", { name: meta.hottest.name, blast: meta.hottest.blast })}
+            </span>
           </div>
         )}
 
         {/* Complexity */}
         {isFile && meta.complexity !== undefined && (
           <div className="ftip-row">
-            <span className="ftip-k">Complexity</span>
-            <span className="ftip-v">{meta.complexity.toFixed(1)} avg</span>
+            <span className="ftip-k">{t("ide.fileTooltip.complexity")}</span>
+            <span className="ftip-v">{t("ide.fileTooltip.complexityAvg", { n: meta.complexity.toFixed(1) })}</span>
           </div>
         )}
 
         {/* Coverage */}
         {meta.coverage !== undefined && (
           <div className="ftip-row">
-            <span className="ftip-k">Coverage</span>
+            <span className="ftip-k">{t("ide.fileTooltip.coverage")}</span>
             <span className={`ftip-v${meta.coverage < 30 ? " ftip-warn" : ""}`}>
               {meta.coverage}%{meta.coverage === 0 ? "  ⚠" : ""}
             </span>
@@ -84,15 +100,15 @@ export function FileTooltip() {
         {/* Taint */}
         {isFile && meta.taintPaths !== undefined && meta.taintPaths > 0 && (
           <div className="ftip-row">
-            <span className="ftip-k">Taint</span>
-            <span className="ftip-v">{meta.taintPaths} paths through</span>
+            <span className="ftip-k">{t("ide.symtip.taint")}</span>
+            <span className="ftip-v">{t("ide.fileTooltip.taintThrough", { n: meta.taintPaths })}</span>
           </div>
         )}
 
         {/* Dead code (folder) */}
         {!isFile && meta.deadCode && (
           <div className="ftip-row">
-            <span className="ftip-k">Dead code</span>
+            <span className="ftip-k">{t("ide.fileTooltip.deadCode")}</span>
             <span className="ftip-v">{meta.deadCode}</span>
           </div>
         )}
@@ -104,7 +120,7 @@ export function FileTooltip() {
         {/* Owner */}
         {isFile && meta.owner && (
           <div className="ftip-row">
-            <span className="ftip-k">Owner</span>
+            <span className="ftip-k">{t("ide.fileTooltip.owner")}</span>
             <span className="ftip-v ftip-mono">{meta.owner}</span>
           </div>
         )}
@@ -112,9 +128,9 @@ export function FileTooltip() {
         {/* Team (folder) */}
         {!isFile && meta.team && (
           <div className="ftip-row">
-            <span className="ftip-k">Team</span>
+            <span className="ftip-k">{t("ide.fileTooltip.team")}</span>
             <span className="ftip-v ftip-mono">
-              {meta.team.map((t) => `${t.name} ${t.pct.toString()}%`).join(" · ")}
+              {meta.team.map((tm) => `${tm.name} ${tm.pct.toString()}%`).join(" · ")}
             </span>
           </div>
         )}
@@ -122,10 +138,10 @@ export function FileTooltip() {
         {/* Last edit */}
         {isFile && meta.lastEdit && (
           <div className="ftip-row">
-            <span className="ftip-k">Last edit</span>
+            <span className="ftip-k">{t("ide.fileTooltip.lastEdit")}</span>
             <span className="ftip-v">
               {meta.lastEdit}
-              {meta.lastEditMsg && <span className="ftip-dim"> · "{meta.lastEditMsg}"</span>}
+              {meta.lastEditMsg && <span className="ftip-dim"> · &quot;{meta.lastEditMsg}&quot;</span>}
             </span>
           </div>
         )}
@@ -133,7 +149,7 @@ export function FileTooltip() {
         {/* Churn */}
         {isFile && meta.churn && (
           <div className="ftip-row">
-            <span className="ftip-k">Churn</span>
+            <span className="ftip-k">{t("ide.fileTooltip.churn")}</span>
             <span className="ftip-v">{meta.churn}</span>
           </div>
         )}
@@ -141,7 +157,7 @@ export function FileTooltip() {
         {/* Bus factor */}
         {meta.busFactor !== undefined && (
           <div className="ftip-row">
-            <span className="ftip-k">Bus factor</span>
+            <span className="ftip-k">{t("ide.fileTooltip.busFactor")}</span>
             <span className={`ftip-v${meta.busFactor <= 1 ? " ftip-warn" : ""}`}>
               {meta.busFactor}{meta.busFactor <= 1 ? "  ⚠" : ""}
             </span>
@@ -151,8 +167,8 @@ export function FileTooltip() {
         {/* Incidents (folder) */}
         {!isFile && meta.incidents !== undefined && meta.incidents > 0 && (
           <div className="ftip-row">
-            <span className="ftip-k">Incidents</span>
-            <span className="ftip-v">{meta.incidents} in last 6mo</span>
+            <span className="ftip-k">{t("ide.fileTooltip.incidents")}</span>
+            <span className="ftip-v">{t("ide.fileTooltip.incidentsMo", { n: meta.incidents })}</span>
           </div>
         )}
       </div>
@@ -164,27 +180,33 @@ export function FileTooltip() {
           <div className="ftip-body ftip-predict">
             {meta.incidentMatch !== undefined && (
               <div className="ftip-row">
-                <span className="ftip-k">Incident</span>
+                <span className="ftip-k">{t("ide.fileTooltip.incident")}</span>
                 <span className="ftip-v ftip-warn">
                   {meta.incidentMatch.id}
-                  <span className="ftip-dim"> · {meta.incidentMatch.similarity}% match</span>
+                  <span className="ftip-dim">
+                    {" "}
+                    · {t("ide.fileTooltip.matchPct", { n: meta.incidentMatch.similarity })}
+                  </span>
                 </span>
               </div>
             )}
             {meta.changeForecast !== undefined && (
               <div className="ftip-row">
-                <span className="ftip-k">If edited</span>
+                <span className="ftip-k">{t("ide.fileTooltip.ifEdited")}</span>
                 <span className="ftip-v">
-                  {meta.changeForecast.tests} tests at risk
+                  {t("ide.fileTooltip.testsAtRiskLine", { n: meta.changeForecast.tests })}
                   {meta.changeForecast.uncovered > 0 && (
-                    <span className="ftip-warn"> · {meta.changeForecast.uncovered} uncovered</span>
+                    <span className="ftip-warn">
+                      {" "}
+                      · {meta.changeForecast.uncovered} {t("ide.fileTooltip.uncovered")}
+                    </span>
                   )}
                 </span>
               </div>
             )}
             {meta.activePr !== undefined && (
               <div className="ftip-row">
-                <span className="ftip-k">Active PR</span>
+                <span className="ftip-k">{t("ide.fileTooltip.activePr")}</span>
                 <span className="ftip-v ftip-mono">
                   {meta.activePr.num} <span className="ftip-dim">· {meta.activePr.author}</span>
                 </span>
@@ -201,20 +223,25 @@ export function FileTooltip() {
           <div className="ftip-body">
             {meta.exports && meta.exports.length > 0 && (
               <div className="ftip-row">
-                <span className="ftip-k">Exports</span>
+                <span className="ftip-k">{t("ide.fileTooltip.exports")}</span>
                 <span className="ftip-v ftip-mono">{meta.exports.join(", ")}</span>
               </div>
             )}
             {meta.importsInternal !== undefined && (
               <div className="ftip-row">
-                <span className="ftip-k">Imports</span>
-                <span className="ftip-v">{meta.importsInternal} internal · {meta.importsExternal ?? 0} external</span>
+                <span className="ftip-k">{t("ide.fileTooltip.imports")}</span>
+                <span className="ftip-v">
+                  {t("ide.fileTooltip.importsLine", {
+                    n: meta.importsInternal,
+                    e: meta.importsExternal ?? 0,
+                  })}
+                </span>
               </div>
             )}
             {meta.dependents !== undefined && (
               <div className="ftip-row">
-                <span className="ftip-k">Dependents</span>
-                <span className="ftip-v">{meta.dependents} files import this</span>
+                <span className="ftip-k">{t("ide.fileTooltip.dependents")}</span>
+                <span className="ftip-v">{t("ide.fileTooltip.dependentsLine", { n: meta.dependents })}</span>
               </div>
             )}
           </div>
@@ -227,18 +254,18 @@ export function FileTooltip() {
           <div className="ftip-divider" />
           <div className="ftip-body">
             <div className="ftip-row">
-              <span className="ftip-k">Arch layer</span>
+              <span className="ftip-k">{t("ide.fileTooltip.archLayer")}</span>
               <span className="ftip-v">{meta.archLayer}</span>
             </div>
             {meta.violations !== undefined && meta.violations > 0 && (
               <div className="ftip-row">
-                <span className="ftip-k">Violations</span>
+                <span className="ftip-k">{t("ide.fileTooltip.violations")}</span>
                 <span className="ftip-v ftip-warn">{meta.violations}</span>
               </div>
             )}
             {meta.depDrift !== undefined && (
               <div className="ftip-row">
-                <span className="ftip-k">Dep drift</span>
+                <span className="ftip-k">{t("ide.fileTooltip.depDrift")}</span>
                 <span className="ftip-v">
                   ↔ {meta.depDrift.target}
                   <span className="ftip-warn"> +{meta.depDrift.pct}%</span>
@@ -251,9 +278,13 @@ export function FileTooltip() {
       )}
 
       <div className="ftip-foot">
-        <span className="ftip-kbd">⌘↵</span> open
-        <span className="ftip-kbd">⌘B</span> blast
-        {isFile && <><span className="ftip-kbd">⌘.</span> flow</>}
+        <span className="ftip-kbd">⌘↵</span> {t("ide.fileTooltip.footOpen")}
+        <span className="ftip-kbd">⌘B</span> {t("ide.fileTooltip.footBlast")}
+        {isFile && (
+          <>
+            <span className="ftip-kbd">⌘.</span> {t("ide.fileTooltip.footFlow")}
+          </>
+        )}
       </div>
     </div>
   );
