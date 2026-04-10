@@ -1,0 +1,82 @@
+/* ── Call Graph ── */
+.ide-callgraph {
+  font-family: var(--font-mono);
+  font-size: 0.69rem;
+  color: var(--ink-3);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  padding-left: 16px;
+}
+/* vertical connector line */
+.ide-callgraph::before {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: var(--line);
+}
+.ide-callgraph-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  position: relative;
+  transition: background var(--transition);
+  border-radius: 5px;
+  margin: 0 -2px;
+}
+.ide-callgraph-row:hover {
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+}
+/* horizontal connector tick */
+.ide-callgraph-row[data-depth="1"],
+.ide-callgraph-row[data-depth="2"] {
+  margin-left: 0;
+}
+.ide-callgraph-row[data-depth="1"]::before,
+.ide-callgraph-row[data-depth="2"]::before {
+  content: '';
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  width: 10px;
+  height: 1px;
+  background: var(--line);
+}
+.ide-callgraph-row[data-depth="1"] { padding-left: 8px; }
+.ide-callgraph-row[data-depth="2"] { padding-left: 20px; }
+.ide-callgraph-tree {
+  display: none;
+}
+.ide-callgraph-name {
+  color: var(--ink-2);
+  font-weight: 400;
+}
+.ide-callgraph-row[data-depth="0"] .ide-callgraph-name {
+  color: var(--ink);
+  font-weight: 500;
+}
+.ide-callgraph-tag {
+  margin-left: auto;
+  font-size: 0.55rem;
+  font-weight: 500;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--paper-3);
+  border: 1px solid var(--line);
+}
+/* tag colors */
+.ide-callgraph-tag[data-tag="tested"]   { color: var(--clr-2d); background: color-mix(in srgb, var(--clr-2d) 8%, transparent); border-color: color-mix(in srgb, var(--clr-2d) 16%, transparent); }
+.ide-callgraph-tag[data-tag="unsafe"]   { color: var(--clr-1d); background: color-mix(in srgb, var(--clr-1d) 8%, transparent); border-color: color-mix(in srgb, var(--clr-1d) 16%, transparent); }
+.ide-callgraph-tag[data-tag="write"]    { color: var(--clr-3d); background: color-mix(in srgb, var(--clr-3d) 8%, transparent); border-color: color-mix(in srgb, var(--clr-3d) 16%, transparent); }
+.ide-callgraph-tag[data-tag="external"] { color: var(--clr-4d); background: color-mix(in srgb, var(--clr-4d) 8%, transparent); border-color: color-mix(in srgb, var(--clr-4d) 16%, transparent); }
+.ide-callgraph-tag[data-tag="async"]    { color: var(--clr-2d); background: color-mix(in srgb, var(--clr-2d) 8%, transparent); border-color: color-mix(in srgb, var(--clr-2d) 16%, transparent); }
+.ide-callgraph-tag[data-tag="dead"]     { color: var(--ink-4); background: transparent; border-color: var(--line); }
+

@@ -1,18 +1,18 @@
 import { create } from "zustand";
 
-export type AgentSession = {
+export interface AgentSession {
   id: string;
   title: string; // first user message, truncated
   messages: AgentChatMsg[];
-};
+}
 
-export type AgentChatMsg = {
+export interface AgentChatMsg {
   id: string;
   role: "user" | "agent";
   text: string; // simplified for model layer
-};
+}
 
-export type AgentQuery = {
+export interface AgentQuery {
   id: string;
   question: string;
   repoTag: string;
@@ -27,7 +27,7 @@ export type AgentQuery = {
     artifacts: string[];
   };
   related: string[];
-};
+}
 
 export const AGENT_QUERIES: AgentQuery[] = [
   {
@@ -119,18 +119,24 @@ export const REPO_STATS = {
 
 const INIT_SESSION_ID = "session-1";
 
+export interface Vec2 { x: number; y: number }
+
 interface AgentWindowState {
   isOpen: boolean;
   minimized: boolean;
+  hasInteracted: boolean;
   activeQueryId: string;
   expandedQueryId: string | null;
   sessions: AgentSession[];
   activeSessionId: string;
+  /** outside-click 좌표 + 마우스 이동 방향 */
+  minimizeAt: { pos: Vec2; vel: Vec2 } | null;
   open: () => void;
   close: () => void;
   toggle: () => void;
-  minimize: () => void;
+  minimize: (at?: { pos: Vec2; vel: Vec2 }) => void;
   expand: () => void;
+  setInteracted: () => void;
   setActiveQuery: (id: string) => void;
   toggleExpand: (id: string) => void;
   newSession: () => void;
@@ -142,15 +148,18 @@ interface AgentWindowState {
 export const useAgentWindow = create<AgentWindowState>()((set) => ({
   isOpen: false,
   minimized: false,
+  hasInteracted: false,
   activeQueryId: "double-refund",
   expandedQueryId: "double-refund",
   sessions: [{ id: INIT_SESSION_ID, title: "Which path can double-refund a customer?", messages: [] }],
   activeSessionId: INIT_SESSION_ID,
-  open: () => { set({ isOpen: true, minimized: false }); },
-  close: () => { set({ isOpen: false }); },
-  toggle: () => { set((s) => ({ isOpen: !s.isOpen, minimized: false })); },
-  minimize: () => { set({ minimized: true }); },
-  expand: () => { set({ minimized: false }); },
+  minimizeAt: null,
+  open:     () => { set({ isOpen: true, minimized: false }); },
+  close:    () => { set({ isOpen: false }); },
+  toggle:   () => { set((s) => ({ isOpen: !s.isOpen, minimized: false })); },
+  minimize: (at?) => { set({ minimized: true, minimizeAt: at ?? null }); },
+  expand:   () => { set({ minimized: false, minimizeAt: null }); },
+  setInteracted: () => { set({ hasInteracted: true, isOpen: true, minimized: false }); },
   setActiveQuery: (id) => { set({ activeQueryId: id, expandedQueryId: id }); },
   toggleExpand: (id) => {
     set((s) => ({ expandedQueryId: s.expandedQueryId === id ? null : id }));

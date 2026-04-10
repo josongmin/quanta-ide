@@ -1,0 +1,270 @@
+/* ═════════════════════════════════════════════════════════════════════
+   Phase 5 — Time Travel Strip
+   ═════════════════════════════════════════════════════════════════════ */
+.tt-root {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  z-index: 50;
+}
+.tt-strip {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 18px 18px;
+  background: var(--paper-1);
+  border-bottom: 1px solid var(--line-2);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+  animation: tt-slide 0.22s ease-out;
+}
+@keyframes tt-slide {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.tt-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.tt-track {
+  position: relative;
+  flex: 1;
+  height: 22px;
+}
+.tt-track-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line-2);
+  transform: translateY(-50%);
+}
+.tt-marker {
+  appearance: none;
+  cursor: pointer;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+}
+.tt-marker-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--paper-1);
+  border: 1.5px solid var(--ink-4);
+  transition: all var(--transition);
+}
+.tt-marker:hover .tt-marker-dot {
+  border-color: var(--ink-2);
+  transform: scale(1.15);
+}
+.tt-marker.is-spike .tt-marker-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.tt-marker.is-selected .tt-marker-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.tt-marker-tag {
+  position: absolute;
+  top: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.tt-marker.is-selected .tt-marker-tag {
+  color: var(--ink);
+}
+.tt-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink-2);
+  flex-shrink: 0;
+  padding: 4px 12px;
+  background: var(--paper-2);
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+.tt-meta-k { color: var(--ink-3); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.tt-meta-v { color: var(--ink); font-family: var(--font-num); font-size: 0.84rem; font-weight: 600; }
+.tt-meta-sep { color: var(--ink-4); }
+.tt-close {
+  appearance: none;
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background var(--transition), color var(--transition);
+}
+.tt-close:hover {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+.tt-tooltip {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 4px);
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--ink);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  pointer-events: none;
+  white-space: nowrap;
+  animation: tt-tip-in 0.14s ease-out;
+  z-index: 10;
+}
+@keyframes tt-tip-in {
+  from { opacity: 0; transform: translate(-50%, 0); }
+  to { opacity: 1; transform: translate(-50%, 4px); }
+}
+.tt-tooltip-head {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.tt-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 0.66rem;
+}
+.tt-tooltip-k { color: var(--ink-3); }
+.tt-tooltip-v { color: var(--ink); font-family: var(--font-mono); }
+.tt-tooltip-commit {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--ink-2);
+  margin-top: 4px;
+}
+.tt-tooltip-hash { color: var(--accent); }
+.tt-tooltip-msg { color: var(--ink-2); }
+.tt-tooltip-inflection {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+  font-size: 0.66rem;
+  color: var(--accent);
+}
+
+/* ── Time Travel Comparison Card (Inspector) ── */
+.ttcmp {
+  padding: 14px 18px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper-2));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: hover-card-in 0.18s ease-out;
+}
+.ttcmp-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.ttcmp-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.ttcmp-range {
+  font-size: 0.72rem;
+  color: var(--ink-2);
+}
+.ttcmp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.ttcmp-metric {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ttcmp-k {
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ttcmp-v {
+  font-family: var(--font-num);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.ttcmp-delta {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+.ttcmp-delta.is-down { color: #86efac; }
+.ttcmp-commits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ttcmp-commits-label {
+  font-size: 0.56rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ttcmp-commit {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--ink-2);
+}
+.ttcmp-hash { color: var(--accent); margin-right: 6px; }
+.ttcmp-msg { color: var(--ink-2); }
+.ttcmp-inflection {
+  font-size: 0.68rem;
+  color: var(--accent);
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+.ttcmp-inflection-marker {
+  margin-right: 6px;
+}
+

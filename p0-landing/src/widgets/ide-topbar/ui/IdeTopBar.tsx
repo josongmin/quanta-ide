@@ -1,20 +1,16 @@
 import { useTranslation } from "react-i18next";
 import { IdeSettingsMenu } from "./IdeSettingsMenu";
+import { UserMenu } from "./UserMenu";
 
 interface IdeTopBarProps {
   path: string[];
-  riskScore: number;
   onExit: () => void;
   onAsk: () => void;
-  onRiskClick: (rect: DOMRect) => void;
   onTimeTravel: () => void;
-  onOpenPr: () => void;
-  onAgent?: () => void;
 }
 
-export function IdeTopBar({ path, riskScore, onExit, onAsk, onRiskClick, onTimeTravel, onOpenPr, onAgent }: IdeTopBarProps) {
+export function IdeTopBar({ path, onExit, onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps) {
   const { t } = useTranslation();
-  const dots = Math.round((riskScore / 100) * 5);
 
   return (
     <div className="ide-topbar">
@@ -39,89 +35,71 @@ export function IdeTopBar({ path, riskScore, onExit, onAsk, onRiskClick, onTimeT
         <span className="ide-topbar-ask-kbd">⌘K</span>
       </button>
       <div className="ide-topbar-right">
-        {/* Group 1: icon-only utility buttons */}
-        {/* Group 1: time travel */}
-        <div className="ide-topbar-group">
-          <button
-            type="button"
-            className="ide-topbar-time"
-            onClick={onTimeTravel}
-            title={t("ide.topbar.timeTravelTitle")}
-            aria-label={t("ide.topbar.timeTravelAria")}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="9" />
-              <polyline points="12 7 12 12 15 14" />
-            </svg>
-          </button>
-        </div>
 
-        <span className="ide-topbar-sep" aria-hidden />
-
-        {/* Group 2: risk + PR */}
+        {/* Commit button */}
         <div className="ide-topbar-group">
-          <button
-            type="button"
-            className="ide-topbar-risk is-clickable"
-            title={t("ide.topbar.riskTitle")}
-            onClick={(e) => { onRiskClick(e.currentTarget.getBoundingClientRect()); }}
-          >
-            <span>{t("ide.topbar.risk")}</span>
-            <span className="ide-topbar-risk-num">{riskScore}</span>
-            <span className="ide-topbar-risk-dots" aria-hidden="true">
-              {Array.from({ length: 5 }, (_, i) => (
-                <i key={i} className={i < dots ? "on" : ""} />
-              ))}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="ide-topbar-pr"
-            onClick={onOpenPr}
-            title={t("ide.topbar.prTitle")}
-          >
+          <button type="button" className="ide-topbar-commit">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="6" cy="6" r="2.5" />
-              <circle cx="6" cy="18" r="2.5" />
-              <circle cx="18" cy="18" r="2.5" />
-              <path d="M6 8.5v7" />
-              <path d="M6 8.5c0 5 6 5 6 9.5" />
+              <circle cx="12" cy="12" r="3" />
+              <line x1="3" y1="12" x2="9" y2="12" />
+              <line x1="15" y1="12" x2="21" y2="12" />
             </svg>
-            <span>{t("ide.topbar.pr")}</span>
+            <span>Commit</span>
+            <svg className="ide-topbar-commit-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
         </div>
 
         <span className="ide-topbar-sep" aria-hidden />
 
-        {/* Group 3: agent */}
+        {/* Line diff */}
         <div className="ide-topbar-group">
-          <button
-            type="button"
-            className="ide-topbar-agent"
-            onClick={onAgent}
-            title="P0 Agent (⌘⇧A)"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.3L12 16.5l-6.2 4.5 2.4-7.3L2 9.2h7.6z" />
+          <button type="button" className="ide-topbar-diff" title="Line changes">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="9" y1="12" x2="15" y2="12" />
+              <line x1="12" y1="9" x2="12" y2="15" />
             </svg>
-            <span>Agent</span>
-            <span className="ide-topbar-ask-kbd">⌘⇧A</span>
+            <span className="ide-topbar-diff-add">+10,453</span>
+            <span className="ide-topbar-diff-del">-1,554</span>
           </button>
         </div>
 
         <span className="ide-topbar-sep" aria-hidden />
 
-        {/* Group 5: settings */}
+        {/* Review count */}
+        <div className="ide-topbar-group">
+          <button type="button" className="ide-settings-trigger" style={{ position: "relative" }} title="Pending reviews">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span className="ide-topbar-badge">3</span>
+          </button>
+        </div>
+
+        {/* Notification bell */}
+        <div className="ide-topbar-group">
+          <button type="button" className="ide-settings-trigger" style={{ position: "relative" }} title="Notifications">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span className="ide-topbar-badge ide-topbar-badge--alert">2</span>
+          </button>
+        </div>
+
+        <span className="ide-topbar-sep" aria-hidden />
+
+        {/* Settings */}
         <div className="ide-topbar-group">
           <IdeSettingsMenu />
         </div>
 
         <span className="ide-topbar-sep" aria-hidden />
 
-        {/* Group 6: exit */}
-        <button type="button" className="ide-exit" onClick={onExit}>
-          {t("ide.topbar.exit")}
-        </button>
+        {/* User profile */}
+        <UserMenu onExit={onExit} />
       </div>
     </div>
   );

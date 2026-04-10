@@ -5,12 +5,10 @@ import { IdeFiles } from "@/widgets/ide-files";
 import { IdeEditor, type CodeLine } from "@/widgets/ide-editor";
 import { IdeInspector, InspectorSection } from "@/widgets/ide-inspector";
 import { IdeStatusBar } from "@/widgets/ide-statusbar";
-import { LineInfoBar } from "@/widgets/ide-statusbar/ui/LineInfoBar";
 import { IdeCallGraph, type CallNode } from "@/features/ide-call-graph";
 import { IdeDataFlow, type FlowStep } from "@/features/ide-data-flow";
 import { IdeSuggestedFix } from "@/features/ide-suggested-fix";
-import { CommandPalette, useCommandPalette } from "@/features/ide-command-palette";
-import { dispatchCommand, setSuggestedProposalResolver } from "@/features/ide-command-palette/model/dispatcher";
+import { CommandPalette, useCommandPalette, dispatchCommand, setSuggestedProposalResolver, registerCommand, unregisterCommand } from "@/features/ide-command-palette";
 import { SymbolTooltip } from "@/features/ide-editor-hover";
 import { BlastRadiusViz } from "@/features/ide-blast-radius-viz";
 import { SimulatePanel, useSimulateChange } from "@/features/ide-simulate-change";
@@ -32,6 +30,7 @@ import { AgentWindow, useAgentWindow } from "@/features/ide-agent-window";
 import { useIdeTheme } from "@/features/ide-theme";
 import { useThemeStore } from "@/entities/theme";
 import { useInspectorContext, FileInspector, SymbolInspector, RepoInspector } from "@/features/ide-inspector-context";
+import { useRepoIcon } from "@/entities/repo";
 import { FILE_INSPECTOR } from "./mock-file-inspector";
 import { useActiveFile, type FileName } from "./model/useActiveFile";
 import { MOCK_FILES, MOCK_CALL_GRAPH, MOCK_DATA_FLOW } from "./mock";
@@ -56,41 +55,53 @@ interface FileData {
 }
 
 const FILE_DATA: Record<FileName, FileData> = {
-  "refund.ts": {
+  "orchestrator.py": {
     lines: REFUND_LINES,
     callGraph: MOCK_CALL_GRAPH,
     dataFlow: MOCK_DATA_FLOW,
-    funcName: "processRefund",
-    loc: "refund.ts:5",
+    funcName: "execute",
+    loc: "orchestrator.py:315",
     riskScore: 78,
-    cpx: "8.2",
-    callers: "14",
-    tests: "0/14",
-    blast: "31",
+    cpx: "9.1",
+    callers: "12",
+    tests: "0/12",
+    blast: "38",
   },
-  "charge.ts": {
+  "routing_policy.py": {
     lines: CHARGE_LINES,
     callGraph: CHARGE_CALL_GRAPH,
     dataFlow: CHARGE_DATA_FLOW,
-    funcName: "processCharge",
-    loc: "charge.ts:5",
-    riskScore: 52,
-    cpx: "5.4",
+    funcName: "_route_request",
+    loc: "routing_policy.py:88",
+    riskScore: 44,
+    cpx: "5.1",
     callers: "9",
-    tests: "3/9",
-    blast: "18",
+    tests: "1/9",
+    blast: "14",
   },
-  "ledger.ts": {
+  "security.py": {
+    lines: CHARGE_LINES,
+    callGraph: CHARGE_CALL_GRAPH,
+    dataFlow: CHARGE_DATA_FLOW,
+    funcName: "_analyze_taint_path_control_flow",
+    loc: "security.py:477",
+    riskScore: 52,
+    cpx: "6.3",
+    callers: "7",
+    tests: "2/7",
+    blast: "21",
+  },
+  "audit_store.py": {
     lines: LEDGER_LINES,
     callGraph: LEDGER_CALL_GRAPH,
     dataFlow: LEDGER_DATA_FLOW,
-    funcName: "appendLedger",
-    loc: "ledger.ts:4",
+    funcName: "store_request",
+    loc: "audit_store.py:4",
     riskScore: 23,
-    cpx: "2.1",
-    callers: "3",
-    tests: "7/7",
-    blast: "5",
+    cpx: "2.4",
+    callers: "5",
+    tests: "5/5",
+    blast: "8",
   },
 };
 
@@ -115,10 +126,11 @@ export function IdePage({ onExit }: IdePageProps) {
   const { open: openChangeCard } = useChangeCard();
   const { toggle: togglePr, open: openPr } = useSemanticPr();
   const { toggle: togglePrd, open: openPrd } = usePrDisaster();
-  const { show: showGuard } = useGuardPill();
+  const { show: _showGuard } = useGuardPill();
   const { show: showIncident } = useIncidentAlert();
   const { toggle: toggleOwnership } = useOwnershipMap();
   const { theme } = useIdeTheme();
+  const { icon: repoIcon } = useRepoIcon();
   const { aurora } = useThemeStore();
   const { context: inspCtx, setFileContext, setRepoContext } = useInspectorContext();
   useEffect(() => {
@@ -133,9 +145,10 @@ export function IdePage({ onExit }: IdePageProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
+  const ALL_FILES: FileName[] = ["orchestrator.py", "routing_policy.py", "security.py", "audit_store.py"];
+
   const navigateToFile = (name: string) => {
-    const validFiles: FileName[] = ["refund.ts", "charge.ts", "ledger.ts"];
-    const match = validFiles.find((f) => name.includes(f.replace(".ts", "")));
+    const match = ALL_FILES.find((f) => f === name || name.endsWith(f));
     if (match) {
       openTab(match);
       setFileContext(match);
@@ -150,7 +163,9 @@ export function IdePage({ onExit }: IdePageProps) {
   // expose active file's fix proposal to dispatcher (used by ⌘F / context menu)
   useEffect(() => {
     setSuggestedProposalResolver(() => fix.proposal);
-  }, [fix]);
+    registerCommand("fix", () => { openChangeCard(fix.proposal); });
+    return () => { unregisterCommand("fix"); };
+  }, [fix, openChangeCard]);
 
 
   // live typing → trigger Incident DNA match when behavior change detected
@@ -160,6 +175,23 @@ export function IdePage({ onExit }: IdePageProps) {
       return () => { clearTimeout(t); };
     }
   }, [isEditing, blastDelta, showIncident]);
+
+  // register command handlers into dispatcher registry
+  useEffect(() => {
+    registerCommand("simulate", () => { openSim(); });
+    registerCommand("history", () => { toggleTime(); });
+    registerCommand("dataflow", () => { toggleTrace(MOCK_TRACE); });
+    registerCommand("ask", () => { openCmdK(); });
+    registerCommand("dead", () => { toggleRisk(); });
+    registerCommand("pr", () => { openPr(); });
+    registerCommand("preflight", () => { openPrd(); });
+    registerCommand("ownership", () => { toggleOwnership(); });
+    return () => {
+      for (const id of ["simulate", "history", "dataflow", "ask", "dead", "pr", "preflight", "ownership"]) {
+        unregisterCommand(id);
+      }
+    };
+  }, [openSim, toggleTime, toggleTrace, openCmdK, toggleRisk, openPr, openPrd, toggleOwnership]);
 
   // keyboard shortcuts
   useEffect(() => {
@@ -195,25 +227,30 @@ export function IdePage({ onExit }: IdePageProps) {
   return (
     <div className="ide" data-theme={theme}>
       <IdeTopBar
-        path={["payments-api", "src", "payments", active]}
-        riskScore={isEditing && blastDelta > 0 ? 78 + blastDelta : 78}
+        path={["codegraph-agent", "codegraph_agent", active === "orchestrator.py" ? "orchestrator" : active === "security.py" ? "tools/plan_orchestration/tools" : "infrastructure/audit", active]}
         onExit={onExit}
         onAsk={openCmdK}
-        onRiskClick={(rect) => { toggleRisk({ left: rect.left, right: rect.right, bottom: rect.bottom }); }}
         onTimeTravel={toggleTime}
-        onOpenPr={() => { openPr(); showGuard(); }}
-        onAgent={toggleAgent}
       />
       <TimeTravelStrip />
       <IdeFiles
         nodes={MOCK_FILES.map((n) => ({ ...n, active: n.name === active }))}
         repoName="payments-api"
+        repoIcon={repoIcon}
+        onNodeSelect={(name, type) => {
+          if (type === "file") {
+            const match = ALL_FILES.find((f) => f === name);
+            if (match) setFileContext(match);
+          } else {
+            setRepoContext("payments-api");
+          }
+        }}
         onFileClick={navigateToFile}
         onRepoClick={() => { setRepoContext("payments-api"); }}
         onHover={showFileTip}
         onHoverEnd={hideFileTip}
       />
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- right-click + click to deselect symbol */}
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- right-click + click to deselect symbol */}
       <div style={{ display: "contents" }} onContextMenu={handleEditorContextMenu} onClick={() => {
         if (inspCtx.mode === "symbol" || inspCtx.mode === "repo") setFileContext(active);
       }}>
@@ -273,7 +310,6 @@ export function IdePage({ onExit }: IdePageProps) {
           </SymbolInspector>
         ) : null}
       </IdeInspector>
-      <LineInfoBar />
       <IdeStatusBar
         issues={isEditing && blastDelta > 0 ? 3 : 2}
         buildState="passed"

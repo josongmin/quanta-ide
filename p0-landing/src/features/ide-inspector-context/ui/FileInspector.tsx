@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
-import type { FileInspectorData, FileSymbol, FileSignal, HeatRow, BlastNeighbor } from "@/app/ide/mock-file-inspector";
 import type { ReactNode } from "react";
+import type { FileInspectorData, FileSymbol, FileSignal, HeatRow, BlastNeighbor } from "@/app/ide/mock-file-inspector";
 import { useInspectorContext } from "../model/useInspectorContext";
 
 /* ── helpers ── */
@@ -255,7 +255,7 @@ export function FileInspector({ data, onNavigate, children }: FileInspectorProps
         <FiiSection label={t("ide.fileInspector.connected")}>
           <div className="fii-neighbors">
             {data.blastNeighbors.map((n) => (
-              <NeighborRow key={n.name} n={n} onNavigate={onNavigate ?? (() => {})} />
+              <NeighborRow key={n.name} n={n} onNavigate={onNavigate ?? ((_name: string) => { /* no-op */ })} />
             ))}
           </div>
         </FiiSection>

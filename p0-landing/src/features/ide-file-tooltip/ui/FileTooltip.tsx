@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { smartPos } from "@/features/ide-editor-hover/model/useSmartPos";
 import { useFileTooltip } from "../model/useFileTooltip";
 
 function riskDots(level: number, max = 5) {
@@ -15,8 +16,8 @@ export function FileTooltip() {
   if (!meta) return null;
 
   const W = 340;
-  const left = Math.min(x + 12, window.innerWidth - W - 16);
-  const top = Math.min(y, window.innerHeight - 400);
+  const ESTIMATED_H = meta.type === "file" ? 380 : 260;
+  const { left, top } = smartPos(x, y, W, ESTIMATED_H);
 
   const isFile = meta.type === "file";
 

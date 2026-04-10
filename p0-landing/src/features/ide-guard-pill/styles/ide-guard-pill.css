@@ -1,0 +1,250 @@
+/* ═════════════════════════════════════════════════════════════════════
+   Guard Pill — floating rounded toast-style merge guardrails
+   ═════════════════════════════════════════════════════════════════════ */
+.gpill-root {
+  position: fixed;
+  left: calc(240px + ((100vw - 240px - 360px) / 2));
+  bottom: 38px;
+  transform: translateX(-50%);
+  z-index: 96;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+  animation: gpill-in 0.32s cubic-bezier(0.2, 0.85, 0.2, 1);
+}
+@keyframes gpill-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* chip (always visible) */
+.gpill-chip {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px 7px 10px;
+  border-radius: 999px;
+  background: var(--paper-2);
+  border: 1px solid var(--line-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  font-family: var(--font-ui);
+  font-size: 0.74rem;
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color var(--transition), background var(--transition);
+  max-width: min(640px, calc(100vw - 640px));
+}
+.gpill-chip:hover {
+  border-color: var(--line-3);
+  background: var(--paper-3);
+}
+.gpill-chip-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  font-size: 0.7rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.gpill-chip-rule {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.005em;
+}
+.gpill-chip-sep {
+  width: 1px;
+  height: 14px;
+  background: var(--line-2);
+  flex-shrink: 0;
+}
+.gpill-chip-counts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.gpill-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+.gpill-dot-blocked {
+  background: color-mix(in srgb, var(--risk-4) 22%, transparent);
+  color: var(--risk-4);
+  border: 1px solid color-mix(in srgb, var(--risk-4) 36%, transparent);
+}
+.gpill-dot-warn {
+  background: color-mix(in srgb, var(--risk-3) 22%, transparent);
+  color: var(--risk-3);
+  border: 1px solid color-mix(in srgb, var(--risk-3) 36%, transparent);
+}
+.gpill-dot-safe {
+  background: color-mix(in srgb, #34d399 22%, transparent);
+  color: #34d399;
+  border: 1px solid color-mix(in srgb, #34d399 36%, transparent);
+}
+.gpill-chip-chev {
+  color: var(--ink-3);
+  font-size: 0.68rem;
+  flex-shrink: 0;
+  transition: color var(--transition);
+}
+.gpill-chip:hover .gpill-chip-chev { color: var(--ink); }
+
+/* state color accents on the chip glyph */
+.gpill-blocked .gpill-chip-glyph {
+  background: color-mix(in srgb, var(--risk-4) 16%, transparent);
+  color: var(--risk-4);
+}
+.gpill-warn .gpill-chip-glyph {
+  background: color-mix(in srgb, var(--risk-3) 16%, transparent);
+  color: var(--risk-3);
+}
+.gpill-safe .gpill-chip-glyph {
+  background: color-mix(in srgb, #34d399 14%, transparent);
+  color: #34d399;
+}
+
+/* expanded body */
+.gpill-body {
+  pointer-events: auto;
+  min-width: 460px;
+  max-width: min(560px, calc(100vw - 640px));
+  padding: 14px 16px 14px;
+  border-radius: var(--overlay-radius-ephemeral);
+  background: color-mix(in srgb, var(--paper-1) 94%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border: 1px solid var(--line-2);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: gpill-body-in 0.24s cubic-bezier(0.2, 0.85, 0.2, 1);
+}
+@keyframes gpill-body-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.gpill-body-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.gpill-body-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.gpill-body-sum {
+  display: inline-flex;
+  gap: 4px;
+}
+.gpill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.gpill-count-blocked { background: color-mix(in srgb, var(--risk-4) 20%, transparent); color: var(--risk-4); }
+.gpill-count-warn { background: color-mix(in srgb, var(--risk-3) 20%, transparent); color: var(--risk-3); }
+.gpill-count-safe { background: color-mix(in srgb, #34d399 18%, transparent); color: #34d399; }
+
+.gpill-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gpill-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  transition: background var(--transition);
+}
+.gpill-row:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.gpill-row-glyph {
+  width: 18px;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  flex-shrink: 0;
+}
+.gpill-row-blocked .gpill-row-glyph { color: var(--risk-4); }
+.gpill-row-warn .gpill-row-glyph { color: var(--risk-3); }
+.gpill-row-safe .gpill-row-glyph { color: #34d399; }
+.gpill-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.gpill-row-rule {
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.gpill-row-detail {
+  font-size: 0.68rem;
+  color: var(--ink-3);
+  line-height: 1.45;
+}
+
+/* expanded state — rotate chev */
+.gpill-root.is-expanded .gpill-chip-chev { transform: rotate(180deg); }
+
+/* mobile */
+@media (max-width: 1024px) {
+  .gpill-root {
+    left: calc(200px + ((100vw - 200px) / 2));
+    bottom: 38px;
+  }
+  .gpill-chip { max-width: calc(100vw - 240px); }
+  .gpill-body { min-width: 0; max-width: calc(100vw - 240px); }
+}
+
+/* light theme */
+.ide[data-theme="light"] .gpill-chip,
+.ide[data-theme="light"] .gpill-body {
+  background: color-mix(in srgb, #ffffff 88%, transparent);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04) inset;
+}
+

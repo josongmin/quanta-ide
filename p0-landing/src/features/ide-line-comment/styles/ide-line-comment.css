@@ -1,0 +1,289 @@
+/* =============================================================================
+   ide-line-comment.css — inline code comment thread
+   ============================================================================= */
+
+/* ── Comment thread container ── */
+.lc-thread {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-1);
+  border-left: 2px solid var(--accent);
+  transition: opacity 0.2s;
+}
+.lc-thread.is-resolved {
+  opacity: 0.45;
+  border-left-color: var(--ink-4);
+}
+
+/* ── Header ── */
+.lc-thread-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px 4px;
+}
+.lc-thread-range-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-4);
+  text-transform: uppercase;
+}
+.lc-thread-resolve-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.lc-thread-resolve-btn:hover {
+  color: var(--token-ok);
+  border-color: color-mix(in srgb, var(--token-ok) 40%, transparent);
+  background: color-mix(in srgb, var(--token-ok) 8%, transparent);
+}
+.lc-thread-resolve-btn.is-resolved {
+  color: var(--token-ok);
+  border-color: color-mix(in srgb, var(--token-ok) 30%, transparent);
+  background: color-mix(in srgb, var(--token-ok) 8%, transparent);
+}
+
+/* ── Comment list ── */
+.lc-thread-list {
+  padding: 4px 0 2px;
+}
+
+/* ── Comment item ── */
+.lc-item {
+  display: flex;
+  gap: 8px;
+  padding: 6px 14px;
+}
+.lc-item.is-reply {
+  padding-left: 42px;
+  position: relative;
+}
+.lc-item.is-reply::before {
+  content: "";
+  position: absolute;
+  left: 30px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+}
+.lc-item-avatar {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.lc-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.lc-item-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.lc-item-name {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.lc-item-time {
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  color: var(--ink-4);
+}
+.lc-item-text {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  word-break: break-word;
+}
+.lc-item-reply-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--ink-4);
+  cursor: pointer;
+  letter-spacing: 0.03em;
+  transition: color 0.15s;
+}
+.lc-item-reply-btn:hover { color: var(--accent); }
+
+/* ── Input area ── */
+.lc-thread-input-wrap {
+  padding: 6px 14px 10px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lc-thread-replying-to {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-ui);
+  font-size: 0.6rem;
+  color: var(--ink-4);
+  padding: 2px 0;
+}
+.lc-thread-cancel-reply {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ink-4);
+  font-size: 0.65rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.lc-thread-cancel-reply:hover { color: var(--ink); }
+.lc-thread-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.lc-thread-input-avatar { margin-top: 2px; flex-shrink: 0; }
+.lc-thread-textarea {
+  flex: 1;
+  min-height: 28px;
+  max-height: 120px;
+  resize: none;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  color: var(--ink);
+  line-height: 1.5;
+  outline: none;
+  transition: border-color 0.15s;
+  field-sizing: content;
+}
+.lc-thread-textarea:focus {
+  border-color: var(--accent);
+}
+.lc-thread-textarea::placeholder { color: var(--ink-4); }
+.lc-thread-submit-btn {
+  flex-shrink: 0;
+  margin-top: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.lc-thread-submit-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.lc-thread-submit-btn:not(:disabled):hover { opacity: 0.85; }
+
+/* ── Line comment add button (+) ── */
+.lc-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+  background: var(--paper-2);
+  color: var(--ink-3);
+  cursor: pointer;
+  font-size: 0.7rem;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+.ide-editor-line:hover .lc-add-btn,
+.ide-editor-line.is-hovered .lc-add-btn {
+  opacity: 1;
+}
+.lc-add-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── Comment indicator (말풍선 dot) ── */
+.lc-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 3px;
+  color: var(--accent);
+  vertical-align: middle;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s;
+}
+.lc-indicator.is-resolved {
+  color: var(--ink-4);
+  opacity: 0.5;
+}
+.lc-indicator:hover { opacity: 1; }
+.lc-indicator-count {
+  font-family: var(--font-ui);
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.lc-indicators {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+/* Selection → “Add comment” (Notion-style range) */
+.ide-editor-range-comment-pop {
+  position: fixed;
+  z-index: 30;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--paper-1);
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--ink) 12%, transparent);
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.ide-editor-range-comment-pop:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper-1));
+}

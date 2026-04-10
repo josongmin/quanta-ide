@@ -1,78 +1,61 @@
-import { useTranslation } from "react-i18next";
+/* =============================================================================
+   SymbolTooltip.tsx — registry 기반 심볼 팝오버
+   새 kind 추가 = renderers/registry.ts 에만 등록
+   ============================================================================= */
 import { useEditorHover } from "../model/useEditorHover";
+import { SYMBOL_REGISTRY } from "../renderers/registry";
+import { smartPos } from "../model/useSmartPos";
+import { riskColor } from "./sections/helpers";
 
-function taintKey(raw: string): "ide.symtip.taintSource" | "ide.symtip.taintSink" | "ide.symtip.taintPass" {
-  if (raw === "sink") return "ide.symtip.taintSink";
-  if (raw === "passthrough") return "ide.symtip.taintPass";
-  return "ide.symtip.taintSource";
-}
+export { LineTooltip } from "./LineTooltip";
 
 export function SymbolTooltip() {
-  const { t } = useTranslation();
   const hovered = useEditorHover((s) => s.hoveredSymbol);
   if (!hovered) return null;
 
   const { info, x, y } = hovered;
-  const TT_WIDTH = 280;
-  const TT_GAP = 12;
-  const left = Math.min(window.innerWidth - TT_WIDTH - 16, x + TT_GAP);
-  const top = y + TT_GAP;
+  const TT_WIDTH = 300;
+  const ESTIMATED_H = 280;
+  const { left, top } = smartPos(x, y, TT_WIDTH, ESTIMATED_H);
+  const renderer = SYMBOL_REGISTRY[info.kind];
 
   return (
     <div className="symtip" style={{ left, top, width: TT_WIDTH }}>
+
+      {/* ── Header ── */}
       <div className="symtip-head">
-        <span className="symtip-kind">{info.kind}</span>
+        <span className="symtip-kind-glyph">{renderer.icon}</span>
         <span className="symtip-name">{info.name}</span>
-      </div>
-      <div className="symtip-body">
-        {info.taint && (
-          <div className="symtip-row">
-            <span className="symtip-k">{t("ide.symtip.taint")}</span>
-            <span
-              className="symtip-v"
-              data-tone={info.taint === "source" || info.taint === "sink" ? "warn" : "ink"}
-            >
-              {t(taintKey(info.taint))}
-            </span>
-          </div>
-        )}
-        {info.origin && (
-          <div className="symtip-row">
-            <span className="symtip-k">{t("ide.symtip.origin")}</span>
-            <span className="symtip-v symtip-mono">{info.origin}</span>
-          </div>
-        )}
-        {info.flowsTo && (
-          <div className="symtip-row">
-            <span className="symtip-k">{t("ide.symtip.flowsTo")}</span>
-            <span className="symtip-v symtip-mono">{info.flowsTo}</span>
-          </div>
-        )}
-        {info.callers !== undefined && (
-          <div className="symtip-row">
-            <span className="symtip-k">{t("ide.symtip.callers")}</span>
-            <span className="symtip-v">{info.callers}</span>
-          </div>
-        )}
-        {info.complexity !== undefined && (
-          <div className="symtip-row">
-            <span className="symtip-k">{t("ide.symtip.complexity")}</span>
-            <span className="symtip-v">{info.complexity.toFixed(1)}</span>
-          </div>
-        )}
-        {info.blame && (
-          <div className="symtip-row">
-            <span className="symtip-k">{t("ide.symtip.blame")}</span>
-            <span className="symtip-v">
-              {info.blame.author} <span className="symtip-dim">· {info.blame.when}</span>
-            </span>
-          </div>
+        <span className="symtip-kind-label">{renderer.label}</span>
+        {info.riskScore !== undefined && info.riskScore > 0 && (
+          <span className="symtip-risk-badge" style={{
+            color: riskColor(info.riskScore),
+            borderColor: riskColor(info.riskScore),
+          }}>
+            {info.riskScore}
+          </span>
         )}
       </div>
-      <div className="symtip-foot">
-        <span className="symtip-kbd">⌘.</span> {t("ide.symtip.kbdShowFlow")}
-        <span className="symtip-kbd">⌘F</span> {t("ide.symtip.kbdFix")}
-      </div>
+
+      {/* ── Sections (registry-driven) ── */}
+      {renderer.sections.map((Section, i) => (
+        <Section key={i} info={info} />
+      ))}
+
+      {/* ── Footer ── */}
+      {(() => {
+        const hints = renderer.footerHints(info);
+        if (!hints.length) return null;
+        return (
+          <div className="symtip-foot">
+            {hints.map(({ kbd, label }) => (
+              <span key={kbd} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                <span className="symtip-kbd">{kbd}</span>{label}
+              </span>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }

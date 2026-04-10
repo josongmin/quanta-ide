@@ -1,18 +1,6 @@
-import { create } from "zustand";
+import { createPanelStore } from "@/shared/model/createPanelStore";
 
-interface PrDisasterState {
-  isOpen: boolean;
-  open: () => void;
-  close: () => void;
-  toggle: () => void;
-}
-
-export const usePrDisaster = create<PrDisasterState>()((set) => ({
-  isOpen: false,
-  open: () => { set({ isOpen: true }); },
-  close: () => { set({ isOpen: false }); },
-  toggle: () => { set((s) => ({ isOpen: !s.isOpen })); },
-}));
+export const usePrDisaster = createPanelStore();
 
 export type AffectedWhyKey =
   | "importsRefund"

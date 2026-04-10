@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { dispatchCommand } from "@/features/ide-command-palette/model/dispatcher";
+import { dispatchCommand } from "@/features/ide-command-palette";
 import { CONTEXT_ITEMS, useContextMenu } from "../model/useContextMenu";
 
 export function ContextMenu() {

@@ -2,7 +2,9 @@ import { useEditorHover } from "@/features/ide-editor-hover";
 
 export function LineInfoBar() {
   const hovered = useEditorHover((s) => s.hoveredLine);
+  const hoveredSymbol = useEditorHover((s) => s.hoveredSymbol);
   if (!hovered?.summary) return null;
+  if (hoveredSymbol) return null; // 팝업이 열려있으면 하단 바 숨김
 
   return (
     <div className="ide-lineinfo">

@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { createPanelStore } from "@/shared/model/createPanelStore";
 
 export interface Owner {
   handle: string;
@@ -19,17 +19,7 @@ export interface OwnershipBand {
   health: "owned" | "thin" | "orphan";
 }
 
-interface OwnershipMapState {
-  isOpen: boolean;
-  toggle: () => void;
-  close: () => void;
-}
-
-export const useOwnershipMap = create<OwnershipMapState>()((set) => ({
-  isOpen: false,
-  toggle: () => { set((s) => ({ isOpen: !s.isOpen })); },
-  close: () => { set({ isOpen: false }); },
-}));
+export const useOwnershipMap = createPanelStore();
 
 export const OWNERSHIP_BANDS: OwnershipBand[] = [
   {

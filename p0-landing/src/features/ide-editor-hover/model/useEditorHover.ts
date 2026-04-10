@@ -1,21 +1,15 @@
 import { create } from "zustand";
+import type { SymbolInfo } from "./symbols";
 
-export interface SymbolInfo {
-  name: string;
-  kind: "function" | "variable" | "import";
-  taint?: "source" | "sink" | "passthrough";
-  callers?: number;
-  complexity?: number;
-  blame?: { author: string; when: string };
-  origin?: string;
-  flowsTo?: string;
-}
+export type { SymbolInfo } from "./symbols";
 
 export interface LineContext {
   lineNo: number;
   risk?: 1 | 2 | 3 | 4;
   summary?: string;
   detail?: string;
+  x?: number;
+  y?: number;
 }
 
 interface EditorHoverState {
@@ -29,5 +23,5 @@ export const useEditorHover = create<EditorHoverState>()((set) => ({
   hoveredLine: null,
   hoveredSymbol: null,
   setLine: (line) => { set({ hoveredLine: line }); },
-  setSymbol: (s) => { set({ hoveredSymbol: s }); },
+  setSymbol: (s) => { set(s ? { hoveredSymbol: s, hoveredLine: null } : { hoveredSymbol: null }); },
 }));

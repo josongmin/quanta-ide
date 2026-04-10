@@ -1,5 +1,5 @@
 import { type ReactNode, useState, useCallback, useId } from "react";
-import { PanelResizer } from "@/shared/ui/PanelResizer";
+import { PanelResizer } from "@/shared/ui";
 
 interface IdeInspectorProps {
   children: ReactNode;

@@ -1,8 +1,16 @@
 import type { ReactNode, MouseEvent as ReactMouseEvent } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorHover, type LineContext, type SymbolInfo } from "@/features/ide-editor-hover";
 import { useFlowTrace } from "@/features/ide-flow-trace";
 import { useInspectorContext } from "@/features/ide-inspector-context";
+import {
+  useLineComment,
+  CommentThreadUI,
+  selectionToCodeRange,
+  fullLineRangeFromDom,
+  type CodeRange,
+} from "@/features/ide-line-comment";
 
 export type LineHint =
   | { type: "author"; name: string; when: string }
@@ -31,23 +39,104 @@ interface IdeEditorProps {
   liveTypingLine?: ReactNode;
   flowTraceBanner?: ReactNode;
   impactBanner?: ReactNode;
+
   onTabClick?: (name: string) => void;
   onTabClose?: (name: string) => void;
 }
 
+function isInsideLineCommentUi(node: Node | null): boolean {
+  let n: Node | null = node;
+  while (n instanceof HTMLElement) {
+    if (n.classList.contains("lc-thread") || n.classList.contains("ide-editor-range-comment-pop")) return true;
+    n = n.parentElement;
+  }
+  return false;
+}
+
 export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impactBanner, onTabClick, onTabClose }: IdeEditorProps) {
   const { t } = useTranslation();
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [rangeCommentPop, setRangeCommentPop] = useState<{
+    range: CodeRange;
+    top: number;
+    left: number;
+  } | null>(null);
+
   const setLine = useEditorHover((s) => s.setLine);
   const setSymbol = useEditorHover((s) => s.setSymbol);
   const hoveredLineNo = useEditorHover((s) => s.hoveredLine?.lineNo);
   const traceLines = useFlowTrace((s) => s.lines);
   const isTraceActive = useFlowTrace((s) => s.isActive);
+  const threads = useLineComment((s) => s.threads);
+  const openThreadId = useLineComment((s) => s.openThreadId);
+  const toggleThread = useLineComment((s) => s.toggleThread);
+  const createThreadForRange = useLineComment((s) => s.createThreadForRange);
+
+  const dismissRangePop = useCallback(() => { setRangeCommentPop(null); }, []);
+
+  useEffect(() => {
+    const onDocMouseDown = (e: MouseEvent) => {
+      const el = e.target;
+      if (!(el instanceof Node)) return;
+      if (isInsideLineCommentUi(el)) return;
+      if (bodyRef.current?.contains(el)) {
+        dismissRangePop();
+        return;
+      }
+      dismissRangePop();
+    };
+    document.addEventListener("mousedown", onDocMouseDown);
+    return () => { document.removeEventListener("mousedown", onDocMouseDown); };
+  }, [dismissRangePop]);
+
+  const onEditorMouseUp = useCallback(() => {
+    const root = bodyRef.current;
+    if (!root) return;
+    const sel = window.getSelection();
+    if (!sel || isInsideLineCommentUi(sel.anchorNode)) return;
+    const range = selectionToCodeRange(root, sel);
+    if (!range) {
+      dismissRangePop();
+      return;
+    }
+    if (range.startLine === range.endLine && range.startCol === range.endCol) {
+      dismissRangePop();
+      return;
+    }
+    const domRange = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+    const rect = domRange?.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      dismissRangePop();
+      return;
+    }
+    setRangeCommentPop({
+      range,
+      top: rect.bottom + 6,
+      left: rect.left,
+    });
+  }, [dismissRangePop]);
+
+  const confirmRangeComment = useCallback(() => {
+    if (!rangeCommentPop) return;
+    createThreadForRange(rangeCommentPop.range);
+    window.getSelection()?.removeAllRanges();
+    dismissRangePop();
+  }, [rangeCommentPop, createThreadForRange, dismissRangePop]);
+
+  const startFullLineThread = useCallback((lineNo: number) => {
+    const root = bodyRef.current;
+    if (!root) return;
+    const range = fullLineRangeFromDom(root, lineNo);
+    if (!range) return;
+    createThreadForRange(range);
+  }, [createThreadForRange]);
 
   const tracedSet = new Set(traceLines.map((t) => t.lineNo));
   const traceKindMap = new Map(traceLines.map((t) => [t.lineNo, t.kind]));
 
-  const onLineEnter = (line: CodeLine) => () => {
-    setLine(line.context ?? { lineNo: line.no, risk: line.risk });
+  const onLineEnter = (line: CodeLine) => (e: ReactMouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setLine({ ...(line.context ?? { lineNo: line.no, risk: line.risk }), x: rect.left + 40, y: rect.top });
   };
   const onLineLeave = () => {
     setLine(null);
@@ -95,7 +184,12 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
         ))}
       </div>
       {flowTraceBanner}
-      <div className="ide-editor-body">
+      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- selection → range comment */}
+      <div
+        ref={bodyRef}
+        className="ide-editor-body"
+        onMouseUp={onEditorMouseUp}
+      >
         {lines.map((line) => {
           const isHovered = hoveredLineNo === line.no;
           const isTraced = isTraceActive && tracedSet.has(line.no);
@@ -103,16 +197,52 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
           const traceClass = isTraced
             ? ` is-traced${traceKind === "source" ? " is-trace-source" : ""}${traceKind === "sink" ? " is-trace-sink" : ""}`
             : "";
+          const threadsHere = threads.filter((th) => th.range.startLine === line.no);
+          const hasThread = threadsHere.length > 0;
+          const inCommentRange = threads.some(
+            (th) => line.no >= th.range.startLine && line.no <= th.range.endLine
+          );
+          const openHere = openThreadId
+            ? threads.some((th) => th.id === openThreadId && th.range.startLine === line.no)
+            : false;
+
           return (
             <div key={line.no}>
               {/* Insert live typing line after line 7 */}
               {line.no === 8 && liveTypingLine}
               {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- mouse-only context preview */}
               <div
-                className={`ide-editor-line${isHovered ? " is-hovered" : ""}${traceClass}`}
+                data-editor-line={line.no}
+                className={`ide-editor-line${isHovered ? " is-hovered" : ""}${traceClass}${inCommentRange ? " has-lc-range" : ""}`}
                 onMouseEnter={onLineEnter(line)}
               >
-                <span className="ide-editor-lineno">{line.no}</span>
+                <span className="ide-editor-lineno">
+                  {line.no}
+                  {hasThread && (
+                    <span className="lc-indicators">
+                      {threadsHere.map((thread) => (
+                        <button
+                          key={thread.id}
+                          type="button"
+                          className={`lc-indicator${thread.resolved ? " is-resolved" : ""}`}
+                          onClick={(e) => { e.stopPropagation(); toggleThread(thread.id); }}
+                          aria-label={
+                            thread.comments.length === 0
+                              ? "Comment thread (draft)"
+                              : `${thread.comments.length} comment${thread.comments.length !== 1 ? "s" : ""}`
+                          }
+                        >
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                          </svg>
+                          {thread.comments.length > 0 && (
+                            <span className="lc-indicator-count">{thread.comments.length}</span>
+                          )}
+                        </button>
+                      ))}
+                    </span>
+                  )}
+                </span>
                 <span className="ide-editor-gutter" data-risk={line.risk ?? ""} />
                 <span className="ide-editor-fold">{line.fold ?? ""}</span>
                 <SymbolizedCode
@@ -130,12 +260,12 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
                 {line.hints && line.hints.length > 0 && (
                   <span className="ide-line-hints">
                     {line.hints.map((h, i) => {
-                      if (h.type === "author") return (
+                      if (h.type === "author") {return (
                         <span key={i} className="ilh ilh-author">
                           <span className="ilh-at">@</span>{h.name.replace("@", "")}
                           <span className="ilh-sep">·</span>{h.when}
                         </span>
-                      );
+                      );}
                       if (h.type === "coverage") {
                         const pct = h.total ? Math.round((h.passed / h.total) * 100) : 0;
                         const bad = pct === 0;
@@ -146,51 +276,77 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
                           </span>
                         );
                       }
-                      if (h.type === "taint-flow") return (
+                      if (h.type === "taint-flow") {return (
                         <span key={i} className="ilh ilh-taint-flow">
                           <span className="ilh-src">{h.from}</span>
                           <svg width="10" height="8" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="0" y1="8" x2="18" y2="8"/><polyline points="12 2 20 8 12 14"/></svg>
                           <span className="ilh-sink">{h.to}</span>
                         </span>
-                      );
-                      if (h.type === "callers") return (
+                      );}
+                      if (h.type === "callers") {return (
                         <span key={i} className={`ilh ilh-callers${h.warn ? " is-warn" : ""}`}>
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                           {h.count}
                         </span>
-                      );
-                      if (h.type === "blast") return (
+                      );}
+                      if (h.type === "blast") {return (
                         <span key={i} className="ilh ilh-blast">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                           {h.files} files
                         </span>
-                      );
-                      if (h.type === "stale") return (
+                      );}
+                      if (h.type === "stale") {return (
                         <span key={i} className="ilh ilh-stale">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                           {h.age}
                         </span>
-                      );
-                      if (h.type === "warn-badge") return (
+                      );}
+                      if (h.type === "warn-badge") {return (
                         <span key={i} className="ilh ilh-warn-badge">
                           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                           {h.label}
                         </span>
-                      );
-                      if (h.type === "complexity") return (
+                      );}
+                      // h.type === "complexity" (exhaustive)
+                      return (
                         <span key={i} className={`ilh ilh-cpx${h.value >= 7 ? " is-high" : h.value >= 4 ? " is-mid" : ""}`}>
                           cpx {h.value.toFixed(1)}
                         </span>
                       );
-                      return null;
                     })}
                   </span>
                 )}
+                {/* + comment button — hover 시 표시 */}
+                <button
+                  type="button"
+                  className="lc-add-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startFullLineThread(line.no);
+                  }}
+                  aria-label="Add comment for full line"
+                >
+                  +
+                </button>
               </div>
+
+              {/* 인라인 comment thread */}
+              {openHere && openThreadId && <CommentThreadUI threadId={openThreadId} />}
             </div>
           );
         })}
       </div>
+      {rangeCommentPop && (
+        <button
+          type="button"
+          className="ide-editor-range-comment-pop"
+          style={{ top: rangeCommentPop.top, left: rangeCommentPop.left }}
+          onMouseDown={(e) => { e.preventDefault(); }}
+          onClick={confirmRangeComment}
+        >
+          Add comment
+        </button>
+      )}
       {impactBanner}
     </main>
   );
@@ -225,32 +381,53 @@ function SymbolizedCode({
 export function HoverSymbol({ info, children }: { info: SymbolInfo; children: ReactNode }) {
   const setSymbol = useEditorHover((s) => s.setSymbol);
   const { context, setSymbolContext } = useInspectorContext();
-  const currentFileName = context.mode === "file" ? context.fileName : context.fileName;
+  const currentFileName = context.mode !== "repo" ? context.fileName : "";
   return (
-    // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- mouse-only symbol info
     <span
       className="ide-editor-sym"
+      role="button"
+      tabIndex={-1}
       onMouseEnter={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        setSymbol({ info, x: rect.left, y: rect.bottom });
+        setSymbol({ info, x: rect.left, y: rect.top });
       }}
       onMouseLeave={() => { setSymbol(null); }}
       onClick={(e) => {
         e.stopPropagation();
-        if (info.kind === "function") {
-          setSymbolContext({
-            name: info.name,
-            kind: info.kind,
-            taint: info.taint,
-            callers: info.callers,
-            complexity: info.complexity,
-            blame: info.blame,
-            origin: info.origin,
-            flowsTo: info.flowsTo,
-            fileName: currentFileName,
-          });
-        }
+        setSymbolContext({
+          name: info.name,
+          kind: info.kind,
+          taint: "taint" in info ? info.taint : undefined,
+          callers: "callers" in info ? info.callers : undefined,
+          complexity: "complexity" in info ? info.complexity : undefined,
+          blame: info.blame,
+          origin: "origin" in info ? info.origin : undefined,
+          flowsTo: "flowsTo" in info ? info.flowsTo : undefined,
+          riskScore: info.riskScore,
+          detail: info.detail,
+          tags: info.tags,
+          // function/method
+          callees: "callees" in info ? info.callees : undefined,
+          callDepth: "callDepth" in info ? info.callDepth : undefined,
+          tests: "tests" in info ? info.tests : undefined,
+          branchCoverage: "branchCoverage" in info ? info.branchCoverage : undefined,
+          // class
+          methodCount: "methodCount" in info ? info.methodCount : undefined,
+          fieldCount: "fieldCount" in info ? info.fieldCount : undefined,
+          // churn
+          churn: "churn" in info ? info.churn : undefined,
+          churnRisk: "churnRisk" in info ? info.churnRisk : undefined,
+          coupledFiles: "coupledFiles" in info ? info.coupledFiles : undefined,
+          // call-site
+          callee: "callee" in info ? info.callee : undefined,
+          // parameter
+          validated: "validated" in info ? info.validated : undefined,
+          // type/import
+          usedBy: "usedBy" in info ? info.usedBy : undefined,
+          fileName: currentFileName,
+        });
       }}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.click(); } }}
     >
       {children}
     </span>

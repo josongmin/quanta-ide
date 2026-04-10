@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 export interface FlowStep {
-  group: "refund" | "charge" | "ledger";
+  group: string;
   step: string;
   tag?: "source" | "sink";
   sink?: boolean;

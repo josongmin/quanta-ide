@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useThemeStore } from "@/entities/theme";
-import { LanguageToggle } from "@/shared/ui/LanguageToggle";
+import { LanguageToggle } from "@/shared/ui";
 import { AuroraPicker } from "./AuroraPicker";
 
 export function Nav() {

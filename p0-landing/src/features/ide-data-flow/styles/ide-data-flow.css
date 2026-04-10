@@ -1,0 +1,180 @@
+/* ── Data Flow ── */
+.ide-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+  padding-left: 20px;
+}
+/* vertical connector */
+.ide-flow::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 14px;
+  bottom: 14px;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 40%, transparent) 50%,
+    var(--accent)
+  );
+}
+.ide-flow-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ink);
+  position: relative;
+  transition: background var(--transition), border-color var(--transition);
+}
+.ide-flow-row:hover {
+  background: var(--paper-2);
+  border-color: var(--line);
+}
+/* node dot */
+.ide-flow-row::before {
+  content: '';
+  position: absolute;
+  left: -16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--paper-1);
+  border: 1.5px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  z-index: 1;
+}
+.ide-flow-row.is-sink::before,
+.ide-flow-row:first-child::before {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.ide-flow-row .ide-flow-tag {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  font-weight: 600;
+  color: var(--ink-4);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--paper-3);
+  border: 1px solid var(--line);
+}
+.ide-flow-row.is-sink .ide-flow-tag {
+  color: var(--accent);
+  background: var(--risk-1);
+  border-color: var(--risk-2);
+}
+.ide-flow-row:first-child .ide-flow-tag {
+  color: var(--accent);
+  background: var(--risk-1);
+  border-color: var(--risk-2);
+}
+.ide-flow-row .ide-flow-tag {
+  margin-left: auto;
+  font-family: var(--font-ui);
+  font-size: 0.66rem;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ide-flow-row.is-sink {
+  border-color: var(--risk-3);
+  background: var(--risk-1);
+}
+.ide-flow-row.is-sink .ide-flow-tag {
+  color: var(--accent);
+}
+
+/* suggested fix */
+.ide-fix {
+  background: var(--paper-3);
+  border: 1px solid var(--line-2);
+  border-radius: 6px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ide-fix-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ide-fix-code {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: var(--ink-2);
+  white-space: pre;
+  overflow-x: auto;
+}
+.ide-fix-code .add { color: #86efac; }
+.ide-fix-code .del { color: #f87171; opacity: 0.7; }
+.ide-fix-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 0.7rem;
+}
+.ide-fix-meta-k { color: var(--ink-3); }
+.ide-fix-meta-v { color: var(--ink); text-align: right; font-family: var(--font-num); font-weight: 500; }
+.ide-fix-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+/* buttons */
+.ide-btn {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--paper-3);
+  border: 1px solid var(--line-2);
+  transition: background var(--transition), border-color var(--transition);
+}
+.ide-btn:hover {
+  background: var(--paper-2);
+  border-color: var(--line-3);
+}
+.ide-btn.is-primary {
+  background: color-mix(in srgb, var(--accent) 18%, var(--paper-2));
+  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
+  color: var(--ink);
+}
+.ide-btn.is-primary:hover {
+  background: color-mix(in srgb, var(--accent) 26%, var(--paper-2));
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.ide-btn-key {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--ink-3);
+  margin-left: 4px;
+}
+

@@ -1,19 +1,11 @@
-import { create } from "zustand";
+import { createPanelStore } from "@/shared/model/createPanelStore";
 
-interface CommandPaletteState {
-  isOpen: boolean;
+export const useCommandPalette = createPanelStore<{
   query: string;
-  open: () => void;
-  close: () => void;
-  toggle: () => void;
   setQuery: (q: string) => void;
-}
-
-export const useCommandPalette = create<CommandPaletteState>()((set) => ({
-  isOpen: false,
+}>((set) => ({
   query: "",
-  open: () => { set({ isOpen: true, query: "" }); },
-  close: () => { set({ isOpen: false }); },
-  toggle: () => { set((s) => ({ isOpen: !s.isOpen, query: s.isOpen ? s.query : "" })); },
+  open:     () => { set({ isOpen: true,  query: "" }); },
+  toggle:   () => { set((s) => ({ isOpen: !s.isOpen, query: s.isOpen ? s.query : "" })); },
   setQuery: (query) => { set({ query }); },
 }));

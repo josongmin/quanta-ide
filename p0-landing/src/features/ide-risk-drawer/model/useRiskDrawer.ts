@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { createPanelStore } from "@/shared/model/createPanelStore";
 
 export interface RiskAnchor {
   /** left edge of the trigger button */
@@ -9,20 +9,10 @@ export interface RiskAnchor {
   bottom: number;
 }
 
-interface RiskDrawerState {
-  isOpen: boolean;
-  anchor: RiskAnchor | null;
-  open: (anchor?: RiskAnchor) => void;
-  close: () => void;
-  toggle: (anchor?: RiskAnchor) => void;
-}
-
-export const useRiskDrawer = create<RiskDrawerState>()((set) => ({
-  isOpen: false,
+export const useRiskDrawer = createPanelStore<{ anchor: RiskAnchor | null }>((set) => ({
   anchor: null,
-  open: (anchor) => { set({ isOpen: true, anchor: anchor ?? null }); },
-  close: () => { set({ isOpen: false }); },
-  toggle: (anchor) => {
+  open:   (anchor?: RiskAnchor) => { set({ isOpen: true,  anchor: anchor ?? null }); },
+  toggle: (anchor?: RiskAnchor) => {
     set((s) => ({ isOpen: !s.isOpen, anchor: !s.isOpen ? (anchor ?? null) : s.anchor }));
   },
 }));

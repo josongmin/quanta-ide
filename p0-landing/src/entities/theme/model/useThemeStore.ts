@@ -5,6 +5,7 @@ export const AURORA_PRESETS = [
   "violet","ocean","emerald","sunset","rose","slate","midnight","lavender",
   "amber","mint","berry","neon","dusk","glacier","moss","wine","candy",
   "storm","jungle","sakura","honey","void",
+  "infrared","cobalt","matcha","tangerine","frost","crimson",
 ] as const;
 export type AuroraPreset = (typeof AURORA_PRESETS)[number];
 

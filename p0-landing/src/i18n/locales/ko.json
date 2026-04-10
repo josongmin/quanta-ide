@@ -72,6 +72,19 @@
       "pr": "PR",
       "exit": "IDE 나가기"
     },
+    "user": {
+      "profile": "프로필",
+      "workspace": "워크스페이스",
+      "settings": "설정",
+      "docs": "문서",
+      "notifications": "알림",
+      "notifBadge": "댓글",
+      "connections": "연결",
+      "exit": "IDE 나가기",
+      "searchPlaceholder": "작업 검색…",
+      "noResults": "결과 없음",
+      "lastEdited": "마지막 편집:"
+    },
     "aurora": {
       "triggerTitle": "색 테마 변경"
     },

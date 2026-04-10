@@ -6,16 +6,10 @@ const GLYPH: Record<GuardState, string> = { blocked: "⛔", warn: "⚠", safe: "
 
 export function GuardPill() {
   const { isVisible, isExpanded, toggle, collapse } = useGuardPill();
-  if (!isVisible) return null;
   const rootRef = useRef<HTMLDivElement>(null);
 
-  const summary = summarize(GUARD_ENTRIES);
-  const top = [...GUARD_ENTRIES].sort((a, b) => STATE_RANK[b.state] - STATE_RANK[a.state])[0];
-  const topState: GuardState = summary.blocked > 0 ? "blocked" : summary.warn > 0 ? "warn" : "safe";
-
-  // click-outside to collapse
   useEffect(() => {
-    if (!isExpanded) return;
+    if (!isExpanded || !isVisible) return;
     const handler = (e: MouseEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
         collapse();
@@ -28,7 +22,14 @@ export function GuardPill() {
       window.removeEventListener("mousedown", handler);
       window.removeEventListener("keydown", key);
     };
-  }, [isExpanded, collapse]);
+  }, [isExpanded, isVisible, collapse]);
+
+  if (!isVisible) return null;
+
+  const summary = summarize(GUARD_ENTRIES);
+  const top = [...GUARD_ENTRIES].sort((a, b) => STATE_RANK[b.state] - STATE_RANK[a.state])[0];
+  const topState: GuardState = summary.blocked > 0 ? "blocked" : summary.warn > 0 ? "warn" : "safe";
+
 
   return (
     <div className={`gpill-root gpill-${topState}${isExpanded ? " is-expanded" : ""}`} ref={rootRef}>

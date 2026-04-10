@@ -24,7 +24,7 @@ export function PanelResizer({ cssVar, side, min = 120, max = 600 }: PanelResize
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      const ideEl = (e.currentTarget as HTMLElement).closest(".ide") as HTMLElement | null;
+      const ideEl = (e.currentTarget as HTMLElement).closest<HTMLElement>(".ide");
       if (!ideEl) return;
 
       const current = parseInt(getComputedStyle(ideEl).getPropertyValue(cssVar), 10) || 0;
@@ -51,6 +51,7 @@ export function PanelResizer({ cssVar, side, min = 120, max = 600 }: PanelResize
   );
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- drag-only resize handle
     <div
       className={`ide-resizer ide-resizer-${side}${dragging ? " is-dragging" : ""}`}
       style={{ [side]: 0 }}

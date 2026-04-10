@@ -1,0 +1,33 @@
+/* ═════════════════════════════════════════════════════════════════════
+   Toast
+   ═════════════════════════════════════════════════════════════════════ */
+.ide-toast {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 250;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  border-radius: var(--overlay-radius-ephemeral);
+  background: var(--paper-1);
+  border: 1px solid var(--line-2);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.5),
+    0 0 20px color-mix(in srgb, var(--accent) 8%, transparent);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  color: var(--ink);
+  white-space: nowrap;
+  animation: toast-in 0.22s ease-out;
+  pointer-events: none;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.ide-toast-icon { color: #86efac; font-weight: 600; }
+.ide-toast-msg { color: var(--ink); }
+

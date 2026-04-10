@@ -1,0 +1,119 @@
+/* ── Status Bar ─────────────────────────────────────────────────────── */
+/* ── Line Info Bar (above status bar) ── */
+.ide-lineinfo {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 16px;
+  background: var(--paper-2);
+  border-top: 1px solid var(--line);
+  font-size: 0.7rem;
+  animation: lineinfo-in 0.12s ease-out;
+  pointer-events: none;
+}
+@keyframes lineinfo-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.ide-lineinfo-line {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: var(--ink-4);
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+.ide-lineinfo-summary {
+  color: var(--ink);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ide-lineinfo-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--line-2);
+  flex-shrink: 0;
+}
+.ide-lineinfo-detail {
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.ide-statusbar {
+  grid-area: status;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+  border-top: 1px solid rgba(0,0,0,0.10);
+  background: #f0f0f2;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: #555;
+  user-select: none;
+}
+.ide-statusbar-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+  white-space: nowrap;
+  color: #444;
+}
+.ide-statusbar-item.is-warn { color: var(--accent); }
+.ide-statusbar-spacer { flex: 1; }
+.ide-statusbar-dim { color: #888; }
+.ide-statusbar-icon {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  opacity: 0.8;
+}
+.ide-statusbar-sep {
+  width: 1px;
+  height: 10px;
+  background: var(--line);
+  flex: none;
+}
+.ide-statusbar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  flex: none;
+}
+.ide-statusbar-dot.is-warn { background: var(--accent); }
+.ide-statusbar-dot.is-off { background: var(--ink-4); }
+
+/* ── Exit button (랜딩으로 돌아가기) ────────────────────────────────── */
+.ide-exit {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 7px;
+  background: var(--paper-2);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: 0.72rem;
+  font-weight: 500;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.ide-exit:hover {
+  background: var(--paper-3);
+  border-color: var(--line-3);
+  color: var(--ink);
+}
+

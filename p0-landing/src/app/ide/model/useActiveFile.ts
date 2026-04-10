@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type FileName = "refund.ts" | "charge.ts" | "ledger.ts";
+export type FileName = "orchestrator.py" | "routing_policy.py" | "security.py" | "audit_store.py";
 
 interface ActiveFileState {
   active: FileName;
@@ -11,8 +11,8 @@ interface ActiveFileState {
 }
 
 export const useActiveFile = create<ActiveFileState>()((set) => ({
-  active: "refund.ts",
-  tabs: ["refund.ts", "charge.ts", "ledger.ts"],
+  active: "orchestrator.py",
+  tabs: ["orchestrator.py"],
   setActive: (f) => { set({ active: f }); },
   openTab: (f) => {
     set((s) => ({

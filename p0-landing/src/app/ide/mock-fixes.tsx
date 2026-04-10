@@ -9,121 +9,120 @@ export interface FixContent {
   proposal: ChangeProposal;
 }
 
-const REFUND_FIX: FixContent = {
+const ORCHESTRATOR_FIX: FixContent = {
   titleKey: "ide.fixes.refund.title",
   code: (
     <>
-      <span>{"  const amount = req.body.amount;\n"}</span>
-      <span className="add">{"+ const safe = sanitizeAmount(amount);\n"}</span>
-      <span className="del">{"- await db.update(tx);\n"}</span>
-      <span className="add">{"+ await db.update({ ...tx, amount: safe });"}</span>
+      <span>{"  result = await self._execute_strategy(request, strategy)\n"}</span>
+      <span className="add">{"+ validated = self._validate_result_metadata(result)\n"}</span>
+      <span className="del">{"- await experience_store.save(result)\n"}</span>
+      <span className="add">{"+ await experience_store.save(validated)"}</span>
     </>
   ),
   meta: [
     { kKey: "behavior", v: "equivalent" },
-    { kKey: "risk", v: "−1 path" },
+    { kKey: "risk", v: "−1 taint path" },
+    { kKey: "confidence", v: "high" },
+    { kKey: "tests", v: "+3" },
+  ],
+  proposal: {
+    id: "agent-orchestrator-001",
+    source: "agent",
+    title: "Validate result metadata before experience_store.save",
+    summary:
+      "Adds _validate_result_metadata() between strategy execution and experience_store.save() to break the taint path from request.task through to the PostgreSQL ExperienceRepository.",
+    diff: [
+      { line: 11, type: "ctx", text: "        result = await self._execute_strategy(request, strategy)" },
+      { line: 12, type: "add", text: "        validated = self._validate_result_metadata(result)" },
+      { line: 13, type: "del", text: "        await experience_store.save(result)" },
+      { line: 13, type: "add", text: "        await experience_store.save(validated)" },
+    ],
+    impact: { blastBefore: 38, blastAfter: 38, testsAtRisk: 0, testsBroken: 0, taintDelta: -1 },
+    behavior: [
+      { change: "invalid strategy string → ValidationError (was: silently written)", intentional: true },
+      { change: "valid inputs: identical", intentional: true },
+    ],
+    risk: "low",
+    confidence: "high",
+    evidence: [
+      { label: "Taint path resolved", loc: "orchestrator.py:8 → orchestrator.py:12" },
+      { label: "_validate_result_metadata can be added inline", loc: "orchestrator.py:315" },
+      { label: "ExperienceRepository schema has strategy column", loc: "infrastructure/experience/repo.py:44" },
+    ],
+    verification: { behavior: "equivalent", sideEffects: "equivalent", tests: "passing" },
+  },
+};
+
+const SECURITY_FIX: FixContent = {
+  titleKey: "ide.fixes.charge.title",
+  code: (
+    <>
+      <span>{"  def _analyze_taint_path_control_flow(\n"}</span>
+      <span>{"      self, target: str\n"}</span>
+      <span className="add">{"+ ) -> StepToolResult:\n"}</span>
+      <span className="add">{"+ target = os.path.normpath(os.path.abspath(target))\n"}</span>
+      <span className="add">{"+ if not target.startswith(ALLOWED_ROOT):\n"}</span>
+      <span className="add">{"+ raise ValueError(f\"target outside allowed root\")"}</span>
+    </>
+  ),
+  meta: [
+    { kKey: "behavior", v: "equivalent" },
+    { kKey: "risk", v: "−1 path traversal" },
     { kKey: "confidence", v: "high" },
     { kKey: "tests", v: "+2" },
   ],
   proposal: {
-    id: "agent-refund-001",
+    id: "agent-security-001",
     source: "agent",
-    title: "Insert sanitizer before db.update",
+    title: "Normalize + allowlist-check target before semgrep",
     summary:
-      "Wraps tainted req.body.amount with sanitizeAmount() to remove the source→sink path.",
+      "target is passed directly to the semgrep subprocess without path normalization, enabling path traversal. Adding normpath + abspath + allowlist check before the call closes the vulnerability.",
     diff: [
-      { line: 6, type: "ctx", text: "  const amount = req.body.amount;" },
-      { line: 7, type: "add", text: "  const safe = sanitizeAmount(amount);" },
-      { line: 8, type: "ctx", text: "  const validated = parse(safe);" },
-      { line: 9, type: "ctx", text: "  const tx = build(validated);" },
-      { line: 10, type: "del", text: "  await db.update(tx);" },
-      { line: 10, type: "add", text: "  await db.update({ ...tx, amount: safe });" },
+      { line: 10, type: "ctx", text: "    def _analyze_taint_path_control_flow(self, target: str) -> StepToolResult:" },
+      { line: 11, type: "add", text: "        target = os.path.normpath(os.path.abspath(target))" },
+      { line: 12, type: "add", text: "        if not target.startswith(ALLOWED_ROOT):" },
+      { line: 13, type: "add", text: "            raise ValueError(f\"target outside allowed root: {target}\")" },
+      { line: 14, type: "ctx", text: "        cfg = self._build_cfg(target)" },
     ],
-    impact: { blastBefore: 31, blastAfter: 31, testsAtRisk: 0, testsBroken: 0, taintDelta: -1 },
+    impact: { blastBefore: 21, blastAfter: 21, testsAtRisk: 0, testsBroken: 0, taintDelta: -1 },
     behavior: [
-      { change: "amount === 0 → reject (was: DB error)", intentional: true },
-      { change: "negative amount → reject (was: DB error)", intentional: true },
+      { change: "relative paths: normalized to absolute (was: passed raw)", intentional: true },
+      { change: "paths outside ALLOWED_ROOT: ValueError (was: executed)", intentional: true },
     ],
     risk: "low",
     confidence: "high",
     evidence: [
-      { label: "Taint path resolved", loc: "refund.ts:6 → refund.ts:10" },
-      { label: "sanitizeAmount() exists", loc: "lib/validation.ts:23" },
-      { label: "Used in 47 other places", loc: "find references" },
+      { label: "Path traversal vector confirmed", loc: "security.py:12" },
+      { label: "ALLOWED_ROOT already defined in config", loc: "shared/config.py:18" },
+      { label: "semgrep accepts absolute paths", loc: "semgrep docs" },
     ],
     verification: { behavior: "equivalent", sideEffects: "equivalent", tests: "passing" },
   },
 };
 
-const CHARGE_FIX: FixContent = {
-  titleKey: "ide.fixes.charge.title",
-  code: (
-    <>
-      <span>{"  const intent = await stripe.createIntent(\n"}</span>
-      <span>{"    customerId, amount\n"}</span>
-      <span className="del">{"- );\n"}</span>
-      <span className="add">{"+   , { idempotencyKey: tx.id });\n"}</span>
-    </>
-  ),
-  meta: [
-    { kKey: "behavior", v: "equivalent" },
-    { kKey: "risk", v: "−2 retry" },
-    { kKey: "confidence", v: "high" },
-    { kKey: "tests", v: "+1" },
-  ],
-  proposal: {
-    id: "agent-charge-001",
-    source: "agent",
-    title: "Idempotency key on createIntent",
-    summary:
-      "Stripe createIntent currently lacks an idempotency key. On retry the same charge can fire twice. Adding tx.id closes the duplicate-charge window.",
-    diff: [
-      { line: 6, type: "ctx", text: "  const intent = await stripe.createIntent(" },
-      { line: 7, type: "ctx", text: "    customerId," },
-      { line: 8, type: "del", text: "    amount" },
-      { line: 8, type: "add", text: "    amount," },
-      { line: 9, type: "add", text: "    { idempotencyKey: tx.id }" },
-      { line: 10, type: "ctx", text: "  );" },
-    ],
-    impact: { blastBefore: 18, blastAfter: 18, testsAtRisk: 1, testsBroken: 0, taintDelta: 0 },
-    behavior: [
-      { change: "first call: unchanged", intentional: true },
-      { change: "retry with same tx.id: returns same intent (no duplicate)", intentional: true },
-    ],
-    risk: "low",
-    confidence: "high",
-    evidence: [
-      { label: "Stripe SDK supports idempotencyKey", loc: "@stripe/node:8.0+" },
-      { label: "tx.id already unique per charge", loc: "charge.ts:7" },
-      { label: "Used in 6 other adapters", loc: "find references" },
-    ],
-    verification: { behavior: "equivalent", sideEffects: "equivalent", tests: "passing" },
-  },
-};
-
-const LEDGER_FIX: FixContent = {
+const AUDIT_FIX: FixContent = {
   titleKey: "ide.fixes.ledger.title",
   code: (
     <>
-      <span>{"  // dead — replaced by appendLedger\n"}</span>
-      <span className="del">{"- function writeLegacyLedger() { … }"}</span>
+      <span>{"    # dead — legacy Joern bridge removed in RFC-041\n"}</span>
+      <span className="del">{"- def _joern_cpg_bridge(self): ..."}</span>
     </>
   ),
   meta: [
     { kKey: "behavior", v: "equivalent" },
     { kKey: "risk", v: "0" },
     { kKey: "confidence", v: "high" },
-    { kKey: "loc", v: "−47" },
+    { kKey: "loc", v: "−31" },
   ],
   proposal: {
-    id: "agent-ledger-001",
+    id: "agent-security-002",
     source: "agent",
-    title: "Remove dead writeLegacyLedger",
+    title: "Remove dead _joern_cpg_bridge",
     summary:
-      "writeLegacyLedger has zero callers since the appendLedger migration 6 months ago. Safe to delete.",
+      "_joern_cpg_bridge has zero callers since the Joern → semgrep migration in RFC-041 six months ago. Removing it eliminates 31 LOC of dead code.",
     diff: [
-      { line: 9, type: "del", text: "// dead — replaced by appendLedger" },
-      { line: 10, type: "del", text: "function writeLegacyLedger() { … }" },
+      { line: 16, type: "del", text: "    # dead — legacy Joern bridge removed in RFC-041" },
+      { line: 17, type: "del", text: "    def _joern_cpg_bridge(self): ..." },
     ],
     impact: { blastBefore: 8, blastAfter: 8, testsAtRisk: 0, testsBroken: 0, taintDelta: 0 },
     behavior: [{ change: "no callers — runtime unchanged", intentional: true }],
@@ -131,15 +130,16 @@ const LEDGER_FIX: FixContent = {
     confidence: "high",
     evidence: [
       { label: "Zero callers", loc: "find references" },
-      { label: "Last call removed", loc: "git log: 6mo ago" },
-      { label: "No string references", loc: "grep -r writeLegacyLedger" },
+      { label: "RFC-041 removed Joern dependency", loc: "docs/rfcs/041-security-tools.md" },
+      { label: "No string references", loc: "grep -r _joern_cpg_bridge" },
     ],
     verification: { behavior: "equivalent", sideEffects: "equivalent", tests: "passing" },
   },
 };
 
 export const FILE_FIXES: Record<FileName, FixContent> = {
-  "refund.ts": REFUND_FIX,
-  "charge.ts": CHARGE_FIX,
-  "ledger.ts": LEDGER_FIX,
+  "orchestrator.py": ORCHESTRATOR_FIX,
+  "routing_policy.py": SECURITY_FIX,
+  "security.py": SECURITY_FIX,
+  "audit_store.py": AUDIT_FIX,
 };

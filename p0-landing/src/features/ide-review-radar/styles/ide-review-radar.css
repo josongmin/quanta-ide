@@ -1,0 +1,193 @@
+/* ═════════════════════════════════════════════════════════════════════
+   Review Radar — Inspector top panel
+   ═════════════════════════════════════════════════════════════════════ */
+.radar-panel {
+  border-bottom: 1px solid var(--line-2);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--accent) 8%, var(--paper-2)) 0%,
+    var(--paper-2) 100%);
+}
+.radar-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+}
+.radar-head:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.radar-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.radar-head-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.radar-head-sub {
+  font-size: 0.74rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+.radar-head-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.radar-pill {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+}
+.radar-pill.is-warn {
+  background: color-mix(in srgb, var(--risk-4) 18%, transparent);
+  border-color: color-mix(in srgb, var(--risk-4) 40%, transparent);
+  color: var(--ink);
+}
+.radar-chev {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--ink-3);
+  margin-left: 4px;
+  width: 14px;
+  text-align: center;
+}
+.radar-body {
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.radar-tabs {
+  display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  padding: 3px;
+}
+.radar-tab {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 4px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 500;
+  text-transform: lowercase;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.radar-tab:hover { color: var(--ink-2); }
+.radar-tab.is-active {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+.radar-tab-icon {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.radar-tab-count {
+  font-size: 0.55rem;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink-2);
+}
+.radar-tab.is-active .radar-tab-count {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
+  color: var(--ink);
+}
+.radar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.radar-item {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--line);
+  transition: all var(--transition);
+  cursor: default;
+}
+.radar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--line-2);
+}
+.radar-item-bar {
+  width: 2px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--ink-4);
+}
+.radar-sev-2 .radar-item-bar { background: var(--risk-2); }
+.radar-sev-3 .radar-item-bar { background: var(--risk-3); }
+.radar-sev-4 .radar-item-bar { background: var(--risk-4); box-shadow: 0 0 6px color-mix(in srgb, var(--risk-4) 50%, transparent); }
+.radar-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.radar-item-title {
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.radar-item-meta {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.radar-item-action {
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  background: transparent;
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.radar-item-action:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}

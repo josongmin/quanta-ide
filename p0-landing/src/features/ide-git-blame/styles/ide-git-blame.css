@@ -1,0 +1,141 @@
+/* =============================================================================
+   GitBlame  (.gitb-)
+   ============================================================================= */
+
+.gitb-root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* contributor rows */
+.gitb-contributors {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.gitb-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px;
+  border-radius: 2px;
+  transition: background var(--transition);
+}
+
+.gitb-row:hover {
+  background: var(--paper-3);
+}
+
+.gitb-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--paper);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.gitb-row-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.gitb-name {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gitb-role {
+  font-size: 0.62rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: var(--paper-3);
+  color: var(--ink-3);
+  border: 1px solid var(--line-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gitb-row-right {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.gitb-time {
+  font-size: 0.68rem;
+  color: var(--ink-4);
+  font-family: var(--font-num);
+  white-space: nowrap;
+}
+
+/* 5-segment mini activity bar */
+.gitb-activity {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.gitb-activity-seg {
+  display: block;
+  width: 5px;
+  height: 10px;
+  border-radius: 1px;
+  border: 1px solid var(--line-2);
+  background: transparent;
+  transition: background var(--transition);
+}
+
+.gitb-activity-seg.is-filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* heatmap */
+.gitb-heatmap-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.gitb-heatmap-label {
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-4);
+  font-family: var(--font-ui);
+}
+
+.gitb-heatmap {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 16px;
+}
+
+.gitb-heatmap-seg {
+  display: block;
+  width: 6px;
+  flex-shrink: 0;
+  height: 100%;
+  border-radius: 1px;
+}
+

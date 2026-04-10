@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useOwnershipMap } from "@/features/ide-ownership-map";
-import { useRiskDrawer } from "@/features/ide-risk-drawer";
-import { useSemanticPr } from "@/features/ide-semantic-pr";
+import { dispatchCommand } from "@/features/ide-command-palette";
 import { useReviewRadar, RADAR_GROUPS, type RadarItem } from "../model/useReviewRadar";
 
 const KIND_ICON: Record<RadarItem["kind"], string> = {
@@ -22,22 +20,19 @@ const TAB_KEY: Record<RadarItem["kind"], string> = {
 export function ReviewRadar() {
   const { t } = useTranslation();
   const { isOpen, toggle } = useReviewRadar();
-  const { open: openPr } = useSemanticPr();
-  const { open: openRisk } = useRiskDrawer();
-  const { toggle: toggleOwnership } = useOwnershipMap();
   const [activeKind, setActiveKind] = useState<RadarItem["kind"]>("review");
 
   const handleOpen = (item: RadarItem) => {
     switch (item.kind) {
       case "review":
       case "stale":
-        openPr();
+        dispatchCommand("pr");
         break;
       case "risk":
-        openRisk();
+        dispatchCommand("dead");
         break;
       case "gap":
-        toggleOwnership();
+        dispatchCommand("ownership");
         break;
     }
   };

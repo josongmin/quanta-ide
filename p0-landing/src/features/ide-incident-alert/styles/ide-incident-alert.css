@@ -1,0 +1,130 @@
+/* ═════════════════════════════════════════════════════════════════════
+   Phase 26 — Incident DNA Live Alert
+   ═════════════════════════════════════════════════════════════════════ */
+.ialert {
+  position: fixed;
+  top: 56px;
+  right: 380px;
+  z-index: var(--z-ephemeral);
+  width: 360px;
+  background: var(--overlay-bg-popover);
+  border: var(--overlay-border-accent);
+  border-radius: var(--overlay-radius-ephemeral);
+  box-shadow: var(--overlay-shadow-ephemeral);
+  font-family: var(--font-ui);
+  overflow: hidden;
+  animation: overlay-ephemeral-in var(--overlay-duration-in) var(--overlay-ease) both;
+}
+.ialert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper-3));
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.ialert-head-left { display: flex; align-items: center; gap: 10px; }
+.ialert-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+.ialert-head-text { display: flex; flex-direction: column; gap: 2px; }
+.ialert-head-title { font-size: 0.78rem; font-weight: 600; color: var(--ink); }
+.ialert-head-sub { font-size: 0.62rem; color: var(--ink-3); }
+.ialert-conf {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--line-2);
+  background: var(--paper-2);
+}
+.ialert-conf[data-conf="high"] { color: #86efac; border-color: rgba(134,239,172,0.3); }
+.ialert-conf[data-conf="medium"] { color: var(--clr-3d); }
+.ialert-conf[data-conf="low"] { color: var(--ink-3); }
+.ialert-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ialert-incident {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ialert-id {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+.ialert-sev {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--line-2);
+}
+.ialert-sev[data-sev="P0"] { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.ialert-sev[data-sev="P1"] { color: var(--clr-3d); }
+.ialert-sev[data-sev="P2"] { color: var(--ink-3); }
+.ialert-title { font-size: 0.74rem; color: var(--ink); }
+.ialert-rc, .ialert-pattern { display: flex; flex-direction: column; gap: 4px; }
+.ialert-k {
+  font-family: var(--font-mono);
+  font-size: 0.54rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.ialert-v { font-size: 0.74rem; color: var(--ink); line-height: 1.5; }
+.ialert-pattern-list { display: flex; flex-direction: column; gap: 2px; }
+.ialert-pattern-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-2);
+}
+.ialert-pattern-mark { color: var(--accent); }
+.ialert-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--paper-3);
+}
+.ialert-btn-ignore {
+  appearance: none;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  padding: 6px 8px;
+  margin-right: auto;
+  transition: color var(--transition);
+}
+.ialert-btn-ignore:hover { color: var(--ink); }
+

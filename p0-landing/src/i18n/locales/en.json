@@ -72,6 +72,19 @@
       "pr": "PR",
       "exit": "Exit IDE"
     },
+    "user": {
+      "profile": "Profile",
+      "workspace": "Workspace",
+      "settings": "Settings",
+      "docs": "Documentation",
+      "notifications": "Notify me",
+      "notifBadge": "Comments",
+      "connections": "Connections",
+      "exit": "Exit IDE",
+      "searchPlaceholder": "Search actions…",
+      "noResults": "No results",
+      "lastEdited": "Last edited by"
+    },
     "aurora": {
       "triggerTitle": "Change color theme"
     },

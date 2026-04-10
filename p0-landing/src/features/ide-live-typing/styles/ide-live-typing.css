@@ -1,0 +1,71 @@
+/* ═════════════════════════════════════════════════════════════════════
+   Phase 9 — Live Typing
+   ═════════════════════════════════════════════════════════════════════ */
+.livetype-wrap {
+  display: grid;
+  grid-template-columns: 40px 4px 8px 1fr auto;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 0 16px;
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  position: relative;
+}
+.livetype-code {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0;
+}
+.livetype-display {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.livetype-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 0.9em;
+  background: var(--accent);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  flex-shrink: 0;
+}
+.livebanner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: color-mix(in srgb, var(--accent) 6%, var(--paper-1));
+  border-top: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  font-size: 0.72rem;
+  color: var(--ink-2);
+  animation: livebanner-in 0.2s ease-out;
+}
+@keyframes livebanner-in {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 60px; }
+}
+.livebanner-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.livebanner-status {
+  color: var(--ink-3);
+}
+.livebanner-metric {
+  font-family: var(--font-num);
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+.livebanner-delta {
+  color: var(--accent);
+  font-size: 0.7rem;
+  margin-left: 4px;
+}
+
