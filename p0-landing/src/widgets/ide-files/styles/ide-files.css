@@ -407,15 +407,15 @@
   background: var(--paper-2);
 }
 
-/* ── Vercel-dash: 파일 트리 활성 = selection fill + inverse ink (tokens: ide-base.css) ── */
+/* ── Vercel-dash: 파일 트리 활성 — paper/ink 스케일(color-mix)과 동일 톤 */
 .ide[data-theme="vercel-dash"] .ide-files-row.is-active::before {
-  background: var(--dash-fill-selection);
+  background: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active { color: var(--dash-on-inverse); }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-name { color: var(--dash-on-inverse); }
+.ide[data-theme="vercel-dash"] .ide-files-row.is-active { color: var(--paper); }
+.ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-name { color: var(--paper); }
 .ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-git-m { color: rgba(255,255,255,0.6); }
 .ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-chev { color: rgba(255,255,255,0.5); }
 .ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-icon { color: rgba(255,255,255,0.7); }
 .ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-sig { color: rgba(255,255,255,0.55); }
-.ide[data-theme="vercel-dash"] .ide-files-repo-changes { color: var(--dash-heading); font-weight: 700; }
+.ide[data-theme="vercel-dash"] .ide-files-repo-changes { color: color-mix(in srgb, var(--ink) 93%, var(--paper)); font-weight: 700; }
 

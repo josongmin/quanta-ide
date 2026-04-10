@@ -1,16 +1,8 @@
 import type { ReactNode, MouseEvent as ReactMouseEvent } from "react";
-import { useRef, useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { useEditorHover, type LineContext, type SymbolInfo } from "@/features/ide-editor-hover";
 import { useFlowTrace } from "@/features/ide-flow-trace";
 import { useInspectorContext } from "@/features/ide-inspector-context";
-import {
-  useLineComment,
-  CommentThreadUI,
-  selectionToCodeRange,
-  fullLineRangeFromDom,
-  type CodeRange,
-} from "@/features/ide-line-comment";
 
 export type LineHint =
   | { type: "author"; name: string; when: string }
@@ -44,92 +36,13 @@ interface IdeEditorProps {
   onTabClose?: (name: string) => void;
 }
 
-function isInsideLineCommentUi(node: Node | null): boolean {
-  let n: Node | null = node;
-  while (n instanceof HTMLElement) {
-    if (n.classList.contains("lc-thread") || n.classList.contains("ide-editor-range-comment-pop")) return true;
-    n = n.parentElement;
-  }
-  return false;
-}
-
 export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impactBanner, onTabClick, onTabClose }: IdeEditorProps) {
   const { t } = useTranslation();
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const [rangeCommentPop, setRangeCommentPop] = useState<{
-    range: CodeRange;
-    top: number;
-    left: number;
-  } | null>(null);
-
   const setLine = useEditorHover((s) => s.setLine);
   const setSymbol = useEditorHover((s) => s.setSymbol);
   const hoveredLineNo = useEditorHover((s) => s.hoveredLine?.lineNo);
   const traceLines = useFlowTrace((s) => s.lines);
   const isTraceActive = useFlowTrace((s) => s.isActive);
-  const threads = useLineComment((s) => s.threads);
-  const openThreadId = useLineComment((s) => s.openThreadId);
-  const toggleThread = useLineComment((s) => s.toggleThread);
-  const createThreadForRange = useLineComment((s) => s.createThreadForRange);
-
-  const dismissRangePop = useCallback(() => { setRangeCommentPop(null); }, []);
-
-  useEffect(() => {
-    const onDocMouseDown = (e: MouseEvent) => {
-      const el = e.target;
-      if (!(el instanceof Node)) return;
-      if (isInsideLineCommentUi(el)) return;
-      if (bodyRef.current?.contains(el)) {
-        dismissRangePop();
-        return;
-      }
-      dismissRangePop();
-    };
-    document.addEventListener("mousedown", onDocMouseDown);
-    return () => { document.removeEventListener("mousedown", onDocMouseDown); };
-  }, [dismissRangePop]);
-
-  const onEditorMouseUp = useCallback(() => {
-    const root = bodyRef.current;
-    if (!root) return;
-    const sel = window.getSelection();
-    if (!sel || isInsideLineCommentUi(sel.anchorNode)) return;
-    const range = selectionToCodeRange(root, sel);
-    if (!range) {
-      dismissRangePop();
-      return;
-    }
-    if (range.startLine === range.endLine && range.startCol === range.endCol) {
-      dismissRangePop();
-      return;
-    }
-    const domRange = sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
-    const rect = domRange?.getBoundingClientRect();
-    if (!rect || (rect.width === 0 && rect.height === 0)) {
-      dismissRangePop();
-      return;
-    }
-    setRangeCommentPop({
-      range,
-      top: rect.bottom + 6,
-      left: rect.left,
-    });
-  }, [dismissRangePop]);
-
-  const confirmRangeComment = useCallback(() => {
-    if (!rangeCommentPop) return;
-    createThreadForRange(rangeCommentPop.range);
-    window.getSelection()?.removeAllRanges();
-    dismissRangePop();
-  }, [rangeCommentPop, createThreadForRange, dismissRangePop]);
-
-  const startFullLineThread = useCallback((lineNo: number) => {
-    const root = bodyRef.current;
-    if (!root) return;
-    const range = fullLineRangeFromDom(root, lineNo);
-    if (!range) return;
-    createThreadForRange(range);
-  }, [createThreadForRange]);
 
   const tracedSet = new Set(traceLines.map((t) => t.lineNo));
   const traceKindMap = new Map(traceLines.map((t) => [t.lineNo, t.kind]));
@@ -184,12 +97,7 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
         ))}
       </div>
       {flowTraceBanner}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- selection → range comment */}
-      <div
-        ref={bodyRef}
-        className="ide-editor-body"
-        onMouseUp={onEditorMouseUp}
-      >
+      <div className="ide-editor-body">
         {lines.map((line) => {
           const isHovered = hoveredLineNo === line.no;
           const isTraced = isTraceActive && tracedSet.has(line.no);
@@ -197,14 +105,6 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
           const traceClass = isTraced
             ? ` is-traced${traceKind === "source" ? " is-trace-source" : ""}${traceKind === "sink" ? " is-trace-sink" : ""}`
             : "";
-          const threadsHere = threads.filter((th) => th.range.startLine === line.no);
-          const hasThread = threadsHere.length > 0;
-          const inCommentRange = threads.some(
-            (th) => line.no >= th.range.startLine && line.no <= th.range.endLine
-          );
-          const openHere = openThreadId
-            ? threads.some((th) => th.id === openThreadId && th.range.startLine === line.no)
-            : false;
 
           return (
             <div key={line.no}>
@@ -213,52 +113,27 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
               {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- mouse-only context preview */}
               <div
                 data-editor-line={line.no}
-                className={`ide-editor-line${isHovered ? " is-hovered" : ""}${traceClass}${inCommentRange ? " has-lc-range" : ""}`}
+                className={`ide-editor-line${isHovered ? " is-hovered" : ""}${traceClass}`}
                 onMouseEnter={onLineEnter(line)}
               >
-                <span className="ide-editor-lineno">
-                  {line.no}
-                  {hasThread && (
-                    <span className="lc-indicators">
-                      {threadsHere.map((thread) => (
-                        <button
-                          key={thread.id}
-                          type="button"
-                          className={`lc-indicator${thread.resolved ? " is-resolved" : ""}`}
-                          onClick={(e) => { e.stopPropagation(); toggleThread(thread.id); }}
-                          aria-label={
-                            thread.comments.length === 0
-                              ? "Comment thread (draft)"
-                              : `${thread.comments.length} comment${thread.comments.length !== 1 ? "s" : ""}`
-                          }
-                        >
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                          </svg>
-                          {thread.comments.length > 0 && (
-                            <span className="lc-indicator-count">{thread.comments.length}</span>
-                          )}
-                        </button>
-                      ))}
-                    </span>
-                  )}
-                </span>
+                <span className="ide-editor-lineno">{line.no}</span>
                 <span className="ide-editor-gutter" data-risk={line.risk ?? ""} />
                 <span className="ide-editor-fold">{line.fold ?? ""}</span>
-                <SymbolizedCode
-                  content={line.code}
-                  onSymbolEnter={_onSymbolEnter}
-                  onSymbolLeave={_onSymbolLeave}
-                />
-                {line.inline && (
-                  <span className="ide-editor-inline">
-                    <span className={line.inlineKind === "warn" ? "warn" : "delta"}>
-                      {line.inline}
+                <span className="ide-editor-line-code">
+                  <SymbolizedCode
+                    content={line.code}
+                    onSymbolEnter={_onSymbolEnter}
+                    onSymbolLeave={_onSymbolLeave}
+                  />
+                  {line.inline && (
+                    <span className="ide-editor-inline">
+                      <span className={line.inlineKind === "warn" ? "warn" : "delta"}>
+                        {line.inline}
+                      </span>
                     </span>
-                  </span>
-                )}
-                {line.hints && line.hints.length > 0 && (
-                  <span className="ide-line-hints">
+                  )}
+                  {line.hints && line.hints.length > 0 && (
+                    <span className="ide-line-hints">
                     {line.hints.map((h, i) => {
                       if (h.type === "author") {return (
                         <span key={i} className="ilh ilh-author">
@@ -314,39 +189,14 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
                         </span>
                       );
                     })}
-                  </span>
-                )}
-                {/* + comment button — hover 시 표시 */}
-                <button
-                  type="button"
-                  className="lc-add-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    startFullLineThread(line.no);
-                  }}
-                  aria-label="Add comment for full line"
-                >
-                  +
-                </button>
+                    </span>
+                  )}
+                </span>
               </div>
-
-              {/* 인라인 comment thread */}
-              {openHere && openThreadId && <CommentThreadUI threadId={openThreadId} />}
             </div>
           );
         })}
       </div>
-      {rangeCommentPop && (
-        <button
-          type="button"
-          className="ide-editor-range-comment-pop"
-          style={{ top: rangeCommentPop.top, left: rangeCommentPop.left }}
-          onMouseDown={(e) => { e.preventDefault(); }}
-          onClick={confirmRangeComment}
-        >
-          Add comment
-        </button>
-      )}
       {impactBanner}
     </main>
   );

@@ -78,17 +78,23 @@
 }
 .ide-editor-line {
   display: grid;
-  grid-template-columns: 40px 4px 8px 1fr auto;
+  grid-template-columns: 40px 4px 8px minmax(0, 1fr);
   align-items: baseline;
   column-gap: 8px;
   padding: 0 16px;
   transition: background var(--transition);
 }
+/* 코드 + 인라인 메타: 한 그리드 칸 안에서만 flex (lineno/gutter/fold는 그리드 고정) */
+.ide-editor-line-code {
+  min-width: 0;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 2px;
+}
 .ide-editor-line.is-hovered {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
-}
-.ide-editor-line.has-lc-range {
-  background: color-mix(in srgb, var(--accent) 4%, transparent);
 }
 .ide-editor-line.is-hovered .ide-editor-gutter[data-risk="1"],
 .ide-editor-line.is-hovered .ide-editor-gutter[data-risk="2"],

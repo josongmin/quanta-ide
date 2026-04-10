@@ -22,7 +22,6 @@
 @import "../../features/ide-blast-radius-viz/styles/ide-blast-radius-viz.css";
 @import "../../features/ide-editor-hover/styles/ide-editor-hover.css";
 @import "../../features/ide-flow-trace/styles/ide-flow-trace.css";
-@import "../../features/ide-line-comment/styles/ide-line-comment.css";
 @import "../../features/ide-file-tooltip/styles/ide-file-tooltip.css";
 @import "../../features/ide-command-palette/styles/ide-command-palette.css";
 @import "../../features/ide-context-menu/styles/ide-context-menu.css";

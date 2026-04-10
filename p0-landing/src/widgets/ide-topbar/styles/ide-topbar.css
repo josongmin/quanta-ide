@@ -612,11 +612,11 @@
   color: #555555;
 }
 
-/* Vercel-dash: theme menu options wired to --dash-* (defined on .ide) */
+/* Vercel-dash: 설정 메뉴 — .ide의 paper/ink/line 토큰만 사용 */
 .ide[data-theme="vercel-dash"] .ide-settings-opt {
   background: var(--paper);
-  border: 1px solid var(--dash-border-ui);
-  color: var(--dash-settings-opt-text);
+  border: 1px solid var(--paper-3);
+  color: color-mix(in srgb, var(--ink) 33%, var(--paper));
 }
 
 .ide[data-theme="light"] .ide-settings-opt:hover,
@@ -646,8 +646,8 @@
 
 .ide[data-theme="vercel-dash"] .ide-settings-opt:hover {
   background: var(--paper-2);
-  border-color: var(--dash-border-ui-hover);
-  color: var(--dash-heading);
+  border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
 
 .ide[data-theme="light"] .ide-settings-opt.is-active,
@@ -676,9 +676,9 @@
 }
 
 .ide[data-theme="vercel-dash"] .ide-settings-opt.is-active {
-  background: var(--dash-fill-selection);
-  border-color: var(--dash-fill-selection);
-  color: var(--dash-on-inverse);
+  background: color-mix(in srgb, var(--ink) 93%, var(--paper));
+  border-color: color-mix(in srgb, var(--ink) 93%, var(--paper));
+  color: var(--paper);
 }
 
 .ide-settings-divider {

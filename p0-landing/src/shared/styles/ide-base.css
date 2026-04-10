@@ -3,7 +3,10 @@
    랜딩 디자인 토큰을 70% 재활용 + 절제된 IDE 톤으로 정제
    ============================================================================= */
 
-/* ── Tokens (랜딩의 paper/ink 시스템 재활용) ── */
+/* ── Tokens (랜딩의 paper/ink 시스템 재활용) ──
+   테마 블록은 이 스케일만 재정의하고, 컴포넌트 오버라이드는 원칙적으로
+   var(--paper*)/var(--ink*)/var(--line*)/var(--accent*)/var(--token-*)와
+   필요 시 color-mix(in srgb, …)만 사용한다. */
 .ide {
   --accent: var(--blob1-a, #fce7f3);
   --accent-2: var(--blob2-a, #cffafe);
@@ -2309,10 +2312,9 @@
 .ide[data-theme="turso"] .ide-editor-code .var   { color: #e0fff8; }
 
 /* ── Vercel Dash ─────────────────────────────────────────────────────── */
-/* Vercel dashboard: white chrome, inverse solids, blue/purple accents.
-   Schema: base (--accent, --token-*, --ink, --paper, --line, --risk-*) +
-   --dash-* roles (inverse fills, selection, chrome borders, scrims, shadows).
-   Overrides should prefer var(--dash-*) / var(--token-*) / var(--ink) etc. */
+/* Vercel dashboard: white chrome + inverse solids. 상단 Tokens(paper/ink/line)만
+   재정의하고, 오버라이드는 var(--paper*)/var(--ink*)/var(--line*)/var(--accent*)와
+   color-mix(in srgb, …)로만 표현한다(테마 전용 병렬 토큰 네이밍 없음). */
 .ide[data-theme="vercel-dash"] {
   --accent:   #0070f3;   /* Vercel blue */
   --accent-2: #7928ca;   /* Vercel purple gradient end */
@@ -2333,7 +2335,7 @@
   --paper:   #ffffff;
   --paper-1: #fafafa;
   --paper-2: #f5f5f5;
-  --paper-3: #ebebeb;
+  --paper-3: #e5e5e5; /* 패널·탑바 헤어라인 — paper 스케일 안에서 */
   --paper-4: #e0e0e0;
   --line:   rgba(0,0,0,0.06);
   --line-2: rgba(0,0,0,0.10);
@@ -2344,37 +2346,6 @@
   --risk-4: color-mix(in srgb, var(--accent) 36%, transparent);
   --token-com:   var(--ink-4);
   --token-punct: var(--ink-3);
-
-  /* --dash-* : UI roles (inverse / selection / hairlines / atmosphere) */
-  --dash-fill-inverse:          #000000;
-  --dash-fill-inverse-hover:    #222222;
-  --dash-fill-inverse-active:   #333333;
-  --dash-fill-selection:        #111111;
-  --dash-on-inverse:            #ffffff;
-  --dash-border-emphasis:       #000000;
-  --dash-heading:               #111111;
-  --dash-border-ui:             #e5e5e5;
-  --dash-border-ui-hover:       #cccccc;
-  --dash-surface-row-hover:     #f0f0f0;
-  --dash-on-inverse-muted:      rgba(255,255,255,0.3);
-  --dash-scrollbar-thumb:       rgba(0,0,0,0.12);
-  --dash-scrollbar-thumb-hover: rgba(0,0,0,0.22);
-  --dash-scrim:                 rgba(0,0,0,0.18);
-  --dash-scrim-soft:            rgba(0,0,0,0.10);
-  --dash-shadow-ring:           rgba(0,0,0,0.08);
-  --dash-shadow-elevated:       rgba(0,0,0,0.10);
-  --dash-shadow-drawer:         rgba(0,0,0,0.06);
-  --dash-line-hover:            rgba(0,0,0,0.025);
-  --dash-elevated-tint:         rgba(255,255,255,0.75);
-  --dash-accent-glow:           rgba(0,112,243,0.4);
-  --dash-accent-border-soft:   rgba(0,112,243,0.35);
-  --dash-danger-border-soft:    rgba(185,28,28,0.35);
-  --dash-danger-fill-soft:      rgba(185,28,28,0.2);
-  --dash-danger-bg-soft:        rgba(185,28,28,0.03);
-  --dash-placeholder:           #999999;
-  --dash-gutter-num:            #cccccc;
-  --dash-statusbar-bg:          #f0f0f2;
-  --dash-settings-opt-text:   #555555;
 }
 .ide[data-theme="vercel-dash"] .ide-editor-code .kw    { color: var(--token-kw); }
 .ide[data-theme="vercel-dash"] .ide-editor-code .fn    { color: var(--token-fn); }
@@ -2383,11 +2354,11 @@
 .ide[data-theme="vercel-dash"] .ide-editor-code .num   { color: var(--token-num); }
 .ide[data-theme="vercel-dash"] .ide-editor-code .punct { color: var(--token-punct); }
 .ide[data-theme="vercel-dash"] .ide-editor-code .var   { color: var(--ink); }
-.ide[data-theme="vercel-dash"] *::-webkit-scrollbar-thumb       { background: var(--dash-scrollbar-thumb); }
-.ide[data-theme="vercel-dash"] *::-webkit-scrollbar-thumb:hover { background: var(--dash-scrollbar-thumb-hover); }
-.ide[data-theme="vercel-dash"] .cmdk-backdrop { background: var(--dash-scrim); }
-.ide[data-theme="vercel-dash"] .sim-backdrop  { background: var(--dash-scrim-soft); }
-.ide[data-theme="vercel-dash"] .tour-spot     { background: var(--dash-elevated-tint); }
+.ide[data-theme="vercel-dash"] *::-webkit-scrollbar-thumb       { background: var(--line-2); }
+.ide[data-theme="vercel-dash"] *::-webkit-scrollbar-thumb:hover { background: var(--line-3); }
+.ide[data-theme="vercel-dash"] .cmdk-backdrop { background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.ide[data-theme="vercel-dash"] .sim-backdrop  { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.ide[data-theme="vercel-dash"] .tour-spot     { background: color-mix(in srgb, var(--paper) 75%, transparent); }
 .ide[data-theme="vercel-dash"] .cmdk-shell,
 .ide[data-theme="vercel-dash"] .sim-panel,
 .ide[data-theme="vercel-dash"] .rdw-popover,
@@ -2398,50 +2369,50 @@
 .ide[data-theme="vercel-dash"] .ide-toast,
 .ide[data-theme="vercel-dash"] .tour-card,
 .ide[data-theme="vercel-dash"] .own-overlay {
-  box-shadow: 0 0 0 1px var(--dash-shadow-ring), 0 16px 40px var(--dash-shadow-elevated);
+  box-shadow: 0 0 0 1px var(--line), 0 16px 40px color-mix(in srgb, var(--ink) 10%, transparent);
 }
 .ide[data-theme="vercel-dash"] .own-overlay { background: color-mix(in srgb, var(--paper) 94%, transparent); }
 /* ── Vercel-dash: Topbar — Risk solid black, PR black outline ── */
 .ide[data-theme="vercel-dash"] .ide-topbar-risk {
-  background: var(--dash-fill-inverse);
-  border-color: var(--dash-fill-inverse);
-  color: var(--dash-on-inverse);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-risk .ide-topbar-risk-num {
-  color: var(--dash-on-inverse);
+  color: var(--paper);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-risk .ide-topbar-risk-dots i {
-  background: var(--dash-on-inverse-muted);
+  background: color-mix(in srgb, var(--paper) 30%, transparent);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-risk .ide-topbar-risk-dots i.on {
-  background: var(--dash-on-inverse);
+  background: var(--paper);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-risk.is-clickable:hover {
-  background: var(--dash-fill-inverse-hover);
-  border-color: var(--dash-fill-inverse-hover);
+  background: color-mix(in srgb, var(--ink) 87%, var(--paper));
+  border-color: color-mix(in srgb, var(--ink) 87%, var(--paper));
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-pr {
   background: var(--paper);
-  border: 1px solid var(--dash-border-emphasis);
+  border: 1px solid var(--ink);
   color: var(--ink);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-pr svg { color: var(--ink); }
 .ide[data-theme="vercel-dash"] .ide-topbar-pr:hover {
   background: var(--paper-2);
-  border-color: var(--dash-border-emphasis);
+  border-color: var(--ink);
   color: var(--ink);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-ask {
   background: var(--paper);
-  border: 1px solid var(--dash-border-ui);
+  border: 1px solid var(--paper-3);
   color: var(--ink-3);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-ask:hover {
   background: var(--paper-1);
-  border-color: var(--dash-border-ui-hover);
-  color: var(--dash-fill-inverse-active);
+  border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 80%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-ask svg { color: var(--dash-placeholder); }
+.ide[data-theme="vercel-dash"] .ide-topbar-ask svg { color: color-mix(in srgb, var(--ink-3) 30%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .ide-topbar-ask-kbd {
   background: var(--paper-2);
   border-color: var(--paper-4);
@@ -2449,71 +2420,71 @@
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-time {
   background: var(--paper);
-  border: 1px solid var(--dash-border-ui);
+  border: 1px solid var(--paper-3);
   color: var(--ink-3);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-time:hover {
   background: var(--paper-2);
-  border-color: var(--dash-border-ui-hover);
-  color: var(--dash-heading);
+  border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-agent {
-  background: var(--dash-fill-inverse);
-  border-color: var(--dash-fill-inverse);
-  color: var(--dash-on-inverse);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-agent:hover {
-  background: var(--dash-fill-inverse-active);
-  border-color: var(--dash-fill-inverse-active);
+  background: color-mix(in srgb, var(--ink) 80%, var(--paper));
+  border-color: color-mix(in srgb, var(--ink) 80%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-agent svg { color: var(--dash-on-inverse); }
+.ide[data-theme="vercel-dash"] .ide-topbar-agent svg { color: var(--paper); }
 .ide[data-theme="vercel-dash"] .ide-settings-trigger {
   background: var(--paper);
-  border: 1px solid var(--dash-border-ui);
+  border: 1px solid var(--paper-3);
   color: var(--ink-3);
 }
 .ide[data-theme="vercel-dash"] .ide-settings-trigger:hover {
   background: var(--paper-2);
-  border-color: var(--dash-border-ui-hover);
-  color: var(--dash-heading);
+  border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
 /* ide-btn (Suggested Fix 등 인스펙터 버튼) */
 .ide[data-theme="vercel-dash"] .ide-btn {
-  background: var(--dash-fill-inverse);
-  border-color: var(--dash-fill-inverse);
-  color: var(--dash-on-inverse);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
 }
 .ide[data-theme="vercel-dash"] .ide-btn:hover {
-  background: var(--dash-fill-inverse-hover);
-  border-color: var(--dash-fill-inverse-hover);
+  background: color-mix(in srgb, var(--ink) 87%, var(--paper));
+  border-color: color-mix(in srgb, var(--ink) 87%, var(--paper));
 }
 
 /* ── Vercel-dash: File Tree ── */
 .ide[data-theme="vercel-dash"] .ide-files {
   background: var(--paper-1);
-  border-right: 1px solid var(--dash-border-ui);
+  border-right: 1px solid var(--paper-3);
 }
 .ide[data-theme="vercel-dash"] .ide-files-repo-header {
-  border-bottom: 1px solid var(--dash-border-ui);
+  border-bottom: 1px solid var(--paper-3);
 }
 .ide[data-theme="vercel-dash"] .ide-files-repo-name { color: var(--ink); font-weight: 600; }
 .ide[data-theme="vercel-dash"] .ide-files-repo-branch { color: var(--ink-3); }
 .ide[data-theme="vercel-dash"] .ide-files-search {
   background: var(--paper);
-  border: 1px solid var(--dash-border-ui);
-  color: var(--dash-heading);
+  border: 1px solid var(--paper-3);
+  color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-files-search::placeholder { color: var(--dash-placeholder); }
+.ide[data-theme="vercel-dash"] .ide-files-search::placeholder { color: color-mix(in srgb, var(--ink-3) 30%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .file-item { color: var(--ink-2); }
-.ide[data-theme="vercel-dash"] .file-item:hover { background: var(--dash-surface-row-hover); color: var(--dash-heading); }
+.ide[data-theme="vercel-dash"] .file-item:hover { background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); color: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .file-item.is-active {
-  background: var(--dash-fill-selection);
-  border-left: 2px solid var(--dash-fill-selection);
-  color: var(--dash-on-inverse);
+  background: color-mix(in srgb, var(--ink) 93%, var(--paper));
+  border-left: 2px solid color-mix(in srgb, var(--ink) 93%, var(--paper));
+  color: var(--paper);
 }
-.ide[data-theme="vercel-dash"] .file-item.is-active .file-name { color: var(--dash-on-inverse); font-weight: 600; }
+.ide[data-theme="vercel-dash"] .file-item.is-active .file-name { color: var(--paper); font-weight: 600; }
 .ide[data-theme="vercel-dash"] .file-item.is-active .file-badge { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.2); }
-.ide[data-theme="vercel-dash"] .file-badge { background: var(--dash-surface-row-hover); color: var(--ink-3); border-color: var(--paper-4); }
+.ide[data-theme="vercel-dash"] .file-badge { background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); color: var(--ink-3); border-color: var(--paper-4); }
 .ide[data-theme="vercel-dash"] .file-badge.risk-4 { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
 .ide[data-theme="vercel-dash"] .file-badge.risk-3 { background: #fef3c7; color: #92400e; border-color: #fde68a; }
 .ide[data-theme="vercel-dash"] .file-badge.risk-2 { background: #f5f5f5; color: #444444; border-color: #e0e0e0; }
@@ -2526,18 +2497,18 @@
 .ide[data-theme="vercel-dash"] .ide-editor { background: var(--paper); }
 .ide[data-theme="vercel-dash"] .ide-editor-tabs {
   background: var(--paper-1);
-  border-bottom: 1px solid var(--dash-border-ui);
+  border-bottom: 1px solid var(--paper-3);
 }
 .ide[data-theme="vercel-dash"] .ide-tab { color: var(--ink-4); }
-.ide[data-theme="vercel-dash"] .ide-tab:hover { color: var(--ink-2); background: var(--dash-surface-row-hover); }
+.ide[data-theme="vercel-dash"] .ide-tab:hover { color: var(--ink-2); background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .ide-tab.is-active {
   background: var(--paper);
-  border-top: 2px solid var(--dash-border-emphasis);
+  border-top: 2px solid var(--ink);
   color: var(--ink);
   font-weight: 600;
 }
-.ide[data-theme="vercel-dash"] .ide-gutter-num { color: var(--dash-gutter-num); }
-.ide[data-theme="vercel-dash"] .ide-editor-line.is-hovered { background: var(--dash-line-hover); }
+.ide[data-theme="vercel-dash"] .ide-gutter-num { color: color-mix(in srgb, var(--ink) 20%, var(--paper)); }
+.ide[data-theme="vercel-dash"] .ide-editor-line.is-hovered { background: color-mix(in srgb, var(--ink) 2.5%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .ide-line-annotation.cpx     { color: var(--accent); }
 .ide[data-theme="vercel-dash"] .ide-line-annotation.taint   { color: #b91c1c; }
 .ide[data-theme="vercel-dash"] .ide-line-annotation.dead    { color: #bbbbbb; }
@@ -2547,11 +2518,11 @@
 /* ── Vercel-dash: Inspector ── */
 .ide[data-theme="vercel-dash"] .ide-inspector {
   background: var(--paper-1);
-  border-left: 1px solid var(--dash-border-ui);
+  border-left: 1px solid var(--paper-3);
 }
 .ide[data-theme="vercel-dash"] .idc-head {
   background: var(--paper-2);
-  border-bottom: 1px solid var(--dash-border-ui);
+  border-bottom: 1px solid var(--paper-3);
 }
 .ide[data-theme="vercel-dash"] .idc-filename { color: var(--ink); font-weight: 600; }
 /* Risk 배지 — 스크린샷: 파란 보더 아웃라인 스타일 */
@@ -2566,7 +2537,7 @@
 .ide[data-theme="vercel-dash"] .idc-section-label,
 .ide[data-theme="vercel-dash"] .sii-section-label {
   color: var(--ink-4);
-  border-bottom-color: var(--dash-border-ui);
+  border-bottom-color: var(--paper-3);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -2586,10 +2557,10 @@
 .ide[data-theme="vercel-dash"] .idc-fn-bar-fill,
 .ide[data-theme="vercel-dash"] .fn-bar-fill,
 .ide[data-theme="vercel-dash"] [class*="fn-bar"] > div,
-.ide[data-theme="vercel-dash"] .insp-fn-bar > div { background: var(--dash-fill-selection); }
+.ide[data-theme="vercel-dash"] .insp-fn-bar > div { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .idc-fn-bar,
 .ide[data-theme="vercel-dash"] .fn-bar-track,
-.ide[data-theme="vercel-dash"] [class*="fn-bar-track"] { background: var(--dash-border-ui); }
+.ide[data-theme="vercel-dash"] [class*="fn-bar-track"] { background: var(--paper-3); }
 
 /* 심볼 뱃지 — 스크린샷: 회색 아웃라인 박스, 숫자만 강조 */
 .ide[data-theme="vercel-dash"] .ide-pill { background: var(--paper); border: 1px solid var(--paper-4); color: var(--ink-2); border-radius: 5px; font-weight: 600; }
@@ -2599,9 +2570,9 @@
 .ide[data-theme="vercel-dash"] .ide-pill.risk-hot { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
 
 /* 소유권 바 — 검정 primary, 회색 secondary */
-.ide[data-theme="vercel-dash"] .own-bar-fill-a { background: var(--dash-fill-selection); }
+.ide[data-theme="vercel-dash"] .own-bar-fill-a { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .own-bar-fill-b { background: var(--ink-4); opacity: 0.5; }
-.ide[data-theme="vercel-dash"] .own-bar-track  { background: var(--dash-border-ui); }
+.ide[data-theme="vercel-dash"] .own-bar-track  { background: var(--paper-3); }
 
 /* Connected Files 배지 — 스크린샷: 파랑 dot + 회색/파랑 아웃라인 */
 .ide[data-theme="vercel-dash"] .fii-file-badge.r-high { background: #fff0f0; color: #b91c1c; border-color: #fecaca; font-weight: 700; }
@@ -2625,14 +2596,14 @@
 .ide[data-theme="vercel-dash"] .cg-line              { stroke: var(--paper-4); }
 
 /* Data flow */
-.ide[data-theme="vercel-dash"] .ide-flow-row.is-source { border-color: var(--dash-accent-border-soft); }
-.ide[data-theme="vercel-dash"] .ide-flow-row.is-sink   { border-color: var(--dash-danger-border-soft); }
+.ide[data-theme="vercel-dash"] .ide-flow-row.is-source { border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.ide[data-theme="vercel-dash"] .ide-flow-row.is-sink   { border-color: color-mix(in srgb, #b91c1c 35%, transparent); }
 .ide[data-theme="vercel-dash"] .ide-flow-row:first-child::before,
-.ide[data-theme="vercel-dash"] .ide-flow-row.is-sink::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px var(--dash-accent-glow); }
+.ide[data-theme="vercel-dash"] .ide-flow-row.is-sink::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
 
 /* Blast radius viz — 검정 노드/도트 (--accent 로컬 재정의) */
-.ide[data-theme="vercel-dash"] .brviz { --accent: var(--dash-fill-selection); }
-.ide[data-theme="vercel-dash"] .brviz-dot { background: var(--dash-fill-selection); }
+.ide[data-theme="vercel-dash"] .brviz { --accent: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
+.ide[data-theme="vercel-dash"] .brviz-dot { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
 
 /* Suggested fix */
 .ide[data-theme="vercel-dash"] .ide-fix-head   { color: #059669; }
@@ -2649,19 +2620,19 @@
 
 /* ── Vercel-dash: Statusbar — 검정 solid ── */
 .ide[data-theme="vercel-dash"] .ide-statusbar {
-  background: var(--dash-statusbar-bg);
+  background: color-mix(in srgb, var(--ink) 4.5%, var(--paper));
   color: var(--ink-2);
   border-top: 1px solid var(--line-2);
 }
 .ide[data-theme="vercel-dash"] .ide-statusbar-dot { background: #34d399; }
 .ide[data-theme="vercel-dash"] .ide-statusbar .ide-status-branch { color: var(--ink-3); }
-.ide[data-theme="vercel-dash"] .ide-statusbar .ide-status-issue-badge { background: var(--line); color: var(--dash-fill-inverse-active); }
+.ide[data-theme="vercel-dash"] .ide-statusbar .ide-status-issue-badge { background: var(--line); color: color-mix(in srgb, var(--ink) 80%, var(--paper)); }
 .ide[data-theme="vercel-dash"] .ide-statusbar .ide-status-build-ok { color: #059669; }
 
 /* ── Vercel-dash: Topbar ── */
 .ide[data-theme="vercel-dash"] .ide-topbar {
   background: var(--paper);
-  border-bottom: 1px solid var(--dash-border-ui);
+  border-bottom: 1px solid var(--paper-3);
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-breadcrumb,
 .ide[data-theme="vercel-dash"] .ide-topbar-breadcrumb a,
@@ -2669,18 +2640,18 @@
 .ide[data-theme="vercel-dash"] .ide-topbar-breadcrumb span:last-child { color: var(--ink); font-weight: 600; }
 
 /* ── Vercel-dash: Risk Drawer ── */
-.ide[data-theme="vercel-dash"] .rdw-panel { background: var(--paper); border-left: 1px solid var(--dash-border-ui); box-shadow: -4px 0 20px var(--dash-shadow-drawer); }
+.ide[data-theme="vercel-dash"] .rdw-panel { background: var(--paper); border-left: 1px solid var(--paper-3); box-shadow: -4px 0 20px color-mix(in srgb, var(--ink) 6%, transparent); }
 .ide[data-theme="vercel-dash"] .rdw-score-num { color: var(--ink); }
-.ide[data-theme="vercel-dash"] .rdw-bar-fill  { background: var(--dash-fill-inverse); }
+.ide[data-theme="vercel-dash"] .rdw-bar-fill  { background: var(--ink); }
 .ide[data-theme="vercel-dash"] .rdw-delta { color: #dc2626; }
 .ide[data-theme="vercel-dash"] .rdw-delta.is-down { color: #059669; }
 
 /* ── Vercel-dash: FileInspector (fii-*) inline style overrides ── */
 /* Function heatmap bars — black for live, light gray for dead */
-.ide[data-theme="vercel-dash"] .fii-heat-bar { background: var(--dash-fill-selection) !important; }
-.ide[data-theme="vercel-dash"] .fii-heat-row.is-dead .fii-heat-bar { background: var(--dash-gutter-num) !important; }
+.ide[data-theme="vercel-dash"] .fii-heat-bar { background: color-mix(in srgb, var(--ink) 93%, var(--paper)) !important; }
+.ide[data-theme="vercel-dash"] .fii-heat-row.is-dead .fii-heat-bar { background: color-mix(in srgb, var(--ink) 20%, var(--paper)) !important; }
 /* Ownership fill — black primary */
-.ide[data-theme="vercel-dash"] .fii-owner-fill { background: var(--dash-fill-selection) !important; }
+.ide[data-theme="vercel-dash"] .fii-owner-fill { background: color-mix(in srgb, var(--ink) 93%, var(--paper)) !important; }
 /* Risk badge — blue bg chip (color/border use var(--accent) inline → already blue) */
 .ide[data-theme="vercel-dash"] .fii-risk-badge { background: var(--clr-1); border-radius: 4px; }
 /* Blast neighbor dots: inline style uses var(--accent) for high risk — already blue */
@@ -2694,7 +2665,7 @@
 /* Symbol row hover — blue left border on active */
 .ide[data-theme="vercel-dash"] .fii-sym-row.is-clickable:hover { background: var(--paper-2); }
 /* Signal severity colors */
-.ide[data-theme="vercel-dash"] .fii-signal.is-crit { border-color: var(--dash-danger-fill-soft); background: var(--dash-danger-bg-soft); }
+.ide[data-theme="vercel-dash"] .fii-signal.is-crit { border-color: color-mix(in srgb, #b91c1c 20%, transparent); background: color-mix(in srgb, #b91c1c 3%, transparent); }
 .ide[data-theme="vercel-dash"] .fii-signal.is-crit .fii-signal-icon { color: #dc2626; }
 .ide[data-theme="vercel-dash"] .fii-signal.is-warn .fii-signal-icon { color: #d97706; }
 .ide[data-theme="vercel-dash"] .fii-signal-sym { color: var(--accent); }
