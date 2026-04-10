@@ -121,6 +121,7 @@ const INIT_SESSION_ID = "session-1";
 
 interface AgentWindowState {
   isOpen: boolean;
+  minimized: boolean;
   activeQueryId: string;
   expandedQueryId: string | null;
   sessions: AgentSession[];
@@ -128,6 +129,8 @@ interface AgentWindowState {
   open: () => void;
   close: () => void;
   toggle: () => void;
+  minimize: () => void;
+  expand: () => void;
   setActiveQuery: (id: string) => void;
   toggleExpand: (id: string) => void;
   newSession: () => void;
@@ -138,13 +141,16 @@ interface AgentWindowState {
 
 export const useAgentWindow = create<AgentWindowState>()((set) => ({
   isOpen: false,
+  minimized: false,
   activeQueryId: "double-refund",
   expandedQueryId: "double-refund",
   sessions: [{ id: INIT_SESSION_ID, title: "Which path can double-refund a customer?", messages: [] }],
   activeSessionId: INIT_SESSION_ID,
-  open: () => { set({ isOpen: true }); },
+  open: () => { set({ isOpen: true, minimized: false }); },
   close: () => { set({ isOpen: false }); },
-  toggle: () => { set((s) => ({ isOpen: !s.isOpen })); },
+  toggle: () => { set((s) => ({ isOpen: !s.isOpen, minimized: false })); },
+  minimize: () => { set({ minimized: true }); },
+  expand: () => { set({ minimized: false }); },
   setActiveQuery: (id) => { set({ activeQueryId: id, expandedQueryId: id }); },
   toggleExpand: (id) => {
     set((s) => ({ expandedQueryId: s.expandedQueryId === id ? null : id }));

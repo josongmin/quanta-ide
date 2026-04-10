@@ -1,4 +1,4 @@
-import { type ReactNode, useState, useCallback, useId, useRef, useEffect } from "react";
+import { type ReactNode, useState, useCallback, useId } from "react";
 import { PanelResizer } from "@/shared/ui/PanelResizer";
 
 interface IdeInspectorProps {
@@ -12,43 +12,6 @@ interface IdeInspectorProps {
 }
 
 export function IdeInspector({ children, tierKey, title, subtitle }: IdeInspectorProps) {
-  const prevKey = useRef(tierKey);
-  const [animating, setAnimating] = useState(false);
-  const [dir, setDir] = useState<"right" | "left">("right");
-  const [displayed, setDisplayed] = useState(children);
-  const [displayedTitle, setDisplayedTitle] = useState(title);
-  const [displayedSubtitle, setDisplayedSubtitle] = useState(subtitle);
-
-  useEffect(() => {
-    if (tierKey === prevKey.current) {
-      setDisplayed(children);
-      setDisplayedTitle(title);
-      setDisplayedSubtitle(subtitle);
-      return;
-    }
-    const goRight = tierKey === "symbol";
-    setDir(goRight ? "right" : "left");
-    setAnimating(true);
-    prevKey.current = tierKey;
-
-    const t = setTimeout(() => {
-      setDisplayed(children);
-      setDisplayedTitle(title);
-      setDisplayedSubtitle(subtitle);
-      setAnimating(false);
-    }, 180);
-    return () => { clearTimeout(t); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tierKey]);
-
-  useEffect(() => {
-    if (!animating) {
-      setDisplayed(children);
-      setDisplayedTitle(title);
-      setDisplayedSubtitle(subtitle);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [children, title, subtitle]);
 
   return (
     <aside className="ide-inspector" aria-label="Inspector">
@@ -57,21 +20,21 @@ export function IdeInspector({ children, tierKey, title, subtitle }: IdeInspecto
       {/* ── Panel header bar ── */}
       <div className="ide-inspector-bar">
         <div className="ide-inspector-bar-breadcrumb">
-          {displayedSubtitle && (
+          {subtitle && (
             <>
-              <span className="ide-inspector-bar-sub">{displayedSubtitle}</span>
+              <span className="ide-inspector-bar-sub">{subtitle}</span>
               <span className="ide-inspector-bar-sep">/</span>
             </>
           )}
-          <span className="ide-inspector-bar-title">{displayedTitle}</span>
+          <span className="ide-inspector-bar-title">{title}</span>
         </div>
       </div>
 
       <div
-        className={`ide-inspector-scroll${animating ? ` is-exit-${dir}` : ""}`}
+        className="ide-inspector-scroll"
         key={tierKey}
       >
-        {displayed}
+        {children}
       </div>
     </aside>
   );

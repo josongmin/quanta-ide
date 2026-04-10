@@ -5,9 +5,8 @@ import { useInspectorContext } from "../model/useInspectorContext";
 
 /* ── helpers ── */
 function riskColor(score: number) {
-  if (score >= 70) return "var(--token-err)";
-  if (score >= 40) return "var(--token-str)";
-  if (score > 0)   return "var(--token-ok)";
+  if (score >= 40) return "var(--accent)";
+  if (score > 0)   return "var(--ink-2)";
   return "var(--ink-4)";
 }
 
@@ -67,7 +66,6 @@ function HeatMap({ rows }: { rows: HeatRow[] }) {
     <div className="fii-heat">
       {rows.map((row) => {
         const pct = Math.round((row.risk / maxRisk) * 100);
-        const rc = riskColor(row.risk);
         return (
           <div key={row.name} className={`fii-heat-row${row.dead ? " is-dead" : ""}`}>
             <span className="fii-heat-loc">:{row.loc}</span>
@@ -75,10 +73,10 @@ function HeatMap({ rows }: { rows: HeatRow[] }) {
             <div className="fii-heat-bar-wrap">
               <div
                 className="fii-heat-bar"
-                style={{ width: `${pct}%`, background: row.dead ? "var(--ink-4)" : rc }}
+                style={{ width: `${pct}%`, background: row.dead ? "var(--ink-4)" : "var(--accent)" }}
               />
             </div>
-            {!row.dead && <span className="fii-heat-cpx" style={{ color: row.cpx >= 8 ? "var(--token-err)" : "var(--ink-4)" }}>
+            {!row.dead && <span className="fii-heat-cpx" style={{ color: "var(--ink-3)" }}>
               {row.cpx.toFixed(1)}
             </span>}
             {row.dead && <span className="fii-heat-dead">dead</span>}
@@ -99,15 +97,15 @@ function StatGrid({ blast, taint, dead, bus }: { blast: number; taint: number; d
       </div>
       <div className="fii-stat">
         <span className="fii-stat-label">TAINT</span>
-        <span className="fii-stat-value" style={{ color: taint > 0 ? "var(--token-err)" : "var(--token-ok)" }}>{taint}</span>
+        <span className="fii-stat-value" style={{ color: taint > 0 ? "var(--accent)" : "var(--ink-3)" }}>{taint}</span>
       </div>
       <div className="fii-stat">
         <span className="fii-stat-label">DEAD</span>
-        <span className="fii-stat-value" style={{ color: dead > 0 ? "var(--ink-3)" : "var(--token-ok)" }}>{dead}</span>
+        <span className="fii-stat-value" style={{ color: dead > 0 ? "var(--ink-2)" : "var(--ink-3)" }}>{dead}</span>
       </div>
       <div className="fii-stat">
         <span className="fii-stat-label">BUS</span>
-        <span className="fii-stat-value" style={{ color: bus === 1 ? "var(--token-str)" : "var(--ink-2)" }}>{bus}</span>
+        <span className="fii-stat-value" style={{ color: bus === 1 ? "var(--accent)" : "var(--ink-2)" }}>{bus}</span>
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ interface IdeTopBarProps {
   riskScore: number;
   onExit: () => void;
   onAsk: () => void;
-  onRiskClick: () => void;
+  onRiskClick: (rect: DOMRect) => void;
   onTimeTravel: () => void;
   onOpenPr: () => void;
   onAgent?: () => void;
@@ -64,7 +64,7 @@ export function IdeTopBar({ path, riskScore, onExit, onAsk, onRiskClick, onTimeT
             type="button"
             className="ide-topbar-risk is-clickable"
             title={t("ide.topbar.riskTitle")}
-            onClick={onRiskClick}
+            onClick={(e) => { onRiskClick(e.currentTarget.getBoundingClientRect()); }}
           >
             <span>{t("ide.topbar.risk")}</span>
             <span className="ide-topbar-risk-num">{riskScore}</span>

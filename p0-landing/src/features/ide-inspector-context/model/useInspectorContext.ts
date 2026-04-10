@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
-export type InspectorMode = "file" | "symbol" | "line";
+export type InspectorMode = "file" | "symbol" | "line" | "repo";
+
+export interface RepoContext {
+  mode: "repo";
+  repoName: string;
+}
 
 export interface FileContext {
   mode: "file";
@@ -30,10 +35,11 @@ export interface LineContext {
   fileName: string;
 }
 
-export type InspectorContext = FileContext | SymbolContext | LineContext;
+export type InspectorContext = RepoContext | FileContext | SymbolContext | LineContext;
 
 interface InspectorContextState {
   context: InspectorContext;
+  setRepoContext: (repoName: string) => void;
   setFileContext: (fileName: string) => void;
   setSymbolContext: (ctx: Omit<SymbolContext, "mode">) => void;
   setLineContext: (ctx: Omit<LineContext, "mode">) => void;
@@ -42,6 +48,7 @@ interface InspectorContextState {
 
 export const useInspectorContext = create<InspectorContextState>()((set) => ({
   context: { mode: "file", fileName: "refund.ts" },
+  setRepoContext: (repoName) => set({ context: { mode: "repo", repoName } }),
   setFileContext: (fileName) => set({ context: { mode: "file", fileName } }),
   setSymbolContext: (ctx) => set({ context: { mode: "symbol", ...ctx } }),
   setLineContext: (ctx) => set({ context: { mode: "line", ...ctx } }),

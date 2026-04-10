@@ -1,4 +1,5 @@
 import { HoverSymbol, type CodeLine } from "@/widgets/ide-editor";
+import type { LineHint } from "@/widgets/ide-editor";
 
 export const REFUND_LINES: CodeLine[] = [
   {
@@ -43,7 +44,11 @@ export const REFUND_LINES: CodeLine[] = [
         <span className="punct">(</span><span className="var">userId</span><span className="punct">: </span><span className="kw">string</span><span className="punct">) {`{`}</span>
       </>
     ),
-    inline: "complexity 8.2  ·  no tests",
+    hints: [
+      { type: "complexity", value: 8.2 } as LineHint,
+      { type: "coverage", passed: 0, total: 14 } as LineHint,
+      { type: "author", name: "@kimdev", when: "3w" } as LineHint,
+    ],
   },
   {
     no: 6,
@@ -58,8 +63,9 @@ export const REFUND_LINES: CodeLine[] = [
         <span className="punct">=</span> <span className="var">req</span><span className="punct">.</span><span className="var">body</span><span className="punct">.</span><span className="var">amount</span><span className="punct">;</span>
       </>
     ),
-    inline: "taint source",
-    inlineKind: "warn",
+    hints: [
+      { type: "taint-flow", from: "req.body", to: "db.update" } as LineHint,
+    ],
   },
   {
     no: 7,
@@ -107,8 +113,10 @@ export const REFUND_LINES: CodeLine[] = [
         <span className="punct">(</span><span className="var">tx</span><span className="punct">);</span>
       </>
     ),
-    inline: "14 callers · taint sink",
-    inlineKind: "warn",
+    hints: [
+      { type: "callers", count: 14, warn: true } as LineHint,
+      { type: "warn-badge", label: "can run twice" } as LineHint,
+    ],
   },
   {
     no: 10,
@@ -124,7 +132,9 @@ export const REFUND_LINES: CodeLine[] = [
     risk: 4,
     context: { lineNo: 11, risk: 4, summary: "Function exit — blast radius 31 files", detail: "Modifying processRefund affects 31 files via direct + transitive references." },
     code: <><span className="punct">{`}`}</span></>,
-    inline: "blast 31 files",
+    hints: [
+      { type: "blast", files: 31 } as LineHint,
+    ],
   },
   { no: 12, code: <></> },
   { no: 13, code: <><span className="com">// dead — last reference removed 6mo ago</span></> },
@@ -139,6 +149,9 @@ export const REFUND_LINES: CodeLine[] = [
         <span className="punct">() {`{ … }`}</span>
       </>
     ),
-    inline: "dead code",
+    hints: [
+      { type: "stale", age: "stale 6mo" } as LineHint,
+      { type: "callers", count: 0 } as LineHint,
+    ],
   },
 ];

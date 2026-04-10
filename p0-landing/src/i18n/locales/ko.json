@@ -60,7 +60,7 @@
   "ide": {
     "lang": { "en": "English", "ko": "한국어" },
     "topbar": {
-      "ask": "무엇이든 물어보기…",
+      "ask": "무엇이든 찾기…",
       "timeTravelTitle": "타임 트래블 (⌘T)",
       "timeTravelAria": "타임 트래블",
       "themeDarkTitle": "라이트 테마로",
@@ -158,7 +158,7 @@
       }
     },
     "cmd": {
-      "placeholder": "무엇이든 물어보기…",
+      "placeholder": "무엇이든 찾기…",
       "empty": "일치 항목 없음",
       "footNavigate": "이동",
       "footSelect": "선택",

@@ -27,11 +27,11 @@ import { SemanticPrPanel, useSemanticPr } from "@/features/ide-semantic-pr";
 import { PrDisasterPanel, usePrDisaster } from "@/features/ide-pr-disaster";
 import { IncidentAlert, useIncidentAlert, SAMPLE_MATCH } from "@/features/ide-incident-alert";
 import { OwnershipOverlay, useOwnershipMap } from "@/features/ide-ownership-map";
-import { GuardPill } from "@/features/ide-guard-pill";
+import { GuardPill, useGuardPill } from "@/features/ide-guard-pill";
 import { AgentWindow, useAgentWindow } from "@/features/ide-agent-window";
 import { useIdeTheme } from "@/features/ide-theme";
 import { useThemeStore } from "@/entities/theme";
-import { useInspectorContext, FileInspector, SymbolInspector } from "@/features/ide-inspector-context";
+import { useInspectorContext, FileInspector, SymbolInspector, RepoInspector } from "@/features/ide-inspector-context";
 import { FILE_INSPECTOR } from "./mock-file-inspector";
 import { useActiveFile, type FileName } from "./model/useActiveFile";
 import { MOCK_FILES, MOCK_CALL_GRAPH, MOCK_DATA_FLOW } from "./mock";
@@ -115,11 +115,12 @@ export function IdePage({ onExit }: IdePageProps) {
   const { open: openChangeCard } = useChangeCard();
   const { toggle: togglePr, open: openPr } = useSemanticPr();
   const { toggle: togglePrd, open: openPrd } = usePrDisaster();
+  const { show: showGuard } = useGuardPill();
   const { show: showIncident } = useIncidentAlert();
   const { toggle: toggleOwnership } = useOwnershipMap();
   const { theme } = useIdeTheme();
   const { aurora } = useThemeStore();
-  const { context: inspCtx, setFileContext } = useInspectorContext();
+  const { context: inspCtx, setFileContext, setRepoContext } = useInspectorContext();
   useEffect(() => {
     document.documentElement.setAttribute("data-aurora", aurora);
   }, [aurora]);
@@ -198,21 +199,23 @@ export function IdePage({ onExit }: IdePageProps) {
         riskScore={isEditing && blastDelta > 0 ? 78 + blastDelta : 78}
         onExit={onExit}
         onAsk={openCmdK}
-        onRiskClick={toggleRisk}
+        onRiskClick={(rect) => { toggleRisk({ left: rect.left, right: rect.right, bottom: rect.bottom }); }}
         onTimeTravel={toggleTime}
-        onOpenPr={openPr}
+        onOpenPr={() => { openPr(); showGuard(); }}
         onAgent={toggleAgent}
       />
       <TimeTravelStrip />
       <IdeFiles
         nodes={MOCK_FILES.map((n) => ({ ...n, active: n.name === active }))}
+        repoName="payments-api"
         onFileClick={navigateToFile}
+        onRepoClick={() => { setRepoContext("payments-api"); }}
         onHover={showFileTip}
         onHoverEnd={hideFileTip}
       />
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- right-click + click to deselect symbol */}
       <div style={{ display: "contents" }} onContextMenu={handleEditorContextMenu} onClick={() => {
-        if (inspCtx.mode === "symbol") setFileContext(active);
+        if (inspCtx.mode === "symbol" || inspCtx.mode === "repo") setFileContext(active);
       }}>
         <IdeEditor
           tabs={editorTabs}
@@ -223,11 +226,14 @@ export function IdePage({ onExit }: IdePageProps) {
         />
       </div>
       <IdeInspector
-        tierKey={inspCtx.mode === "symbol" ? "symbol" : "file"}
-        title={inspCtx.mode === "symbol" ? inspCtx.name : active}
+        tierKey={inspCtx.mode === "symbol" ? "symbol" : inspCtx.mode === "repo" ? "repo" : "file"}
+        title={inspCtx.mode === "symbol" ? inspCtx.name : inspCtx.mode === "repo" ? inspCtx.repoName : active}
         subtitle={inspCtx.mode === "symbol" ? active : undefined}
       >
-        {inspCtx.mode === "file" ? (
+        {inspCtx.mode === "repo" ? (
+          /* ── Tier 0: Repo ── */
+          <RepoInspector />
+        ) : inspCtx.mode === "file" ? (
           /* ── Tier 1: File ── */
           <FileInspector data={FILE_INSPECTOR[inspCtx.fileName] ?? FILE_INSPECTOR[active]} onNavigate={navigateToFile}>
             <InspectorSection label={t("ide.inspector.blastRadius")} defaultOpen={false}>

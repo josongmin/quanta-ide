@@ -1,17 +1,30 @@
 import { create } from "zustand";
 
+export interface RiskAnchor {
+  /** left edge of the trigger button */
+  left: number;
+  /** right edge of the trigger button */
+  right: number;
+  /** bottom edge of the trigger button */
+  bottom: number;
+}
+
 interface RiskDrawerState {
   isOpen: boolean;
-  open: () => void;
+  anchor: RiskAnchor | null;
+  open: (anchor?: RiskAnchor) => void;
   close: () => void;
-  toggle: () => void;
+  toggle: (anchor?: RiskAnchor) => void;
 }
 
 export const useRiskDrawer = create<RiskDrawerState>()((set) => ({
   isOpen: false,
-  open: () => { set({ isOpen: true }); },
+  anchor: null,
+  open: (anchor) => { set({ isOpen: true, anchor: anchor ?? null }); },
   close: () => { set({ isOpen: false }); },
-  toggle: () => { set((s) => ({ isOpen: !s.isOpen })); },
+  toggle: (anchor) => {
+    set((s) => ({ isOpen: !s.isOpen, anchor: !s.isOpen ? (anchor ?? null) : s.anchor }));
+  },
 }));
 
 export interface RiskBreakdown {

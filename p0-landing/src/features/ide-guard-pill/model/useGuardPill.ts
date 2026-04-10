@@ -10,13 +10,19 @@ export interface GuardEntry {
 }
 
 interface GuardPillState {
+  isVisible: boolean;
   isExpanded: boolean;
+  show: () => void;
+  hide: () => void;
   toggle: () => void;
   collapse: () => void;
 }
 
 export const useGuardPill = create<GuardPillState>()((set) => ({
+  isVisible: false,
   isExpanded: false,
+  show: () => { set({ isVisible: true }); },
+  hide: () => { set({ isVisible: false, isExpanded: false }); },
   toggle: () => { set((s) => ({ isExpanded: !s.isExpanded })); },
   collapse: () => { set({ isExpanded: false }); },
 }));

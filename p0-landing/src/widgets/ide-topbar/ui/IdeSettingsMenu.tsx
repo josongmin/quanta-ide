@@ -8,7 +8,7 @@ import { setLocale } from "@/i18n/i18n";
 export function IdeSettingsMenu() {
   const { t, i18n } = useTranslation();
   const { aurora, setAurora } = useThemeStore();
-  const { theme, toggle: toggleTheme } = useIdeTheme();
+  const { theme, setTheme } = useIdeTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -42,7 +42,7 @@ export function IdeSettingsMenu() {
               <button
                 type="button"
                 className={`ide-settings-opt${theme === "dark" ? " is-active" : ""}`}
-                onClick={toggleTheme}
+                onClick={() => { setTheme("dark"); }}
                 title={t("ide.topbar.themeDarkTitle")}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -53,7 +53,7 @@ export function IdeSettingsMenu() {
               <button
                 type="button"
                 className={`ide-settings-opt${theme === "light" ? " is-active" : ""}`}
-                onClick={toggleTheme}
+                onClick={() => { setTheme("light"); }}
                 title={t("ide.topbar.themeLightTitle")}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -68,6 +68,30 @@ export function IdeSettingsMenu() {
                   <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
                 </svg>
                 {t("ide.settings.light")}
+              </button>
+              <button
+                type="button"
+                className={`ide-settings-opt${theme === "cool-gray" ? " is-active" : ""}`}
+                onClick={() => { setTheme("cool-gray"); }}
+                title="Cool Gray"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="3" />
+                  <path d="M3 9h18M9 21V9" />
+                </svg>
+                Gray
+              </button>
+              <button
+                type="button"
+                className={`ide-settings-opt${theme === "cool-light" ? " is-active" : ""}`}
+                onClick={() => { setTheme("cool-light"); }}
+                title="Cool Light"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z" />
+                  <path d="M19 3v4M21 5h-4" />
+                </svg>
+                Light+
               </button>
             </div>
           </div>

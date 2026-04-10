@@ -1,1 +1,1 @@
-export { IdeEditor, HoverSymbol, type CodeLine } from "./ui/IdeEditor";
+export { IdeEditor, HoverSymbol, type CodeLine, type LineHint } from "./ui/IdeEditor";

@@ -149,8 +149,16 @@ function IconClose() {
 }
 function IconSend() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="19" x2="12" y2="5" />
+      <polyline points="5 12 12 5 19 12" />
+    </svg>
+  );
+}
+function IconChevron() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   );
 }
@@ -161,15 +169,60 @@ function IconPlus() {
     </svg>
   );
 }
-function IconSparkle() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2l2.4 7.2H22l-6.2 4.5 2.4 7.3L12 16.5l-6.2 4.5 2.4-7.3L2 9.2h7.6z" />
-    </svg>
-  );
-}
 function Dot() {
   return <span style={{ width:5,height:5,borderRadius:"50%",background:"var(--accent)",display:"inline-block",flexShrink:0,marginTop:6 }} />;
+}
+
+/* ─────────────────────────────────────────────
+   Session tab bar
+───────────────────────────────────────────── */
+function SessionTabs({
+  sessions,
+  activeId,
+  onSwitch,
+  onClose,
+  onNew,
+}: {
+  sessions: AgentSession[];
+  activeId: string;
+  onSwitch: (id: string) => void;
+  onClose: (id: string) => void;
+  onNew: () => void;
+}) {
+  return (
+    <div className="agw-session-tabs">
+      <div className="agw-session-tab-list">
+        {sessions.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            className={`agw-session-tab${s.id === activeId ? " is-active" : ""}`}
+            onClick={() => onSwitch(s.id)}
+            title={s.title}
+          >
+            <span className="agw-session-tab-title">
+              {s.title.length > 22 ? `${s.title.slice(0, 22)}…` : s.title}
+            </span>
+            {sessions.length > 1 && (
+              <span
+                className="agw-session-tab-close"
+                role="button"
+                tabIndex={0}
+                aria-label="세션 닫기"
+                onClick={(e) => { e.stopPropagation(); onClose(s.id); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onClose(s.id); } }}
+              >
+                <IconClose />
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      <button type="button" className="agw-session-new" onClick={onNew} aria-label="새 세션">
+        <IconPlus />
+      </button>
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────
@@ -244,18 +297,127 @@ const SUGGESTIONS = [
 ];
 
 /* ─────────────────────────────────────────────
+   Minimized bubble (draggable)
+───────────────────────────────────────────── */
+/* 버블 위치 기준으로 창이 들어갈 수 있는 최적 위치 계산 */
+function smartPos(bx: number, by: number, w: number, h: number): { x: number; y: number } {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const PAD = 12;
+  const BUBBLE = 48;
+
+  // 후보 위치: 버블 기준 상하좌우
+  const candidates = [
+    { x: bx + BUBBLE + PAD,        y: by - h / 2 },          // 오른쪽
+    { x: bx - w - PAD,             y: by - h / 2 },          // 왼쪽
+    { x: bx - w / 2,               y: by - h - PAD },        // 위
+    { x: bx - w / 2,               y: by + BUBBLE + PAD },   // 아래
+  ];
+
+  const fits = (p: { x: number; y: number }) =>
+    p.x >= PAD && p.y >= PAD && p.x + w <= vw - PAD && p.y + h <= vh - PAD;
+
+  const clamp = (p: { x: number; y: number }) => ({
+    x: Math.min(Math.max(p.x, PAD), vw - w - PAD),
+    y: Math.min(Math.max(p.y, PAD), vh - h - PAD),
+  });
+
+  return clamp(candidates.find(fits) ?? candidates[0]);
+}
+
+function BubbleIcon({ initialPos, onExpand }: { initialPos: { x: number; y: number }; onExpand: (pos: { x: number; y: number }) => void }) {
+  const [bpos, setBpos] = useState(initialPos);
+  const dragging = useRef(false);
+  const moved = useRef(false);
+  const origin = useRef({ mx: 0, my: 0, px: 0, py: 0 });
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    dragging.current = true;
+    moved.current = false;
+    origin.current = { mx: e.clientX, my: e.clientY, px: bpos.x, py: bpos.y };
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const dx = e.clientX - origin.current.mx;
+      const dy = e.clientY - origin.current.my;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved.current = true;
+      setBpos({ x: origin.current.px + dx, y: origin.current.py + dy });
+    };
+    const onUp = () => {
+      if (dragging.current && !moved.current) {
+        onExpand(smartPos(bpos.x, bpos.y, INIT_W, INIT_H));
+      }
+      dragging.current = false;
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [onExpand, bpos]);
+
+  return (
+    <div
+      className="agw-bubble"
+      style={{ transform: `translate(${bpos.x}px, ${bpos.y}px)` }}
+      onMouseDown={onMouseDown}
+      role="button"
+      tabIndex={0}
+      aria-label="에이전트 열기"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onExpand(smartPos(bpos.x, bpos.y, INIT_W, INIT_H)); }}
+    >
+      {/* robot icon */}
+      <svg className="agw-robot-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="8" width="18" height="12" rx="3" />
+        <g className="agw-robot-eye" style={{ transformOrigin: "9.25px 12.25px" }}>
+          <rect x="8" y="11" width="2.5" height="2.5" rx="0.6" fill="currentColor" stroke="none" />
+        </g>
+        <g className="agw-robot-eye" style={{ transformOrigin: "14.75px 12.25px" }}>
+          <rect x="13.5" y="11" width="2.5" height="2.5" rx="0.6" fill="currentColor" stroke="none" />
+        </g>
+        <line x1="9.5" y1="17" x2="14.5" y2="17" strokeWidth="1.8" />
+        <line x1="12" y1="8" x2="12" y2="5" />
+        <circle cx="12" cy="3.8" r="1.2" fill="currentColor" stroke="none" />
+        <line x1="3" y1="13" x2="1.2" y2="13" strokeWidth="2" />
+        <line x1="21" y1="13" x2="22.8" y2="13" strokeWidth="2" />
+      </svg>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Main
 ───────────────────────────────────────────── */
+/* per-session chat state, keyed by session id */
+type SessionChat = { messages: ChatMsg[]; typing: boolean };
+
 export function AgentWindow() {
-  const { isOpen, close } = useAgentWindow();
+  const { isOpen, minimized, close, minimize, expand, sessions, activeSessionId, newSession, switchSession, closeSession, updateSessionTitle } = useAgentWindow();
   const { pos, setPos, onMouseDown } = useDrag({ x: Math.max(0, window.innerWidth / 2 - INIT_W / 2), y: 60 });
   const { size, onResizeMouseDown } = useResize({ w: INIT_W, h: INIT_H }, pos, setPos);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  const [messages, setMessages] = useState<ChatMsg[]>(INITIAL_MESSAGES);
+  const [sessionChats, setSessionChats] = useState<Record<string, SessionChat>>({
+    [activeSessionId]: { messages: INITIAL_MESSAGES, typing: false },
+  });
   const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const currentChat: SessionChat = sessionChats[activeSessionId] ?? { messages: [], typing: false };
+  const messages = currentChat.messages;
+  const typing = currentChat.typing;
+
+  const setCurrentChat = useCallback((updater: (prev: SessionChat) => SessionChat) => {
+    setSessionChats((prev) => {
+      const current = prev[activeSessionId] ?? { messages: [], typing: false };
+      return { ...prev, [activeSessionId]: updater(current) };
+    });
+  }, [activeSessionId]);
+
+  // reset input when switching sessions
+  useEffect(() => { setInput(""); }, [activeSessionId]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -264,6 +426,18 @@ export function AgentWindow() {
     return () => window.removeEventListener("keydown", handler);
   }, [isOpen, close]);
 
+  // minimize on outside click
+  useEffect(() => {
+    if (!isOpen || minimized) return;
+    const handler = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        minimize();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isOpen, minimized, minimize]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
@@ -271,21 +445,34 @@ export function AgentWindow() {
   const sendMessage = useCallback((text: string) => {
     if (!text.trim() || typing) return;
     const userMsg: ChatMsg = { id: `u-${Date.now()}`, role: "user", parts: [{ type: "text", text }] };
-    setMessages((prev) => [...prev, userMsg]);
+    setCurrentChat((prev) => ({ ...prev, messages: [...prev.messages, userMsg], typing: true }));
     setInput("");
-    setTyping(true);
+
+    // set session title from first user message
+    const isFirstMsg = (sessionChats[activeSessionId]?.messages ?? []).filter((m) => m.role === "user").length === 0;
+    if (isFirstMsg) { updateSessionTitle(activeSessionId, text); }
 
     setTimeout(() => {
-      setTyping(false);
       const replies = buildReply(text);
-      setMessages((prev) => [...prev, ...replies]);
+      setCurrentChat((prev) => ({ messages: [...prev.messages, ...replies], typing: false }));
     }, 900 + Math.random() * 400);
-  }, [typing]);
+  }, [typing, activeSessionId, sessionChats, setCurrentChat, updateSessionTitle]);
 
   if (!isOpen) return null;
 
+  // minimized bubble
+  if (minimized) {
+    return (
+      <BubbleIcon
+        initialPos={{ x: pos.x + size.w - 52, y: pos.y + size.h - 52 }}
+        onExpand={(newPos) => { setPos(newPos); expand(); }}
+      />
+    );
+  }
+
   return (
     <div
+      ref={rootRef}
       className="agw-root"
       style={{ transform: `translate(${pos.x}px,${pos.y}px)`, width: size.w, height: size.h }}
       role="dialog"
@@ -305,15 +492,21 @@ export function AgentWindow() {
       {/* header */}
       <header className="agw-header" onMouseDown={onMouseDown}>
         <div className="agw-header-left">
-          <div className="agw-repo-tag">LEGACY MONOLITH</div>
           <span className="agw-repo-name">acme/payments-api</span>
-          <span className="agw-status-dot" />
-          <span className="agw-status-label">인덱싱됨</span>
         </div>
         <button type="button" className="agw-close" onClick={close} aria-label="Close">
           <IconClose />
         </button>
       </header>
+
+      {/* session tabs */}
+      <SessionTabs
+        sessions={sessions}
+        activeId={activeSessionId}
+        onSwitch={switchSession}
+        onClose={closeSession}
+        onNew={newSession}
+      />
 
       {/* chat body */}
       <div className="agw-chat-body">
@@ -353,26 +546,30 @@ export function AgentWindow() {
 
       {/* input row */}
       <div className="agw-input-wrap">
-        <div className="agw-input-box">
-          <IconSparkle />
+        <div className="agw-input-outer">
           <input
             ref={inputRef}
             className="agw-input"
-            placeholder="코드베이스에 대해 무엇이든 질문하세요..."
+            placeholder=""
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") sendMessage(input); }}
           />
+          <div className="agw-input-toolbar">
+            <div className="agw-input-toolbar-left">
+              <button type="button" className="agw-toolbar-btn" aria-label="추가"><IconPlus /></button>
+              <button type="button" className="agw-toolbar-model" aria-label="모델 선택">
+                P0 <IconChevron />
+              </button>
+              <button type="button" className="agw-toolbar-model" aria-label="분석 깊이">
+                Deep <IconChevron />
+              </button>
+            </div>
+            <button type="button" className="agw-send-btn" onClick={() => sendMessage(input)} disabled={!input.trim() || typing}>
+              <IconSend />
+            </button>
+          </div>
         </div>
-        <button type="button" className="agw-send-btn" onClick={() => sendMessage(input)} disabled={!input.trim() || typing}>
-          <IconSend />
-        </button>
-      </div>
-      <div className="agw-input-hints">
-        <span>질문</span><span className="agw-hint-sep">·</span>
-        <span>코드 편집</span><span className="agw-hint-sep">·</span>
-        <span>리팩토링</span><span className="agw-hint-sep">·</span>
-        <span>임팩트 분석</span>
       </div>
     </div>
   );

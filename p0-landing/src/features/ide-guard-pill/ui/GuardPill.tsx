@@ -5,7 +5,8 @@ const STATE_RANK: Record<GuardState, number> = { blocked: 3, warn: 2, safe: 1 };
 const GLYPH: Record<GuardState, string> = { blocked: "⛔", warn: "⚠", safe: "✓" };
 
 export function GuardPill() {
-  const { isExpanded, toggle, collapse } = useGuardPill();
+  const { isVisible, isExpanded, toggle, collapse } = useGuardPill();
+  if (!isVisible) return null;
   const rootRef = useRef<HTMLDivElement>(null);
 
   const summary = summarize(GUARD_ENTRIES);

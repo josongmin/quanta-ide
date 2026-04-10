@@ -13,7 +13,9 @@ export interface FileNode {
 
 interface IdeFilesProps {
   nodes: FileNode[];
+  repoName?: string;
   onFileClick?: (name: string) => void;
+  onRepoClick?: () => void;
   onHover?: (name: string, x: number, y: number) => void;
   onHoverEnd?: () => void;
 }
@@ -126,12 +128,28 @@ function pickFileIcon(name: string) {
   return <FileIconGeneric />;
 }
 
-export function IdeFiles({ nodes, onFileClick, onHover, onHoverEnd }: IdeFilesProps) {
+function RepoIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 2.5A1.5 1.5 0 0 1 4.5 1h7A1.5 1.5 0 0 1 13 2.5v11a.5.5 0 0 1-.777.416L8 11.101l-4.223 2.815A.5.5 0 0 1 3 13.5z" />
+    </svg>
+  );
+}
+
+export function IdeFiles({ nodes, repoName, onFileClick, onRepoClick, onHover, onHoverEnd }: IdeFilesProps) {
   const { t } = useTranslation();
   return (
     <aside className="ide-files" aria-label={t("ide.files.label")}>
       <PanelResizer cssVar="--files-w" side="right" min={140} max={480} />
-      <div className="ide-label">{t("ide.files.label")}</div>
+      <button
+        type="button"
+        className="ide-files-repo-btn"
+        onClick={onRepoClick}
+        title="레포 인사이트 보기"
+      >
+        <RepoIcon />
+        <span>{repoName ?? t("ide.files.label")}</span>
+      </button>
       <div className="ide-files-tree" role="tree" aria-label={t("ide.files.label")}>
         {nodes.map((node, i) => {
           const isFolder = node.type === "folder";
