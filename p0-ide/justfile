@@ -1,0 +1,31 @@
+# quanta-ide (Vite) — dev URL: http://localhost:5173/ide/ (see vite.config base)
+
+dev:
+    #!/usr/bin/env bash
+    lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+    sleep 0.3
+    pnpm dev
+
+build:
+    pnpm build
+
+lint:
+    pnpm lint
+
+security-audit:
+    pnpm security:audit
+
+validate:
+    pnpm validate
+
+validate-full:
+    pnpm validate:full
+
+typecheck:
+    pnpm typecheck
+
+install:
+    pnpm install
+
+clean:
+    rm -rf dist coverage node_modules/.vite

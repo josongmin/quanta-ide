@@ -1,0 +1,14 @@
+# Dependencies & build output
+p0-ide/node_modules/
+p0-ide/dist/
+p0-ide/coverage/
+**/node_modules/
+
+# Lockfiles (noisy, not app logic)
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Generated / binary
+**/*.min.js
+**/*.min.css

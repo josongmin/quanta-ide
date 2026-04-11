@@ -1,0 +1,10 @@
+---
+description: Canonical agent instructions live in .ai/AGENT.md
+alwaysApply: true
+---
+
+# Agent source of truth
+
+All persistent project instructions for this workspace are defined in **`.ai/AGENT.md`** (repo root).
+
+Follow that document for layout, pnpm commands under `p0-ide/`, ESLint expectations, and scope. Open `.ai/AGENT.md` when starting substantive work if it is not already loaded.

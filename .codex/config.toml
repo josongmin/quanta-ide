@@ -1,0 +1,4 @@
+# Project-scoped Codex overrides (loaded when the workspace is trusted).
+# Paths are relative to this `.codex/` directory.
+# https://developers.openai.com/codex/config-advanced/#project-config-files
+model_instructions_file = "../.ai/AGENT.md"

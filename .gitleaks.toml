@@ -1,0 +1,17 @@
+title = "quanta-ide"
+
+[extend]
+useDefault = true
+
+# IDE demo buffers: strings can look like keys/tokens but are fixtures.
+[[allowlists]]
+description = "IDE mock / fixture sources (not production secrets)"
+paths = [
+  '''p0-ide/src/app/ide/mock-charge.tsx''',
+  '''p0-ide/src/app/ide/mock-ledger.tsx''',
+  '''p0-ide/src/app/ide/mock-refund-lines.tsx''',
+  '''p0-ide/src/app/ide/mock-pr.ts''',
+  '''p0-ide/src/app/ide/mock.ts''',
+  '''p0-ide/src/app/ide/mock-fixes.tsx''',
+  '''p0-ide/src/app/ide/mock-file-inspector.ts''',
+]
