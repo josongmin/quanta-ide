@@ -20,7 +20,7 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
-export type OverlayTier = "sheet" | "dialog" | "popover" | "ephemeral";
+export type OverlayTier = "sheet" | "dialog" | "popover" | "ephemeral" | "floating";
 
 interface OverlayProps {
   tier: OverlayTier;
@@ -41,6 +41,7 @@ const TIER_DEFAULTS: Record<OverlayTier, { withScrim: boolean; closeOnScrim: boo
   dialog:    { withScrim: true,  closeOnScrim: true  },
   popover:   { withScrim: false, closeOnScrim: false },
   ephemeral: { withScrim: false, closeOnScrim: false },
+  floating:  { withScrim: false, closeOnScrim: false },
 };
 
 export function Overlay({
@@ -68,7 +69,7 @@ export function Overlay({
     return () => { window.removeEventListener("keydown", handler); };
   }, [open, escCloseable, onClose]);
 
-  /* scroll lock on dialog/sheet */
+  /* scroll lock on dialog/sheet only — floating/popover/ephemeral keep page scrollable */
   useEffect(() => {
     if (!open || (tier !== "dialog" && tier !== "sheet")) return;
     const prev = document.body.style.overflow;

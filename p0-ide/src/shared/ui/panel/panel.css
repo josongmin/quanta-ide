@@ -60,6 +60,27 @@
   -webkit-backdrop-filter: var(--overlay-blur-popover);
 }
 
+/* ── Tier: floating ──
+   Draggable / resizable window. No scrim, no scroll-lock, no enforced
+   position. Consumer owns top/left/transform/width/height (via inline style
+   or CSS custom props). We still provide chrome (bg, border, shadow, radius). */
+.panel--floating {
+  background: var(--overlay-bg-dialog);
+  border-radius: var(--overlay-radius-dialog);
+  box-shadow: var(--overlay-shadow-dialog);
+  backdrop-filter: var(--overlay-blur-dialog);
+  -webkit-backdrop-filter: var(--overlay-blur-dialog);
+  max-height: none;
+}
+
+/* floating opts out of the default size-cap min() rule — consumer sets width. */
+.panel--floating.panel--sm,
+.panel--floating.panel--md,
+.panel--floating.panel--lg,
+.panel--floating.panel--xl {
+  width: auto;
+}
+
 /* ── Size ── */
 .panel--sm { width: min(var(--panel-width-sm), calc(100vw - var(--space-8))); }
 .panel--md { width: min(var(--panel-width-md), calc(100vw - var(--space-8))); }

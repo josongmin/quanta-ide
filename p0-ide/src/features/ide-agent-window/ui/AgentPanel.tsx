@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Panel, IconButton, IconClose as SharedIconClose } from "@/shared/ui";
 import { useAgentWindow } from "../model/useAgentWindow";
 import { postAgentTurn, postAgentOneshot, makeTurnId, DevosError, DEVOS_REPO_PATH, type ExecutionMetadata } from "../model/devosClient";
 import { useDrag } from "../model/useDrag";
@@ -7,14 +8,7 @@ import { buildReply } from "../lib/buildReply";
 import type { ChatMsg, SessionChat } from "../model/types";
 import { SessionTabs } from "./SessionTabs";
 import { MsgPart } from "./MsgPart";
-import { IconClose, IconChevron, IconPlus, IconSend } from "./icons";
-
-/* TODO(ds): migrate to Panel — deferred. This is a draggable/resizable floating
- * window (no scrim, custom translate()+resize handles, outside-click minimizes
- * rather than closes). Neither `dialog` nor `sheet` tier fits: Overlay would
- * inject a scrim, scroll-lock the body, and override positioning. A new
- * `floating` tier (or a Panel variant that opts out of Overlay) is required
- * before the shell can be migrated. Icons have been redirected to @/shared/ui. */
+import { IconChevron, IconPlus, IconSend } from "./icons";
 
 /* pin / unpin icon — thumbtack */
 function IconPin({ pinned }: { pinned: boolean }) {
@@ -219,13 +213,17 @@ export function AgentPanel({ initialPos }: AgentPanelProps) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div
+    <Panel
+      tier="floating"
+      open
+      onClose={close}
+      closeOnEsc={false}
       ref={rootRef}
       className="agw-root"
       style={{ transform: `translate(${pos.x}px,${pos.y}px)`, width: size.w, height: size.h }}
       role="dialog"
-      aria-modal="false"
-      aria-label="P0 Agent"
+      ariaModal={false}
+      ariaLabel="P0 Agent"
     >
       {/* resize handles — mouse-only drag affordance, no keyboard equivalent */}
       {(["n","s","e","w","ne","nw","se","sw"] as ResizeEdge[]).map((edge) => (
@@ -256,9 +254,15 @@ export function AgentPanel({ initialPos }: AgentPanelProps) {
           >
             <IconPin pinned={pinned} />
           </button>
-          <button type="button" className="agw-close" onClick={close} aria-label="Close">
-            <IconClose />
-          </button>
+          <IconButton
+            variant="ghost"
+            size="sm"
+            onClick={close}
+            onMouseDown={(e) => { e.stopPropagation(); }}
+            aria-label="Close"
+          >
+            <SharedIconClose size={12} strokeWidth={2} />
+          </IconButton>
         </div>
       </header>
 
@@ -339,6 +343,6 @@ export function AgentPanel({ initialPos }: AgentPanelProps) {
           </div>
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }

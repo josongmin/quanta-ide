@@ -36,7 +36,7 @@ export function ChangeCard() {
     <Panel
       tier="dialog"
       size="md"
-      open={isOpen && !!proposal}
+      open={isOpen && proposal !== null}
       onClose={close}
       ariaLabel={t("ide.changeCard.closeAria")}
       className="ccard"

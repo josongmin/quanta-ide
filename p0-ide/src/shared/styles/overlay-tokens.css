@@ -179,3 +179,8 @@
   z-index: var(--z-ephemeral);
   animation: overlay-ephemeral-in var(--overlay-duration-in) var(--overlay-ease) both;
 }
+
+/* floating: draggable window, consumer-controlled position. No enforced layout. */
+.overlay-content--floating {
+  z-index: var(--z-dialog);
+}

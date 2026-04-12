@@ -1,4 +1,8 @@
-import { createIcon, type IconProps } from "./Icon";
+/* Icon registry. react-refresh HMR optimization only applies to files that
+ * export nothing but components; this barrel exports 29 icons plus a Dot
+ * primitive and is intentionally co-located. */
+/* eslint-disable react-refresh/only-export-components */
+import { createIcon } from "./Icon";
 
 export const IconClose = createIcon(
   "IconClose",
@@ -145,11 +149,11 @@ export const IconPause = createIcon(
   </>,
 );
 
-type DotProps = {
+interface DotProps {
   size?: number;
   className?: string;
   "aria-label"?: string;
-};
+}
 
 export function IconDot({ size = 5, className, "aria-label": ariaLabel }: DotProps) {
   return (
@@ -169,4 +173,3 @@ export function IconDot({ size = 5, className, "aria-label": ariaLabel }: DotPro
   );
 }
 
-export type { IconProps };

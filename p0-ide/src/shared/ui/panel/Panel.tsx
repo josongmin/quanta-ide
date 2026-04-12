@@ -1,7 +1,7 @@
-import type { ReactNode } from "react";
+import { forwardRef, type CSSProperties, type ReactNode } from "react";
 import { Overlay } from "../Overlay";
 
-export type PanelTier = "sheet" | "dialog" | "popover";
+export type PanelTier = "sheet" | "dialog" | "popover" | "floating";
 export type PanelSize = "sm" | "md" | "lg" | "xl";
 
 export interface PanelProps {
@@ -12,23 +12,44 @@ export interface PanelProps {
   children: ReactNode;
   className?: string;
   ariaLabel?: string;
+  /** floating / popover tiers: consumer-controlled positioning */
+  style?: CSSProperties;
+  /** opt out of Overlay's ESC handler when the consumer manages keys itself */
+  closeOnEsc?: boolean;
+  /** dialog tiers default to role="dialog"; floating windows may set their own */
+  role?: string;
+  ariaModal?: boolean;
 }
 
-export function Panel({
-  tier,
-  open,
-  onClose,
-  size = "md",
-  children,
-  className = "",
-  ariaLabel,
-}: PanelProps) {
+export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel(
+  {
+    tier,
+    open,
+    onClose,
+    size = "md",
+    children,
+    className = "",
+    ariaLabel,
+    style,
+    closeOnEsc,
+    role,
+    ariaModal,
+  },
+  ref,
+) {
   const cls = `panel panel--${tier} panel--${size}${className ? ` ${className}` : ""}`;
   return (
-    <Overlay tier={tier} open={open} onClose={onClose}>
-      <div className={cls} aria-label={ariaLabel}>
+    <Overlay tier={tier} open={open} onClose={onClose} closeOnEsc={closeOnEsc}>
+      <div
+        ref={ref}
+        className={cls}
+        style={style}
+        aria-label={ariaLabel}
+        role={role}
+        aria-modal={ariaModal}
+      >
         {children}
       </div>
     </Overlay>
   );
-}
+});

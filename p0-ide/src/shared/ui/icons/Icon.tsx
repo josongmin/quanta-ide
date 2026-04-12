@@ -1,12 +1,12 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type IconProps = {
+export interface IconProps {
   size?: number;
   strokeWidth?: number;
   className?: string;
   "aria-label"?: string;
   "aria-hidden"?: boolean;
-};
+}
 
 const DEFAULT_SIZE = 14;
 const DEFAULT_STROKE = 1.8;
@@ -21,7 +21,7 @@ export function createIcon(displayName: string, path: ReactNode) {
       "aria-hidden": ariaHidden,
     } = props;
     const a11y: Pick<SVGProps<SVGSVGElement>, "aria-label" | "aria-hidden" | "role"> =
-      ariaLabel != null
+      ariaLabel !== undefined
         ? { "aria-label": ariaLabel, role: "img" }
         : { "aria-hidden": ariaHidden ?? true };
     return (
