@@ -1,0 +1,75 @@
+/* ── Change Impact — banner only ────────────────────────────────────
+   Panel content reuses fii-* / rii-* from ide-inspector-context.
+   ─────────────────────────────────────────────────────────────────── */
+
+/* ── Impact Banner (editor bottom) ── */
+.ci-banner {
+  padding: 10px 16px;
+  background: var(--paper-2);
+  border-top: 1px solid var(--line-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: ci-banner-in 0.25s ease-out;
+}
+@keyframes ci-banner-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ci-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ci-banner-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.ci-banner-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ci-banner-conf {
+  font-size: 0.62rem;
+  font-weight: 500;
+  color: var(--ink-3);
+  background: var(--paper-3);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.ci-banner-summary {
+  font-size: 0.68rem;
+  color: var(--ink-3);
+  margin: 0;
+  line-height: 1.4;
+}
+.ci-banner-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 2px;
+}
+.ci-banner-btn {
+  font-family: var(--font-ui);
+  font-size: 0.65rem;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--line-2);
+  background: var(--paper-3);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.ci-banner-btn:hover {
+  background: var(--paper-4);
+  border-color: var(--line-3);
+}
+.ci-banner-btn.is-agent {
+  background: color-mix(in srgb, var(--accent) 12%, var(--paper-3));
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--accent);
+}
+.ci-banner-btn.is-agent:hover {
+  background: color-mix(in srgb, var(--accent) 22%, var(--paper-3));
+}

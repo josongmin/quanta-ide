@@ -231,7 +231,7 @@ function SymbolizedCode({
 export function HoverSymbol({ info, children }: { info: SymbolInfo; children: ReactNode }) {
   const setSymbol = useEditorHover((s) => s.setSymbol);
   const { context, setSymbolContext } = useInspectorContext();
-  const currentFileName = context.mode !== "repo" ? context.fileName : "";
+  const currentFileName = context.mode !== "repo" && context.mode !== "impact" ? context.fileName : "";
   return (
     <span
       className="ide-editor-sym"

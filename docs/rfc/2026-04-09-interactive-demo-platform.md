@@ -21,12 +21,17 @@
 
 ### 왜 지금인가
 
-AI가 코드를 찍어낸다. 문제는 사람이 아니라 LLM이 레포 구조를 이해 못 하고 생성한다는 것이다. 레포가 커질수록 중복 코드, 아키텍처 붕괴, 일관성 없는 패턴이 쌓인다. 그 결과 LLM도, 사람도 신뢰할 수 없는 코드베이스가 된다.
+AI 코딩이 mainstream이 됐다. AI가 코드를 찍어낸다. 문제는 사람이 아니라 **LLM이 레포 구조를 이해 못 하고 생성한다**는 것이다. 레포가 커질수록 중복 코드, 아키텍처 붕괴, 일관성 없는 패턴이 쌓인다. 그 결과 LLM도, 사람도 신뢰할 수 없는 코드베이스가 된다.
 
 신뢰가 없는 진짜 이유는 두 가지다:
 
 1. **구조를 모른다** — LLM은 컨텍스트 창 안의 코드만 본다. 레포 전체의 의존 관계, 중복 패턴, 아키텍처 경계를 인식하지 못한다.
 2. **강제하지 않는다** — 팀이 설계 원칙을 문서로 정해도, 코드 레벨에서 강제되지 않으면 LLM이 어기고 사람도 어긴다.
+
+기존 도구가 이걸 못 풀었던 이유:
+- **SonarQube/CodeClimate**: 배치 분석. "경고 183개" 리포트를 주지만 코드 작성 시점에는 개입 불가. 경고 → 액션 연결 없음.
+- **ESLint/Semgrep**: 파일 단위 규칙. 크로스-파일 의존성, blast radius, behavior diff 계산 못함.
+- **Copilot/Cursor**: 코드 생성만. 생성 결과가 레포 구조와 맞는지 검증하는 건 사람 몫.
 
 이 제품은 그 문제를 정면으로 조진다:
 
@@ -201,6 +206,8 @@ p0                →  "이거 바꾸면 31파일 터짐. 고칠까?"  (인텔�
 
 - 긴 설명, 패널 이동, **hover 의존** (기본 판단은 보이는 것만으로)
 
+> capability: `cost_analysis`, `change_impact_analysis`, `taint_flow`, `dead_code`, `find_references`
+
 ---
 
 ### 2️⃣ 🔍 Structural Understanding (구조 이해)
@@ -222,6 +229,8 @@ p0                →  "이거 바꾸면 31파일 터짐. 고칠까?"  (인텔�
 - 클래스/파일 구조 tree만 보여주기 (이미 IDE에 있음)
 - "go to definition" 같은 저수준 기능을 제품 차별점으로 강조
 
+> capability: `call_graph`, `dataflow`, `taint_flow`, `function_summary`, `import_graph`
+
 ---
 
 ### 3️⃣ 🔮 Predictive Interaction (미래 예측)
@@ -241,6 +250,8 @@ p0                →  "이거 바꾸면 31파일 터짐. 고칠까?"  (인텔�
 **버려야 할 것**
 
 - vague prediction, "maybe" 같은 표현
+
+> capability: `behavior_diff`, `change_impact_analysis`, `effect_analysis`, `symbolic_execution`, `abstract_interpret`
 
 ---
 
@@ -281,6 +292,8 @@ p0                →  "이거 바꾸면 31파일 터짐. 고칠까?"  (인텔�
 
 - 채팅 인터페이스를 기본 의사결정 경로로 쓰기, 긴 설명, 자유형 질문 UX를 P0로 두기
 
+> capability: `change_impact_analysis`, `behavior_diff`, `taint_flow`, `proof_platform`
+
 ---
 
 ### 5️⃣ 🔁 Feedback & Learning Loop
@@ -295,6 +308,8 @@ p0                →  "이거 바꾸면 31파일 터짐. 고칠까?"  (인텔�
 | **Time Machine** (원인 추적) | "이 커밋에서 깨짐" | debugging 시간 ↓ |
 | **Confidence + Evidence** | `Confidence: 92%` / `경로: line 12 → 34` | 설명 가능한 시스템 = 신뢰 ↑ |
 | **False Positive Control** | `[이 경고 무시]` | alert fatigue 방지 |
+
+> capability: `behavior_diff`, `git_history`, `incremental_analysis`, `proof_platform`, `explain`
 
 ---
 
@@ -602,6 +617,8 @@ sendWebhook() 사용처 없음 (dead)
 | **상태 변화** | opacity/border 변경. 색상 진동 ❌ |
 | **알림** | 메시지 ❌, 상태만. "✨ 해소됨" 같은 보상 텍스트 금지 |
 | **밀도** | 정보 밀도 높게. 여백 과잉 ❌ (Datadog 수준) |
+| **다크 모드** | 기본. 라이트는 옵션. 배경 `#0d1117` 계열 (GitHub Dark 참조) |
+| **접근성** | 위험도는 색+농도+텍스트 삼중 표현. 색각 이상자도 텍스트/농도로 판단 가능 |
 
 ### 인터랙션 원칙
 
@@ -610,6 +627,47 @@ sendWebhook() 사용처 없음 (dead)
 - **숫자가 권위** — 숫자는 항상 출처/근거 클릭 가능
 - **호버에 디테일** — 기본 뷰는 미니멀, hover로 단계적 노출
 - **단축키 우선** — 모든 액션은 키보드 가능. 마우스는 옵션
+
+### 응답성 기준 (SOTA 최소 요건)
+
+매일 8시간 쓰는 도구에서 200ms 이상 걸리면 "느리다"고 느낀다. 아래가 체감 기준.
+
+| 인터랙션 | 목표 | 초과 시 처리 |
+|----------|------|------------|
+| 파일 열기 → Ambient 오버레이 표시 | < 100ms (캐시 히트) / < 500ms (콜드) | 스켈레톤 없음. 기존 텍스트 먼저, 분석 도착 시 즉시 오버레이 |
+| 함수 클릭 → Inspector 갱신 | < 150ms | Inspector 기존 값 유지, 새 값으로 교체 (깜빡임 ❌) |
+| 타이핑 → Live Impact 갱신 | debounce 300ms + 분석 < 1s | `◐` spinner를 해당 행에만. 부분 결과부터 채움 |
+| Simulate Change 결과 | < 2s | 패널 프레임 즉시 표시 + 내용은 스트리밍 |
+| ⌘K 결과 카드 | < 3s | "Thinking..." 텍스트 한 줄. 프로그레스 바 ❌ |
+| Hover 툴팁 | < 50ms (렌더) | 사전 계산된 데이터. hover 시점에 API 호출 ❌ |
+
+**원칙**: 분석이 오래 걸릴 때 UI를 멈추지 않는다. 부분 결과부터 채우고, 느린 항목만 `◐`로 표시. 전체 로딩 화면 ❌.
+
+### 정보 노출 3단계 (Progressive Disclosure)
+
+개발자의 주의력은 유한하다. 정보를 한 번에 다 보여주면 아무것도 안 읽는다.
+
+```
+Level 0 — Glance (시선만으로)
+  gutter 색띠 + 라인 끝 숫자
+  → "이 함수 위험한가?" 0.5초 판단
+
+Level 1 — Hover (마우스 올리기)
+  taint source/sink, callers, 경로 요약
+  → "왜 위험한가?" 2초 판단
+
+Level 2 — Click (명시적 의도)
+  Inspector 전체 갱신, L4 패널, Simulate
+  → "어떻게 고치나?" 깊은 탐색
+```
+
+| Level | 정보량 | 개입도 | 사라지는 조건 |
+|-------|--------|--------|-------------|
+| 0 | 숫자 1~2개, 색띠 | 없음 (항상 보임) | 파일 닫을 때 |
+| 1 | 3~5줄 요약 | hover 유지 | 마우스 벗어남 |
+| 2 | 전체 분석 | 클릭 | 닫기 버튼 / Esc |
+
+**핵심**: Level 0에서 이미 "위험/안전"이 판단 가능해야 한다. Level 1~2는 "왜/어떻게"를 위한 것이지, 판단을 위한 게 아니다.
 
 ---
 
@@ -645,10 +703,22 @@ sendWebhook() 사용처 없음 (dead)
 
 **구성**
 - **Top Bar** — 경로 / 시스템 risk score (12pt 텍스트, 농도 단계 dot)
-- **Files** — 파일 트리. 위험 파일은 옆에 숫자만 (`pay/3` = 3 issues)
+- **Files** — 파일 트리. 위험 파일은 옆에 숫자만 (`pay/3` = 3 issues). 디렉토리 접혀도 하위 합계 표시
 - **Editor** — 라인 번호 표시. 분석 오버레이는 본문과 동일 폰트, opacity 60%
-- **Inspector** — 1급시민. 항상 표시. 라벨/값 정렬, 표 형태
-- **Status Bar** — 세션 시간, 이슈 개수, 빌드 상태
+- **Inspector** — 1급시민. 항상 표시. 커서 위치에 따라 컨텍스트 전환 (함수/import/클래스/파일)
+- **Status Bar** — 이슈 개수, 분석 상태, 빌드 상태
+
+**Files 패널 상세**
+```
+  src/
+  ▸ payments/  ●● 7        ← 디렉토리 내 총 이슈 수
+    refund.ts  ● 3          ← taint 2 + arch violation 1
+    webhook.ts ● 2
+  ▸ auth/      ● 2
+  ▸ core/                   ← 이슈 없으면 숫자 없음
+```
+- 숫자는 severity 순 집계. dead code만이면 dim
+- 파일명 hover → 미니 요약: `taint 2 · arch 1 · blast 31`
 
 ---
 
@@ -668,6 +738,25 @@ sendWebhook() 사용처 없음 (dead)
 - 좌측 gutter 색띠 (`▎`) — 무채색 농도로 위험도 (없음/연/중/진)
 - 라인 끝 인라인 텍스트 — 이모지 없이 단어. 폰트 크기 동일, opacity 0.55
 - 함수 닫는 라인 — `blast 31 · complexity 8.2` 형식, 메타 정보 회색
+
+**Gutter 레이어 통합 (좌측 → 우측 순서)**
+
+```
+라인번호 │ 농도띠 │ 상태아이콘 │ taint선 │  코드 본문  │  인라인 힌트
+  12         ▎        ⚡          │       const a =       taint source
+  13         ▎                    │       const b =
+  14         ▎▎       ⛔          ╿       db.update()     14 callers
+  15                                    }                  blast 31
+```
+
+| Gutter 요소 | 의미 | 우선순위 (겹칠 때) |
+|-------------|------|------------------|
+| 농도띠 `▎` | 위험도 수준 (4단계) | 항상 표시 |
+| 상태아이콘 | ⚡ taint / ⛔ violation / ⚠ warning / 💀 typestate | 한 줄에 최대 1개 (가장 높은 severity) |
+| taint 세로선 `│` | dataflow 경로 | Show flow 활성 시만 |
+| 인라인 힌트 | blast, callers, taint source 등 | 항상 표시. 한 줄에 최대 2개 항목 |
+
+**겹침 규칙**: 한 라인에 taint source + arch violation + high complexity가 동시에 걸릴 수 있다. gutter 아이콘은 severity 순 (⛔ > ⚡ > ⚠), 인라인 힌트는 2개까지. hover 시 전체 목록.
 
 호버 시 디테일:
 
@@ -722,6 +811,19 @@ Impact
 - 표 형태. 라벨/값 좌우 정렬
 - "hot" / "unsafe" 같은 상태는 작은 회색 라벨, 색 ❌
 - 클릭하면 그 위치로 점프 (밑줄 hover)
+
+**Inspector 컨텍스트 모드**
+
+Inspector는 커서 위치에 따라 컨텍스트가 바뀐다. 함수 안이면 함수 분석, import 위면 모듈 분석.
+
+| 커서 위치 | Inspector 표시 |
+|----------|---------------|
+| 함수 본문 | 함수 분석 (complexity, blast, callers, taint, dataflow) |
+| import 문 | 모듈 분석 (bundle size, CVE, import count, 순환 의존) |
+| 클래스 선언 | 클래스 분석 (메서드 수, inheritance depth, 총 blast) |
+| 파일 루트 | 파일 분석 (총 함수 수, 평균 complexity, 오너십, arch 위반) |
+
+전환은 즉시 (< 150ms). 애니메이션 ❌, 기존 값 → 새 값 교체.
 
 ---
 
@@ -873,6 +975,8 @@ Inspector 패널의 Data flow 항목과 양방향 연동 — 패널에서 노드
 │   Time travel…                     ⌘T       │
 └─────────────────────────────────────────────┘
 ```
+
+⌘K에 질문을 치면 현재 커서 위치의 **분석 컨텍스트가 자동 주입**된다. 개발자가 "이 함수"를 설명할 필요 없음 — 엔진이 이미 알고 있다.
 
 질문 후 결과 — **카드 한 장**:
 
@@ -1096,14 +1200,19 @@ async function processRefund(userId: string) {
 - 우클릭 → AI 액션
 - Inline `// 💬 Ask`
 
-**4가지 프롬프트 타입**
+**7가지 프롬프트 타입**
 
-| 타입 | 입력 예시 | 출력 |
-|------|---------|------|
-| **Explain** | "왜 이 함수 위험해?" | 근거 카드 + jump links |
-| **Simulate** | "이 조건 >=로 바꾸면?" | 미래 결과 카드 |
-| **Refactor** | "안전하게 분리해줘" | 검증된 리팩토링 + behavior diff |
-| **Investigate** | "이 값 어디서 왔지?" | 데이터플로우 경로 |
+| 타입 | 입력 예시 | 출력 | 엔진 |
+|------|---------|------|------|
+| **Explain** | "왜 이 함수 위험해?" | 근거 카드 + jump links | `explain`, `function_summary` |
+| **Simulate** | "이 조건 >=로 바꾸면?" | 실행 경로 변화 + impact delta | `behavior_diff`, `abstract_interpret` |
+| **Refactor** | "안전하게 분리해줘" | 검증된 리팩토링 + behavior equivalence | `effect_analysis`, `behavior_diff` |
+| **Investigate** | "이 값 어디서 왔지?" | 데이터플로우 경로 | `dataflow`, `taint_flow` |
+| **Audit** | "이 모듈 아키텍처 맞아?" | arch 위반 목록 + drift 추세 | `import_graph`, `spec_mining` |
+| **Clean** | "dead code 있어?" | cascade 제거 후보 트리 | `dead_code`, `call_graph` |
+| **History** | "이 함수 언제부터 위험해졌어?" | risk timeline + 원인 커밋 | `git_history`, `incremental_analysis` |
+
+모든 타입은 결과가 **카드 한 장**으로 나온다. 채팅 쓰레드 ❌, 후속 질문 ❌ — 충분하면 한 카드로 끝.
 
 ---
 
@@ -1120,16 +1229,21 @@ p0 IDE:   "분석이 주인공 → 코드는 분석 결과를 확정하는 수�
 - **타이핑 중 제공되는 정보는 1급시민** — 치는 순간마다 분석이 반응
 - **딸깍으로 다 해결** — 분석이 제안하면 클릭 한 번으로 확정
 
-### 조용히 vs 크게
+### 조용히 vs 크게 — 에스컬레이션 규칙
 
-| 조용히 (항상성) | 크게 (변화) |
-|----------------|------------|
-| 복잡도 | blast radius 증가 |
-| 테스트 유무 | 새 taint path 생성 |
-| hotspot | behavior change |
-| import risk | resource leak |
+| 상태 | Level 0 (항상) | Level 1 (hover) | Level 2 (배너/패널) |
+|------|---------------|-----------------|-------------------|
+| 복잡도 | 인라인 숫자 dim | hover에 Big-O + 경로 수 | CPX > team_budget 시 L3 배너 |
+| 테스트 유무 | 인라인 `0/14` dim | hover에 uncovered 목록 | coverage 0% + callers > 10 시 배너 |
+| hotspot | gutter 농도 | hover에 최근 변경 빈도 | — (조용히만) |
+| blast radius | 인라인 숫자 | hover에 영향 파일 요약 | blast > threshold 시 L3 배너 |
+| taint path | gutter ⚡ | hover에 경로 + sanitizer 유무 | **신규** taint 생성 시 L3 배너 |
+| behavior change | 인라인 `behavior change` | hover에 변화 상세 | 동작 변경 감지 시 L3 배너 |
+| arch violation | gutter ⛔ | hover에 규칙 + 수정 경로 | 위반 발생 즉시 L1 (팀 정책으로 L3 격상 가능) |
+| typestate | gutter 💀 | hover에 상태 전이 | 위반 발생 즉시 L1 |
+| resource leak | gutter ⚠ | hover에 미닫힘 경로 | — (조용히만) |
 
-→ **상태는 잔잔하게, 변화는 dramatize**
+**핵심 원칙**: 상태(이미 있는 것)는 Level 0에서 조용히. **변화(방금 생긴 것)**만 Level 2로 올린다. 기존에 있던 taint path는 조용히, 지금 내 수정으로 생긴 taint path는 배너.
 
 ### 행동 루프
 
@@ -1289,6 +1403,12 @@ P0 3개에 모든 제품/엔지니어링 자원을 집중. 나머지는 Pro/Ente
   2. Simulate Change — "바꾸기 전에 결과 보여줌"
 ```
 
+**왜 경쟁자가 따라하기 어려운가:**
+- 위 기능이 정확하려면 call graph + dataflow + taint flow + behavior diff가 레포 전체에서 실시간 동작해야 함
+- 이 엔진은 수년 단위 투자. 327개 capability가 이미 wired 상태 — 이게 기술 해자
+- Copilot/Cursor는 LLM 기반이라 구조적으로 이 방향 진입 불가 (결정론적 분석이 아님)
+- SonarQube는 배치 분석이라 "타이핑 중 실시간 반응"으로 전환하려면 아키텍처 재설계 필요
+
 **한 줄 정리:**
 
 > **"이거 바꾸면 뭐 터지냐 + 바꾸기 전에 결과 보여줌"**
@@ -1297,15 +1417,306 @@ P0 3개에 모든 제품/엔지니어링 자원을 집중. 나머지는 Pro/Ente
 
 ## 미결 사항
 
+### 제품 결정 (P0 — 기능 방향에 직결)
+
+- [ ] Simulate Change 정확도 측정 방식 (false positive 임계값)
+- [ ] Architecture Guardrails 규칙 DSL 설계
+- [ ] Confidence score 계산 방식
+- [ ] Severity 기준 (Critical / Warning / Info 경계)
+- [ ] Incident DNA 패턴 매칭 모델 설계
+
+### 엔지니어링 결정 (P1 — 구현 시 결정)
+
+- [ ] Keyboard shortcut 충돌 방지 (에디터 단축키)
+- [ ] Blast radius 수치 갱신 성능 최적화
+- [ ] Semantic PR 출력 포맷 (markdown 템플릿 표준화)
+
+### 인프라 결정 (P2 — 스케일 시 결정)
+
 - [ ] 동시 세션 cap 수치 (서버 스펙 확인 후)
 - [ ] 세션 타이머 시간
 - [ ] 스냅샷 델타 인덱스 직렬화 포맷
 - [ ] 빌드 큐 최대 대기 수 / 타임아웃 정책
-- [ ] Blast radius 애니메이션 프레임레이트 / 성능 최적화
-- [ ] Simulate Change 정확도 측정 방식 (false positive 임계값)
-- [ ] Incident DNA 패턴 매칭 모델 설계
-- [ ] Semantic PR 출력 포맷 (markdown 템플릿 표준화)
-- [ ] Architecture Guardrails 규칙 DSL 설계
-- [ ] Confidence score 계산 방식
-- [ ] Severity 기준 (Critical / Warning / Info 경계)
-- [ ] Keyboard shortcut 충돌 방지 (Monaco 단축키)
+
+---
+
+## 왜 SOTA인가 — UX 기준
+
+기존 정적 분석 도구는 두 가지 중 하나에 갇혀 있다:
+1. **리포트형**: 분석 결과를 별도 대시보드에 보여줌. 코드와 분리돼서 개발자가 안 봄 (SonarQube, CodeClimate)
+2. **경고형**: 에디터에 밑줄 + 사이드바 경고. 숫자만 쌓이고 액션으로 안 이어짐 (ESLint, Semgrep)
+
+이 제품이 SOTA인 이유:
+
+| 축 | 기존 SOTA | 이 제품 |
+|----|---------|--------|
+| **정보 위치** | 별도 대시보드 / 사이드바 | 코드 라인 위 오버레이. 시선 이동 ❌ |
+| **정보 시점** | 배치 (CI 후) / 저장 후 | **타이핑 중** 실시간 (debounce 300ms) |
+| **정보 깊이** | 경고 1단계 | 3단계 progressive disclosure (glance → hover → click) |
+| **정보 → 액션** | 경고 읽고 직접 수정 | 경고 → [Fix safely] 원클릭 → 에이전트가 수정 → Gate 검증 → 적용 |
+| **분석 범위** | 파일 단위 | 레포 전체 (cross-file call graph, dataflow, taint) |
+| **분석 컨텍스트** | 사람이 설명해야 함 | 커서 위치 기준 자동 수집 → 에이전트에 주입 |
+| **팀 규칙** | lint 규칙 (문법) | 아키텍처 레이어 규칙 + 암묵적 패턴 자동 추출 (spec mining) |
+| **변경 예측** | 없음 | Simulate Change — 실행 없이 결과 미리보기 |
+| **신뢰 근거** | "경고입니다" | 숫자 + 경로 + behavior equivalence proof |
+
+**한 문장**: 정적 분석의 결과를 코드 위에 살아있는 오버레이로 띄우고, 변경하면 숫자가 즉시 바뀌고, 원클릭으로 안전하게 고치고, 팀 아키텍처를 자동으로 강제한다 — 이 조합을 실시간으로 하는 도구는 없다.
+
+---
+
+## IntelliJ 킬러 기능 흡수 — 엔진 기반 재해석
+
+IntelliJ가 가진 모든 킬러 기능을 흡수하되, "파일 단위 구문 분석"이 아니라 **"레포 전체 의미론적 분석"** 위에서 재구상한다. 우리 엔진이 있기 때문에 IntelliJ보다 더 깊이 갈 수 있다.
+
+### 흡수 대상 — 리팩토링
+
+| IntelliJ 기능 | 우리의 재해석 | 왜 더 강한가 | 엔진 |
+|-------------|-------------|-----------|------|
+| **Extract Method** | 코드 선택 없이 함수 내 추출 포인트 자동 제안. 복잡도 + 응집도 기반 | IntelliJ는 선택해야 함. 우리는 "어디를 자르면 좋을지"를 엔진이 안다 | `cost_analysis`, `effect_analysis`, `dataflow` |
+| **Extract Variable/Constant/Parameter** | 매직 넘버/문자열 반복 사용을 상시 탐지. 인라인 힌트로 "이 리터럴 N곳에서 동일" 표시 | 배경 분석 상시 실행. 찾지 않아도 보인다 | `clone_detection`, `find_references` |
+| **Change Signature** | 시그니처 변경 전 impact map — "N개 파일, M개 호출 사이���, 자동 수정 불가 K곳" 시각화 | blast radius + behavior diff로 변경의 안전성까지 검증 | `change_impact_analysis`, `behavior_diff`, `call_graph` |
+| **Safe Delete** | 삭제 시 Dead Code Cascade로 연쇄 orphan 자동 탐지. "함께 삭제해도 안전한 N개" 제안 | "삭제해도 되냐" + "같이 삭제할 수 있는 것"까지 | `dead_code`, `call_graph`, `effect_analysis` |
+| **Move** | 이동 전 순환 의존성 분석 + Architecture Guardrails 위반 검사. "이 모듈을 여기로 옮기면 순환 참조 해소" | 아키텍처 규칙을 알고 있는 상태에서 이동 | `import_graph`, `module_dependency`, `arch_rules` |
+| **Rename** | 타이핑 중 실시간 충돌 검사. "이 이름은 외부 스코프 변수�� 가린다(shadow)" 즉시 경고 | rename이 끝난 뒤가 아니라 치는 중에 | `symbol_resolution`, `find_references` |
+| **Inline** | 인라인이 안전한지 사전 검증. 부작용 여부 + 평가 횟수 변화 + behavior equivalence | effect_analysis로 "이거 인라인해도 동작 같냐" 증명 | `effect_analysis`, `behavior_diff` |
+
+### 흡수 대상 — 정적 분석 / 코드 이해
+
+| IntelliJ 기능 | 우리의 재해석 | 엔진 |
+|-------------|-------------|------|
+| **Dataflow to/from Here** | 항상 켜져 있음. 변수 hover → "이 시점에서 가능한 값 범위" 인라인 표시. 크로스-파일 | `dataflow`, `abstract_interpret`, `def_use_facts` |
+| **Nullability Inference** | TS에서도 strict null 무관하게 런타임 가드 누락 탐지. "유령 타입 어노테이션" 인라인 | `abstract_interpret`, `dataflow` |
+| **Constant Condition** | 항상 true/false 조건의 코드 블록을 시각적으로 fade-out. "왜 항상 true인지" 클릭 → 추론 경로 | `abstract_interpret`, `control_flow` |
+| **Unreachable Code** | dead code + 도달 불가능 코드를 분리. 전자는 safe delete, 후자는 로직 오류 경고 | `dead_code`, `control_flow` |
+| **Type Migration** | "이 타입을 바꾸면 N개 파일 영향" 프리뷰. API 경계 변경은 "breaking change" 레이블 | `change_impact_analysis`, `find_references` |
+| **Dependency Matrix** | 실시간 업데이트 + Architecture Guardrails 연동. "이 모듈 이동하면 순환 참조 해소" | `import_graph`, `module_dependency` |
+| **Find Usages (유형별 그룹핑)** | read/write/override 분류 + **타임라인 뷰** (이 심볼의 사용처가 시간에 따라 어떻게 변했는지) | `find_references`, `git_history` |
+| **Structural Search & Replace** | AST 패턴 매칭을 ⌘K로. "async 함수에서 await 없이 Promise 반환하는 곳" → 자연어 → 쿼리 변환 | `structural_code_search`, `explain` |
+| **Call Hierarchy** | 인터랙티브 그래프 + 비동기 체인 추적 (Promise, callback, event) | `call_graph`, `dataflow` |
+| **Parameter Info** | 파라미터별 "이 위치에 호환 가능한 변수" 자동 제안 + "다른 곳에서 주로 전달한 값 패턴" | `find_references`, `dataflow` |
+| **Expression Type Info** | 복잡한 제네릭/조건부 타입을 "전개(expand)"하여 최종 타입 표시. 타입 추론 단계별 설명 | `symbol_resolution`, `explain` |
+| **Language Injections** | SQL 문자열의 컬럼명이 실제 스키마��� 일치하는지 크로스 검증. GraphQL 쿼리 스키마 검증 | `structural_code_search`, `spec_verification` |
+
+### 흡수 대상 — 편집 / VCS
+
+| IntelliJ 기능 | 우리의 재해석 | 엔진 |
+|-------------|-------------|------|
+| **Postfix Completion** | 표현식 타입에 따라 동적 후위 템플릿. `Promise` → `.await`, `.then`. `Observable` → `.pipe` | `symbol_resolution` |
+| **Smart Completion** | 타입 + 의미론적 적합성. "같은 string이어도 이메일/URL/이름을 구분" | `dataflow`, `function_summary` |
+| **Annotate/Blame** | blame + 검사 결합. "이 경고는 3개월 전 이 커밋에서 도입" 즉시 표시. 핫스팟 분석 | `git_history`, `incremental_analysis` |
+| **Changelists** | 변경 파일의 의미론적 연관성 자동 분류. "이 3개는 같은 기능, 이 1개는 별개 버그" | `change_impact_analysis`, `import_graph` |
+| **Partial Commit** | 청크 커밋 시 "이 청크만 커밋하면 빌드 깨지는지" 사전 분석. 의존적 ���크 자동 묶기 | `change_impact_analysis`, `behavior_diff` |
+| **Local History** | 각 시점의 "테스트 통과 여부 + 타입 ��러 수 + blast radius" 함께 기록. "마지막 통과 시점" 원클릭 복원 | `incremental_analysis`, `git_history` |
+| **Inline Debug Values** | 디버그 없이 정적 추론 값을 인라인 표시. "유령 값"으로 상수 전파/범위 분석 결과 표시 | `abstract_interpret`, `dataflow` |
+
+---
+
+## SOTA++ UX 패턴 — 데이터 기반
+
+### 1. Risk-aware Minimap (VS Code + Datadog)
+
+에디터 미니맵에 risk 히트맵 오버레이. 고위험 함수 = 빨강, 저위험 = 초록. taint flow 경로 = 노란 점선. 파일의 전체 리스크 프로파일을 한눈에 조감.
+
+```
+  미니맵 영역
+  ┌────┐
+  │▓▓▓▓│  ← 고위험 함수 (risk 78)
+  │░░░░│
+  │░░░░│
+  │▓▓░░│  ← taint path 통과
+  │░░░░│
+  │▓▓▓▓│  ← blast radius 31
+  │░░░░│
+  └────┘
+```
+
+**근거**: Tufte의 sparkline 원칙 — 데이터-잉크 ���율 극대화. 160ms 이내 추세 파악 (pre-attentive processing).
+
+> capability: `change_impact_analysis`, `taint_flow`, `cost_analysis`
+
+### 2. Inspector Sparklines (Datadog)
+
+Inspector의 각 메트릭 옆에 7-commit 스파크���인. 정적 숫자 대신 추세.
+
+```
+Inspector
+─────────────────────────────
+Blast        31  ▁▂▃▅▇       ← 증가 추세
+Complexity   8.2 ▇▆▅▃▁       ← 개선 추세
+Taint paths  2   ▁▁▁▁▂       ← 최근 증가
+Tests        0/14 ───────     ← 변화 없음
+```
+
+**근거**: 숫자 하나만 보면 "이게 나쁜 건가?" 판단이 안 된다. 추세를 함께 보여주면 즉시 판단 가능. Change Blindness 방지 — 이상치가 시각적 주의를 끈다.
+
+> capability: `incremental_analysis`, `git_history`
+
+### 3. Anomaly Band (Datadog)
+
+blast radius의 "정상 범위"를 밴드로 표시. 이 함수의 역대 평균 blast = 15인데 현재 31이면 밴드 이탈.
+
+```
+Inspector — Blast Radius
+─────────────────────────────
+    ┌────────────────────┐
+ 35 │            ●       │  현재
+    │  ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈  │  ← 정상 상한 (20)
+ 20 │  ░░░░░░░░░░░░░░░░░ │  ← 정상 밴드
+    │  ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈  │  ← 정상 하한 (10)
+ 10 │                    │
+    └────────────────────┘
+```
+
+**근거**: 절대값(31)보다 "정상 대비 편차"(+11, 밴드 초과)가 판단에 유용. Kahneman의 reference point 이론.
+
+> capability: `incremental_analysis`, `git_history`, `change_impact_analysis`
+
+### 4. Contextual Command Palette + Rich Preview (Raycast + Linear)
+
+⌘K 검색 결과 선택 시 우측에 리치 프리뷰 — 해당 심볼의 blast radius 그래프 + risk score + taint paths.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ ⌘K  processRef_                                              │
+│ ─────────────────────────────────────────────────────────── │
+│                                    │ Preview                 │
+│  processRefund     refund.ts:12   │ ────────────            │
+│  processReturn     return.ts:8    │ Risk        78          │
+│  processReceipt    receipt.ts:3   │ Blast       31 ▁▃▅▇    │
+│                                    │ Taint       2 paths     │
+│                                    │ Complexity  8.2 O(n·m)  │
+│                                    │                         │
+│                                    │ 12 function process..   │
+│                                    │ 13   const amount =..   │
+│ ─────────────────────────────────────────────────────────── │
+│  ⏎ Go to   ⌘S Simulate   ⌘I Impact   ⌘B Blast              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+하단 Action Bar: 선택된 심볼에 대한 상황별 액션. 키보드만으로 완결.
+
+**근거**: Recognition > Recall (Nielsen). 열어보지 않고도 인식. 100ms 이내 결과 표시 → "즉각 반응" 인지 (Nielsen response time 연구).
+
+> capability: `function_summary`, `change_impact_analysis`, `cost_analysis`
+
+### 5. Inline Impact Ghost Layer (Copilot + Figma)
+
+코드 수정 시 변경 라인 옆에 실시간 ghost annotation으로 blast delta, 깨지는 테스트 수 표시.
+
+```
+13  ┃ ▎   if (amount >= 0) {          blast +6 · tests -2 · taint +1
+```
+
+- ghost text와 동일한 opacity (0.4). 수락/거절 대상이 아니라 인지 보조
+- 수정이 없는 라인에는 ��시 ❌ — 변화가 생긴 라인에만
+- AI 제안(ghost text) 옆에 impact ghost가 나란히 표시 가능
+
+**근거**: Ghost text의 수락률은 ~26% (GitHub 2023). 나머지 74%는 무시. 낮은 인지 비용이 핵심 — impact ghost도 같은 원칙. "보면 좋고, 안 봐도 흐름 안 끊김".
+
+> capability: `change_impact_analysis`, `behavior_diff`, `taint_flow`
+
+### 6. Investigation Spaces (Arc Browser)
+
+작업 컨텍스트별 독립 탭 세트. `⌘1/2/3`으로 전환.
+
+| Space | 열린 탭 | Inspector 모드 |
+|-------|--------|-------------|
+| **PR Review** | 변경 파일들 + semantic PR | behavior diff 중심 |
+| **Incident Response** | 장애 관련 파일 + taint flow | taint + time travel 중심 |
+| **Refactoring** | 대상 파일 + simulate change | blast + effect 중심 |
+| **Architecture Audit** | 모듈 경계 파일들 + arch health | dependency + drift 중심 |
+
+**근거**: Context switching cost = 200-500ms 인지 비용 (Monsell, 2003). Space로 물리적 분리하면 전환 비용 최소.
+
+### 7. Evidence Inspector — 증명 재생 (Proof Platform 활용)
+
+모든 경고를 클릭하면 "왜 이 경고가 나왔는지" 증거를 단계별 재생.
+
+```
+┌─ Evidence ────────────────────────────────────────┐
+│ Taint Path: req.body.amount → db.update           │
+│ ──────────────────────────────────────────────── │
+│                                                    │
+│ Step 1/4  req.body.amount        L13  ● source    │
+│           ↓ assigned to `amount`                   │
+│ Step 2/4  amount                 L13  ● propagate  │
+│           ↓ passed to build()                      │
+│ Step 3/4  build(amount)          L14  ● propagate  │
+│           ↓ result to db.update                    │
+│ Step 4/4  db.update(tx)          L15  ● SINK       │
+│                                                    │
+│ Sanitizer check: ✗ none found in path             │
+│ Confidence: high (deterministic IFDS)             │
+│ ──────────────────────────────────────────────── │
+│  [이 경고 무시]  [에이전트에게 수정 요청]         │
+└───────────────────────────────────────────────────┘
+```
+
+**근거**: 신뢰 = 반복된 정확한 결과 + 설명 가능성. "경고입니다" vs "이 경로로 taint가 전파됩니다, 4단계 증명" — 후자�� 개발자가 신뢰한다.
+
+> capability: `proof_platform`, `taint_flow`, `explain`
+
+### 8. Pure Function Badge + Effect Overlay
+
+함수의 순수성을 항상 표시. 리팩토링/테스트/메모이제이션 판단의 기초.
+
+```
+  12  │ pure │  function calculateFee(amount: Decimal): Decimal {
+  ...
+  42  │ I/O  │  async function processPayment(tx: Tx): Promise<Result> {
+  ...
+  67  │ writes-shared │  function updateBalance(amount: number): void {
+```
+
+| 태그 | 의미 | 리팩토링 안전성 | 메모이제이션 |
+|------|------|--------------|-----------|
+| `pure` | 입력�� 읽고 외부 상태 ❌ | 최고 | 가능 |
+| `reads-only` | heap read만, write ❌ | 높음 | 조건부 가능 |
+| `I/O` | 외부 시스템 호출 | 중간 | 불가 |
+| `writes-shared` | 공유 상태 수정 | 낮음 — blast 확인 필요 | 불가 |
+
+**근거**: "이 함수 건드려도 되냐"의 50%는 "이 함수가 뭘 하냐(effect)"로 결정된다. IntelliJ는 이걸 안 보여준다.
+
+> capability: `effect_analysis`
+
+### 9. Escape Analysis Badge — 성능 최적화 기회
+
+함수의 객체 할��이 stack에 머무는지 heap으로 escape하는지 표시. 성능 최적화의 첫 번째 단서.
+
+hover:
+```
+┌─────────────────────────────────────────────────┐
+│ Escape Analysis                                 │
+│                                                 │
+│ stack eligible:    result (local, no escape)     │
+│ heap escape:       txBuilder (returned)          │
+│ thread escape:     none                          │
+│                                                 │
+│ GC pressure:       low (1 heap alloc per call)   │
+│ Optimization:      txBuilder �� stack possible    │
+│                    if callers don't store ref     │
+└─────────────────────────────────────────────────┘
+```
+
+> capability: `escape_analysis`, `points_to`
+
+### 10. Structural Search via ⌘K (IntelliJ SSR + 자연어)
+
+자연어 질문을 AST 패턴 매칭 쿼리로 변환.
+
+```
+⌘K: "async 함수에서 await 없이 Promise 반환하는 곳"
+
+결과:
+  3 matches found
+
+  api/handler.ts:42   async getUser()     → returns fetch() without await
+  lib/cache.ts:18     async warmup()      → returns redis.get() without await
+  core/auth.ts:91     async validate()    → returns db.query() without await
+
+  [모두 수정]  [규칙으로 저장]
+```
+
+"규칙으로 저장" → Architecture Guardrails에 등록. 이후 같은 패턴 발생 시 자동 경고.
+
+> capability: `structural_code_search`, `explain`

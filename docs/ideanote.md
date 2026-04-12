@@ -16,14 +16,21 @@
    - 4-1. Taint Flow Inline
    - 4-2. Behavior Diff
    - 4-3. Ownership Map
+   - 4-4. Complexity Live Badge
 5. [기능 간 연결 구조](#5-기능-간-연결-구조)
 6. [공통 UX 원칙](#6-공통-ux-원칙)
 7. [엔진 구현 상태](#7-엔진-구현-상태)
 8. [구현 순서 & 스프린트](#8-구현-순서--스프린트)
-9. [데모 스토리](#9-데모-스토리)
+9. [사용 시나리오](#9-사용-시나리오)
+10. [추가 기능](#추가-기능-제안-2026-04-12)
+    - A. Architecture Guardrails
+    - B. Spec Mining
+    - C. Typestate Overlay
+    - D. Symbolic Simulation
+    - E. AI Contribution Heatmap
+    - F. Dead Code Cascade
 
 **P2 기능 (다음 라운드)**
-- [P2-A. Complexity Badge](#p2-a-complexity-badge)
 - [P2-B. Concurrency Race Overlay](#p2-b-concurrency-race-overlay)
 - [P2-C. Clone Detection](#p2-c-clone-detection)
 - [P2-D. Function Effect Overlay](#p2-d-function-effect-overlay)
@@ -34,19 +41,22 @@
 
 ### 무엇을 해결하는가
 
-현재 AI 코딩 도구들(Copilot, Cursor)이 해결 못 하는 세 가지:
+현재 AI 코딩 도구들(Copilot, Cursor)이 해결 못 하는 것들:
 
-| 문제 | 현황 | P0 접근 |
+| 문제 | 현황 | 접근 |
 |---|---|---|
-| **영향 범위 불투명** | 개발자가 변경 범위를 평균 3.2배 과소 추정 | Blast Radius → 저장 전에 수치로 보여줌 |
-| **AI 결과 검증 불가** | AI 생성 PR 거절률 수동의 2.1배. 리뷰어가 직접 검증해야 함 | Agent Gate → SE 지표로 자동 검증 후 적용 |
+| **영향 범위 불투명** | 개발자가 변경 범위를 평균 3.2배 과소 추정 | Blast Radius → 수정 중 수치로 즉시 표시 |
+| **AI 결과 검증 불가** | AI 생성 PR 거절률 수동의 2.1배 | Agent Gate → SE 지표로 자동 검증 후 적용 |
 | **PR에서 동작 변경 미감지** | 리팩토링 PR 18%가 의도치 않은 동작 변경 포함 | Behavior Diff → 문법/의미/동작 변경 3단계 분리 |
+| **아키텍처 침식 미감지** | AI가 아키텍처 규칙 모른 채 코드 생성. 팀 70%가 CODEOWNERS 미유지 | Architecture Guardrails → 위반 즉시 인라인 경고 |
+| **AI 코드 축적 → dead code** | AI 생성 코드에서 미사용 함수/클래스 누적 | Dead Code Cascade → 연쇄 dead 한 번에 제거 |
 
 ### 핵심 전제
 
 - 기존 IDE(VSCode/JetBrains)를 대체하지 않는다. **별도 앱으로 뜨는 실사용 제품**이다.
 - 모든 경고는 **엔진 분석 결과가 근거**다. "AI의 느낌"이 아님.
 - 모든 L4 패널은 **에이전트 연결점**이다. 분석 → 수정 → 검증 → 적용이 한 흐름.
+- **팀의 아키텍처 규칙을 코드에 실시간으로 강제**한다. lint를 넘어서는 구조적 검증 — Architecture Guardrails + Spec Mining.
 
 ---
 
@@ -68,7 +78,7 @@
 │  L1  Gutter 아이콘 + Hover 툴팁                      │  항상. 가장 비침습적
 │      taint ⚡ / dead 💤 / race 🔀 / owner 👤        │
 └──────────────────────────────────────────────────────┘
-                  기존 IDE 에디터
+                  P0 에디터 (코드 뷰어)
 ```
 
 | 레이어 | 트리거 | 닫기 | 에이전트 연결 |
@@ -93,7 +103,7 @@
 - 변경 실패의 1위 원인 = 예상치 못한 downstream 영향 (Google SRE Book)
 - 개발자의 변경 범위 추정 오차 = 평균 **3.2배 과소 추정** (MSR 2020)
 - 엔진(`change_impact`)이 이미 구현돼 있어 연결 비용 낮음
-- 현재 데모에 mock으로 존재 → 실데이터 연결만 하면 됨
+- 현재 UI에 mock으로 존재 → 실데이터 연결만 하면 됨
 
 #### 엔진
 
@@ -117,6 +127,13 @@
 - 중간(6~20): amber
 - 높음(21+) or critical 포함: red
 - `critical` = taint/security 경로가 포함된 파일만 카운트
+
+**Live delta**: 수정 중 blast가 변하면 인라인 바에 즉시 반영
+```
+  ◈ blast  14 → 22 files · 3 → 5 critical    [상세 ↗]
+```
+- 델타 표시는 수정 시작 시점 기준. 저장하면 리셋
+- 증가 시 amber → red 전환은 자동 (수치 기반, 색상 진동 ❌)
 
 **L3 — 저장 시 배너 (임계값 초과)**
 ```
@@ -214,9 +231,22 @@
 └──────────────────────────────────────────────┘
 ```
 
-**컨텍스트 영역 (①)**
-- 질문 입력 전 자동으로 현재 열린 파일 기준 엔진 분석 결과 수집
-- 접기/펼치기 가능. 개발자가 어떤 정보가 에이전트에게 가는지 투명하게 확인
+**컨텍스트 영역 (①) — 자동 수집 명세**
+- 질문 입력 전 자동으로 현재 커서 위치 기준 엔진 분석 결과 수집
+- 접기/펼치기 가능. 개발자가 어떤 정보가 에이전트에게 가는지 **투명하게** 확인
+
+자동 수집 항목 (커서 위치의 함수 기준):
+```
+blast_radius:   14 files, 2 critical
+taint_paths:    2 (req.body → db.update 비보호)
+callers:        14 (3 hot path)
+complexity:     8.2 / team_budget 10
+arch_status:    ✓ no violation
+typestate:      ✓ no violation
+ownership:      @alice 62%
+recent_changes: 3 commits / 7 days
+```
+이 데이터가 에이전트 프롬프트에 자동 prefix로 들어간다. 외부 LLM이 "레포 구조를 모른 채 코딩"하는 것과 근본적으로 다른 이유.
 
 **패치 & 검증 영역 (③)**
 - 에이전트가 패치를 생성했을 때만 노출 (코드 변경 없는 답변엔 미표시)
@@ -228,10 +258,13 @@
 **Gate 기준 (백그라운드)**
 ```
 패치 생성 완료
-  → blast_radius: 패치 후 blast ≤ 패치 전 blast  (증가 시 ⚠)
-  → taint_flow:  신규 taint path 0개  (발생 시 ✗ 차단)
-  → cost_analysis: complexity delta ≤ team_budget  (초과 시 ⚠)
-  → proof_replay: 결정론적 재검사 통과  (실패 시 ✗ 차단)
+  → blast_radius:   패치 후 blast ≤ 패치 전 blast  (증가 시 ⚠)
+  → taint_flow:     신규 taint path 0개  (발생 시 ✗ 차단)
+  → cost_analysis:  complexity delta ≤ team_budget  (초과 시 ⚠)
+  → arch_rules:     아키텍처 위반 0개  (발생 시 ⚠ / 팀 정책으로 ✗ 가능)
+  → typestate:      라이프사이클 위반 0개  (발생 시 ✗ 차단)
+  → behavior_diff:  의도치 않은 동작 변경 0개  (발생 시 ⚠ + 상세 표시)
+  → proof_replay:   결정론적 재검사 통과  (실패 시 ✗ 차단)
 ```
 - `✗ 차단` = [적용] 비활성, 에이전트에게 재시도 지시
 - `⚠ 경고` = [적용] 활성, 개발자 판단에 맡김
@@ -386,6 +419,24 @@ PR 오픈 (or 커밋 후 diff 확인)
 - 동작 변경 라인 클릭 → diff 뷰에서 해당 라인 포커스
 - "리뷰어 멘션" = Ownership Map 연동 (해당 파일 오너 자동 추천)
 
+**AI 생성 코드 전용 모드**
+
+Agent Panel에서 에이전트가 패치를 생성하면, [적용] 전에 Behavior Diff가 자동 실행된다.
+
+```
+  ③ 패치 & 검증
+  ┌────────────────────────────────────────┐
+  │ ✓ blast 14 → 6  (개선)               │
+  │ ✓ taint path 해결                    │
+  │ ⚠ behavior change 1개 감지            │  ← 이거
+  │   L34: retry 조건 역전               │
+  │   [상세 보기]                         │
+  │ ✓ proof_replay 통과                  │
+  └────────────────────────────────────────┘
+```
+
+에이전트가 만든 코드의 동작 변경을 **적용 전에** 보여준다 — 이게 "AI 결과를 믿을 수 없다" 문제의 직접 해결.
+
 ---
 
 ### 4-3. Ownership Map
@@ -507,73 +558,50 @@ PR 오픈 (or 커밋 후 diff 확인)
 
 ## 5. 기능 간 연결 구조
 
-모든 P0/P1 기능은 독립적이지 않다. 에이전트를 중심으로 연결된다.
+모든 기능은 독립적이지 않다. 에이전트를 중심으로 연결된다.
 
 ```
-                    ┌─────────────────┐
-                    │  Agent Panel    │  ← 모든 기능의 종착점
-                    │  (컨텍스트 허브) │
-                    └────────┬────────┘
-                             │ 컨텍스트 주입
-          ┌──────────────────┼──────────────────┐
-          ↓                  ↓                  ↓
-  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-  │ Blast Radius │  │ Taint Flow   │  │ Ownership    │
-  │ 영향 파일 목록│  │ 경로 + 위험도│  │ 오너 + 리뷰어│
-  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-         │                 │                  │
-         └────────┬─────────┘                 │
-                  ↓                           │
-         ┌─────────────────┐                  │
-         │  Behavior Diff  │ ←────────────────┘
-         │  동작 변경 감지  │  오너 → 리뷰어 추천
-         └─────────────────┘
+                         ┌─────────────────────┐
+                         │    Agent Panel      │  ← 모든 기능의 종착점
+                         │  (컨텍스트 허브)     │
+                         └──────────┬──────────┘
+                                    │ 컨텍스트 자동 주입
+    ┌─────────────┬─────────────────┼──────────────────┬──────────────┐
+    ↓             ↓                 ↓                  ↓              ↓
+┌────────┐ ┌───────────┐ ┌──────────────┐ ┌──────────────┐ ┌────────────┐
+│ Blast  │ │ Taint     │ │ Complexity   │ │ Arch         │ │ Dead Code  │
+│ Radius │ │ Flow      │ │ Badge        │ │ Guardrails   │ │ Cascade    │
+└───┬────┘ └─────┬─────┘ └──────┬───────┘ └──────┬───────┘ └─────┬──────┘
+    │            │               │                │               │
+    │            │               │ Gate 예산      │ spec_mining   │ call_graph
+    └──────┬─────┘               │                │               │
+           ↓                     ↓                ↓               │
+    ┌────────────────┐  ┌─────────────────┐  ┌──────────────┐    │
+    │ Behavior Diff  │  │   Agent Gate    │  │ Spec Mining  │    │
+    │ + Symbolic Sim │  │ blast/taint/CPX │  │ 암묵적 규칙   │    │
+    └───────┬────────┘  │ proof/arch 검증  │  │ 자동 추출     │    │
+            │           └─────────────────┘  └──────────────┘    │
+            ↓                                                    ↓
+    ┌─────────────────┐  ┌──────────────────┐  ┌───────────────────┐
+    │  Ownership Map  │  │  Typestate       │  │  Clone Detection  │
+    │  오너 + 리뷰어   │  │  라이프사이클 위반 │  │  + AI Heatmap     │
+    └─────────────────┘  └──────────────────┘  └───────────────────┘
 ```
 
 **핵심 흐름 예시**
 ```
 1. 개발자가 processRefund() 수정
 2. Blast Radius → "14 files, 2 critical" L2 표시
-3. 저장 → L3 배너 (임계값 초과)
-4. "에이전트에게 분석 요청" 클릭
-5. Agent Panel: blast 데이터 + taint 경로 자동 주입
-6. 에이전트 패치 생성
-7. Gate 검증: blast 감소 ✓ / taint 해결 ✓ / complexity ⚠
-8. [적용] → 실제 코드 반영
-9. PR 생성 → Behavior Diff + Ownership Map → 리뷰어 자동 추천
-```
-
----
-
----
-
-## 5-B. 업데이트된 기능 간 연결 구조
-
-```
-                    ┌─────────────────────┐
-                    │    Agent Panel      │  ← 모든 기능의 종착점
-                    │  (컨텍스트 허브)     │
-                    └──────────┬──────────┘
-                               │ 컨텍스트 자동 주입
-       ┌───────────────────────┼──────────────────────┐
-       ↓                       ↓                      ↓
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│ Blast Radius │      │ Taint Flow   │      │Complexity    │  ← 신규
-│ 영향 파일 목록│      │ 경로 + 위험도│      │Badge         │
-└──────┬───────┘      └──────┬───────┘      └──────┬───────┘
-       │                     │                      │ Gate 예산
-       └──────────┬──────────┘                      │
-                  ↓                                 ↓
-       ┌─────────────────┐             ┌────────────────────┐
-       │  Behavior Diff  │             │   Agent Gate       │
-       │  동작 변경 감지  │ ←───────── │  blast/taint/CPX/  │
-       └────────┬────────┘             │  proof 통합 검증   │
-                │                      └────────────────────┘
-                ↓
-       ┌─────────────────┐      ┌──────────────────┐
-       │  Ownership Map  │      │  Clone Detection │  ← P2
-       │  오너 + 리뷰어   │      │  AI 중복 코드     │
-       └─────────────────┘      └──────────────────┘
+3. Arch Guardrails → domain→infra 위반 감지 시 L1 gutter 경고
+4. 저장 → L3 배너 (임계값 초과)
+5. "에이전트에게 분석 요청" 클릭
+6. Agent Panel: blast + taint + arch + typestate 데이터 자동 주입
+7. 에이전트 패치 생성
+8. Symbolic Simulation → 패치 적용 전 실행 경로 변화 미리보기
+9. Gate 검증: blast ✓ / taint ✓ / complexity ⚠ / arch ✓ / proof ✓
+10. [적용] → 실제 코드 반영
+11. Dead Code Cascade → 패치로 인해 dead 된 코드 연쇄 제거 제안
+12. PR 생성 → Behavior Diff + Ownership Map → 리뷰어 자동 추천
 ```
 
 ---
@@ -592,9 +620,31 @@ L1(항상) → L2(분석 후) → L3(임계값 초과) → L4(명시적 요청)
 모든 L4 패널 하단에 "에이전트에게 요청" 버튼. 분석 결과가 자동으로 컨텍스트로 주입된다.
 개발자는 **분석 읽기 → 버튼 하나 → 수정 완료**가 되어야 한다.
 
-### 차단하지 않음
-P0는 게이트키퍼가 아니다. 경고하고 인지시키되, 최종 결정은 항상 개발자가 한다.
+### 응답성 — 체감 기준
+매일 8시간 쓰는 도구. 느리면 끈다.
+
+| 인터랙션 | 목표 | 초과 시 |
+|----------|------|--------|
+| 파일 열기 → 오버레이 | < 100ms (캐시) / < 500ms (콜드) | 텍스트 먼저, 분석 도착 시 오버레이 추가 |
+| 함수 클릭 → Inspector | < 150ms | 기존 값 유지 → 새 값 교체 (깜빡임 ❌) |
+| 타이핑 → Live Impact | debounce 300ms + 분석 < 1s | 해당 행에만 `◐`. 부분 결과부터 채움 |
+| Hover 툴팁 | < 50ms (렌더) | 사전 계산. hover 시점 API 호출 ❌ |
+
+전체 로딩 화면 ❌. 부분 결과부터 채우고 느린 항목만 `◐`.
+
+### 정보 노출 3단계
+```
+Level 0 — Glance (시선만으로): gutter + 라인 끝 숫자 → 0.5초 판단
+Level 1 — Hover (마우스 올리기): 경로 요약 → 2초 이해
+Level 2 — Click (명시적): Inspector/L4 패널 → 깊은 탐색
+```
+Level 0에서 "위험/안전"이 판단 가능해야 함. Level 1~2는 "왜/어떻���".
+
+### 차단하지 않음 (기본)
+기본적으로 게이트키퍼가 아니다. 경고하고 인지시키되, 최종 결정은 항상 개발자가 한다.
 단, Gate 실패(taint 신규 생성 등)는 [적용] 비활성 — **적용 경로만 막음**, 저장/커밋은 막지 않음.
+
+Architecture Guardrails 위반도 기본은 L1/L2 경고 (차단 아님). 단, 팀 정책으로 `block` 격상 가능 — 아래 설정 참조.
 
 ### 팀 정책으로 통제
 개인 설정이 아닌 레포 단위 `p0.config.json`:
@@ -603,9 +653,15 @@ P0는 게이트키퍼가 아니다. 경고하고 인지시키되, 최종 결정�
   "blast_radius_threshold": 20,
   "complexity_budget": 10,
   "taint_policy": "block_on_new_sink",
-  "ownership_orphan_alert": true
+  "ownership_orphan_alert": true,
+  "arch_rules": [
+    { "from": "domain/", "to": "infra/", "rule": "deny_direct", "enforcement": "warn" }
+  ],
+  "arch_enforcement": "warn"
 }
 ```
+- `"enforcement": "warn"` → L1/L2 경고만 (기본)
+- `"enforcement": "block"` → Agent Gate에서 `✗ 차단` (팀이 명시적으로 격상)
 
 ---
 
@@ -614,15 +670,6 @@ P0는 게이트키퍼가 아니다. 경고하고 인지시키되, 최종 결정�
 ## 6-B. P2 기능 (다음 라운드)
 
 P0/P1이 실 데이터 연결된 후. 엔진은 이미 준비됨.
-
----
-
-### P2-A. Complexity Badge
-
-위 4-4 섹션 참조. 이미 P1으로 격상 제안 — mock 연결 비용 거의 없음.
-
-> **재평가**: mock에 CPX 수치 이미 존재 + Gate에 연결되면 P1 수준 가치.
-> Sprint 2와 병행 가능.
 
 ---
 
@@ -635,7 +682,7 @@ P0/P1이 실 데이터 연결된 후. 엔진은 이미 준비됨.
 - 엔진 wired 95/100으로 강력하지만
 - Python GIL / JS single-thread 환경에선 임팩트 낮음
 - **대상 코드베이스가 Java/Go/Rust/C++ 위주일 때 P0급으로 격상**
-- 현재 mock 코드가 Python 기반 → 데모 임팩트 낮음
+- 현재 mock 코드가 Python 기반 → Python 환경에서 실사용 임팩트 낮음
 
 #### 엔진
 
@@ -797,10 +844,17 @@ P0/P1이 실 데이터 연결된 후. 엔진은 이미 준비됨.
 | `clone_detection` | **wired** | 95/100 | P2 Clone Detection. MinHash+LSH+semantic |
 | `eraser_lockset` + `fasttrack_hb` | **wired** | 95/100 | P2 Concurrency Race. Java/Go 환경에서 P1급 |
 | `tarjan_deadlock` + `hybrid_race_analyzer` | **wired** | 95/100 | P2 Race 보조. deadlock 감지 포함 |
+| `import_graph` + `module_dependency` + `arch_rules` | **wired** | stable | 신규 Architecture Guardrails. 레이어 위반 실시간 감지 |
+| `spec_mining` + `spec_verification` | **wired** | stable | 신규 Spec Mining. 암묵적 패턴 추출 + Guardrails 세트 |
+| `typestate_analysis` | **wired** | stable | 신규 Typestate Overlay. 객체 라이프사이클 위반 |
+| `symbolic_execution` | **partial** | 34/100 | 신규 Symbolic Simulation. 포트/설정 존재, 독립 실행 레일 미연결 |
+| `abstract_interpret` | **wired** | experimental | Symbolic Simulation 보조. behavior_diff와 조합으로 커버 |
+| `dead_code` + `call_graph` + `import_graph` | **wired** | stable | 신규 Dead Code Cascade. 연쇄 dead 탐지 |
 
 **결론**: P0~P2 전 기능에 필요한 모든 엔진이 wired 상태.
 - P0/P1: 즉시 연결 가능. UI 컴포넌트 개발만 필요.
 - P2: 엔진 준비 완료. `behavior_diff`는 hidden surface라 API 노출 작업 선행 필요.
+- Symbolic Simulation: `symbolic_execution`이 34/100이지만 `behavior_diff` + `abstract_interpret`로 대부분 커버. 엔진 성숙 후 정밀도 향상.
 - Concurrency Race: Go/Java 팀 온보딩 시 즉시 P1급으로 격상 가능.
 
 ---
@@ -898,12 +952,14 @@ git blame + call_graph 조합. GitHub API 연동 포함.
 
 ```
 Week 1-2   Sprint 1   Blast Radius (L2/L3/L4) + Agent Gate UI
-Week 3     Sprint 2   Taint Flow Inline + Complexity Badge (병행, 낮은 비용)
-Week 4     Sprint 3   Behavior Diff
+Week 3     Sprint 2   Taint Flow Inline + Complexity Badge (병행)
+Week 4     Sprint 3   Behavior Diff + Symbolic Simulation (엔진 공유)
 Week 5     Sprint 4   Ownership Map + GitHub 연동
+Week 6     Sprint 5   Architecture Guardrails + Spec Mining (세트)
+Week 7     Sprint 6   Dead Code Cascade + Typestate Overlay
 ──────────────── P2 라운드 ────────────────
-Week 6     Sprint 5   Function Effect Overlay + Clone Detection
-Week 7     Sprint 6   Concurrency Race (Go/Java 팀 온보딩 시)
+Week 8     Sprint 7   Function Effect Overlay + Clone Detection
+Week 9     Sprint 8   Concurrency Race (Go/Java 팀 온보딩 시) + AI Heatmap
 ```
 
 ### 우선순위 전체 요약
@@ -915,10 +971,16 @@ Week 7     Sprint 6   Concurrency Race (Go/Java 팀 온보딩 시)
 | Taint Flow Inline | **P1** | wired stable | ✓ | 높음 | △ (Snyk 유사) |
 | Behavior Diff | **P1** | wired 95/100 | — | 높음 | ✓ |
 | Ownership Map | **P1** | wired stable | — | 중간 | △ (CodeOwners) |
-| Complexity Badge | **P1** | wired 95/100 | ✓ (CPX 수치 있음) | 중간 | ✓ |
+| Complexity Badge | **P1** | wired 95/100 | ✓ (CPX 수치) | 중간 | ✓ |
+| Architecture Guardrails | **P1** | wired stable | — | 높음 | ✓ |
+| Spec Mining | **P1** | wired stable | — | 높음 | ✓ |
+| Dead Code Cascade | **P1** | wired stable | — | 높음 | △ |
+| Symbolic Simulation | **P1** | partial+wired | — | 최고 | ✓ |
+| Typestate Overlay | **P1** | wired stable | — | 중간 | ✓ |
 | Function Effect Overlay | **P2** | wired 95/100 | — | 중간 | ✓ |
-| Clone Detection | **P2** | wired 95/100 | — | 중간 | △ (SonarQube 유사) |
-| Concurrency Race | **P2** | wired 95/100 | — | 낮음(Python) / 높음(Go) | ✓ |
+| Clone Detection | **P2** | wired 95/100 | — | 중간 | △ (SonarQube) |
+| Concurrency Race | **P2** | wired 95/100 | — | 낮음(Py) / 높음(Go) | ✓ |
+| AI Contribution Heatmap | **P2** | git+metadata | — | 중간 | ✓ |
 
 ---
 
@@ -1013,9 +1075,56 @@ PR 생성
 
 ---
 
+### Scene 5 — 아키텍처 위반 감지 (일상)
+
+```
+새 파일 작성 중
+
+개발자: import { db } from '@/infra/database'  ← domain/ 파일에서
+→ 즉��� gutter에 ⛔ 표시
+
+hover:
+  ��� Architecture Violation
+  규칙: domain/ → infra/ 직접 참조 금지
+  ���바른 경로: domain/ → ports/ → infra/
+  [에이전트에게 수정 요청]
+
+클릭 → 에이전트가 port interface 생성 + import 교체 패치
+→ Gate: arch ✓ / blast ✓ / behavior equivalent ✓
+→ [적용]
+```
+
+**메시지**: AI가 코드를 찍어내도, 팀의 아키텍처 규칙을 어기는 순간 즉시 잡힌다. 문서에 써놨다고 지켜지는 게 아니라, 코드 레벨에서 강제된다.
+
 ---
 
-## 추가 기능 제안 (2026-04-12)
+### Scene 6 — Dead Code 정리 (주간)
+
+```
+⌘K → "dead code 있어?"
+
+결과 카드:
+  Dead Code Cascade
+  sendWebhook() — 사용처 없음
+    → WebhookBuilder   dead
+      → retryConfig    dead
+        총 3 파일, 847줄 제거 가능
+
+  [전체 미리보기]  [한 번에 제거]
+
+[한 번에 제거] 클릭
+→ 에이전트가 3파일 삭제 패치 생성
+→ Gate: behavior equivalent ✓ / blast -12 (개선) ✓
+→ [적용]
+```
+
+**메시지**: AI가 찍어낸 코드 중 쓰이지 않는 것이 쌓인다. 연쇄 dead까지 한 번에 제거 — 수동으로는 엄두도 못 낼 작업.
+
+---
+
+---
+
+## 10. 추가 기능 (2026-04-12)
 
 > RFC 제품 정의 기준 — "구조를 강제하는 인텔리전스 레이어" + AI 시대 신뢰 문제 해결.
 > 기존 P0/P1/P2에 없는 것만. 엔진 연결 가능한 것만.
@@ -1299,3 +1408,247 @@ AI가 찍어낸 코드에서 쓰이지 않는 함수/클래스가 쌓일수록 �
 > 이 제품은 'AI가 쓴 코드를 믿을 수 있게 만드는 것'을 한다.
 > 엔진이 분석하고, 게이트가 검증하고, 개발자가 결정한다.
 > 매일 8시간 켜놓는 도구다. 첫 5분이 아니라 100일째에도 가치 있어야 한다.
+
+---
+
+## 11. SOTA++ 추가 기능 (2026-04-12)
+
+> IntelliJ 킬러 기능 흡수 + 미사용 엔진 capability 활용 + SOTA UX 패턴.
+> 엔진에 이미 구현돼 있으면서 product에 안 나와 있는 "숨겨진 다이아몬드"들.
+
+---
+
+### 11-1. Risk Minimap (P1)
+
+**한 줄**: 에디터 미니맵에 risk 히트맵 오버레이. 파일의 리스크 지형을 한눈에 조감.
+
+#### 엔진
+
+`change_impact_analysis` · `taint_flow` · `cost_analysis`
+
+#### UX
+
+미니맵의 해당 영역에 무채색 농도 오버레이:
+```
+미니맵        의미
+▓▓▓▓▓▓       고위험 함수 (risk 78, blast 31)
+░░░░░░
+░░▒▒░░       taint path 통과 영역
+░░░░░░
+▓▓▓▓░░       높은 complexity (CPX 8.2)
+░░░░░░
+```
+
+- 클릭 → 해당 함수로 에디터 스크롤
+- hover → "processRefund: risk 78, blast 31, taint 2"
+
+**근거**: Tufte sparkline 원칙 — 데이터-잉크 비율 극대화. 160ms 이내 추세 파악 (pre-attentive processing). Shneiderman의 Overview+Detail.
+
+---
+
+### 11-2. Inspector Sparklines (P1)
+
+**한 줄**: Inspector 메트릭 옆에 7-commit 추세 스파크라인. 숫자만 보면 "이게 나쁜 건가?" 판단이 안 됨.
+
+#### 엔진
+
+`incremental_analysis` · `git_history`
+
+#### UX
+
+```
+Inspector
+─────────────────────────────
+Blast        31  ▁▂▃▅▇       ← 증가 추세
+Complexity   8.2 ▇▆▅▃▁       ← 개선 추세
+Taint paths  2   ▁▁▁▁▂       ← 최근 증가
+Tests        0/14 ───────     ← 변화 없음
+```
+
+- 스파크라인 hover → 각 커밋별 정확한 수치 + 커밋 메시지
+- 클릭 → Time Travel로 해당 시점으로 이동
+- **Anomaly Band**: 정상 범위(이 함수의 역대 평균 ± 1σ) 밴드. 현재 값이 밴드 이탈하면 강조
+
+---
+
+### 11-3. Pure Function Badge + Effect Overlay (P1 격상)
+
+**한 줄**: 함수의 순수성을 항상 표시. 리팩토링/테스트/메모이제이션 판단의 기초.
+
+기존 P2의 Function Effect Overlay를 P1으로 격상. 이유: "이 함수 건드려도 되냐"의 50%는 effect로 결정.
+
+#### 엔진
+
+`effect_analysis` (wired, 95/100)
+
+#### UX
+
+```
+  12  │ pure │  function calculateFee(amount): Decimal {
+  42  │ I/O  │  async function processPayment(tx): Promise {
+  67  │ writes │ function updateBalance(amount): void {
+```
+
+| 태그 | 의미 | 안전도 | 메모이제이션 |
+|------|------|-------|-----------|
+| `pure` | 외부 상태 ❌ | 최고 | 가능 |
+| `reads` | heap read만 | 높음 | 조건부 |
+| `I/O` | 외부 호출 | 중간 | 불가 |
+| `writes` | 공유 상태 수정 | 낮음 | 불가 |
+
+Agent Gate에 추가: 에이전트 패치로 함수의 effect가 `pure → I/O`로 바뀌면 ⚠ 경고.
+
+---
+
+### 11-4. Evidence Inspector — 증명 재생 (P1)
+
+**한 줄**: 모든 경고를 클릭하면 "왜 이 경고가 나왔는지" 증거를 단계별 재생.
+
+#### 엔진
+
+`proof_platform` · `explain` (wired)
+
+#### UX
+
+taint path 경고 클릭 시:
+```
+┌─ Evidence ────────────────────────────────────┐
+│ Taint Path: req.body.amount → db.update       │
+│ ──────────────────────────────────────────── │
+│                                                │
+│ Step 1/4  req.body.amount     L13  ● source   │
+│           ↓ assigned to `amount`               │
+│ Step 2/4  amount              L13  ● prop      │
+│           ↓ passed to build()                  │
+│ Step 3/4  build(amount)       L14  ● prop      │
+│           ↓ result to db.update                │
+│ Step 4/4  db.update(tx)       L15  ● SINK      │
+│                                                │
+│ Sanitizer: ✗ none in path                     │
+│ Confidence: high (deterministic IFDS)         │
+│ ──────────────────────────────────────────── │
+│ [이 경고 무시]  [에이전트에게 수정 요청]       │
+└────────────────────────────────────────────────┘
+```
+
+- 각 Step 클릭 → 에디터 해당 라인으로 이동
+- "이 경고 무시" → false positive로 등록. 이후 동일 경로 경고 억제
+- blast radius, behavior diff 등 모든 분석 결과에 동일한 evidence 패턴 적용
+
+**핵심 가치**: "경고입니다" vs "이 경로로 전파됩니다, 4단계 증명" — 후자가 개발자 신뢰를 만든다.
+
+---
+
+### 11-5. Rich Preview Command Palette (P1)
+
+**한 줄**: ⌘K 검색에서 심볼 선택 시 blast/risk/taint 리치 프리뷰 + 하단 액션 바.
+
+#### UX
+
+```
+┌────────────────────────────────────────────────────────┐
+│ ⌘K  processRef_                                        │
+│ ──────────────────────────────────────────────────────│
+│                              │ Preview                 │
+│  processRefund  refund.ts:12 │ Risk       78           │
+│  processReturn  return.ts:8  │ Blast      31 ▁▃▅▇     │
+│  processReceipt receipt.ts:3 │ Taint      2 paths      │
+│                              │ CPX        8.2 O(n·m)   │
+│                              │ Effect     I/O          │
+│                              │                         │
+│                              │ 12 function process..   │
+│                              │ 13   const amount =..   │
+│ ──────────────────────────────────────────────────────│
+│ ⏎ Go to   ⌘S Simulate   ⌘I Impact   ⌘B Blast         │
+└────────────────────────────────────────────────────────┘
+```
+
+**근거**: Recognition > Recall (Nielsen). 열어보지 않고 인식 가능. Raycast 패턴.
+
+---
+
+### 11-6. Escape Analysis Badge (P2)
+
+**한 줄**: 함수 내 객체가 stack에 머무는지, heap으로 escape하는지, thread를 넘나드는지 표시.
+
+#### 엔진
+
+`escape_analysis` · `points_to` (wired)
+
+#### UX
+
+hover:
+```
+┌──────────────────────────────────────────┐
+│ Escape Analysis                          │
+│                                          │
+│ stack eligible:  result (no escape)      │
+│ heap escape:     txBuilder (returned)    │
+│ thread escape:   none                    │
+│                                          │
+│ GC pressure:     low (1 heap alloc)      │
+│ Optimization:    txBuilder → stack 가능   │
+│                  if callers don't store   │
+└──────────────────────────────────────────┘
+```
+
+Concurrency Race Overlay와 결합: thread escape + lockset = 동기화 필요 여부.
+
+---
+
+### 11-7. Structural Search via ⌘K (P1)
+
+**한 줄**: 자연어 질문을 AST 패턴 매칭으로 변환. "async에서 await 없이 Promise 반환하는 곳" → 3 matches.
+
+#### 엔진
+
+`structural_code_search` · `explain` (wired)
+
+#### UX
+
+```
+⌘K: "try 블록에서 catch가 비어있는 곳"
+
+결과:
+  5 matches found
+
+  api/handler.ts:42     try { ... } catch (e) {}
+  lib/retry.ts:18       try { await... } catch {}
+  core/webhook.ts:91    try { fetch... } catch (_) {}
+
+  [에이전트에게 일괄 수정 요청]  [Guardrail로 등록]
+```
+
+"Guardrail로 등록" → 이후 동일 패턴 작성 시 자동 경고. 팀 규칙으로 코드화.
+
+---
+
+### 11-8. IntelliJ 리팩토링 흡수 (P1)
+
+아래 IntelliJ 기능을 엔진 기반으로 재구현:
+
+| 기능 | 우클릭/단축키 | 엔진 차별화 |
+|------|------------|-----------|
+| **Extract Method** | ⌘E | 선택 없이 추출 포인트 자동 제안 (complexity 기반) |
+| **Change Signature** | ⌘⇧C | 변경 전 impact map — N개 파일, M개 호출, 자동 수정 불가 K곳 |
+| **Safe Delete** | ⌘⌫ | Dead Code Cascade 통합. 연쇄 orphan 자동 제안 |
+| **Move** | ⌘M | 이동 전 순환 의존 + Guardrails 위반 검사 |
+| **Rename** | F2 | 타이핑 중 실시간 shadow 검사 |
+| **Inline** | ⌘⌥I | effect_analysis로 behavior equivalence 사전 검증 |
+
+모든 리팩토링은 실행 전 **impact preview** + 실행 후 **Gate 검증**.
+
+---
+
+### 우선순위 최종 업데이트
+
+| 기능 | 우선순위 | 엔진 | 실사용 임팩트 |
+|---|---|---|---|
+| Risk Minimap | **P1** | wired | 파일 리스크 즉시 조감 |
+| Inspector Sparklines | **P1** | wired | 추세 기반 판단 |
+| Pure Function Badge | **P1** | wired 95/100 | 리팩토링 안전성 판단 기초 |
+| Evidence Inspector | **P1** | wired | 경고 신뢰도 = 제품 신뢰도 |
+| Rich Preview ⌘K | **P1** | wired | 탐색 효율 극대화 |
+| Structural Search | **P1** | wired | 패턴 탐색 → Guardrail 등록 |
+| IntelliJ 리팩토링 | **P1** | wired | 기본기 완성 |
+| Escape Analysis | **P2** | wired | 성능 최적화 기회 |

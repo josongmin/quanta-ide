@@ -742,6 +742,7 @@
 .ide-aurora-swatch[data-aurora="sakura"]  { background: linear-gradient(135deg, #fce7f3, #fb7185); }
 .ide-aurora-swatch[data-aurora="honey"]   { background: linear-gradient(135deg, #fef3c7, #ea580c); }
 .ide-aurora-swatch[data-aurora="void"]    { background: linear-gradient(135deg, #1e1b4b, #a78bfa); }
+.ide-aurora-swatch[data-aurora="teal"]    { background: linear-gradient(135deg, #2dd4bf, #0d9488); }
 
 .ide-aurora-panel {
   position: absolute;
@@ -812,6 +813,7 @@
 .ide-aurora-opt[data-aurora="sakura"]   .ide-aurora-opt-swatch { background: linear-gradient(135deg, #fce7f3, #fb7185); }
 .ide-aurora-opt[data-aurora="honey"]    .ide-aurora-opt-swatch { background: linear-gradient(135deg, #fef3c7, #ea580c); }
 .ide-aurora-opt[data-aurora="void"]      .ide-aurora-opt-swatch { background: linear-gradient(135deg, #1e1b4b, #a78bfa); }
+.ide-aurora-opt[data-aurora="teal"]      .ide-aurora-opt-swatch { background: linear-gradient(135deg, #2dd4bf, #0d9488); }
 .ide-aurora-opt[data-aurora="infrared"]  .ide-aurora-opt-swatch { background: linear-gradient(135deg, #ff4e50, #f9d423); }
 .ide-aurora-opt[data-aurora="cobalt"]    .ide-aurora-opt-swatch { background: linear-gradient(135deg, #2563eb, #06b6d4); }
 .ide-aurora-opt[data-aurora="matcha"]    .ide-aurora-opt-swatch { background: linear-gradient(135deg, #4ade80, #16a34a); }

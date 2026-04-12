@@ -42,3 +42,5 @@
 @import "../../features/ide-git-blame/styles/ide-git-blame.css";
 @import "../../features/ide-inspector-context/styles/ide-inspector-context.css";
 @import "../../features/ide-agent-window/styles/ide-agent-window.css";
+@import "../../features/ide-change-impact/styles/ide-change-impact.css";
+@import "../../features/ide-editable-editor/styles/ide-editable-editor.css";

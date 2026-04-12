@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { IdeTopBar } from "@/widgets/ide-topbar";
 import { IdeFiles } from "@/widgets/ide-files";
-import { IdeEditor, type CodeLine } from "@/widgets/ide-editor";
+import type { CodeLine } from "@/widgets/ide-editor";
+import { EditableEditor } from "@/features/ide-editable-editor";
 import { IdeInspector, InspectorSection } from "@/widgets/ide-inspector";
 import { IdeStatusBar } from "@/widgets/ide-statusbar";
 import { IdeCallGraph, type CallNode } from "@/features/ide-call-graph";
@@ -27,6 +28,7 @@ import { IncidentAlert, useIncidentAlert, SAMPLE_MATCH } from "@/features/ide-in
 import { OwnershipOverlay, useOwnershipMap } from "@/features/ide-ownership-map";
 import { GuardPill, useGuardPill } from "@/features/ide-guard-pill";
 import { AgentWindow, useAgentWindow } from "@/features/ide-agent-window";
+import { ChangeImpactPanel, ImpactBanner, useChangeImpact, SAMPLE_IMPACT } from "@/features/ide-change-impact";
 import { useIdeTheme } from "@/features/ide-theme";
 import { useThemeStore } from "@/entities/theme";
 import { useInspectorContext, FileInspector, SymbolInspector, RepoInspector } from "@/features/ide-inspector-context";
@@ -39,6 +41,7 @@ import { LEDGER_LINES, LEDGER_CALL_GRAPH, LEDGER_DATA_FLOW } from "./mock-ledger
 import { REFUND_LINES } from "./mock-refund-lines";
 import { FILE_FIXES } from "./mock-fixes";
 import { FILE_PR } from "./mock-pr";
+import { FILE_SOURCE, FILE_LINE_META, SYMBOL_IMPACTS } from "./mock-source";
 
 /* ── Per-file data registry ── */
 interface FileData {
@@ -129,10 +132,11 @@ export function IdePage({ onExit }: IdePageProps) {
   const { show: _showGuard } = useGuardPill();
   const { show: showIncident } = useIncidentAlert();
   const { toggle: toggleOwnership } = useOwnershipMap();
+  const { show: showImpact } = useChangeImpact();
   const { theme } = useIdeTheme();
   const { icon: repoIcon } = useRepoIcon();
   const { aurora } = useThemeStore();
-  const { context: inspCtx, setFileContext, setRepoContext } = useInspectorContext();
+  const { context: inspCtx, setFileContext, setRepoContext, setImpactContext } = useInspectorContext();
   useEffect(() => {
     document.documentElement.setAttribute("data-aurora", aurora);
   }, [aurora]);
@@ -159,6 +163,34 @@ export function IdePage({ onExit }: IdePageProps) {
   const fd = FILE_DATA[active];
   const fix = FILE_FIXES[active];
   const prDraft = FILE_PR[active];
+  const activeSource = FILE_SOURCE[active] ?? "";
+
+  // on code edit → detect impacted symbol → trigger impact panel
+  const handleCodeChange = useCallback((code: string, changedLine: number) => {
+    const lines = code.split("\n");
+    const editedLine = lines[changedLine - 1] ?? "";
+
+    // find matching symbol impact
+    for (const mapping of SYMBOL_IMPACTS) {
+      if (mapping.linePattern.test(editedLine)) {
+        showImpact({
+          originLine: changedLine,
+          originFn: mapping.originFn,
+          riskScore: mapping.riskScore,
+          files: mapping.files,
+          functions: mapping.functions,
+          apis: mapping.apis,
+          tests: mapping.tests,
+          confidence: mapping.confidence,
+          summary: mapping.summary,
+          propagation: SAMPLE_IMPACT.propagation,
+          topFiles: SAMPLE_IMPACT.topFiles,
+        });
+        setImpactContext();
+        return;
+      }
+    }
+  }, [showImpact, setImpactContext]);
 
   // expose active file's fix proposal to dispatcher (used by ⌘F / context menu)
   useEffect(() => {
@@ -186,12 +218,16 @@ export function IdePage({ onExit }: IdePageProps) {
     registerCommand("pr", () => { openPr(); });
     registerCommand("preflight", () => { openPrd(); });
     registerCommand("ownership", () => { toggleOwnership(); });
+    registerCommand("impact", () => {
+      if (inspCtx.mode === "impact") { setFileContext(active); }
+      else { showImpact(SAMPLE_IMPACT); setImpactContext(); }
+    });
     return () => {
-      for (const id of ["simulate", "history", "dataflow", "ask", "dead", "pr", "preflight", "ownership"]) {
+      for (const id of ["simulate", "history", "dataflow", "ask", "dead", "pr", "preflight", "ownership", "impact"]) {
         unregisterCommand(id);
       }
     };
-  }, [openSim, toggleTime, toggleTrace, openCmdK, toggleRisk, openPr, openPrd, toggleOwnership]);
+  }, [openSim, toggleTime, toggleTrace, openCmdK, toggleRisk, openPr, openPrd, toggleOwnership, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
 
   // keyboard shortcuts
   useEffect(() => {
@@ -212,10 +248,15 @@ export function IdePage({ onExit }: IdePageProps) {
       if (key === "d" && e.shiftKey) { e.preventDefault(); togglePrd(); return; }
       if (key === "o" && e.shiftKey) { e.preventDefault(); toggleOwnership(); return; }
       if (key === "a" && e.shiftKey) { e.preventDefault(); toggleAgent(); }
+      if (key === "i" && e.shiftKey) {
+        e.preventDefault();
+        if (inspCtx.mode === "impact") { setFileContext(active); }
+        else { showImpact(SAMPLE_IMPACT); setImpactContext(); }
+      }
     };
     window.addEventListener("keydown", handler);
     return () => { window.removeEventListener("keydown", handler); };
-  }, [toggleCmdK, toggleSim, toggleTime, toggleRisk, toggleTrace, togglePr, togglePrd, toggleOwnership, toggleAgent]);
+  }, [toggleCmdK, toggleSim, toggleTime, toggleRisk, toggleTrace, togglePr, togglePrd, toggleOwnership, toggleAgent, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
 
   const handleEditorContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -254,20 +295,30 @@ export function IdePage({ onExit }: IdePageProps) {
       <div style={{ display: "contents" }} onContextMenu={handleEditorContextMenu} onClick={() => {
         if (inspCtx.mode === "symbol" || inspCtx.mode === "repo") setFileContext(active);
       }}>
-        <IdeEditor
+        <EditableEditor
           tabs={editorTabs}
-          lines={fd.lines}
+          source={activeSource}
+          lineMeta={FILE_LINE_META[active] ?? {}}
           onTabClick={(name) => { setActive(name as FileName); }}
           onTabClose={(name) => { closeTab(name as FileName); }}
+          onChange={handleCodeChange}
           flowTraceBanner={<FlowTraceOverlay />}
+          impactBanner={<ImpactBanner />}
         />
       </div>
       <IdeInspector
-        tierKey={inspCtx.mode === "symbol" ? "symbol" : inspCtx.mode === "repo" ? "repo" : "file"}
-        title={inspCtx.mode === "symbol" ? inspCtx.name : inspCtx.mode === "repo" ? inspCtx.repoName : active}
-        subtitle={inspCtx.mode === "symbol" ? active : undefined}
+        tierKey={inspCtx.mode === "impact" ? "impact" : inspCtx.mode === "symbol" ? "symbol" : inspCtx.mode === "repo" ? "repo" : "file"}
+        title={inspCtx.mode === "impact" ? t("ide.changeImpact.title") : inspCtx.mode === "symbol" ? inspCtx.name : inspCtx.mode === "repo" ? inspCtx.repoName : active}
+        subtitle={inspCtx.mode === "impact" ? t("ide.changeImpact.pgLabel") : inspCtx.mode === "symbol" ? active : undefined}
       >
-        {inspCtx.mode === "repo" ? (
+        {inspCtx.mode === "impact" ? (
+          /* ── Tier: Impact ── */
+          <ChangeImpactPanel>
+            <InspectorSection label={t("ide.inspector.blastRadius")}>
+              <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
+            </InspectorSection>
+          </ChangeImpactPanel>
+        ) : inspCtx.mode === "repo" ? (
           /* ── Tier 0: Repo ── */
           <RepoInspector />
         ) : inspCtx.mode === "file" ? (

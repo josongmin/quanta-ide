@@ -37,6 +37,7 @@ export const COMMANDS: Command[] = [
   { id: "x5", labelKey: "ide.cmd.x5", group: "action", icon: "fix", shortcut: "⌘E" },
   { id: "x6", labelKey: "ide.cmd.x6", group: "action", icon: "time", shortcut: "⌘T" },
   { id: "ownership", labelKey: "ide.cmd.ownership", group: "action", icon: "graph", shortcut: "⌘⇧O" },
+  { id: "impact", labelKey: "ide.cmd.impact", group: "action", icon: "spark", shortcut: "⌘⇧I" },
   { id: "n1", label: "refund.ts", group: "navigate", icon: "file", hint: "src/payments" },
   { id: "n2", label: "charge.ts", group: "navigate", icon: "file", hint: "src/payments" },
   { id: "n3", label: "ledger.ts", group: "navigate", icon: "file", hint: "src/payments" },

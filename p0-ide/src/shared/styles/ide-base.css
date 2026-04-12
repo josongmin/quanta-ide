@@ -53,7 +53,7 @@
 
   --font-ui:   'Inter', system-ui, sans-serif;
   --font-num:  'Outfit', system-ui, sans-serif;
-  --font-mono: 'Roboto Mono', 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --font-mono: Menlo, Monaco, 'Courier New', monospace;
 
   position: fixed;
   inset: 0;

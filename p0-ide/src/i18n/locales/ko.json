@@ -140,7 +140,8 @@
       "x4": "수정 제안",
       "x5": "메서드 추출",
       "x6": "타임 트래블…",
-      "ownership": "오너십 맵 보기"
+      "ownership": "오너십 맵 보기",
+      "impact": "변경 영향 분석 보기"
     },
     "ctx": {
       "callgraph": "호출 그래프 보기",
@@ -506,6 +507,22 @@
     },
     "symbolInspector": {
       "hint": "⌘. 흐름 추적  ·  ⌘F 수정 제안  ·  ⌘G 호출 그래프"
+    },
+    "changeImpact": {
+      "pgLabel": "PG 컨트롤 패널",
+      "title": "변경 영향 분석",
+      "closeAria": "변경 영향 패널 닫기",
+      "files": "파일",
+      "functions": "함수",
+      "apis": "API",
+      "tests": "테스트",
+      "propagation": "전파 순서",
+      "topFiles": "주요 영향 파일",
+      "blastLabel": "영향 반경: {{n}}개 파일",
+      "confidence": "신뢰도 {{v}}",
+      "showImpacted": "영향 파일 보기",
+      "askAgent": "에이전트에게 안전 마이그레이션 요청",
+      "summary": "이 줄을 변경하면 세션 검증, 요청 인증 미들웨어, 3개 API 응답 경로에 영향됩니다."
     }
   }
 }

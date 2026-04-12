@@ -74,7 +74,7 @@
 .ide-editor-tab.is-active {
   color: var(--ink);
   background: var(--paper);
-  border-bottom-color: var(--accent);
+  border-bottom-color: var(--ink);
 }
 .ide-editor-line {
   display: grid;

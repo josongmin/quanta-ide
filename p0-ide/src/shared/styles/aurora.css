@@ -141,6 +141,12 @@ html[data-aurora="void"] {
   --blob3-a: #6366f1; --blob3-b: #3730a3;
   --blob4-a: #a78bfa; --blob4-b: #4c1d95;
 }
+html[data-aurora="teal"] {
+  --blob1-a: #2dd4bf; --blob1-b: #14b8a6; --blob1-c: #134e4a;
+  --blob2-a: #5eead4; --blob2-b: #0d9488; --blob2-c: #115e59;
+  --blob3-a: #38bdf8; --blob3-b: #0891b2;
+  --blob4-a: #99f6e4; --blob4-b: #14b8a6;
+}
 
 /* ── Blob shapes ── */
 .blob {
@@ -391,3 +397,5 @@ html[data-aurora="void"] {
 .aurora-option[data-aurora="honey"]    .aurora-opt-swatch { background: linear-gradient(135deg, #fef3c7, #ea580c); }
 .aurora-trigger[data-aurora="void"]    .aurora-trigger-dot,
 .aurora-option[data-aurora="void"]     .aurora-opt-swatch { background: linear-gradient(135deg, #1e1b4b, #a78bfa); }
+.aurora-trigger[data-aurora="teal"]    .aurora-trigger-dot,
+.aurora-option[data-aurora="teal"]     .aurora-opt-swatch { background: linear-gradient(135deg, #2dd4bf, #0d9488); }

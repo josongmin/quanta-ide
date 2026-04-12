@@ -1,0 +1,16 @@
+/* ── Editable Editor (CodeMirror 6) ─────────────────────────────────── */
+
+.editable-editor-body {
+  position: relative;
+  overflow: auto;
+  flex: 1;
+}
+
+.editable-editor-body .cm-editor {
+  height: 100%;
+  font-family: var(--font-mono);
+}
+
+.editable-editor-body .cm-scroller {
+  font-family: var(--font-mono);
+}

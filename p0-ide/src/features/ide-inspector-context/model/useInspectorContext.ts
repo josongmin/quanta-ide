@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type InspectorMode = "file" | "symbol" | "line" | "repo";
+export type InspectorMode = "file" | "symbol" | "line" | "repo" | "impact";
 
 export interface RepoContext {
   mode: "repo";
@@ -62,7 +62,11 @@ export interface LineContext {
   fileName: string;
 }
 
-export type InspectorContext = RepoContext | FileContext | SymbolContext | LineContext;
+export interface ImpactContext {
+  mode: "impact";
+}
+
+export type InspectorContext = RepoContext | FileContext | SymbolContext | LineContext | ImpactContext;
 
 interface InspectorContextState {
   context: InspectorContext;
@@ -71,6 +75,7 @@ interface InspectorContextState {
   setSymbolContext: (ctx: Omit<SymbolContext, "mode">) => void;
   setLineContext: (ctx: Omit<LineContext, "mode">) => void;
   resetToFile: (fileName: string) => void;
+  setImpactContext: () => void;
 }
 
 export const useInspectorContext = create<InspectorContextState>()((set) => ({
@@ -80,4 +85,5 @@ export const useInspectorContext = create<InspectorContextState>()((set) => ({
   setSymbolContext: (ctx) => { set({ context: { mode: "symbol", ...ctx } }); },
   setLineContext: (ctx) => { set({ context: { mode: "line", ...ctx } }); },
   resetToFile: (fileName) => { set({ context: { mode: "file", fileName } }); },
+  setImpactContext: () => { set({ context: { mode: "impact" } }); },
 }));

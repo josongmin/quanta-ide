@@ -140,7 +140,8 @@
       "x4": "Suggest fix",
       "x5": "Extract method",
       "x6": "Time travel…",
-      "ownership": "Show ownership map"
+      "ownership": "Show ownership map",
+      "impact": "Show change impact"
     },
     "ctx": {
       "callgraph": "Show call graph",
@@ -506,6 +507,22 @@
     },
     "symbolInspector": {
       "hint": "⌘. trace flow  ·  ⌘F suggest fix  ·  ⌘G call graph"
+    },
+    "changeImpact": {
+      "pgLabel": "PG CONTROL PANEL",
+      "title": "Change impact",
+      "closeAria": "Close change impact panel",
+      "files": "Files",
+      "functions": "Functions",
+      "apis": "APIs",
+      "tests": "Tests",
+      "propagation": "Propagation order",
+      "topFiles": "Top impacted files",
+      "blastLabel": "Blast radius: {{n}} files",
+      "confidence": "Confidence {{v}}",
+      "showImpacted": "Show impacted files",
+      "askAgent": "Ask agent to migrate safely",
+      "summary": "Changing this line affects session validation, request auth middleware, and 3 API response paths."
     }
   }
 }
