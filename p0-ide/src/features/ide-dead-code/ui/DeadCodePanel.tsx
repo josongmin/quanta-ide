@@ -1,17 +1,18 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DEAD_SYMBOLS } from "../model/dead-code-data";
+import { getDeadSymbols } from "../model/dead-code-data";
 
 const KIND_PREFIX: Record<string, string> = {
-  function: "ƒ",
-  method: "ƒ",
-  class: "C",
-  type: "T",
-  const: "k",
+  function: "ƒ", method: "ƒ", class: "C", type: "T", const: "k",
 };
 
-export function DeadCodePanel() {
+interface DeadCodePanelProps {
+  fileName?: string;
+}
+
+export function DeadCodePanel({ fileName = "orchestrator.py" }: DeadCodePanelProps) {
   const { t } = useTranslation();
+  const symbols = getDeadSymbols(fileName);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -22,7 +23,9 @@ export function DeadCodePanel() {
     });
   };
 
-  const highCount = DEAD_SYMBOLS.filter((s) => s.confidence === "high").length;
+  if (symbols.length === 0) return null;
+
+  const highCount = symbols.filter((s) => s.confidence === "high").length;
 
   return (
     <div className="dcode">
@@ -33,7 +36,7 @@ export function DeadCodePanel() {
       <div className="dcode-stats">
         <div className="dcode-stat">
           <span className="dcode-stat-k">{t("ide.deadCode.total")}</span>
-          <span className="dcode-stat-v">{DEAD_SYMBOLS.length}</span>
+          <span className="dcode-stat-v">{symbols.length}</span>
         </div>
         <div className="dcode-stat">
           <span className="dcode-stat-k">{t("ide.deadCode.highConf")}</span>
@@ -42,7 +45,7 @@ export function DeadCodePanel() {
       </div>
 
       <ul className="dcode-list">
-        {DEAD_SYMBOLS.map((sym) => (
+        {symbols.map((sym) => (
           <li key={sym.id} className="dcode-item">
             <button type="button" className="dcode-row" onClick={() => { toggle(sym.id); }}>
               <span className="dcode-kind">{KIND_PREFIX[sym.kind] ?? "?"}</span>

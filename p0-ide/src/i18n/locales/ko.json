@@ -443,6 +443,26 @@
       "runReplay": "재현 실행",
       "running": "실행 중…"
     },
+    "crossService": {
+      "title": "크로스 서비스 영향",
+      "services": "서비스",
+      "impacted": "영향",
+      "edges": "연결"
+    },
+    "complianceAudit": {
+      "title": "컴플라이언스 감사",
+      "pass": "통과",
+      "fail": "실패",
+      "warn": "경고"
+    },
+    "incremental": {
+      "title": "증분 분석",
+      "reanalyzed": "재분석",
+      "cached": "캐시",
+      "saved": "절감",
+      "totalTime": "총 분석 시간",
+      "vsFull": "전체 {{n}}개 파일 대비"
+    },
     "flowTrace": {
       "title": "플로우 추적",
       "banner": "// 플로우 추적",

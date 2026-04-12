@@ -33,6 +33,9 @@ import { CoverageGapPanel } from "@/features/ide-coverage-gap";
 import { ChurnHotspotPanel } from "@/features/ide-churn-hotspot";
 import { RootCausePanel } from "@/features/ide-root-cause";
 import { EvidenceReplayPanel } from "@/features/ide-evidence-replay";
+import { CrossServicePanel } from "@/features/ide-cross-service";
+import { ComplianceAuditPanel } from "@/features/ide-compliance-audit";
+import { IncrementalPanel } from "@/features/ide-incremental-analysis";
 import { AgentWindow, useAgentWindow } from "@/features/ide-agent-window";
 import { ChangeImpactPanel, ImpactBanner, useChangeImpact, SAMPLE_IMPACT } from "@/features/ide-change-impact";
 import { useIdeTheme } from "@/features/ide-theme";
@@ -321,8 +324,11 @@ export function IdePage({ onExit }: IdePageProps) {
           /* ── Tier: Impact ── */
           <ChangeImpactPanel>
             <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
+            <CrossServicePanel />
             <RootCausePanel />
             <EvidenceReplayPanel />
+            <ComplianceAuditPanel />
+            <IncrementalPanel />
           </ChangeImpactPanel>
         ) : inspCtx.mode === "repo" ? (
           /* ── Tier 0: Repo ── */
@@ -331,9 +337,9 @@ export function IdePage({ onExit }: IdePageProps) {
           /* ── Tier 1: File ── */
           <FileInspector data={FILE_INSPECTOR[inspCtx.fileName] ?? FILE_INSPECTOR[active]} onNavigate={navigateToFile}>
             <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
-            <CoverageGapPanel />
-            <DeadCodePanel />
-            <ChurnHotspotPanel />
+            <CoverageGapPanel fileName={active} />
+            <DeadCodePanel fileName={active} />
+            <ChurnHotspotPanel fileName={active} />
           </FileInspector>
         ) : inspCtx.mode === "symbol" ? (
           /* ── Tier 2: Symbol ── */
@@ -363,9 +369,9 @@ export function IdePage({ onExit }: IdePageProps) {
               />
             </InspectorSection>
             <TimeTravelCompare />
-            <CoverageGapPanel />
-            <DeadCodePanel />
-            <ChurnHotspotPanel />
+            <CoverageGapPanel fileName={active} />
+            <DeadCodePanel fileName={active} />
+            <ChurnHotspotPanel fileName={active} />
             <RootCausePanel />
             <EvidenceReplayPanel />
           </SymbolInspector>

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { HOTSPOT_FILES, type HotspotFile } from "../model/churn-data";
+import { getHotspots, type HotspotFile } from "../model/churn-data";
 
 const TREND_ICON: Record<HotspotFile["riskTrend"], string> = { rising: "↑", stable: "→", falling: "↓" };
 
@@ -15,9 +15,17 @@ function MiniSpark({ data }: { data: number[] }) {
   );
 }
 
-export function ChurnHotspotPanel() {
+interface ChurnHotspotPanelProps {
+  fileName?: string;
+}
+
+export function ChurnHotspotPanel({ fileName = "orchestrator.py" }: ChurnHotspotPanelProps) {
   const { t } = useTranslation();
-  const maxCommits = Math.max(...HOTSPOT_FILES.map((f) => f.commits30d));
+  const files = getHotspots(fileName);
+
+  if (files.length === 0) return null;
+
+  const maxCommits = Math.max(...files.map((f) => f.commits30d));
 
   return (
     <div className="churn">
@@ -28,20 +36,20 @@ export function ChurnHotspotPanel() {
       <div className="churn-stats">
         <div className="churn-stat">
           <span className="churn-stat-k">{t("ide.churnHotspot.hotspots")}</span>
-          <span className="churn-stat-v">{HOTSPOT_FILES.length}</span>
+          <span className="churn-stat-v">{files.length}</span>
         </div>
         <div className="churn-stat">
           <span className="churn-stat-k">{t("ide.churnHotspot.rising")}</span>
-          <span className="churn-stat-v">{HOTSPOT_FILES.filter((f) => f.riskTrend === "rising").length}</span>
+          <span className="churn-stat-v">{files.filter((f) => f.riskTrend === "rising").length}</span>
         </div>
         <div className="churn-stat">
           <span className="churn-stat-k">{t("ide.churnHotspot.totalChurn")}</span>
-          <span className="churn-stat-v">{HOTSPOT_FILES.reduce((s, f) => s + f.churnLines, 0)}</span>
+          <span className="churn-stat-v">{files.reduce((s, f) => s + f.churnLines, 0)}</span>
         </div>
       </div>
 
       <ul className="churn-list">
-        {HOTSPOT_FILES.map((f) => {
+        {files.map((f) => {
           const barPct = Math.round((f.commits30d / maxCommits) * 100);
           return (
             <li key={f.id} className="churn-row">

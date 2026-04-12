@@ -443,6 +443,26 @@
       "runReplay": "Run replay",
       "running": "Running…"
     },
+    "crossService": {
+      "title": "Cross-service impact",
+      "services": "Services",
+      "impacted": "Impacted",
+      "edges": "Edges"
+    },
+    "complianceAudit": {
+      "title": "Compliance audit",
+      "pass": "Pass",
+      "fail": "Fail",
+      "warn": "Warn"
+    },
+    "incremental": {
+      "title": "Incremental analysis",
+      "reanalyzed": "Reanalyzed",
+      "cached": "Cached",
+      "saved": "Saved",
+      "totalTime": "total analysis time",
+      "vsFull": "vs {{n}} files full scan"
+    },
     "flowTrace": {
       "title": "Flow trace",
       "banner": "// FLOW TRACE",

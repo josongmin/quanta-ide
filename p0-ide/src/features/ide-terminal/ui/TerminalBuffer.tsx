@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { useTerminalStore } from "@/entities/terminal";
 import type { TerminalLineKind, TerminalSession } from "@/entities/terminal";
+import { dispatchCommand } from "@/features/ide-command-palette";
 
 interface TerminalBufferProps {
   session: TerminalSession;
@@ -137,6 +138,23 @@ function p0Help(): OutputLine[] {
   ];
 }
 
+/* ── Side effects — bridge p0 CLI to GUI ───────────────────────────── */
+
+function bridgeToGui(cmd: string): void {
+  const trimmed = cmd.trim();
+  if (trimmed.startsWith("p0 blast")) {
+    dispatchCommand("blast");
+  } else if (trimmed === "p0 risk") {
+    dispatchCommand("dead");
+  } else if (trimmed === "p0 safe?" || trimmed === "p0 safe") {
+    dispatchCommand("preflight");
+  } else if (trimmed.startsWith("p0 trace") || trimmed.startsWith("p0 why")) {
+    dispatchCommand("dataflow");
+  } else if (trimmed.startsWith("p0 ask")) {
+    dispatchCommand("ask");
+  }
+}
+
 /* ── Mock shell executor ───────────────────────────────────────────── */
 
 function mockExec(cmd: string): OutputLine[] {
@@ -214,6 +232,8 @@ export function TerminalBuffer({ session }: TerminalBufferProps) {
       for (const line of output) {
         appendLine(session.id, { id: nextId(), kind: line.kind, text: line.text });
       }
+      // Bridge p0 commands to GUI panels
+      bridgeToGui(cmd);
     }
 
     if (cmd !== "") {

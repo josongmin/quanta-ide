@@ -9,11 +9,22 @@ export interface DeadSymbol {
   reason: string;
 }
 
-export const DEAD_SYMBOLS: DeadSymbol[] = [
-  { id: "d1", name: "_legacy_inference_bridge", kind: "function", file: "orchestrator.py", line: 887, lastCalled: null, confidence: "high", reason: "Zero references in call graph" },
-  { id: "d2", name: "OldRetryPolicy", kind: "class", file: "retry.ts", line: 214, lastCalled: "2024-11-03", confidence: "high", reason: "Replaced by RetryScheduler in PR #312" },
-  { id: "d3", name: "formatLegacyResponse", kind: "function", file: "webhook.ts", line: 102, lastCalled: "2025-01-15", confidence: "medium", reason: "Only called from deprecated endpoint" },
-  { id: "d4", name: "TEMP_FEATURE_FLAG", kind: "const", file: "config.ts", line: 45, lastCalled: null, confidence: "high", reason: "Flag permanently enabled, condition always true" },
-  { id: "d5", name: "DebugPaymentFlow", kind: "class", file: "debug.ts", line: 1, lastCalled: null, confidence: "high", reason: "Debug-only, no production import path" },
-  { id: "d6", name: "migrateV1Schema", kind: "function", file: "schema.ts", line: 340, lastCalled: "2024-08-20", confidence: "medium", reason: "Migration completed, no pending V1 data" },
-];
+const DEAD_BY_FILE: Record<string, DeadSymbol[]> = {
+  "orchestrator.py": [
+    { id: "d1", name: "_legacy_inference_bridge", kind: "function", file: "orchestrator.py", line: 887, lastCalled: null, confidence: "high", reason: "Zero references in call graph" },
+    { id: "d2", name: "OldRetryPolicy", kind: "class", file: "orchestrator.py", line: 214, lastCalled: "2024-11-03", confidence: "high", reason: "Replaced by RetryScheduler in PR #312" },
+    { id: "d3", name: "TEMP_FEATURE_FLAG", kind: "const", file: "orchestrator.py", line: 45, lastCalled: null, confidence: "high", reason: "Flag permanently enabled, condition always true" },
+  ],
+  "routing_policy.py": [
+    { id: "d4", name: "formatLegacyResponse", kind: "function", file: "routing_policy.py", line: 102, lastCalled: "2025-01-15", confidence: "medium", reason: "Only called from deprecated endpoint" },
+    { id: "d5", name: "_old_route_v1", kind: "function", file: "routing_policy.py", line: 340, lastCalled: "2024-08-20", confidence: "high", reason: "V1 routing removed in PR #298" },
+  ],
+  "security.py": [
+    { id: "d6", name: "DebugTaintFlow", kind: "class", file: "security.py", line: 1, lastCalled: null, confidence: "high", reason: "Debug-only, no production import path" },
+  ],
+  "audit_store.py": [],
+};
+
+export function getDeadSymbols(fileName: string): DeadSymbol[] {
+  return DEAD_BY_FILE[fileName] ?? [];
+}

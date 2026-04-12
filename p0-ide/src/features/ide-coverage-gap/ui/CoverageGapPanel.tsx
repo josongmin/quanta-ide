@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { COVERAGE_GAPS, type CoverageGapFile } from "../model/coverage-gap-data";
+import { getCoverageGaps, type CoverageGapFile } from "../model/coverage-gap-data";
 
 const KIND_PREFIX: Record<string, string> = { function: "ƒ", method: "ƒ", class: "C" };
 
-export function CoverageGapPanel() {
+interface CoverageGapPanelProps {
+  fileName?: string;
+}
+
+export function CoverageGapPanel({ fileName = "orchestrator.py" }: CoverageGapPanelProps) {
   const { t } = useTranslation();
+  const gaps = getCoverageGaps(fileName);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -16,9 +21,11 @@ export function CoverageGapPanel() {
     });
   };
 
-  const totalUncovered = COVERAGE_GAPS.reduce((s, f) => s + f.uncovered.length, 0);
-  const totalFuncs = COVERAGE_GAPS.reduce((s, f) => s + f.total, 0);
-  const totalCovered = COVERAGE_GAPS.reduce((s, f) => s + f.covered, 0);
+  if (gaps.length === 0) return null;
+
+  const totalUncovered = gaps.reduce((s, f) => s + f.uncovered.length, 0);
+  const totalFuncs = gaps.reduce((s, f) => s + f.total, 0);
+  const totalCovered = gaps.reduce((s, f) => s + f.covered, 0);
   const pct = totalFuncs > 0 ? Math.round((totalCovered / totalFuncs) * 100) : 0;
 
   return (
@@ -38,12 +45,12 @@ export function CoverageGapPanel() {
         </div>
         <div className="cgap-stat">
           <span className="cgap-stat-k">{t("ide.coverageGap.files")}</span>
-          <span className="cgap-stat-v">{COVERAGE_GAPS.length}</span>
+          <span className="cgap-stat-v">{gaps.length}</span>
         </div>
       </div>
 
       <ul className="cgap-list">
-        {COVERAGE_GAPS.map((f) => (
+        {gaps.map((f) => (
           <FileRow key={f.id} file={f} isExpanded={expanded.has(f.id)} onToggle={() => { toggle(f.id); }} />
         ))}
       </ul>

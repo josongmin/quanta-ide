@@ -83,6 +83,30 @@ const ideTheme = EditorView.theme({
   ".cm-risk-3": { backgroundColor: "color-mix(in srgb, var(--accent) 28%, transparent)" },
   ".cm-risk-4": { backgroundColor: "color-mix(in srgb, var(--accent) 42%, transparent)" },
 
+  /* coverage gap gutter */
+  ".cm-coverage-gutter .cm-gutterElement": {
+    width: "3px", padding: "0", minWidth: "3px",
+  },
+  ".cm-coverage-marker": {
+    display: "block", width: "3px", height: "100%", borderRadius: "1px",
+    backgroundColor: "color-mix(in srgb, var(--color-feedback-danger-fg, #f87171) 50%, transparent)",
+  },
+
+  /* churn heatmap gutter */
+  ".cm-churn-gutter .cm-gutterElement": {
+    width: "3px", padding: "0", minWidth: "3px",
+  },
+  ".cm-churn-marker": {
+    display: "block", width: "3px", height: "100%", borderRadius: "1px",
+  },
+
+  /* dead code line dimming */
+  ".cm-dead-line": {
+    opacity: "0.35",
+    textDecoration: "line-through",
+    textDecorationColor: "var(--ink-4)",
+  },
+
   /* inline hints */
   ".cm-inline-hint": {
     fontFamily: "var(--font-ui)", fontSize: "0.62rem", fontWeight: "400",
@@ -143,6 +167,83 @@ const riskGutter = gutter({
     return null;
   },
 });
+
+/* ═══════════════════════════════════════════════════════════════════════
+   3b. Coverage gap gutter — red marker for uncovered lines
+   ═══════════════════════════════════════════════════════════════════════ */
+class CoverageMarker extends GutterMarker {
+  override toDOM(): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "cm-coverage-marker";
+    return el;
+  }
+}
+const coverageGutter = gutter({
+  class: "cm-coverage-gutter",
+  lineMarker(view, line) {
+    const meta = view.state.field(lineMetaField);
+    const lineNo = view.state.doc.lineAt(line.from).number;
+    const m = meta[lineNo] as LineMeta | undefined;
+    if (m?.uncovered) return new CoverageMarker();
+    return null;
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   3c. Churn heatmap gutter — intensity-based accent bar
+   ═══════════════════════════════════════════════════════════════════════ */
+class ChurnMarker extends GutterMarker {
+  intensity: number;
+  constructor(intensity: number) { super(); this.intensity = intensity; }
+  override toDOM(): HTMLElement {
+    const el = document.createElement("div");
+    el.className = "cm-churn-marker";
+    const alpha = Math.round(this.intensity * 45);
+    el.style.backgroundColor = `color-mix(in srgb, var(--accent) ${alpha.toString()}%, transparent)`;
+    return el;
+  }
+}
+const churnGutter = gutter({
+  class: "cm-churn-gutter",
+  lineMarker(view, line) {
+    const meta = view.state.field(lineMetaField);
+    const lineNo = view.state.doc.lineAt(line.from).number;
+    const m = meta[lineNo] as LineMeta | undefined;
+    if (m?.churn !== undefined && m.churn > 0) return new ChurnMarker(m.churn);
+    return null;
+  },
+});
+
+/* ═══════════════════════════════════════════════════════════════════════
+   3d. Dead code line decoration — dims entire line + strikethrough
+   ═══════════════════════════════════════════════════════════════════════ */
+const deadLineDeco = Decoration.line({ class: "cm-dead-line" });
+
+function buildDeadDecorations(view: EditorView): DecorationSet {
+  const meta = view.state.field(lineMetaField);
+  const builder = new RangeSetBuilder<Decoration>();
+  for (let i = 1; i <= view.state.doc.lines; i++) {
+    const m = meta[i] as LineMeta | undefined;
+    if (m?.dead) {
+      const line = view.state.doc.line(i);
+      builder.add(line.from, line.from, deadLineDeco);
+    }
+  }
+  return builder.finish();
+}
+
+const deadLinesPlugin = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) { this.decorations = buildDeadDecorations(view); }
+    update(update: ViewUpdate) {
+      if (update.docChanged || update.state.field(lineMetaField) !== update.startState.field(lineMetaField)) {
+        this.decorations = buildDeadDecorations(update.view);
+      }
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
 
 /* ═══════════════════════════════════════════════════════════════════════
    4. Inline hints decoration (line widgets after text)
@@ -330,6 +431,9 @@ function useCodeMirror(
         ideTheme,
         lineMetaField.init(() => lineMeta),
         riskGutter,
+        coverageGutter,
+        churnGutter,
+        deadLinesPlugin,
         inlineHintsPlugin,
         createHoverExtension(setSymbol),
         updateListener,

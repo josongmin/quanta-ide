@@ -213,19 +213,29 @@ export interface LineMeta {
   hints?: string[];   // short inline labels, e.g. "12 callers", "0/12 tests"
   inline?: string;    // right-aligned inline text, e.g. "impact root"
   inlineWarn?: boolean;
+  /** Dead code — dims the line + strikethrough */
+  dead?: boolean;
+  /** Uncovered by tests — red gutter marker */
+  uncovered?: boolean;
+  /** Churn intensity 0-1 for heatmap gutter */
+  churn?: number;
 }
 
 /** line number (1-based) → metadata */
 export const FILE_LINE_META: Record<string, Record<number, LineMeta>> = {
   "orchestrator.py": {
-    4:  { hints: ["taint: request.task → experience_store"] },
-    6:  { risk: 4, hints: ["cpx 9.1", "0/12 tests", "@songmin · 2w"] },
-    8:  { risk: 4, hints: ["12 callers", "no rollback"], inline: "hot path" },
-    9:  { risk: 3 },
-    10: { risk: 4 },
-    12: { risk: 4, hints: ["8 callers", "no transaction"], inline: "taint sink", inlineWarn: true },
-    13: { risk: 2, hints: ["38 files blast"] },
-    16: { hints: ["stale 5mo", "0 callers"] },
+    4:  { hints: ["taint: request.task → experience_store"], churn: 0.3 },
+    6:  { risk: 4, hints: ["cpx 9.1", "0/12 tests", "@songmin · 2w"], uncovered: true, churn: 0.9 },
+    7:  { churn: 0.7 },
+    8:  { risk: 4, hints: ["12 callers", "no rollback"], inline: "hot path", uncovered: true, churn: 1.0 },
+    9:  { risk: 3, uncovered: true, churn: 0.8 },
+    10: { risk: 4, uncovered: true, churn: 0.9 },
+    11: { churn: 0.6 },
+    12: { risk: 4, hints: ["8 callers", "no transaction"], inline: "taint sink", inlineWarn: true, uncovered: true, churn: 0.7 },
+    13: { risk: 2, hints: ["38 files blast"], churn: 0.4 },
+    16: { hints: ["stale 5mo", "0 callers"], dead: true },
+    17: { dead: true },
+    18: { dead: true },
   },
   "routing_policy.py": {
     8:  { risk: 3, hints: ["cpx 6.3", "2/7 tests"] },

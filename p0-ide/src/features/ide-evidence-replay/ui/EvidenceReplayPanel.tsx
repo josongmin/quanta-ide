@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { SAMPLE_EVIDENCE, type ReplayStatus } from "../model/evidence-data";
+import { SAMPLE_EVIDENCE, type EvidenceReplayData, type EvidenceItem, type ReplayStep, type ReplayStatus } from "../model/evidence-data";
 
 const STATUS_ICON: Record<ReplayStatus, string> = {
   idle: "○",
@@ -9,16 +9,32 @@ const STATUS_ICON: Record<ReplayStatus, string> = {
   failed: "✕",
 };
 
-export function EvidenceReplayPanel() {
+interface EvidenceReplayPanelProps {
+  /** Pass evidence from ChangeCard proposal to share data. */
+  externalEvidence?: { label: string; loc?: string }[];
+}
+
+export function EvidenceReplayPanel({ externalEvidence }: EvidenceReplayPanelProps) {
   const { t } = useTranslation();
-  const data = SAMPLE_EVIDENCE;
+
+  const data: EvidenceReplayData = useMemo(() => {
+    if (!externalEvidence || externalEvidence.length === 0) return SAMPLE_EVIDENCE;
+    const evidence: EvidenceItem[] = externalEvidence.map((e, i) => ({
+      id: `ext-${i.toString()}`,
+      label: e.label,
+      loc: e.loc,
+      verified: true,
+    }));
+    return { ...SAMPLE_EVIDENCE, evidence };
+  }, [externalEvidence]);
+
   const [replayState, setReplayState] = useState<Record<string, ReplayStatus>>({});
   const [isReplaying, setIsReplaying] = useState(false);
 
   const runReplay = useCallback(() => {
     if (isReplaying) return;
     setIsReplaying(true);
-    const steps = data.replay;
+    const steps: readonly ReplayStep[] = data.replay;
     let i = 0;
     const init: Record<string, ReplayStatus> = {};
     for (const s of steps) init[s.id] = "idle";
@@ -60,7 +76,6 @@ export function EvidenceReplayPanel() {
         </div>
       </div>
 
-      {/* Evidence list */}
       <div className="evreplay-section">
         <div className="evreplay-section-label">{t("ide.evidenceReplay.evidenceLabel")}</div>
         <ul className="evreplay-elist">
@@ -74,7 +89,6 @@ export function EvidenceReplayPanel() {
         </ul>
       </div>
 
-      {/* Replay */}
       <div className="evreplay-section">
         <div className="evreplay-section-header">
           <span className="evreplay-section-label">{t("ide.evidenceReplay.replayLabel")}</span>
