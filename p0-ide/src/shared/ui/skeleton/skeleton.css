@@ -1,0 +1,22 @@
+.skeleton {
+  display: inline-block;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-muted) 0%,
+    var(--color-bg-emphasis) 50%,
+    var(--color-bg-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton--rect   { border-radius: var(--radius-sm); }
+.skeleton--circle { border-radius: var(--radius-full); }
+.skeleton--text {
+  border-radius: var(--radius-xs);
+  height: var(--font-size-3);
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

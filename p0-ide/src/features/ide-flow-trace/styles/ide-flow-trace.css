@@ -4,16 +4,16 @@
 .flowtrace-banner {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 8px 16px;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-6);
   background: color-mix(in srgb, var(--accent) 6%, var(--paper-1));
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-  animation: tt-slide 0.18s ease-out;
+  animation: tt-slide var(--duration-3) ease-out;
 }
 .flowtrace-label {
   font-family: var(--font-mono);
-  font-size: 0.58rem;
-  font-weight: 600;
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--accent);
@@ -22,28 +22,28 @@
 .flowtrace-path {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   flex: 1;
   overflow-x: auto;
 }
 .flowtrace-node {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 .flowtrace-arrow {
   color: var(--ink-4);
-  font-size: 0.8rem;
+  font-size: var(--font-size-3);
 }
 .flowtrace-tag {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 9px;
-  border-radius: 6px;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-4);
+  border-radius: var(--radius-3);
   font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
   background: var(--paper-2);
   border: 1px solid var(--line);
   color: var(--ink);
@@ -57,7 +57,7 @@
   background: color-mix(in srgb, var(--accent) 12%, var(--paper-2));
 }
 .flowtrace-kind {
-  font-size: 0.56rem;
+  font-size: var(--font-size-0);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--ink-3);
@@ -71,7 +71,7 @@
   cursor: pointer;
   width: 22px;
   height: 22px;
-  border-radius: 5px;
+  border-radius: var(--radius-2);
   background: var(--paper-2);
   border: 1px solid var(--line);
   color: var(--ink-3);
@@ -93,8 +93,8 @@
 .ide-editor-line.is-trace-source .ide-editor-code,
 .ide-editor-line.is-trace-sink .ide-editor-code {
   background: color-mix(in srgb, var(--accent) 6%, transparent);
-  border-radius: 3px;
-  padding: 0 4px;
-  margin: 0 -4px;
+  border-radius: var(--radius-1);
+  padding: 0 var(--space-2);
+  margin: 0 calc(-1 * var(--space-2));
 }
 

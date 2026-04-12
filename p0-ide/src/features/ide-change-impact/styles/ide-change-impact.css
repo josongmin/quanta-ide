@@ -4,12 +4,12 @@
 
 /* ── Impact Banner (editor bottom) ── */
 .ci-banner {
-  padding: 10px 16px;
+  padding: var(--space-5) var(--space-6);
   background: var(--paper-2);
   border-top: 1px solid var(--line-2);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
   animation: ci-banner-in 0.25s ease-out;
 }
 @keyframes ci-banner-in {
@@ -19,42 +19,42 @@
 .ci-banner-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
 }
 .ci-banner-icon {
   color: var(--accent);
   flex-shrink: 0;
 }
 .ci-banner-label {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-semibold);
   color: var(--ink);
 }
 .ci-banner-conf {
-  font-size: 0.62rem;
-  font-weight: 500;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
   color: var(--ink-3);
   background: var(--paper-3);
-  padding: 1px 6px;
-  border-radius: 3px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-1);
 }
 .ci-banner-summary {
-  font-size: 0.68rem;
+  font-size: var(--font-size-1);
   color: var(--ink-3);
   margin: 0;
-  line-height: 1.4;
+  line-height: var(--line-height-snug);
 }
 .ci-banner-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 2px;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
 }
 .ci-banner-btn {
   font-family: var(--font-ui);
-  font-size: 0.65rem;
-  font-weight: 500;
-  padding: 5px 12px;
-  border-radius: 4px;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-2);
   border: 1px solid var(--line-2);
   background: var(--paper-3);
   color: var(--ink);

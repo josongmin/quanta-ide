@@ -1,13 +1,13 @@
 /* ── Call Graph ── */
 .ide-callgraph {
   font-family: var(--font-mono);
-  font-size: 0.69rem;
+  font-size: var(--font-size-2);
   color: var(--ink-3);
   display: flex;
   flex-direction: column;
   gap: 0;
   position: relative;
-  padding-left: 16px;
+  padding-left: var(--space-6);
 }
 /* vertical connector line */
 .ide-callgraph::before {
@@ -22,12 +22,12 @@
 .ide-callgraph-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   position: relative;
   transition: background var(--transition);
-  border-radius: 5px;
-  margin: 0 -2px;
+  border-radius: var(--radius-2);
+  margin: 0 calc(-1 * var(--space-1));
 }
 .ide-callgraph-row:hover {
   background: color-mix(in srgb, var(--ink) 4%, transparent);
@@ -47,28 +47,28 @@
   height: 1px;
   background: var(--line);
 }
-.ide-callgraph-row[data-depth="1"] { padding-left: 8px; }
-.ide-callgraph-row[data-depth="2"] { padding-left: 20px; }
+.ide-callgraph-row[data-depth="1"] { padding-left: var(--space-4); }
+.ide-callgraph-row[data-depth="2"] { padding-left: var(--space-7); }
 .ide-callgraph-tree {
   display: none;
 }
 .ide-callgraph-name {
   color: var(--ink-2);
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
 }
 .ide-callgraph-row[data-depth="0"] .ide-callgraph-name {
   color: var(--ink);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 .ide-callgraph-tag {
   margin-left: auto;
-  font-size: 0.55rem;
-  font-weight: 500;
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-medium);
   color: var(--ink-4);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding: 2px 5px;
-  border-radius: 4px;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-2);
   background: var(--paper-3);
   border: 1px solid var(--line);
 }

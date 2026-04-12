@@ -1,0 +1,14 @@
+.divider {
+  flex-shrink: 0;
+}
+.divider--horizontal {
+  width: 100%;
+  height: var(--border-width-1);
+}
+.divider--vertical {
+  height: 100%;
+  width: var(--border-width-1);
+}
+.divider--subtle  { background: var(--color-border-subtle); }
+.divider--default { background: var(--color-border-default); }
+.divider--strong  { background: var(--color-border-strong); }

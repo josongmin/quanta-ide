@@ -14,13 +14,19 @@
 @import "./overlay-tokens.css";
 
 /* ── Shared UI components ── */
-@import "../../shared/ui/button/button.css";
+@import "../../shared/ui/avatar/avatar.css";
 @import "../../shared/ui/badge/badge.css";
+@import "../../shared/ui/button/button.css";
+@import "../../shared/ui/card/card.css";
+@import "../../shared/ui/divider/divider.css";
 @import "../../shared/ui/input/input.css";
 @import "../../shared/ui/menu/menu.css";
 @import "../../shared/ui/panel/panel.css";
 @import "../../shared/ui/popover/popover.css";
 @import "../../shared/ui/select/select.css";
+@import "../../shared/ui/skeleton/skeleton.css";
+@import "../../shared/ui/spinner/spinner.css";
+@import "../../shared/ui/tabs/tabs.css";
 @import "../../shared/ui/toggle/toggle.css";
 @import "../../shared/ui/tooltip/tooltip.css";
 

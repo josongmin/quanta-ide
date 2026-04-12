@@ -53,10 +53,10 @@
     0 30px 80px rgba(0, 0, 0, 0.6),
     0 0 40px color-mix(in srgb, var(--accent) 12%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  padding: 18px;
+  padding: var(--space-7);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-5);
   pointer-events: auto;
   animation: tour-pop 0.22s cubic-bezier(0.2, 0.85, 0.2, 1);
 }
@@ -104,8 +104,8 @@
 }
 .tour-step {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  font-weight: 600;
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent);
@@ -113,26 +113,26 @@
 .tour-step-sep { color: var(--ink-4); }
 .tour-title {
   font-family: var(--font-ui);
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: var(--font-size-6);
+  font-weight: var(--font-weight-semibold);
   color: var(--ink);
   letter-spacing: -0.015em;
 }
 .tour-body {
-  font-size: 0.82rem;
-  line-height: 1.55;
+  font-size: var(--font-size-4);
+  line-height: var(--line-height-base);
   color: var(--ink-2);
 }
 .tour-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 4px;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
 }
 .tour-actions-right {
   display: flex;
-  gap: 8px;
+  gap: var(--space-4);
 }
 .tour-btn-skip {
   appearance: none;
@@ -141,9 +141,9 @@
   border: none;
   color: var(--ink-3);
   font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 500;
-  padding: 6px 8px;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-3) var(--space-4);
   transition: color var(--transition);
 }
 .tour-btn-skip:hover {
@@ -151,20 +151,20 @@
 }
 .tour-progress {
   display: flex;
-  gap: 4px;
+  gap: var(--space-2);
   justify-content: center;
-  margin-top: 4px;
+  margin-top: var(--space-2);
 }
 .tour-dot {
   width: 5px;
   height: 5px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--line-3);
   transition: background var(--transition);
 }
 .tour-dot.is-active {
   background: var(--accent);
   width: 16px;
-  border-radius: 3px;
+  border-radius: var(--radius-1);
 }
 
