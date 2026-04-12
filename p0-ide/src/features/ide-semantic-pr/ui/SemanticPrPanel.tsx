@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { PrDraft } from "@/app/ide/mock-pr";
 import { useToast } from "@/features/ide-toast";
-import { Panel, PanelHeader, PanelBody, PanelFooter, Button } from "@/shared/ui";
+import { Panel, PanelHeader, PanelBody, PanelFooter, Button, TextInput } from "@/shared/ui";
 import { useSemanticPr } from "../model/useSemanticPr";
 
 interface SemanticPrPanelProps {
@@ -33,8 +33,8 @@ export function SemanticPrPanel({ draft, onPreflight }: SemanticPrPanelProps) {
       <PanelBody className="spr-body">
         <section className="spr-section">
           <div className="spr-label">{t("ide.semanticPr.title")}</div>
-          <input
-            type="text"
+          <TextInput
+            variant="minimal"
             className="spr-title"
             defaultValue={draft.title}
             spellCheck={false}

@@ -19,40 +19,12 @@
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: scale(1); }
 }
-.ctxmenu-row {
-  appearance: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  width: 100%;
-  padding: var(--space-3) var(--space-5);
-  border-radius: var(--radius-row);
-  background: transparent;
-  border: none;
-  color: var(--ink-2);
-  font-family: var(--font-ui);
-  font-size: var(--font-size-3);
-  text-align: left;
-  transition: background var(--transition), color var(--transition);
-}
-.ctxmenu-row:hover,
-.ctxmenu-row.is-active {
+/* Row chrome migrated to shared Menu/MenuItem (see @/shared/ui/menu).
+   Feature-only override: keep the accent-tinted hover/active for ctxmenu rows. */
+.ctxmenu .menu__item:hover,
+.ctxmenu .menu__item.is-active {
   background: color-mix(in srgb, var(--accent) 14%, var(--paper-2));
   color: var(--ink);
-}
-.ctxmenu-label { flex: 1; }
-.ctxmenu-kbd {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-1);
-  color: var(--ink-3);
-  flex-shrink: 0;
-}
-.ctxmenu-divider {
-  height: 1px;
-  background: var(--line);
-  margin: var(--space-1) var(--space-3);
 }
 .ctxmenu-ghost {
   position: fixed;

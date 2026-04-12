@@ -2,9 +2,9 @@
    SymbolTooltip.tsx — registry 기반 심볼 팝오버
    새 kind 추가 = renderers/registry.ts 에만 등록
    ============================================================================= */
+import { Tooltip } from "@/shared/ui";
 import { useEditorHover } from "../model/useEditorHover";
 import { SYMBOL_REGISTRY } from "../renderers/registry";
-import { smartPos } from "../model/useSmartPos";
 import { riskColor } from "./sections/helpers";
 
 export { LineTooltip } from "./LineTooltip";
@@ -16,11 +16,10 @@ export function SymbolTooltip() {
   const { info, x, y } = hovered;
   const TT_WIDTH = 300;
   const ESTIMATED_H = 280;
-  const { left, top } = smartPos(x, y, TT_WIDTH, ESTIMATED_H);
   const renderer = SYMBOL_REGISTRY[info.kind];
 
   return (
-    <div className="symtip" style={{ left, top, width: TT_WIDTH }}>
+    <Tooltip x={x} y={y} width={TT_WIDTH} estimatedHeight={ESTIMATED_H} className="symtip">
 
       {/* ── Header ── */}
       <div className="symtip-head">
@@ -56,6 +55,6 @@ export function SymbolTooltip() {
           </div>
         );
       })()}
-    </div>
+    </Tooltip>
   );
 }

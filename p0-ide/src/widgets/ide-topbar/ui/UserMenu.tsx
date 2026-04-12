@@ -2,6 +2,7 @@ import { useState, useRef, useId } from "react";
 import { useTranslation } from "react-i18next";
 import BoringAvatar from "boring-avatars";
 import { useEscapeKey, useClickOutside } from "@/shared/hooks";
+import { Menu, MenuItem as MenuItemPrimitive, MenuSeparator } from "@/shared/ui";
 
 interface UserMenuProps {
   onExit: () => void;
@@ -150,27 +151,27 @@ export function UserMenu({ onExit }: UserMenuProps) {
           <div className="usermenu-scroll">
             {filtered ? (
               /* Search results */
-              <div className="usermenu-section">
+              <Menu className="usermenu-section">
                 {filtered.length === 0 ? (
                   <div className="usermenu-empty">{t("ide.user.noResults")}</div>
                 ) : filtered.map((item) => (
                   <MenuRow key={item.id} item={item} />
                 ))}
-              </div>
+              </Menu>
             ) : (
               /* Normal sections */
               <>
                 {sections.map((sec, si) => (
-                  <div key={si} className="usermenu-section">
-                    {si > 0 && <div className="usermenu-divider" />}
+                  <Menu key={si} className="usermenu-section">
+                    {si > 0 && <MenuSeparator />}
                     {sec.items.map((item) => (
                       <MenuRow key={item.id} item={item} />
                     ))}
-                  </div>
+                  </Menu>
                 ))}
 
                 {/* Footer meta */}
-                <div className="usermenu-divider" />
+                <MenuSeparator />
                 <div className="usermenu-footer">
                   <div className="usermenu-footer-user">
                     <span className="usermenu-footer-name">{t("ide.user.lastEdited")} {MOCK_USER.name}</span>
@@ -187,21 +188,27 @@ export function UserMenu({ onExit }: UserMenuProps) {
 }
 
 function MenuRow({ item }: { item: MenuItem }) {
-  return (
-    <button
-      type="button"
-      className={`usermenu-item${item.danger ? " usermenu-item--danger" : ""}`}
-      role="menuitem"
-      onClick={item.onClick}
-    >
-      <span className="usermenu-item-icon">{item.icon}</span>
-      <span className="usermenu-item-label">{item.label}</span>
-      {item.badge && <span className="usermenu-item-badge">{item.badge}</span>}
-      {item.chevron && (
+  const trailing = (item.badge !== undefined && item.badge !== "") || item.chevron === true ? (
+    <>
+      {item.badge !== undefined && item.badge !== "" && (
+        <span className="usermenu-item-badge">{item.badge}</span>
+      )}
+      {item.chevron === true && (
         <svg className="usermenu-item-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
           <polyline points="9 18 15 12 9 6"/>
         </svg>
       )}
-    </button>
+    </>
+  ) : undefined;
+  return (
+    <MenuItemPrimitive
+      className="usermenu-item"
+      icon={item.icon}
+      shortcut={trailing}
+      danger={item.danger}
+      onClick={item.onClick}
+    >
+      {item.label}
+    </MenuItemPrimitive>
   );
 }

@@ -1,19 +1,9 @@
 /* ── File / Folder Tooltip ───────────────────────────────────────────── */
-.ftip {
-  position: fixed;
-  z-index: 155;
-  background: var(--paper-2);
-  border: 1px solid var(--line-2);
-  border-radius: var(--overlay-radius-ephemeral);
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.5),
-    0 0 20px color-mix(in srgb, var(--accent) 6%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
-  font-family: var(--font-ui);
-  font-size: var(--font-size-2);
-  color: var(--ink);
-  pointer-events: none;
-  animation: symtip-in 0.14s ease-out;
+/* Outer chrome (position, background, border, shadow, animation) is supplied
+   by the shared <Tooltip> primitive in @/shared/ui. Only inner content rules
+   live here. */
+.tooltip.ftip {
+  padding: 0;
   overflow: hidden;
 }
 .ftip-head {

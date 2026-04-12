@@ -1,7 +1,16 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/features/ide-toast";
+import { Badge, type BadgeVariant } from "@/shared/ui";
 import { useIncidentAlert } from "../model/useIncidentAlert";
+
+type Severity = "P0" | "P1" | "P2";
+
+const SEVERITY_VARIANT: Record<Severity, BadgeVariant> = {
+  P0: "danger",
+  P1: "warn",
+  P2: "info",
+};
 
 export function IncidentAlert() {
   const { t } = useTranslation();
@@ -37,7 +46,7 @@ export function IncidentAlert() {
       <div className="ialert-body">
         <div className="ialert-incident">
           <span className="ialert-id">{match.id}</span>
-          <span className="ialert-sev" data-sev={match.severity}>{match.severity}</span>
+          <Badge variant={SEVERITY_VARIANT[match.severity]}>{match.severity}</Badge>
           <span className="ialert-title">{match.title}</span>
         </div>
 

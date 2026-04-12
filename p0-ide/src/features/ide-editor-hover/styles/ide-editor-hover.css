@@ -1,27 +1,16 @@
 /* ── Symbol Tooltip (hover popover) ─────────────────────────────────── */
 /* =============================================================================
    SymbolTooltip  (.symtip)  — rich analysis popup
+   Outer chrome (position, background, border, shadow, animation) is supplied
+   by the shared <Tooltip> primitive in @/shared/ui. Only inner content rules
+   live here.
    ============================================================================= */
-.symtip {
-  position: fixed;
-  z-index: 150;
-  background: var(--paper-1);
-  border: 0.5px solid var(--line-2);
-  border-radius: var(--overlay-radius-ephemeral);
-  box-shadow: var(--overlay-shadow-popover);
-  font-family: var(--font-ui);
-  font-size: var(--font-size-2);
-  color: var(--ink);
-  pointer-events: none;
-  animation: symtip-in 0.13s cubic-bezier(0.2, 0.85, 0.2, 1);
+.tooltip.symtip {
+  padding: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 0;
-}
-@keyframes symtip-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
 }
 
 /* ── Header ── */

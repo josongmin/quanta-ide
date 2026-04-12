@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Panel, IconButton, IconClose as SharedIconClose } from "@/shared/ui";
+import { Panel, IconButton, TextInput, IconClose as SharedIconClose } from "@/shared/ui";
 import { useAgentWindow } from "../model/useAgentWindow";
 import { postAgentTurn, postAgentOneshot, makeTurnId, DevosError, DEVOS_REPO_PATH, type ExecutionMetadata } from "../model/devosClient";
 import { useDrag } from "../model/useDrag";
@@ -314,8 +314,9 @@ export function AgentPanel({ initialPos }: AgentPanelProps) {
       {/* input row — floating */}
       <div className="agw-input-wrap">
         <div className="agw-input-outer">
-          <input
+          <TextInput
             ref={inputRef}
+            variant="minimal"
             className="agw-input"
             placeholder=""
             value={input}

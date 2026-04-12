@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { TextInput } from "@/shared/ui";
 import { useCommandPalette } from "../model/useCommandPalette";
 import { filterCommands, flattenGroups, type Command } from "../model/commands";
 import { dispatchCommand } from "../model/dispatcher";
@@ -70,9 +71,9 @@ function CommandPaletteInner({ query, setQuery, close }: InnerProps) {
           <span className="cmdk-input-icon" aria-hidden="true">
             <CommandIcon kind="search" />
           </span>
-          <input
+          <TextInput
             ref={inputRef}
-            type="text"
+            variant="minimal"
             className="cmdk-input"
             placeholder={t("ide.cmd.placeholder")}
             value={query}

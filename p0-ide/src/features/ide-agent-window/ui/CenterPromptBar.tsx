@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Textarea } from "@/shared/ui";
 import { useAgentWindow } from "../model/useAgentWindow";
 import { IconChevron, IconPlus, IconSend } from "./icons";
 
@@ -26,8 +27,10 @@ export function CenterPromptBar() {
   return (
     <div className="agw-center-overlay">
       <div className="agw-center-bar">
-        <textarea
+        <Textarea
           ref={inputRef}
+          variant="minimal"
+          resize="none"
           className="agw-center-input"
           placeholder="Ask p0 about your codebase…"
           value={input}

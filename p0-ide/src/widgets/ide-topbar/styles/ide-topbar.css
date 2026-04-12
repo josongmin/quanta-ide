@@ -405,49 +405,21 @@
 }
 .usermenu-section { padding: 0 var(--space-3); }
 
-/* Divider */
-.usermenu-divider {
-  height: 1px;
-  background: var(--line);
-  margin: var(--space-2) 0;
-}
+/* Divider migrated to shared MenuSeparator */
 
-/* Row */
-.usermenu-item {
-  appearance: none;
-  cursor: pointer;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-row);
-  border: none;
-  background: none;
-  color: var(--ink-2);
-  font-family: var(--font-ui);
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-regular);
-  text-align: left;
-  transition: background var(--duration-2), color var(--duration-2);
-  line-height: var(--line-height-snug);
-}
-.usermenu-item:hover {
+/* Row chrome migrated to shared Menu/MenuItem (see @/shared/ui/menu).
+   Feature-only overrides: paper-2 hover (instead of bg-muted) and sized icon/badge slots. */
+.usermenu-popup .menu__item.usermenu-item:hover {
   background: var(--paper-2);
   color: var(--ink);
 }
-.usermenu-item-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.usermenu-popup .menu__item.usermenu-item .menu__icon {
   width: var(--space-7);
   height: var(--space-7);
-  flex-shrink: 0;
   color: var(--ink-3);
   transition: color var(--duration-2);
 }
-.usermenu-item:hover .usermenu-item-icon { color: var(--ink-2); }
-.usermenu-item-label { flex: 1; }
+.usermenu-popup .menu__item.usermenu-item:hover .menu__icon { color: var(--ink-2); }
 .usermenu-item-badge {
   font-size: var(--font-size-1);
   color: var(--ink-3);
@@ -455,14 +427,10 @@
 }
 .usermenu-item-chev { color: var(--ink-4); flex-shrink: 0; }
 
-/* Danger row */
-.usermenu-item--danger { color: color-mix(in srgb, var(--color-feedback-danger-fg) 75%, var(--ink-3)); }
-.usermenu-item--danger .usermenu-item-icon { color: color-mix(in srgb, var(--color-feedback-danger-fg) 55%, var(--ink-4)); }
-.usermenu-item--danger:hover {
+/* Danger row override */
+.usermenu-popup .menu__item--danger.usermenu-item:hover {
   background: color-mix(in srgb, var(--color-feedback-danger-fg) 7%, var(--paper-2));
-  color: var(--color-feedback-danger-fg);
 }
-.usermenu-item--danger:hover .usermenu-item-icon { color: var(--color-feedback-danger-fg); }
 
 /* Empty state */
 .usermenu-empty {

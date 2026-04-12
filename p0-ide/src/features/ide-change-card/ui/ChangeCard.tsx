@@ -1,8 +1,24 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/features/ide-toast";
-import { Panel, PanelHeader, PanelBody, PanelFooter, Button } from "@/shared/ui";
+import { Panel, PanelHeader, PanelBody, PanelFooter, Button, Badge, type BadgeVariant } from "@/shared/ui";
 import { useChangeCard } from "../model/useChangeCard";
+
+type RiskLevel = "low" | "medium" | "high" | "critical";
+type ConfidenceLevel = "low" | "medium" | "high";
+
+const RISK_VARIANT: Record<RiskLevel, BadgeVariant> = {
+  low: "success",
+  medium: "warn",
+  high: "danger",
+  critical: "danger",
+};
+
+const CONFIDENCE_VARIANT: Record<ConfidenceLevel, BadgeVariant> = {
+  high: "success",
+  medium: "warn",
+  low: "danger",
+};
 
 export function ChangeCard() {
   const { t } = useTranslation();
@@ -163,11 +179,11 @@ export function ChangeCard() {
           <div className="ccard-foot-meta">
             <div className="ccard-meta-row">
               <span className="ccard-k">{t("ide.changeCard.risk")}</span>
-              <span className={`ccard-meta-v ccard-risk-${proposal.risk}`}>{proposal.risk}</span>
+              <Badge variant={RISK_VARIANT[proposal.risk]}>{proposal.risk}</Badge>
             </div>
             <div className="ccard-meta-row">
               <span className="ccard-k">{t("ide.changeCard.confidence")}</span>
-              <span className={`ccard-meta-v ccard-conf-${proposal.confidence}`}>{proposal.confidence}</span>
+              <Badge variant={CONFIDENCE_VARIANT[proposal.confidence]}>{proposal.confidence}</Badge>
             </div>
           </div>
           <div className="ccard-foot-actions">

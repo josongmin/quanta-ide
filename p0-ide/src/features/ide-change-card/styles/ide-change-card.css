@@ -177,18 +177,5 @@
 .ccard-evidence-loc { font-family: var(--font-mono); font-size: var(--font-size-0); color: var(--ink-3); }
 .ccard-foot-meta { display: flex; gap: var(--space-5); }
 .ccard-meta-row { display: flex; flex-direction: column; gap: var(--space-1); }
-.ccard-meta-v {
-  font-size: var(--font-size-2);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.ccard-risk-low { color: var(--color-feedback-success-fg); }
-.ccard-risk-medium { color: var(--clr-3d); }
-.ccard-risk-high,
-.ccard-risk-critical { color: var(--accent); }
-.ccard-conf-high { color: var(--color-feedback-success-fg); }
-.ccard-conf-medium { color: var(--clr-3d); }
-.ccard-conf-low { color: var(--accent); }
 .ccard-foot-actions { display: flex; gap: var(--space-2); }
 
