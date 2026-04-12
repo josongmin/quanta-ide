@@ -53,9 +53,10 @@ const ideTheme = EditorView.theme({
   },
   ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--accent) 5%, transparent)" },
   ".cm-gutters": {
-    backgroundColor: "transparent",
+    backgroundColor: "var(--paper)",
     borderRight: "1px solid var(--line)",
     color: "var(--ink-4)",
+    zIndex: "2",
   },
   ".cm-lineNumbers": {
     minWidth: "52px",
@@ -127,8 +128,12 @@ const ideTheme = EditorView.theme({
     backgroundColor: "color-mix(in srgb, var(--token-str) 14%, transparent)",
   },
   ".cm-inline-overlay": {
+    position: "sticky",
+    right: "0",
     float: "right",
     paddingRight: "12px",
+    paddingLeft: "32px",
+    background: "linear-gradient(to right, transparent, var(--paper) 24px)",
   },
 }, { dark: true });
 

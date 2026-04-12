@@ -4,6 +4,7 @@
   background: var(--paper);
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
   font-family: var(--font-mono);
   font-size: var(--font-size-3);
   line-height: var(--line-height-base);

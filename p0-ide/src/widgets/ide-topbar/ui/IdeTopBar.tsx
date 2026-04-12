@@ -17,11 +17,13 @@ interface IdeTopBarProps {
   onTimeTravel: () => void;
 }
 
+const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
 export function IdeTopBar({ path, onExit, onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps) {
   const { t } = useTranslation();
 
   return (
-    <div className="ide-topbar">
+    <div className="ide-topbar" {...(isTauri ? { "data-tauri-drag-region": true } : {})}>
       <div className="ide-topbar-brand">p0</div>
       <div className="ide-topbar-path">
         {path.map((seg, i) => {

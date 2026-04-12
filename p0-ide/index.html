@@ -15,6 +15,10 @@
           document.documentElement.setAttribute('data-aurora', _v);
       }
     } catch(_){}
+    /* Tauri 환경 감지 — CSS drag 영역이 즉시 활성화되도록 인라인 */
+    if (window.__TAURI_INTERNALS__ || window.__TAURI_IPC__) {
+      document.documentElement.classList.add('is-tauri');
+    }
   </script>
 </head>
 <body>

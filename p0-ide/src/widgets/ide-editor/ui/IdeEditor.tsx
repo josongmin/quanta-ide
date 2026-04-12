@@ -76,7 +76,7 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
             className={`ide-editor-tab${tab.active ? " is-active" : ""}`}
             onClick={() => onTabClick?.(tab.name)}
           >
-            <FileTypeIcon filename={tab.name} size={13} />
+            <FileTypeIcon filename={tab.name} size={15} />
             <span>{tab.name}</span>
             {onTabClose && (
               <span
