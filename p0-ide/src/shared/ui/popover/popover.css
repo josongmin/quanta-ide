@@ -1,0 +1,18 @@
+/* =============================================================================
+   popover.css — lightweight anchored popover (menu / hover-card style)
+   For full panel popovers use Panel tier="popover" instead.
+   ============================================================================= */
+
+.popover {
+  position: fixed;
+  z-index: var(--z-popover);
+  background: var(--overlay-bg-popover);
+  border: var(--overlay-border);
+  border-radius: var(--overlay-radius-popover);
+  box-shadow: var(--overlay-shadow-popover);
+  backdrop-filter: var(--overlay-blur-popover);
+  -webkit-backdrop-filter: var(--overlay-blur-popover);
+  color: var(--color-fg-default);
+  animation: overlay-popover-in var(--overlay-duration-in) var(--overlay-ease-out) both;
+  min-width: var(--space-9);
+}

@@ -5,5 +5,8 @@ export * from "./icons";
 export * from "./button";
 export * from "./badge";
 export * from "./input";
+export * from "./menu";
 export * from "./panel";
+export * from "./popover";
+export * from "./select";
 export * from "./tooltip";

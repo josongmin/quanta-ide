@@ -1,0 +1,78 @@
+/* Unstyled list semantics for menus inside Popover/ContextMenu — no positioning. */
+.menu {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  min-width: var(--space-11);
+}
+.menu__item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-fg-default);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--motion-fast);
+}
+.menu__item:hover,
+.menu__item.is-active {
+  background: var(--color-bg-muted);
+}
+.menu__item:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: -2px;
+}
+.menu__item:disabled,
+.menu__item[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+}
+.menu__item--danger {
+  color: var(--color-feedback-danger-fg);
+}
+.menu__item--danger:hover {
+  background: var(--color-feedback-danger-bg);
+}
+.menu__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-fg-muted);
+}
+.menu__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menu__shortcut {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-1);
+  color: var(--color-fg-faint);
+}
+.menu__separator {
+  height: var(--border-width-1);
+  background: var(--color-border-default);
+  margin: var(--space-2) 0;
+}
+.menu__group-label {
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-fg-subtle);
+}
