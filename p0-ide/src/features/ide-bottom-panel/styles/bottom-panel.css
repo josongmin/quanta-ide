@@ -4,12 +4,14 @@
    ============================================================================= */
 
 .bp-root {
+  position: relative;
   grid-area: bottom;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--paper-1);
+  background: var(--color-bg-subtle);
   border-top: 1px solid var(--line);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
@@ -18,10 +20,41 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 12px 16px;
-  overflow: auto;
+  /* Padding/overflow는 탭 본문이 결정한다. 탭마다 flush toolbar가 필요할 수 있어서
+     셸은 padding을 강제하지 않는다. 각 탭 root에서 책임짐 (wt-root, pb-root, ql-root). */
+  overflow: hidden;
 }
 
 .bp-empty {
   flex: 1 1 auto;
+}
+
+/* ── Shared toolbar chrome — 모든 탭이 공유하는 좌측 제목 + 고정 높이 ─────
+   각 feature 의 toolbar(.pb-toolbar, .ql-toolbar, .tm-strip, .op-toolbar,
+   .wt-header) 가 이 높이 토큰에 맞춰 동일한 stripe 로 보인다.
+   개별 feature CSS 는 padding-block 을 0 으로 두고 이 높이와 align-items:
+   center 로 수직 정렬한다. */
+
+:root {
+  --bp-toolbar-h: 32px;
+}
+
+.bp-panel-title {
+  flex-shrink: 0;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding-right: var(--space-3);
+  white-space: nowrap;
+}
+
+.bp-toolbar-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 14px;
+  background: var(--color-border-subtle);
+  margin-right: var(--space-3);
 }

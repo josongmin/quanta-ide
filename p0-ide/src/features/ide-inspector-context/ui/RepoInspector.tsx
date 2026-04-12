@@ -147,7 +147,7 @@ export function RepoInspector() {
         <div className="fii-heat">
           {d.riskFiles.map((f) => (
             <div key={f.name} className="fii-heat-row">
-              <span className="fii-heat-loc" style={{ width: 52, flexShrink: 0 }}>{f.issues} iss</span>
+              <span className="fii-heat-loc">{f.issues}</span>
               <span className="fii-heat-name">{f.name}</span>
               <div className="fii-heat-bar-wrap">
                 <div className="fii-heat-bar" style={riskBarStyle(f.risk)} />

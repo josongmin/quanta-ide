@@ -71,7 +71,7 @@ export function IdeTopBar({ path, onExit, onAsk, onTimeTravel: _onTimeTravel }: 
         {/* Review count */}
         <div className="ide-topbar-group">
           <button type="button" className="ide-settings-trigger" style={{ position: "relative" }} title="Pending reviews">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <span className="ide-topbar-badge">3</span>
@@ -81,7 +81,7 @@ export function IdeTopBar({ path, onExit, onAsk, onTimeTravel: _onTimeTravel }: 
         {/* Notification bell */}
         <div className="ide-topbar-group">
           <button type="button" className="ide-settings-trigger" style={{ position: "relative" }} title="Notifications">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" />
             </svg>

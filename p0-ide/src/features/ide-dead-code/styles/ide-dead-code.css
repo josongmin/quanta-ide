@@ -1,0 +1,44 @@
+/* ── Dead Code Panel ────────────────────────────────────────────────── */
+.dcode { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+
+.dcode-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border-bottom: 1px solid var(--line);
+}
+.dcode-stat {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  padding: var(--space-4) var(--space-5);
+  border-right: 1px solid var(--line);
+}
+.dcode-stat:last-child { border-right: none; }
+.dcode-stat-k { font-family: var(--font-ui); font-size: var(--font-size-0); font-weight: var(--font-weight-medium); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-4); }
+.dcode-stat-v { font-family: var(--font-mono); font-size: var(--font-size-7); font-weight: var(--font-weight-semibold); color: var(--ink); letter-spacing: -0.02em; }
+
+.dcode-list { list-style: none; margin: 0; padding: 0; }
+.dcode-item { border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.dcode-item:last-child { border-bottom: none; }
+
+.dcode-row {
+  appearance: none; background: transparent; border: none; cursor: pointer;
+  width: 100%; display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  font-family: var(--font-mono); font-size: var(--font-size-2); color: var(--ink);
+  text-align: left; transition: background var(--transition);
+}
+.dcode-row:hover { background: var(--paper-2); }
+
+.dcode-kind { font-size: var(--font-size-0); font-weight: var(--font-weight-semibold); font-style: italic; color: var(--ink-3); width: 12px; text-align: center; flex-shrink: 0; }
+.dcode-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: line-through; text-decoration-color: var(--ink-4); }
+.dcode-file { font-size: var(--font-size-0); color: var(--ink-4); flex-shrink: 0; }
+.dcode-conf { font-size: var(--font-size-0); font-weight: var(--font-weight-semibold); flex-shrink: 0; padding: var(--space-1) var(--space-2); border-radius: var(--radius-xs); }
+.dcode-conf--high { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.dcode-conf--medium { color: var(--ink-3); background: var(--paper-3); }
+
+.dcode-detail {
+  padding: var(--space-2) var(--space-5) var(--space-3) calc(var(--space-5) + 12px + var(--space-3));
+  display: flex; flex-direction: column; gap: var(--space-1);
+  font-size: var(--font-size-1); color: var(--ink-3);
+}
+.dcode-reason { color: var(--ink-2); }
+.dcode-last { font-size: var(--font-size-0); color: var(--ink-4); }

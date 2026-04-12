@@ -28,6 +28,11 @@ import { PrDisasterPanel, usePrDisaster } from "@/features/ide-pr-disaster";
 import { IncidentAlert, useIncidentAlert, SAMPLE_MATCH } from "@/features/ide-incident-alert";
 import { OwnershipOverlay, useOwnershipMap } from "@/features/ide-ownership-map";
 import { GuardPill, useGuardPill } from "@/features/ide-guard-pill";
+import { DeadCodePanel } from "@/features/ide-dead-code";
+import { CoverageGapPanel } from "@/features/ide-coverage-gap";
+import { ChurnHotspotPanel } from "@/features/ide-churn-hotspot";
+import { RootCausePanel } from "@/features/ide-root-cause";
+import { EvidenceReplayPanel } from "@/features/ide-evidence-replay";
 import { AgentWindow, useAgentWindow } from "@/features/ide-agent-window";
 import { ChangeImpactPanel, ImpactBanner, useChangeImpact, SAMPLE_IMPACT } from "@/features/ide-change-impact";
 import { useIdeTheme } from "@/features/ide-theme";
@@ -315,9 +320,9 @@ export function IdePage({ onExit }: IdePageProps) {
         {inspCtx.mode === "impact" ? (
           /* ── Tier: Impact ── */
           <ChangeImpactPanel>
-            <InspectorSection label={t("ide.inspector.blastRadius")}>
-              <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
-            </InspectorSection>
+            <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
+            <RootCausePanel />
+            <EvidenceReplayPanel />
           </ChangeImpactPanel>
         ) : inspCtx.mode === "repo" ? (
           /* ── Tier 0: Repo ── */
@@ -325,16 +330,15 @@ export function IdePage({ onExit }: IdePageProps) {
         ) : inspCtx.mode === "file" ? (
           /* ── Tier 1: File ── */
           <FileInspector data={FILE_INSPECTOR[inspCtx.fileName] ?? FILE_INSPECTOR[active]} onNavigate={navigateToFile}>
-            <InspectorSection label={t("ide.inspector.blastRadius")} defaultOpen={false}>
-              <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
-            </InspectorSection>
+            <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
+            <CoverageGapPanel />
+            <DeadCodePanel />
+            <ChurnHotspotPanel />
           </FileInspector>
         ) : inspCtx.mode === "symbol" ? (
           /* ── Tier 2: Symbol ── */
           <SymbolInspector ctx={inspCtx}>
-            <InspectorSection label={t("ide.inspector.blastRadius")}>
-              <BlastRadiusViz centerLabel={inspCtx.name} onNodeClick={navigateToFile} />
-            </InspectorSection>
+            <BlastRadiusViz centerLabel={inspCtx.name} onNodeClick={navigateToFile} />
             <InspectorSection label={t("ide.inspector.callGraph")}>
               <IdeCallGraph nodes={fd.callGraph} onNodeClick={navigateToFile} />
             </InspectorSection>
@@ -359,6 +363,11 @@ export function IdePage({ onExit }: IdePageProps) {
               />
             </InspectorSection>
             <TimeTravelCompare />
+            <CoverageGapPanel />
+            <DeadCodePanel />
+            <ChurnHotspotPanel />
+            <RootCausePanel />
+            <EvidenceReplayPanel />
           </SymbolInspector>
         ) : null}
       </IdeInspector>

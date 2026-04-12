@@ -131,6 +131,31 @@
   --color-feedback-info-bg:     color-mix(in srgb, #60a5fa 14%, transparent);
   --color-feedback-info-border: color-mix(in srgb, #60a5fa 32%, transparent);
 
+  /* ── Signal — small always-on status indicators ─────────────────────────
+     Usage: dot, chip, tiny icon. NOT for large text labels or banners
+     (feedback-* covers those). Designed for high theme stability — the
+     palette is tuned so perceptual brightness is close across dark/light.
+
+     stable    — "trustworthy, quiet" — muted emerald
+     flux      — "in-progress, don't trust yet" — warm amber, lower chroma
+     critical  — "needs immediate attention" — coral red
+     idle      — "no signal" — inherits fg, no color */
+  --color-signal-stable-fg:   #4ade80;
+  --color-signal-stable-bg:   color-mix(in srgb, #4ade80 14%, transparent);
+  --color-signal-stable-ring: color-mix(in srgb, #4ade80 30%, transparent);
+
+  --color-signal-flux-fg:     #f59e0b;
+  --color-signal-flux-bg:     color-mix(in srgb, #f59e0b 14%, transparent);
+  --color-signal-flux-ring:   color-mix(in srgb, #f59e0b 30%, transparent);
+
+  --color-signal-critical-fg:   #f87171;
+  --color-signal-critical-bg:   color-mix(in srgb, #f87171 16%, transparent);
+  --color-signal-critical-ring: color-mix(in srgb, #f87171 36%, transparent);
+
+  --color-signal-idle-fg:     var(--color-fg-faint);
+  --color-signal-idle-bg:     transparent;
+  --color-signal-idle-ring:   transparent;
+
   /* Shadows (dark, high-contrast) */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, var(--shadow-alpha-1));
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, var(--shadow-alpha-2));
@@ -161,6 +186,20 @@
   --color-feedback-warn-bg:        color-mix(in srgb, #f59e0b 18%, transparent);
   --color-feedback-danger-bg:      color-mix(in srgb, #ef4444 18%, transparent);
   --color-feedback-info-bg:        color-mix(in srgb, #3b82f6 18%, transparent);
+
+  /* Signal — light 배경에서 작은 dot은 채도 높이면 튄다. 명도 낮추고
+     채도는 중간으로. 다크와 perceptual 밝기가 비슷하게 맞췄다. */
+  --color-signal-stable-fg:   #16a34a;
+  --color-signal-stable-bg:   color-mix(in srgb, #16a34a 12%, transparent);
+  --color-signal-stable-ring: color-mix(in srgb, #16a34a 28%, transparent);
+
+  --color-signal-flux-fg:     #d97706;
+  --color-signal-flux-bg:     color-mix(in srgb, #d97706 12%, transparent);
+  --color-signal-flux-ring:   color-mix(in srgb, #d97706 28%, transparent);
+
+  --color-signal-critical-fg:   #dc2626;
+  --color-signal-critical-bg:   color-mix(in srgb, #dc2626 14%, transparent);
+  --color-signal-critical-ring: color-mix(in srgb, #dc2626 34%, transparent);
 
   /* Lighter shadows */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.06);

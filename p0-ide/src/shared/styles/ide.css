@@ -68,3 +68,12 @@
 @import "../../features/ide-bottom-panel/styles/bottom-panel.css";
 @import "../../features/ide-activity-rail/styles/activity-rail.css";
 @import "../../features/ide-watcher/styles/watcher.css";
+@import "../../features/ide-problems/styles/ide-problems.css";
+@import "../../features/ide-quanta-log/styles/ide-quanta-log.css";
+@import "../../features/ide-terminal/styles/ide-terminal.css";
+@import "../../features/ide-output/styles/ide-output.css";
+@import "../../features/ide-dead-code/styles/ide-dead-code.css";
+@import "../../features/ide-coverage-gap/styles/ide-coverage-gap.css";
+@import "../../features/ide-churn-hotspot/styles/ide-churn-hotspot.css";
+@import "../../features/ide-root-cause/styles/ide-root-cause.css";
+@import "../../features/ide-evidence-replay/styles/ide-evidence-replay.css";

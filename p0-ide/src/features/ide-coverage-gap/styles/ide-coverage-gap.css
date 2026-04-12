@@ -1,0 +1,37 @@
+/* ── Coverage Gap Panel ─────────────────────────────────────────────── */
+.cgap { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+
+.cgap-stats { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--line); }
+.cgap-stat { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4) var(--space-5); border-right: 1px solid var(--line); }
+.cgap-stat:last-child { border-right: none; }
+.cgap-stat-k { font-family: var(--font-ui); font-size: var(--font-size-0); font-weight: var(--font-weight-medium); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-4); }
+.cgap-stat-v { font-family: var(--font-mono); font-size: var(--font-size-7); font-weight: var(--font-weight-semibold); color: var(--ink); letter-spacing: -0.02em; }
+
+.cgap-list { list-style: none; margin: 0; padding: 0; }
+.cgap-file { border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.cgap-file:last-child { border-bottom: none; }
+
+.cgap-file-row {
+  appearance: none; background: transparent; border: none; cursor: pointer;
+  width: 100%; display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  font-family: var(--font-mono); font-size: var(--font-size-2); color: var(--ink);
+  text-align: left; transition: background var(--transition);
+}
+.cgap-file-row:hover { background: var(--paper-2); }
+
+.cgap-file-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cgap-file-ratio { font-size: var(--font-size-0); color: var(--ink-3); flex-shrink: 0; }
+
+.cgap-file-bar-track { width: 48px; height: 4px; border-radius: var(--radius-full); background: var(--paper-3); flex-shrink: 0; overflow: hidden; }
+.cgap-file-bar-fill { display: block; height: 100%; border-radius: var(--radius-full); background: var(--accent); }
+
+.cgap-file-gap { font-size: var(--font-size-0); font-weight: var(--font-weight-semibold); color: var(--accent); flex-shrink: 0; }
+
+.cgap-sym-list { list-style: none; margin: 0; padding: 0 0 var(--space-2) calc(var(--space-5) + var(--space-3)); }
+.cgap-sym { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-1) var(--space-4); font-size: var(--font-size-1); }
+.cgap-sym-kind { font-family: var(--font-mono); font-size: var(--font-size-0); font-weight: var(--font-weight-semibold); font-style: italic; width: 12px; text-align: center; flex-shrink: 0; }
+.cgap-sym-kind[data-risk="3"], .cgap-sym-kind[data-risk="4"] { color: var(--accent); }
+.cgap-sym-kind[data-risk="1"], .cgap-sym-kind[data-risk="2"] { color: var(--ink-3); }
+.cgap-sym-name { font-family: var(--font-mono); color: var(--ink-2); }
+.cgap-sym-line { font-family: var(--font-mono); font-size: var(--font-size-0); color: var(--ink-4); }

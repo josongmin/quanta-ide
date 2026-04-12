@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PanelResizer } from "@/shared/ui";
 import type { BottomPanelTab } from "../model/types";
 import { useBottomPanel } from "../model/useBottomPanel";
 
@@ -30,6 +31,7 @@ export function BottomPanel({ tabs }: BottomPanelProps) {
 
   return (
     <section className="bp-root" aria-label="Bottom panel">
+      <PanelResizer cssVar="--bottom-h" side="top" min={80} max={600} />
       {activeTab !== null ? (
         <div
           className="bp-body"

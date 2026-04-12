@@ -8,14 +8,15 @@
   grid-area: rail;
   width: 100%;
   height: 100%;
-  background: var(--paper-1);
+  background: var(--color-bg-subtle);
   border-top: 1px solid var(--line);
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px 0;
+  padding: var(--space-2);
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .ar-list {
@@ -24,7 +25,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
   width: 100%;
   align-items: center;
 }
@@ -36,56 +37,72 @@
 
 .ar-btn {
   position: relative;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  color: var(--ink-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  /* 비활성: 엷은 회색 (fg-faint) */
+  color: var(--color-fg-faint);
   cursor: pointer;
   transition:
     background var(--transition),
-    color var(--transition),
-    border-color var(--transition);
+    color var(--transition);
 }
 
 .ar-btn:hover {
-  background: var(--paper-2);
-  color: var(--ink);
+  color: var(--color-fg-default);
+  background: var(--color-bg-muted);
 }
 
 .ar-btn:focus-visible {
-  outline: none;
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  outline: 2px solid var(--color-border-accent);
+  outline-offset: -2px;
 }
 
+/* 활성: 짙은 fg + 선명한 배경. */
 .ar-btn.is-active {
-  background: var(--paper-3);
-  color: var(--ink);
+  color: var(--color-fg-default);
+  background: var(--color-bg-emphasis);
+}
+.ar-btn.is-active:focus-visible {
+  outline: none;
 }
 
 .ar-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  width: 16px;
+  height: 16px;
   line-height: 1;
 }
 
-/* Status dot — 우측 하단 코너에 작게 */
+/* Rail context의 모든 SVG glyph을 크게 + 두껍게 통일.
+   viewBox 16 로컬 아이콘과 viewBox 24 공유 아이콘 모두 컨테이너 18px 에 꽉 차고,
+   stroke-width 도 2.4 로 올려 굵은 느낌을 준다.
+   rail 바깥 아이콘에는 영향 없음 (.ar-icon 안쪽에만 적용). */
+.ar-icon svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 2.4;
+}
+
+/* Status dot — 우측 하단 코너에 작게.
+   signal 토큰 계열을 사용 — feedback-*은 banner/toast용이라 dot에 쓰면 튄다.
+   signal-*는 테마별 perceptual 밝기를 맞춘 의미 전용 색이다. */
 .ar-dot {
   position: absolute;
   right: 4px;
   bottom: 4px;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
-  box-shadow: 0 0 0 1px var(--paper-1);
+  border-radius: var(--radius-full);
 }
 
-.ar-dot-ok     { background: #86efac; }
-.ar-dot-warn   { background: #fbbf24; }
-.ar-dot-danger { background: #f87171; }
+.ar-dot-ok     { background: var(--color-signal-stable-fg); }
+.ar-dot-warn   { background: var(--color-signal-flux-fg); }
+.ar-dot-danger { background: var(--color-signal-critical-fg); }

@@ -1,0 +1,281 @@
+/* =============================================================================
+   ide-quanta-log — BottomPanel "Quanta" 탭
+   정적분석 엔진 이벤트 스트림. 제품 정체성 표면.
+   ============================================================================= */
+
+.ql-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  color: var(--color-fg-default);
+  font-family: var(--font-ui);
+}
+
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+
+.ql-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--bp-toolbar-h);
+  padding: 0 var(--space-5);
+  background: var(--color-bg-muted);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ql-toolbar-spacer { flex: 1 1 auto; }
+
+.ql-toolbar-live {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-3);
+  border-right: 1px solid var(--color-border-subtle);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-0);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--color-fg-subtle);
+}
+
+.ql-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--color-fg-faint);
+}
+.ql-live-dot.is-live {
+  background: var(--color-signal-stable-fg);
+  box-shadow: 0 0 0 0 var(--color-signal-stable-ring);
+  animation: ql-live-pulse 2s ease-in-out infinite;
+}
+@keyframes ql-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--color-signal-stable-ring); }
+  50%      { box-shadow: 0 0 0 4px transparent; }
+}
+
+.ql-toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ql-toolbar-action {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-fg-subtle);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color var(--transition), background var(--transition);
+}
+.ql-toolbar-action:hover {
+  color: var(--color-fg-default);
+  background: var(--color-bg-emphasis);
+}
+
+/* ── Chips ────────────────────────────────────────────────────────────────── */
+
+.ql-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--color-fg-muted);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-1);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--transition),
+    background var(--transition),
+    border-color var(--transition),
+    opacity var(--transition);
+}
+.ql-chip:not(.is-active) { opacity: 0.5; }
+.ql-chip:hover { opacity: 1; border-color: var(--color-border-default); }
+.ql-chip.is-active {
+  background: var(--color-bg-emphasis);
+  border-color: var(--color-border-default);
+  color: var(--color-fg-default);
+}
+
+.ql-chip-label {
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.ql-chip-count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-fg-faint);
+  font-variant-numeric: tabular-nums;
+}
+.ql-chip.is-active .ql-chip-count { color: var(--color-fg-default); }
+
+/* Kind-tinted active chip (subtle — just a border shift). */
+.ql-chip-drift.is-active  { border-color: color-mix(in srgb, var(--color-feedback-warn-fg) 40%, var(--color-border-default)); }
+.ql-chip-impact.is-active { border-color: color-mix(in srgb, var(--color-feedback-danger-fg) 40%, var(--color-border-default)); }
+.ql-chip-dead.is-active   { border-color: color-mix(in srgb, var(--color-fg-subtle) 40%, var(--color-border-default)); }
+.ql-chip-graph.is-active  { border-color: color-mix(in srgb, var(--color-feedback-info-fg) 40%, var(--color-border-default)); }
+.ql-chip-sync.is-active   { border-color: color-mix(in srgb, var(--color-feedback-success-fg) 40%, var(--color-border-default)); }
+
+/* ── Body ─────────────────────────────────────────────────────────────────── */
+
+.ql-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: var(--space-5);
+}
+
+.ql-empty {
+  padding: var(--space-9) var(--space-6);
+  text-align: center;
+  color: var(--color-fg-faint);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-1);
+  letter-spacing: 0.02em;
+}
+
+.ql-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Row ──────────────────────────────────────────────────────────────────── */
+
+.ql-row {
+  position: relative;
+  appearance: none;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 46px 16px 1fr auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5) var(--space-2) calc(var(--space-5) + 4px);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  color: var(--color-fg-muted);
+  transition: background var(--transition), color var(--transition);
+}
+.ql-row:hover {
+  background: color-mix(in srgb, var(--color-accent-fg) 5%, transparent);
+  color: var(--color-fg-default);
+}
+.ql-list li:last-child .ql-row { border-bottom: none; }
+
+.ql-row-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: transparent;
+  transition: background var(--transition);
+}
+
+/* Kind color coding — drives glyph (.ql-row-glyph) and left rail. */
+.ql-row.ql-kind-graph  .ql-row-glyph { color: var(--color-feedback-info-fg); }
+.ql-row.ql-kind-graph  .ql-row-rail  { background: color-mix(in srgb, var(--color-feedback-info-fg) 40%, transparent); }
+.ql-row.ql-kind-drift  .ql-row-glyph { color: var(--color-feedback-warn-fg); }
+.ql-row.ql-kind-drift  .ql-row-rail  { background: color-mix(in srgb, var(--color-feedback-warn-fg) 55%, transparent); }
+.ql-row.ql-kind-impact .ql-row-glyph { color: var(--color-feedback-danger-fg); }
+.ql-row.ql-kind-impact .ql-row-rail  { background: color-mix(in srgb, var(--color-feedback-danger-fg) 65%, transparent); }
+.ql-row.ql-kind-dead   .ql-row-glyph { color: var(--color-fg-subtle); }
+.ql-row.ql-kind-dead   .ql-row-rail  { background: color-mix(in srgb, var(--color-fg-subtle) 35%, transparent); }
+.ql-row.ql-kind-sync   .ql-row-glyph { color: var(--color-feedback-success-fg); }
+.ql-row.ql-kind-sync   .ql-row-rail  { background: color-mix(in srgb, var(--color-feedback-success-fg) 40%, transparent); }
+
+/* Severity escalates rail prominence (warn kinds glow brighter). */
+.ql-row.ql-sev-warn .ql-row-rail { width: 3px; }
+
+.ql-row-time {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-1);
+  color: var(--color-fg-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+.ql-row:hover .ql-row-time { color: var(--color-fg-subtle); }
+
+.ql-row-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  /* color set by kind rules above; default fallback */
+  color: var(--color-fg-subtle);
+}
+
+.ql-row-body {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  overflow: hidden;
+}
+
+.ql-row-title {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-fg-default);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 40%;
+}
+
+.ql-row-detail {
+  font-family: var(--font-ui);
+  font-size: var(--font-size-1);
+  color: var(--color-fg-muted);
+  letter-spacing: -0.005em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ql-row-meta {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-0);
+  color: var(--color-fg-faint);
+  letter-spacing: -0.005em;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-subtle);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-live-dot.is-live { animation: none; }
+}

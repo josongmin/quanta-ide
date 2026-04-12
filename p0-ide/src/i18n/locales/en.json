@@ -406,7 +406,42 @@
       "tooltipRing": "Ring {{n}}",
       "hot": "hot",
       "nodeAria": "{{label}} — ring {{n}}{{hot}}",
-      "hotSuffix": ", hot path"
+      "hotSuffix": ", hot path",
+      "moreFiles": "more files",
+      "collapse": "show less"
+    },
+    "deadCode": {
+      "title": "Dead code",
+      "total": "Total",
+      "highConf": "High conf.",
+      "lastCalled": "Last called"
+    },
+    "coverageGap": {
+      "title": "Coverage gap",
+      "coverage": "Coverage",
+      "uncovered": "Uncovered",
+      "files": "Files"
+    },
+    "churnHotspot": {
+      "title": "Churn hotspots",
+      "hotspots": "Hotspots",
+      "rising": "Rising",
+      "totalChurn": "Churn Δ"
+    },
+    "rootCause": {
+      "title": "Root cause",
+      "rootCause": "ROOT CAUSE",
+      "trace": "EXECUTION TRACE"
+    },
+    "evidenceReplay": {
+      "title": "Evidence & replay",
+      "evidence": "Evidence",
+      "verified": "Verified",
+      "steps": "Steps",
+      "evidenceLabel": "EVIDENCE",
+      "replayLabel": "REPLAY",
+      "runReplay": "Run replay",
+      "running": "Running…"
     },
     "flowTrace": {
       "title": "Flow trace",

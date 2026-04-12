@@ -406,7 +406,42 @@
       "tooltipRing": "링 {{n}}",
       "hot": "핫",
       "nodeAria": "{{label}} — 링 {{n}}{{hot}}",
-      "hotSuffix": ", 핫 경로"
+      "hotSuffix": ", 핫 경로",
+      "moreFiles": "개 파일 더보기",
+      "collapse": "접기"
+    },
+    "deadCode": {
+      "title": "데드 코드",
+      "total": "전체",
+      "highConf": "확신도 높음",
+      "lastCalled": "마지막 호출"
+    },
+    "coverageGap": {
+      "title": "커버리지 갭",
+      "coverage": "커버리지",
+      "uncovered": "미커버",
+      "files": "파일"
+    },
+    "churnHotspot": {
+      "title": "변경 핫스팟",
+      "hotspots": "핫스팟",
+      "rising": "상승 중",
+      "totalChurn": "변경량"
+    },
+    "rootCause": {
+      "title": "근본 원인",
+      "rootCause": "근본 원인",
+      "trace": "실행 추적"
+    },
+    "evidenceReplay": {
+      "title": "증거 & 재현",
+      "evidence": "증거",
+      "verified": "검증됨",
+      "steps": "단계",
+      "evidenceLabel": "증거",
+      "replayLabel": "재현",
+      "runReplay": "재현 실행",
+      "running": "실행 중…"
     },
     "flowTrace": {
       "title": "플로우 추적",

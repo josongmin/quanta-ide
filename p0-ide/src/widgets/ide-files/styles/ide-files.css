@@ -7,7 +7,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   font-family: var(--font-mono);
-  font-size: var(--font-size-2);
+  font-size: var(--font-size-3);
   scrollbar-width: thin;
   scrollbar-color: var(--line-2) transparent;
   position: relative;
@@ -57,7 +57,7 @@
   height: 28px;
 }
 .ide-files-repo-emoji {
-  font-size: var(--font-size-8);
+  font-size: var(--font-size-9);
   line-height: var(--line-height-tight);
   user-select: none;
 }
@@ -72,7 +72,7 @@
 
 .ide-files-repo-name {
   font-family: var(--font-ui);
-  font-size: var(--font-size-2);
+  font-size: var(--font-size-3);
   font-weight: var(--font-weight-bold);
   color: var(--ink);
   white-space: nowrap;
@@ -86,7 +86,7 @@
   align-items: center;
   gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: var(--font-size-0);
+  font-size: var(--font-size-1);
   color: var(--ink-4);
 }
 
@@ -137,7 +137,7 @@
   border: none;
   outline: none;
   font-family: var(--font-mono);
-  font-size: var(--font-size-1);
+  font-size: var(--font-size-2);
   color: var(--ink);
   min-width: 0;
 }
@@ -184,7 +184,7 @@
 }
 .ide-files-count {
   font-family: var(--font-mono);
-  font-size: var(--font-size-0);
+  font-size: var(--font-size-1);
   color: var(--ink-4);
 }
 .ide-files-search-header {
@@ -314,7 +314,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: var(--font-ui);
-  font-size: var(--font-size-2);
+  font-size: var(--font-size-3);
 }
 
 /* search highlight */
@@ -328,7 +328,7 @@
 /* git status */
 .ide-files-git {
   font-family: var(--font-mono);
-  font-size: var(--font-size-0);
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-bold);
   width: 14px;
   text-align: center;
@@ -358,7 +358,7 @@
   align-items: center;
   gap: var(--space-1);
   font-family: var(--font-mono);
-  font-size: var(--font-size-0);
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-tight);
   padding: var(--space-1) var(--space-2);
@@ -380,7 +380,7 @@
 /* issues chip — plain text count, accent only at risk 4 */
 .ide-files-sig-issues {
   font-family: var(--font-mono);
-  font-size: var(--font-size-0);
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-semibold);
   color: var(--ink-4);
 }
@@ -394,7 +394,7 @@
   gap: var(--space-4);
   padding: var(--space-8) var(--space-6);
   color: var(--ink-4);
-  font-size: var(--font-size-1);
+  font-size: var(--font-size-2);
 }
 .ide-files-empty svg { opacity: 0.4; }
 

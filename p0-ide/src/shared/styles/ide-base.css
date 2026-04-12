@@ -71,22 +71,20 @@
   display: grid;
   grid-template-rows: 40px 1fr var(--bottom-h) 28px;
   grid-template-columns: var(--rail-w) calc(var(--files-w) - var(--rail-w)) 1fr var(--inspector-w);
+  /* Inspector는 editor + bottom 행을 모두 세로로 점유 — 하단 패널보다 상위
+     레이어에 위치해 오른쪽 패널이 항상 bottom 을 덮는다. */
   grid-template-areas:
     "topbar topbar  topbar topbar"
-    "files  files   editor inspector"
-    "rail   bottom  bottom bottom"
-    "status status  status status";
+    "files  files   editor    inspector"
+    "rail   bottom  bottom    inspector"
+    "status status  status    status";
   overflow: hidden;
 }
 
 /* Panel resize handles */
 .ide-resizer {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 4px;
   z-index: var(--z-raised);
-  cursor: col-resize;
   background: transparent;
   transition: background 0.15s;
 }
@@ -94,13 +92,40 @@
 .ide-resizer.is-dragging {
   background: color-mix(in srgb, var(--accent) 40%, transparent);
 }
-.ide-resizer::before {
+
+/* Vertical handles (left/right edges of horizontal panels) */
+.ide-resizer-left,
+.ide-resizer-right {
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+}
+.ide-resizer-right { right: 0; }
+.ide-resizer-left  { left: 0; }
+.ide-resizer-left::before,
+.ide-resizer-right::before {
   content: "";
   position: absolute;
   inset: 0 -4px;
 }
-.ide-resizer-right { right: 0; }
-.ide-resizer-left  { left: 0; }
+
+/* Horizontal handles (top/bottom edges of vertical panels) */
+.ide-resizer-top,
+.ide-resizer-bottom {
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: row-resize;
+}
+.ide-resizer-top    { top: 0; }
+.ide-resizer-bottom { bottom: 0; }
+.ide-resizer-top::before,
+.ide-resizer-bottom::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
 
 /* ── Section Label ── */
 .ide-label {
@@ -2439,13 +2464,12 @@
 }
 .ide[data-theme="vercel-dash"] .ide-topbar-agent svg { color: var(--paper); }
 .ide[data-theme="vercel-dash"] .ide-settings-trigger {
-  background: var(--paper);
-  border: 1px solid var(--paper-3);
+  background: transparent;
+  border: none;
   color: var(--ink-3);
 }
 .ide[data-theme="vercel-dash"] .ide-settings-trigger:hover {
   background: var(--paper-2);
-  border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
   color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
 /* ide-btn (Suggested Fix 등 인스펙터 버튼) */

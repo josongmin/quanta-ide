@@ -1,0 +1,48 @@
+/* ── Root Cause Trace Panel ─────────────────────────────────────────── */
+.rcause { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+
+.rcause-header { padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: var(--space-2); }
+.rcause-header-left { display: flex; align-items: center; gap: var(--space-3); }
+.rcause-id { font-family: var(--font-mono); font-size: var(--font-size-0); color: var(--ink-3); }
+.rcause-sev { font-family: var(--font-mono); font-size: var(--font-size-0); font-weight: var(--font-weight-bold); padding: var(--space-1) var(--space-2); border-radius: var(--radius-xs); }
+.rcause-sev--p0 { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+.rcause-sev--p1 { background: var(--paper-3); color: var(--ink-2); }
+.rcause-sev--p2 { background: var(--paper-3); color: var(--ink-3); }
+.rcause-conf { font-size: var(--font-size-0); color: var(--ink-4); }
+.rcause-conf--high { color: var(--accent); }
+.rcause-title { font-family: var(--font-ui); font-size: var(--font-size-3); font-weight: var(--font-weight-semibold); color: var(--ink); }
+
+.rcause-root {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-bottom: 1px solid var(--line);
+}
+.rcause-root-label { font-family: var(--font-ui); font-size: var(--font-size-0); font-weight: var(--font-weight-semibold); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-4); }
+.rcause-root-sym { font-family: var(--font-mono); font-size: var(--font-size-2); font-weight: var(--font-weight-semibold); color: var(--accent); }
+.rcause-root-loc { font-family: var(--font-mono); font-size: var(--font-size-0); color: var(--ink-4); margin-left: auto; }
+
+.rcause-explanation {
+  padding: var(--space-4) var(--space-5);
+  font-family: var(--font-ui); font-size: var(--font-size-2); line-height: var(--line-height-base);
+  color: var(--ink-2); border-bottom: 1px solid var(--line);
+}
+
+/* ── Trace timeline ── */
+.rcause-trace { padding: var(--space-3) var(--space-5) var(--space-5); }
+.rcause-trace-label { font-family: var(--font-ui); font-size: var(--font-size-0); font-weight: var(--font-weight-semibold); letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-4); margin-bottom: var(--space-3); }
+
+.rcause-step { display: flex; gap: var(--space-4); }
+.rcause-step-rail { display: flex; flex-direction: column; align-items: center; width: 12px; flex-shrink: 0; }
+.rcause-step-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--paper-3); border: 1.5px solid var(--ink-4); flex-shrink: 0; }
+.rcause-step--root .rcause-step-dot { background: var(--accent); border-color: var(--accent); }
+.rcause-step--entry .rcause-step-dot { background: var(--paper-1); border-color: var(--ink-3); }
+.rcause-step-line { width: 1.5px; flex: 1; min-height: 12px; background: var(--line-2); }
+
+.rcause-step-body { flex: 1; min-width: 0; padding-bottom: var(--space-4); }
+.rcause-step-head { display: flex; align-items: center; gap: var(--space-3); }
+.rcause-step-sym { font-family: var(--font-mono); font-size: var(--font-size-2); font-weight: var(--font-weight-medium); color: var(--ink); }
+.rcause-step--root .rcause-step-sym { color: var(--accent); font-weight: var(--font-weight-semibold); }
+.rcause-step-loc { font-family: var(--font-mono); font-size: var(--font-size-0); color: var(--ink-4); margin-left: auto; }
+.rcause-step-summary { font-size: var(--font-size-1); color: var(--ink-3); margin-top: var(--space-1); }
+.rcause-step--root .rcause-step-summary { color: var(--accent); font-weight: var(--font-weight-medium); }

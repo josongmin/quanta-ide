@@ -43,6 +43,9 @@ export function WatcherTab({ onNavigate }: WatcherTabProps) {
 
   return (
     <div className="wt-root">
+      <div className="wt-header">
+        <span className="bp-panel-title">Watcher</span>
+      </div>
       <div className="wt-row">
         <div className="wt-col wt-col-vitals">
           <WatcherVitals
