@@ -334,10 +334,10 @@
   text-align: center;
   flex-shrink: 0;
 }
-.ide-files-git-m { color: #60a5fa; }
-.ide-files-git-a { color: #4ade80; }
-.ide-files-git-d { color: #f87171; }
-.ide-files-git-\? { color: var(--ink-4); }
+.ide-files-git-m { color: var(--color-feedback-info-fg); }
+.ide-files-git-a { color: var(--color-feedback-success-fg); }
+.ide-files-git-d { color: var(--color-feedback-danger-fg); }
+.ide-files-git-\? { color: var(--color-fg-faint); }
 
 /* ── Signal chips (tests / stale / issues) ── */
 .ide-files-signals {
@@ -370,12 +370,12 @@
 
 /* tests chip — neutral by default, red dot only when 0 tests */
 .ide-files-sig-tests { color: var(--ink-4); }
-.ide-files-sig-tests.is-bad { color: #e07070; }
+.ide-files-sig-tests.is-bad { color: var(--color-feedback-danger-fg); }
 .ide-files-sig-tests.is-ok  { color: var(--ink-4); }
 
 /* stale chip — subtle amber icon, muted label */
 .ide-files-sig-stale { color: var(--ink-4); }
-.ide-files-sig-stale svg { color: #c4922a; opacity: 0.8; }
+.ide-files-sig-stale svg { color: var(--color-feedback-warn-fg); opacity: 0.8; }
 
 /* issues chip — plain text count, accent only at risk 4 */
 .ide-files-sig-issues {

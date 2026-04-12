@@ -205,7 +205,7 @@ function MenuRow({ item }: { item: MenuItem }) {
       className="usermenu-item"
       icon={item.icon}
       shortcut={trailing}
-      danger={item.danger}
+      variant={item.danger === true ? "danger" : "default"}
       onClick={item.onClick}
     >
       {item.label}

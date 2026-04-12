@@ -3,7 +3,7 @@
 .ide-lineinfo {
   position: sticky;
   bottom: 0;
-  z-index: 10;
+  z-index: var(--z-raised);
   display: flex;
   align-items: center;
   gap: var(--space-4);
@@ -54,11 +54,11 @@
   align-items: center;
   gap: var(--space-6);
   padding: 0 var(--space-6);
-  border-top: 1px solid rgba(0,0,0,0.10);
-  background: #f0f0f2;
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-subtle);
   font-family: var(--font-mono);
   font-size: var(--font-size-1);
-  color: #555;
+  color: var(--color-fg-muted);
   user-select: none;
 }
 .ide-statusbar-item {
@@ -67,11 +67,11 @@
   gap: var(--space-2);
   line-height: 1;
   white-space: nowrap;
-  color: #444;
+  color: var(--color-fg-muted);
 }
 .ide-statusbar-item.is-warn { color: var(--accent); }
 .ide-statusbar-spacer { flex: 1; }
-.ide-statusbar-dim { color: #888; }
+.ide-statusbar-dim { color: var(--color-fg-subtle); }
 .ide-statusbar-icon {
   width: 11px;
   height: 11px;
@@ -88,7 +88,7 @@
   width: 6px;
   height: 6px;
   border-radius: var(--radius-full);
-  background: #34d399;
+  background: var(--color-feedback-success-fg);
   flex: none;
 }
 .ide-statusbar-dot.is-warn { background: var(--accent); }

@@ -98,7 +98,7 @@
   border-radius: var(--radius-2);
   color: var(--ink-3);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: background var(--transition), color var(--transition);
   white-space: nowrap;
 }
 .radar-tab:hover { color: var(--ink-2); }
@@ -134,7 +134,7 @@
   border-radius: var(--radius-3);
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--line);
-  transition: all var(--transition);
+  transition: background var(--transition), border-color var(--transition);
   cursor: default;
 }
 .radar-item:hover {
@@ -183,7 +183,7 @@
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-2);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: color var(--transition), border-color var(--transition), background var(--transition);
   flex-shrink: 0;
 }
 .radar-item-action:hover {

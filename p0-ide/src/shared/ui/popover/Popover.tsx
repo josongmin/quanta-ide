@@ -17,6 +17,7 @@
  */
 
 import { forwardRef, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useFocusTrap } from "../panel/useFocusTrap";
 import { computePopoverPosition, type PopoverAnchorRect, type PopoverPlacement } from "./computePopoverPosition";
 
 export interface PopoverProps {
@@ -29,6 +30,8 @@ export interface PopoverProps {
   className?: string;
   role?: "menu" | "dialog" | "listbox" | "tooltip";
   "aria-label"?: string;
+  /** Trap Tab focus inside the popover (for dialog-style popovers). Default: false. */
+  trapFocus?: boolean;
 }
 
 export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover(
@@ -42,10 +45,12 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
     className = "",
     role,
     "aria-label": ariaLabel,
+    trapFocus = false,
   },
   forwardedRef,
 ) {
   const innerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(innerRef, open && trapFocus);
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
       innerRef.current = node;

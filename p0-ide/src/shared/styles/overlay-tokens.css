@@ -9,12 +9,7 @@
    ============================================================================= */
 
 /* ── z-index layers ─────────────────────────────────────────────────────────── */
-:root {
-  --z-sheet:      200;
-  --z-dialog:     300;
-  --z-popover:    400;
-  --z-ephemeral:  500;
-}
+/* NOTE: z-index tokens are defined in primitive.css. Do not duplicate here. */
 
 /* ── Scrim (backdrop overlay) ───────────────────────────────────────────────── */
 :root {

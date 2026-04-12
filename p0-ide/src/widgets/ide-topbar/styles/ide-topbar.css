@@ -357,7 +357,7 @@
   position: absolute;
   top: calc(100% + 7px);
   right: 0;
-  z-index: 215;
+  z-index: var(--z-popover);
   width: 280px;
   background: var(--paper-1);
   border: 1px solid var(--line-2);
@@ -491,7 +491,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 160;
+  z-index: var(--z-popover);
   width: 340px;
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 60px);
@@ -716,7 +716,7 @@
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  z-index: 160;
+  z-index: var(--z-popover);
   width: 224px;
   padding: var(--space-4);
   background: var(--paper-1);

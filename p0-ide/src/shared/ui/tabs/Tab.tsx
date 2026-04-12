@@ -31,6 +31,7 @@ export const Tab = forwardRef<HTMLButtonElement, TabProps>(function Tab(
       ref={ref}
       type="button"
       role="tab"
+      tabIndex={active ? 0 : -1}
       aria-selected={active}
       aria-controls={ariaControls}
       aria-label={ariaLabel}

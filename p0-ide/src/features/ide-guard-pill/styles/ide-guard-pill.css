@@ -6,7 +6,7 @@
   left: calc(240px + ((100vw - 240px - 360px) / 2));
   bottom: 38px;
   transform: translateX(-50%);
-  z-index: 96;
+  z-index: var(--z-overlay-base);
   display: flex;
   flex-direction: column-reverse;
   align-items: center;
@@ -29,7 +29,7 @@
   border-radius: var(--radius-full);
   background: var(--paper-2);
   border: 1px solid var(--line-2);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-sm);
   font-family: var(--font-ui);
   font-size: var(--font-size-2);
   color: var(--ink);

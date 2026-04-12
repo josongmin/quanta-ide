@@ -228,7 +228,7 @@ html[data-aurora="teal"] {
 .aurora-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 19;
+  z-index: calc(var(--z-popover) - 1);
   background: rgba(5, 5, 10, 0.45);
   backdrop-filter: blur(2px);
   -webkit-backdrop-filter: blur(2px);
@@ -245,7 +245,7 @@ html[data-aurora="teal"] {
 
 .aurora-trigger {
   position: relative;
-  z-index: 22;
+  z-index: var(--z-popover);
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -282,7 +282,7 @@ html[data-aurora="teal"] {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 22;
+  z-index: var(--z-popover);
   width: min(300px, calc(100vw - 32px));
   max-height: min(420px, 70vh);
   overflow: hidden;

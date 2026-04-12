@@ -6,7 +6,7 @@
   bottom: 48px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 250;
+  z-index: var(--z-ephemeral);
   display: inline-flex;
   align-items: center;
   gap: var(--space-5);

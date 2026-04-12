@@ -79,8 +79,8 @@
   font-family: var(--font-ui);
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
-  z-index: 2;
+  box-shadow: var(--shadow-lg);
+  z-index: var(--z-raised);
   animation: brviz-tip-in 0.12s ease-out;
 }
 @keyframes brviz-tip-in {

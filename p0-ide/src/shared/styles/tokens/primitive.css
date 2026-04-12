@@ -87,14 +87,17 @@
   --shadow-alpha-5: 0.60;
 
   /* ── Scale: Z-index layers ─────────────────────────────────────────────── */
+  --z-below:      -1;    /* decorative background (pointer glow, aurora) */
   --z-base:       0;
-  --z-raised:     10;
-  --z-sticky:     50;
+  --z-raised:     10;    /* floated-but-flow content inside a surface */
+  --z-sticky:     50;    /* sticky header, pinned toolbar */
   --z-app:        100;   /* .ide root */
-  --z-sheet:      200;
-  --z-dialog:     300;
-  --z-popover:    400;
-  --z-ephemeral:  500;
+  --z-overlay-base: 150; /* pre-sheet decorations, guard pill */
+  --z-sheet:      200;   /* side panels, drawers */
+  --z-tour:       250;   /* onboarding tour above sheets */
+  --z-dialog:     300;   /* modal dialogs */
+  --z-popover:    400;   /* anchor-based popovers, context menus */
+  --z-ephemeral:  500;   /* toast, tooltip, alert */
 
   /* ── Scale: Line width ─────────────────────────────────────────────────── */
   --border-width-1: 1px;

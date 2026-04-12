@@ -42,7 +42,7 @@
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-3);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: color var(--transition), border-color var(--transition);
 }
 .own-close:hover { color: var(--ink); border-color: var(--accent); }
 .own-bands {
