@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { getHotspots, type HotspotFile } from "../model/churn-data";
+import { getChurnFromDB } from "@/app/ide/analysis-data";
 
-const TREND_ICON: Record<HotspotFile["riskTrend"], string> = { rising: "↑", stable: "→", falling: "↓" };
+const TREND_ICON: Record<string, string> = { rising: "↑", stable: "→", falling: "↓" };
 
 function MiniSpark({ data }: { data: number[] }) {
   const w = 42;
@@ -21,7 +21,7 @@ interface ChurnHotspotPanelProps {
 
 export function ChurnHotspotPanel({ fileName = "orchestrator.py" }: ChurnHotspotPanelProps) {
   const { t } = useTranslation();
-  const files = getHotspots(fileName);
+  const files = getChurnFromDB(fileName);
 
   if (files.length === 0) return null;
 
@@ -54,7 +54,7 @@ export function ChurnHotspotPanel({ fileName = "orchestrator.py" }: ChurnHotspot
           return (
             <li key={f.id} className="churn-row">
               <span className="churn-row-name">{f.file}</span>
-              <span className={`churn-row-trend churn-trend--${f.riskTrend}`}>{TREND_ICON[f.riskTrend]}</span>
+              <span className={`churn-row-trend churn-trend--${f.riskTrend}`}>{TREND_ICON[f.riskTrend] ?? "→"}</span>
               <span className="churn-row-commits">{f.commits30d}</span>
               <span className="churn-row-bar-track">
                 <span className="churn-row-bar-fill" style={{ width: `${barPct.toString()}%` }} />

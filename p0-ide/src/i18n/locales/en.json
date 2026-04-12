@@ -463,6 +463,17 @@
       "totalTime": "total analysis time",
       "vsFull": "vs {{n}} files full scan"
     },
+    "prLocTrends": {
+      "title": "PR & net ΔLOC (30 days)",
+      "prTotal": "PRs merged",
+      "prAvg": "Avg / day",
+      "netLoc": "Net Δ LOC",
+      "window": "{{n}}d",
+      "prDaily": "PRs per day",
+      "locDaily": "Net Δ LOC per day",
+      "footnote": "Merged PRs and net lines (additions − deletions) by UTC day. Demo series.",
+      "ariaSummary": "Last {{days}} days: {{pr}} pull requests merged, net {{loc}} lines of code."
+    },
     "flowTrace": {
       "title": "Flow trace",
       "banner": "// FLOW TRACE",

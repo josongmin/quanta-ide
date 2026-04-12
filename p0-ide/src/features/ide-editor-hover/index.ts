@@ -1,4 +1,4 @@
-export { useEditorHover, type SymbolInfo, type LineContext } from "./model/useEditorHover";
+export { useEditorHover, type SymbolInfo, type SymbolHover, type LineContext } from "./model/useEditorHover";
 export type {
   // Callable
   FunctionSymbol, ConstructorSymbol, AbstractMethodSymbol,

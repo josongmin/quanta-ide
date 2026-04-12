@@ -463,6 +463,17 @@
       "totalTime": "총 분석 시간",
       "vsFull": "전체 {{n}}개 파일 대비"
     },
+    "prLocTrends": {
+      "title": "PR·순증가 LOC (30일)",
+      "prTotal": "머지된 PR",
+      "prAvg": "일평균",
+      "netLoc": "순증가 LOC",
+      "window": "{{n}}일",
+      "prDaily": "일별 PR 수",
+      "locDaily": "일별 순증가 LOC",
+      "footnote": "UTC 기준 일별 머지 PR과 순증가 라인(추가 − 삭제). 데모 데이터입니다.",
+      "ariaSummary": "최근 {{days}}일: PR {{pr}}건 머지, 순증가 코드 {{loc}}줄."
+    },
     "flowTrace": {
       "title": "플로우 추적",
       "banner": "// 플로우 추적",

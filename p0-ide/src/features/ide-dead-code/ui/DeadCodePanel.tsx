@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getDeadSymbols } from "../model/dead-code-data";
+import { getDeadSymbolsFromDB } from "@/app/ide/analysis-data";
 
 const KIND_PREFIX: Record<string, string> = {
   function: "ƒ", method: "ƒ", class: "C", type: "T", const: "k",
@@ -12,7 +12,7 @@ interface DeadCodePanelProps {
 
 export function DeadCodePanel({ fileName = "orchestrator.py" }: DeadCodePanelProps) {
   const { t } = useTranslation();
-  const symbols = getDeadSymbols(fileName);
+  const symbols = getDeadSymbolsFromDB(fileName);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -25,7 +25,7 @@ export function DeadCodePanel({ fileName = "orchestrator.py" }: DeadCodePanelPro
 
   if (symbols.length === 0) return null;
 
-  const highCount = symbols.filter((s) => s.confidence === "high").length;
+  const highCount = symbols.length; // all DB-sourced symbols are high confidence
 
   return (
     <div className="dcode">

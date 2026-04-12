@@ -1,0 +1,7 @@
+[{"finding_id":1,"file":"infrastructure/webhook.py","line_no":39,"rule_id":"TAINT-001","category":"taint","verdict":"fail","detail":"Unsanitized user input reaches HTTP POST body","timestamp":"2026-04-13T01:22:00Z"},
+{"finding_id":2,"file":null,"line_no":null,"rule_id":"AUTH-003","category":"auth","verdict":"pass","detail":"All endpoints require authentication middleware","timestamp":"2026-04-13T01:22:01Z"},
+{"finding_id":3,"file":"infrastructure/audit_store.py","line_no":22,"rule_id":"DATA-007","category":"data","verdict":"fail","detail":"PII field email logged without masking","timestamp":"2026-04-13T01:22:02Z"},
+{"finding_id":4,"file":null,"line_no":null,"rule_id":"CRYPTO-002","category":"crypto","verdict":"pass","detail":"Webhook signatures use HMAC-SHA256","timestamp":"2026-04-13T01:22:03Z"},
+{"finding_id":5,"file":"codegraph_agent/orchestrator/orchestrator.py","line_no":71,"rule_id":"LOG-001","category":"logging","verdict":"warn","detail":"Retry loop lacks structured error logging","timestamp":"2026-04-13T01:22:04Z"},
+{"finding_id":6,"file":null,"line_no":null,"rule_id":"TAINT-004","category":"taint","verdict":"pass","detail":"Amount field sanitized before gateway call","timestamp":"2026-04-13T01:22:05Z"},
+{"finding_id":7,"file":"infrastructure/fee.py","line_no":36,"rule_id":"DATA-012","category":"data","verdict":"warn","detail":"Refund amount exposed in response body without redaction","timestamp":"2026-04-13T01:22:06Z"}]

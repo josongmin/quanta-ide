@@ -56,14 +56,6 @@
   50%      { box-shadow: 0 0 0 4px transparent; }
 }
 
-.ql-toolbar-filters {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  overflow: hidden;
-}
-
 .ql-toolbar-action {
   appearance: none;
   background: transparent;
@@ -84,34 +76,42 @@
   background: var(--color-bg-emphasis);
 }
 
-/* ── Chips ────────────────────────────────────────────────────────────────── */
+/* ── Filter tabs (inline underline) ───────────────────────────────────────── */
+
+.ql-toolbar-filters {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-4);
+  min-width: 0;
+  overflow: hidden;
+  align-self: stretch;
+}
 
 .ql-chip {
   appearance: none;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: 0;
   background: transparent;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-pill);
-  color: var(--color-fg-muted);
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--color-fg-faint);
   font-family: var(--font-ui);
   font-size: var(--font-size-1);
-  line-height: 1;
+  line-height: var(--bp-toolbar-h);
   cursor: pointer;
   transition:
     color var(--transition),
-    background var(--transition),
-    border-color var(--transition),
-    opacity var(--transition);
+    border-color var(--transition);
 }
-.ql-chip:not(.is-active) { opacity: 0.5; }
-.ql-chip:hover { opacity: 1; border-color: var(--color-border-default); }
+.ql-chip:hover {
+  color: var(--color-fg-muted);
+}
 .ql-chip.is-active {
-  background: var(--color-bg-emphasis);
-  border-color: var(--color-border-default);
   color: var(--color-fg-default);
+  border-bottom-color: var(--accent);
 }
 
 .ql-chip-label {
@@ -122,17 +122,12 @@
   font-family: var(--font-mono);
   font-size: var(--font-size-0);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-fg-faint);
   font-variant-numeric: tabular-nums;
+  opacity: 0.5;
 }
-.ql-chip.is-active .ql-chip-count { color: var(--color-fg-default); }
-
-/* Kind-tinted active chip (subtle — just a border shift). */
-.ql-chip-drift.is-active  { border-color: color-mix(in srgb, var(--color-feedback-warn-fg) 40%, var(--color-border-default)); }
-.ql-chip-impact.is-active { border-color: color-mix(in srgb, var(--color-feedback-danger-fg) 40%, var(--color-border-default)); }
-.ql-chip-dead.is-active   { border-color: color-mix(in srgb, var(--color-fg-subtle) 40%, var(--color-border-default)); }
-.ql-chip-graph.is-active  { border-color: color-mix(in srgb, var(--color-feedback-info-fg) 40%, var(--color-border-default)); }
-.ql-chip-sync.is-active   { border-color: color-mix(in srgb, var(--color-feedback-success-fg) 40%, var(--color-border-default)); }
+.ql-chip.is-active .ql-chip-count {
+  opacity: 1;
+}
 
 /* ── Body ─────────────────────────────────────────────────────────────────── */
 

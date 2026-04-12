@@ -4,7 +4,7 @@ import type {
   ProblemItem,
   ProblemSeverity,
 } from "@/entities/problems";
-import { IconChevronDown, IconChevronRight } from "@/shared/ui";
+import { IconChevronDown } from "@/shared/ui";
 
 interface ProblemsListProps {
   groups: readonly ProblemFileGroup[];
@@ -59,8 +59,8 @@ export function ProblemsList({ groups, activeSeverities, onItemActivate }: Probl
               aria-expanded={!isCollapsed}
               aria-label={`${group.path}, ${items.length} problems`}
             >
-              <span className="pb-group-caret" aria-hidden>
-                {isCollapsed ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
+              <span className="pb-group-caret" aria-hidden data-open={String(!isCollapsed)}>
+                <IconChevronDown size={10} />
               </span>
               <span className="pb-group-path" title={group.path}>
                 {group.path}
@@ -100,21 +100,21 @@ export function ProblemsList({ groups, activeSeverities, onItemActivate }: Probl
 function SeverityGlyph({ severity }: { severity: ProblemSeverity }) {
   if (severity === "error") {
     return (
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-        <circle cx="5" cy="5" r="4" fill="currentColor" />
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+        <circle cx="7" cy="7" r="5.25" fill="currentColor" />
       </svg>
     );
   }
   if (severity === "warn") {
     return (
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-        <path d="M5 1 L9 9 L1 9 Z" fill="currentColor" />
+      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+        <path d="M7 1.5 L12.5 12 L1.5 12 Z" fill="currentColor" />
       </svg>
     );
   }
   return (
-    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-      <rect x="1" y="1" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
+      <rect x="1.75" y="1.75" width="10.5" height="10.5" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
     </svg>
   );
 }

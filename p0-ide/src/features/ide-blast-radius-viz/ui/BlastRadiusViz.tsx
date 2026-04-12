@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { BLAST_NODES, type BlastNode } from "../model/blast-data";
+import { getBlastNodes, type BlastNode } from "../model/blast-data";
 
 const HOP_LABEL: Record<1 | 2 | 3, string> = { 1: "direct", 2: "2-hop", 3: "3-hop" };
 
@@ -16,17 +16,18 @@ const COLLAPSED_LIMIT = 7;
 
 interface BlastRadiusVizProps {
   centerLabel?: string;
+  fileName?: string;
   onNodeClick?: (label: string) => void;
 }
 
-export function BlastRadiusViz({ centerLabel, onNodeClick }: BlastRadiusVizProps = {}) {
+export function BlastRadiusViz({ centerLabel, fileName = "orchestrator.py", onNodeClick }: BlastRadiusVizProps = {}) {
   const { t } = useTranslation();
   const [listExpanded, setListExpanded] = useState(false);
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
 
   const sorted = useMemo(
-    () => [...BLAST_NODES].sort((a, b) => b.risk - a.risk || b.coupling - a.coupling),
-    [],
+    () => [...getBlastNodes(fileName)].sort((a, b) => b.risk - a.risk || b.coupling - a.coupling),
+    [fileName],
   );
 
   const total = sorted.length;

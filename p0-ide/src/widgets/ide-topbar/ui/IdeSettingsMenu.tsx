@@ -99,13 +99,13 @@ export function IdeSettingsMenu() {
     <div className="ide-settings" ref={ref}>
       <button
         type="button"
-        className="ide-settings-trigger"
+        className="ide-topbar-icon-btn"
         onClick={() => { setOpen(!open); }}
         aria-expanded={open}
         aria-label={t("ide.settings.title")}
         title={t("ide.settings.title")}
       >
-        <IconSettings size={18} strokeWidth={1.8} />
+        <IconSettings size={16} strokeWidth={1.5} />
       </button>
 
       {open && (

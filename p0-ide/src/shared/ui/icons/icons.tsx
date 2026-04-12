@@ -77,8 +77,8 @@ export const IconSearch = createIcon(
 export const IconSettings = createIcon(
   "IconSettings",
   <>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
     <circle cx="12" cy="12" r="3" />
-    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </>,
 );
 
@@ -208,6 +208,41 @@ export const IconClock = createIcon(
   </>,
 );
 
+/* ── Topbar action icons ─────────────────────────────────────────────── */
+
+export const IconGitCommit = createIcon(
+  "IconGitCommit",
+  <>
+    <circle cx="12" cy="12" r="3" />
+    <line x1="3" y1="12" x2="9" y2="12" />
+    <line x1="15" y1="12" x2="21" y2="12" />
+  </>,
+);
+
+export const IconMessageSquare = createIcon(
+  "IconMessageSquare",
+  <>
+    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
+  </>,
+);
+
+export const IconBell = createIcon(
+  "IconBell",
+  <>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </>,
+);
+
+export const IconDiffStat = createIcon(
+  "IconDiffStat",
+  <>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <line x1="9" y1="12" x2="15" y2="12" />
+    <line x1="12" y1="9" x2="12" y2="15" />
+  </>,
+);
+
 export const IconPlay = createIcon("IconPlay", <polygon points="6 3 20 12 6 21 6 3" />);
 export const IconPause = createIcon(
   "IconPause",
@@ -238,6 +273,70 @@ export function IconDot({ size = 5, className, "aria-label": ariaLabel }: DotPro
         flexShrink: 0,
       }}
     />
+  );
+}
+
+/* ── File type icon — extension-based colored label ────────────────────── */
+
+const EXT_MAP: Record<string, { label: string; color: string }> = {
+  py:   { label: "PY",  color: "#3572A5" },
+  ts:   { label: "TS",  color: "#3178C6" },
+  tsx:  { label: "TX",  color: "#3178C6" },
+  js:   { label: "JS",  color: "#F7DF1E" },
+  jsx:  { label: "JX",  color: "#F7DF1E" },
+  go:   { label: "GO",  color: "#00ADD8" },
+  rs:   { label: "RS",  color: "#DEA584" },
+  java: { label: "JV",  color: "#B07219" },
+  rb:   { label: "RB",  color: "#CC342D" },
+  css:  { label: "CS",  color: "#563D7C" },
+  html: { label: "HT",  color: "#E34C26" },
+  json: { label: "{}",  color: "#6B7280" },
+  md:   { label: "MD",  color: "#6B7280" },
+  yml:  { label: "YM",  color: "#CB171E" },
+  yaml: { label: "YM",  color: "#CB171E" },
+  sh:   { label: "SH",  color: "#89E051" },
+  sql:  { label: "SQ",  color: "#E38C00" },
+  c:    { label: "C",   color: "#555555" },
+  cpp:  { label: "C+",  color: "#F34B7D" },
+  h:    { label: "H",   color: "#555555" },
+};
+
+interface FileTypeIconProps {
+  filename: string;
+  size?: number;
+}
+
+export function FileTypeIcon({ filename, size = 14 }: FileTypeIconProps) {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  const info = EXT_MAP[ext];
+
+  if (!info) {
+    return <IconFile size={size} />;
+  }
+
+  const fontSize = size * 0.55;
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: size,
+        height: size,
+        borderRadius: 2,
+        background: info.color,
+        color: "#fff",
+        fontSize,
+        fontFamily: "var(--font-ui)",
+        fontWeight: 700,
+        lineHeight: 1,
+        letterSpacing: "-0.03em",
+        flexShrink: 0,
+      }}
+    >
+      {info.label}
+    </span>
   );
 }
 

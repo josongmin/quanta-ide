@@ -4,10 +4,15 @@ p0-ide/dist/
 p0-ide/coverage/
 **/node_modules/
 
+# Rust build artifacts
+p0-ide/src-tauri/target/
+p0-ide/src-tauri/gen/
+
 # Lockfiles (noisy, not app logic)
 pnpm-lock.yaml
 package-lock.json
 yarn.lock
+Cargo.lock
 
 # Generated / binary
 **/*.min.js

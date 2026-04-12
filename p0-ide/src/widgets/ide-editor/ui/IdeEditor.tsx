@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useEditorHover, type LineContext, type SymbolInfo } from "@/features/ide-editor-hover";
 import { useFlowTrace } from "@/features/ide-flow-trace";
 import { useInspectorContext } from "@/features/ide-inspector-context";
+import { FileTypeIcon } from "@/shared/ui";
 
 export type LineHint =
   | { type: "author"; name: string; when: string }
@@ -55,12 +56,13 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
     setLine(null);
   };
 
+  const scheduleDismiss_ = useEditorHover((s) => s.scheduleDismiss);
   const _onSymbolEnter = (info: SymbolInfo) => (e: ReactMouseEvent<HTMLSpanElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    setSymbol({ info, x: rect.left, y: rect.bottom });
+    setSymbol({ info, anchor: { left: rect.left, top: rect.top, bottom: rect.bottom } });
   };
   const _onSymbolLeave = () => {
-    setSymbol(null);
+    scheduleDismiss_();
   };
 
   return (
@@ -74,6 +76,7 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
             className={`ide-editor-tab${tab.active ? " is-active" : ""}`}
             onClick={() => onTabClick?.(tab.name)}
           >
+            <FileTypeIcon filename={tab.name} size={13} />
             <span>{tab.name}</span>
             {onTabClose && (
               <span
@@ -230,6 +233,7 @@ function SymbolizedCode({
  */
 export function HoverSymbol({ info, children }: { info: SymbolInfo; children: ReactNode }) {
   const setSymbol = useEditorHover((s) => s.setSymbol);
+  const scheduleDismiss = useEditorHover((s) => s.scheduleDismiss);
   const { context, setSymbolContext } = useInspectorContext();
   const currentFileName = context.mode !== "repo" && context.mode !== "impact" ? context.fileName : "";
   return (
@@ -239,9 +243,9 @@ export function HoverSymbol({ info, children }: { info: SymbolInfo; children: Re
       tabIndex={-1}
       onMouseEnter={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        setSymbol({ info, x: rect.left, y: rect.top });
+        setSymbol({ info, anchor: { left: rect.left, top: rect.top, bottom: rect.bottom } });
       }}
-      onMouseLeave={() => { setSymbol(null); }}
+      onMouseLeave={() => { scheduleDismiss(); }}
       onClick={(e) => {
         e.stopPropagation();
         setSymbolContext({

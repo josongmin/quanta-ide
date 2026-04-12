@@ -3,7 +3,6 @@ import { useAgentWindow } from "../model/useAgentWindow";
 import { smartPos } from "../lib/smartPos";
 import { AgentPanel } from "./AgentPanel";
 import { BubbleIcon } from "./BubbleIcon";
-import { CenterPromptBar } from "./CenterPromptBar";
 
 const INIT_W = 660;
 const INIT_H = 560;
@@ -14,12 +13,21 @@ const DEFAULT_POS = () => ({
 });
 
 export function AgentWindow() {
-  const { isOpen, minimized, hasInteracted, expand, minimizeAt } = useAgentWindow();
+  const { isOpen, minimized, open, expand, minimizeAt } = useAgentWindow();
   // Use state so reads happen via state snapshot, not ref (ref reads during render are forbidden)
   const [bubblePos, setBubblePos] = useState<{ x: number; y: number } | null>(null);
 
-  if (!isOpen && !hasInteracted) return <CenterPromptBar />;
-  if (!isOpen) return null;
+  if (!isOpen) {
+    const fallbackPos = bubblePos ?? { x: window.innerWidth - 80, y: window.innerHeight - 120 };
+    return (
+      <BubbleIcon
+        key="idle-bubble"
+        initialPos={fallbackPos}
+        onExpand={() => { open(); }}
+        onMove={setBubblePos}
+      />
+    );
+  }
 
   if (minimized) {
     const fallbackPos = bubblePos ?? (() => { const p = DEFAULT_POS(); return { x: p.x + INIT_W - 52, y: p.y + INIT_H - 52 }; })();

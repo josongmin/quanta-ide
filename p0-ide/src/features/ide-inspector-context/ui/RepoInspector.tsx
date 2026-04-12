@@ -1,5 +1,7 @@
 /* ── Repo Inspector — repository-level static analysis insights ── */
 
+import { PrLocTrendsPanel } from "@/features/ide-pr-loc-trends";
+
 interface RiskFile { name: string; risk: number; issues: number; path: string; }
 interface HotspotAuthor { name: string; riskOwned: number; files: number; }
 interface RepoSignal { icon: string; label: string; severity: 1 | 2 | 3; detail: string; }
@@ -126,6 +128,8 @@ export function RepoInspector() {
         <StatChip label="BUS"    value={d.busFactor}   accent={d.busFactor <= 1} />
         <StatChip label="BLAST"  value={`×${d.blastHotspots}`} />
       </div>
+
+      <PrLocTrendsPanel />
 
       {/* ── signals ── */}
       <RiiSection label="RISK SIGNALS" count={d.signals.length}>

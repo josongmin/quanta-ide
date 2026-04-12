@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { SymbolInfo } from "./symbols";
+import type { AnchorRect } from "@/shared/ui/tooltip/smartPos";
 
 export type { SymbolInfo } from "./symbols";
 
@@ -12,16 +13,67 @@ export interface LineContext {
   y?: number;
 }
 
-interface EditorHoverState {
-  hoveredLine: LineContext | null;
-  hoveredSymbol: { info: SymbolInfo; x: number; y: number } | null;
-  setLine: (line: LineContext | null) => void;
-  setSymbol: (s: { info: SymbolInfo; x: number; y: number } | null) => void;
+export interface SymbolHover {
+  info: SymbolInfo;
+  anchor: AnchorRect;
 }
 
-export const useEditorHover = create<EditorHoverState>()((set) => ({
+/** Delay (ms) before the tooltip disappears — gives the user time to move the cursor onto it. */
+const DISMISS_DELAY = 200;
+
+let dismissTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearDismiss() {
+  if (dismissTimer) { clearTimeout(dismissTimer); dismissTimer = null; }
+}
+
+interface EditorHoverState {
+  hoveredLine: LineContext | null;
+  hoveredSymbol: SymbolHover | null;
+  isOverTooltip: boolean;
+  setLine: (line: LineContext | null) => void;
+  setSymbol: (s: SymbolHover | null) => void;
+  scheduleDismiss: () => void;
+  cancelDismiss: () => void;
+  dismissFromTooltip: () => void;
+}
+
+export const useEditorHover = create<EditorHoverState>()((set, get) => ({
   hoveredLine: null,
   hoveredSymbol: null,
+  isOverTooltip: false,
   setLine: (line) => { set({ hoveredLine: line }); },
-  setSymbol: (s) => { set(s ? { hoveredSymbol: s, hoveredLine: null } : { hoveredSymbol: null }); },
+  setSymbol: (s) => {
+    clearDismiss();
+    if (!s) { set({ hoveredSymbol: null }); return; }
+    const cur = get().hoveredSymbol;
+    if (cur && s.info.name === cur.info.name && s.info.kind === cur.info.kind) {
+      // Same symbol — just cancel any pending dismiss, keep tooltip alive
+      return;
+    }
+    set({ hoveredSymbol: s, hoveredLine: null, isOverTooltip: false });
+  },
+  scheduleDismiss: () => {
+    clearDismiss();
+    dismissTimer = setTimeout(() => {
+      dismissTimer = null;
+      if (!get().isOverTooltip) {
+        set({ hoveredSymbol: null });
+      }
+    }, DISMISS_DELAY);
+  },
+  cancelDismiss: () => {
+    clearDismiss();
+    set({ isOverTooltip: true });
+  },
+  dismissFromTooltip: () => {
+    set({ isOverTooltip: false });
+    // Use delayed dismiss — gives the underlying symbol span time to fire
+    // onMouseEnter and cancel the dismiss, preventing flicker.
+    clearDismiss();
+    dismissTimer = setTimeout(() => {
+      dismissTimer = null;
+      set({ hoveredSymbol: null });
+    }, DISMISS_DELAY);
+  },
 }));

@@ -1,0 +1,11 @@
+[{"file_id":1,"path":"codegraph_agent/orchestrator/orchestrator.py","language":"python","lines":159},
+{"file_id":2,"path":"codegraph_agent/orchestrator/routing_policy.py","language":"python","lines":89},
+{"file_id":3,"path":"codegraph_agent/tools/plan_orchestration/security.py","language":"python","lines":87},
+{"file_id":4,"path":"infrastructure/audit_store.py","language":"python","lines":46},
+{"file_id":5,"path":"infrastructure/fee.py","language":"python","lines":77},
+{"file_id":6,"path":"infrastructure/webhook.py","language":"python","lines":82},
+{"file_id":7,"path":"infrastructure/retry.py","language":"python","lines":72},
+{"file_id":8,"path":"infrastructure/ledger.py","language":"python","lines":78},
+{"file_id":9,"path":"infrastructure/billing.py","language":"python","lines":55},
+{"file_id":10,"path":"domain/models.py","language":"python","lines":42},
+{"file_id":11,"path":"shared/reasoning.py","language":"python","lines":15}]

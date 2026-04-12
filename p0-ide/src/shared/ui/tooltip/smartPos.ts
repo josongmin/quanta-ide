@@ -1,45 +1,75 @@
 /**
  * Smart tooltip positioning — keeps popup fully inside viewport.
  *
- * Strategy (UX science):
- *  1. Default: right-below cursor (+gap)
- *  2. Overflows right  → flip to left of cursor
- *  3. Overflows bottom → flip to above cursor
- *  4. Always clamp with MARGIN from all edges
+ * Two modes:
+ *  - **cursor mode** (x, y point): tooltip appears near the cursor.
+ *  - **anchor mode** (AnchorRect): tooltip appears attached to a DOM element,
+ *    with configurable overlap so the popup visually "touches" its anchor.
  */
 
-const GAP = 14; // px between cursor and popup edge
-const MARGIN = 10; // minimum distance from viewport edge
+const CURSOR_GAP = 14; // px gap in cursor mode
+const MARGIN = 10;     // minimum distance from viewport edge
+
+export interface AnchorRect {
+  left: number;
+  top: number;
+  bottom: number;
+}
+
+export interface SmartPosOptions {
+  width: number;
+  estimatedHeight: number;
+  /** Px the tooltip overlaps the anchor (default 0). Positive = tooltip covers part of anchor. */
+  overlap?: number;
+}
 
 export interface SmartPos {
   left: number;
   top: number;
-  /** "above" | "below" — for arrow direction if needed */
   placement: "above" | "below";
 }
 
+/**
+ * Position relative to a cursor point (legacy / LineTooltip).
+ * Adds CURSOR_GAP between point and tooltip.
+ */
 export function smartPos(
   cursorX: number,
   cursorY: number,
   width: number,
   estimatedHeight: number,
 ): SmartPos {
+  return anchorPos(
+    { left: cursorX, top: cursorY, bottom: cursorY },
+    { width, estimatedHeight, overlap: -CURSOR_GAP },
+  );
+}
+
+/**
+ * Position relative to an anchor rect (symbol, badge, chip).
+ * The tooltip is placed below the anchor by default, flipped above if needed.
+ * `overlap` controls how many px the tooltip covers the anchor edge.
+ */
+export function anchorPos(
+  anchor: AnchorRect,
+  { width, estimatedHeight, overlap = 0 }: SmartPosOptions,
+): SmartPos {
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // Horizontal: prefer right of cursor, flip left if overflow
-  let left = cursorX + GAP;
+  // ── Horizontal: start at anchor left, flip left if overflow ──
+  let left = anchor.left;
   if (left + width > vw - MARGIN) {
-    left = cursorX - width - GAP;
+    left = vw - MARGIN - width;
   }
   left = Math.max(MARGIN, left);
 
-  // Vertical: prefer below cursor, flip above if overflow
+  // ── Vertical: prefer below, flip above if overflow ──
+  const belowTop = anchor.bottom - overlap;
+  const aboveTop = anchor.top + overlap - estimatedHeight;
+
   let top: number;
   let placement: "above" | "below";
-
-  const belowTop = cursorY + GAP;
-  const aboveTop = cursorY - estimatedHeight - GAP;
 
   if (belowTop + estimatedHeight > vh - MARGIN && aboveTop >= MARGIN) {
     top = aboveTop;
@@ -49,7 +79,6 @@ export function smartPos(
     placement = "below";
   }
 
-  // Final clamp
   top = Math.max(MARGIN, Math.min(vh - estimatedHeight - MARGIN, top));
 
   return { left, top, placement };

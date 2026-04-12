@@ -2,10 +2,11 @@
 .ide-editor {
   grid-area: editor;
   background: var(--paper);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-family: var(--font-mono);
-  font-size: var(--font-size-4);
-  line-height: var(--line-height-relaxed);
+  font-size: var(--font-size-3);
+  line-height: var(--line-height-base);
   padding: 0 0 72px; /* leave room for floating guard pill + line info + status */
   position: relative;
 }
@@ -78,10 +79,10 @@
 }
 .ide-editor-line {
   display: grid;
-  grid-template-columns: 40px 4px 8px minmax(0, 1fr);
+  grid-template-columns: 44px 4px 8px minmax(0, 1fr);
   align-items: baseline;
   column-gap: var(--space-4);
-  padding: 0 var(--space-6);
+  padding: 0 var(--space-6) 0 var(--space-4);
   transition: background var(--transition);
 }
 /* 코드 + 인라인 메타: 한 그리드 칸 안에서만 flex (lineno/gutter/fold는 그리드 고정) */
@@ -106,11 +107,12 @@
   color: var(--ink-2);
 }
 .ide-editor-sym {
-  display: inline;
+  display: inline-block;
   cursor: help;
   border-bottom: 1px dashed transparent;
   transition: border-color var(--transition), background var(--transition);
-  padding: 0 1px;
+  padding: var(--space-1) var(--space-2);
+  margin: calc(-1 * var(--space-1)) 0;
   border-radius: var(--radius-1);
 }
 .ide-editor-sym:hover {
@@ -120,9 +122,9 @@
 .ide-editor-lineno {
   text-align: right;
   color: var(--ink-4);
-  font-size: var(--font-size-3);
+  font-size: var(--font-size-2);
   user-select: none;
-  padding-right: var(--space-2);
+  padding-right: var(--space-3);
 }
 .ide-editor-gutter {
   width: 3px;

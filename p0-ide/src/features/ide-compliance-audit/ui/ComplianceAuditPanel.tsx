@@ -1,13 +1,14 @@
 import { useTranslation } from "react-i18next";
-import { AUDIT_ENTRIES, type AuditEntry } from "../model/compliance-data";
+import { getComplianceFromDB } from "@/app/ide/analysis-data";
 
-const VERDICT_ICON: Record<AuditEntry["verdict"], string> = { pass: "✓", fail: "✕", warn: "⚠" };
+const VERDICT_ICON: Record<string, string> = { pass: "✓", fail: "✕", warn: "⚠" };
 
 export function ComplianceAuditPanel() {
   const { t } = useTranslation();
-  const pass = AUDIT_ENTRIES.filter((e) => e.verdict === "pass").length;
-  const fail = AUDIT_ENTRIES.filter((e) => e.verdict === "fail").length;
-  const warn = AUDIT_ENTRIES.filter((e) => e.verdict === "warn").length;
+  const entries = getComplianceFromDB();
+  const pass = entries.filter((e) => e.verdict === "pass").length;
+  const fail = entries.filter((e) => e.verdict === "fail").length;
+  const warn = entries.filter((e) => e.verdict === "warn").length;
 
   return (
     <div className="caudit">
@@ -31,9 +32,9 @@ export function ComplianceAuditPanel() {
       </div>
 
       <ul className="caudit-list">
-        {AUDIT_ENTRIES.map((entry) => (
+        {entries.map((entry) => (
           <li key={entry.id} className={`caudit-row caudit-row--${entry.verdict}`}>
-            <span className="caudit-verdict">{VERDICT_ICON[entry.verdict]}</span>
+            <span className="caudit-verdict">{VERDICT_ICON[entry.verdict] ?? "?"}</span>
             <span className="caudit-rule">{entry.rule}</span>
             <span className="caudit-detail">{entry.detail}</span>
             {entry.loc !== undefined && <span className="caudit-loc">{entry.loc}</span>}

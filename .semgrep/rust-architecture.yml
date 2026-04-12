@@ -1,0 +1,199 @@
+rules:
+  # ════════════════════════════════════════════════════════════════════
+  # HEXAGONAL ARCHITECTURE — dependency direction enforcement
+  # Dependency rule: domain ← application ← infrastructure/adapter
+  # Inner layers must NEVER import from outer layers.
+  # ════════════════════════════════════════════════════════════════════
+
+  - id: hex-domain-imports-application
+    patterns:
+      - pattern-regex: "use\\s+crate::application"
+      - pattern-regex: "crate::application::"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/domain/"
+    message: >
+      HEXAGONAL VIOLATION: domain layer must not import from application layer.
+      Domain is the innermost ring — it knows nothing about use-cases or services.
+    languages: [rust]
+    severity: ERROR
+
+  - id: hex-domain-imports-infrastructure
+    patterns:
+      - pattern-regex: "use\\s+crate::infrastructure"
+      - pattern-regex: "crate::infrastructure::"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/domain/"
+    message: >
+      HEXAGONAL VIOLATION: domain layer must not import from infrastructure.
+      Domain defines ports (traits); infrastructure implements them.
+    languages: [rust]
+    severity: ERROR
+
+  - id: hex-domain-imports-adapter
+    patterns:
+      - pattern-regex: "use\\s+crate::adapter"
+      - pattern-regex: "crate::adapter::"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/domain/"
+    message: >
+      HEXAGONAL VIOLATION: domain layer must not import from adapter layer.
+    languages: [rust]
+    severity: ERROR
+
+  - id: hex-application-imports-infrastructure
+    patterns:
+      - pattern-regex: "use\\s+crate::infrastructure"
+      - pattern-regex: "crate::infrastructure::"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/application/"
+    message: >
+      HEXAGONAL VIOLATION: application layer must not import from infrastructure.
+      Application depends on domain ports (traits), not concrete implementations.
+      Inject via constructor at the composition root (lib.rs).
+    languages: [rust]
+    severity: ERROR
+
+  - id: hex-application-imports-adapter
+    patterns:
+      - pattern-regex: "use\\s+crate::adapter"
+      - pattern-regex: "crate::adapter::"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/application/"
+    message: >
+      HEXAGONAL VIOLATION: application layer must not import from adapter layer.
+    languages: [rust]
+    severity: ERROR
+
+  - id: hex-infrastructure-imports-adapter
+    patterns:
+      - pattern-regex: "use\\s+crate::adapter"
+      - pattern-regex: "crate::adapter::"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/infrastructure/"
+    message: >
+      HEXAGONAL VIOLATION: infrastructure must not import from adapter layer.
+      Both are outer-ring — they should be independent.
+    languages: [rust]
+    severity: ERROR
+
+  # ════════════════════════════════════════════════════════════════════
+  # FRAMEWORK LEAKAGE — domain must stay framework-agnostic
+  # ════════════════════════════════════════════════════════════════════
+
+  - id: hex-domain-no-tauri
+    patterns:
+      - pattern-regex: "use\\s+tauri"
+      - pattern-regex: "tauri::"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/domain/"
+    message: >
+      FRAMEWORK LEAKAGE: domain layer must not depend on Tauri.
+      Domain is pure business logic — zero framework dependencies.
+    languages: [rust]
+    severity: ERROR
+
+  - id: hex-domain-no-serde
+    patterns:
+      - pattern-regex: "use\\s+serde"
+      - pattern-regex: "serde::"
+      - pattern-regex: "#\\[derive\\(.*Serialize"
+      - pattern-regex: "#\\[derive\\(.*Deserialize"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/domain/model/"
+        - "/p0-ide/src-tauri/src/domain/port/"
+    message: >
+      FRAMEWORK LEAKAGE: domain models and ports must not derive Serde.
+      Use DTOs in the application layer to cross serialisation boundaries.
+    languages: [rust]
+    severity: WARNING
+
+  - id: hex-application-no-tauri
+    patterns:
+      - pattern-regex: "use\\s+tauri"
+      - pattern-regex: "tauri::"
+      - pattern-regex: "#\\[tauri::command\\]"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/application/"
+    message: >
+      FRAMEWORK LEAKAGE: application layer must not depend on Tauri.
+      Tauri commands belong in the adapter layer (adapter/tauri_cmd/).
+    languages: [rust]
+    severity: ERROR
+
+  # ════════════════════════════════════════════════════════════════════
+  # SOLID — Single Responsibility & Interface Segregation
+  # ════════════════════════════════════════════════════════════════════
+
+  - id: solid-tauri-command-outside-adapter
+    pattern-regex: "#\\[tauri::command\\]"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/"
+      exclude:
+        - "/p0-ide/src-tauri/src/adapter/"
+        - "/p0-ide/src-tauri/src/lib.rs"
+    message: >
+      SOLID/SRP VIOLATION: #[tauri::command] must only appear in adapter/tauri_cmd/.
+      Commands are driving adapters — keep them in the adapter layer.
+    languages: [rust]
+    severity: ERROR
+
+  # ════════════════════════════════════════════════════════════════════
+  # CODE QUALITY — prevent sloppy patterns
+  # ════════════════════════════════════════════════════════════════════
+
+  - id: no-println-in-lib
+    pattern-regex: "println!\\("
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/"
+      exclude:
+        - "/p0-ide/src-tauri/src/main.rs"
+    message: >
+      Use the `log` crate (info!, debug!, warn!, error!) instead of println!.
+      println! bypasses structured logging and pollutes stdout.
+    languages: [rust]
+    severity: ERROR
+
+  - id: no-eprintln-in-lib
+    pattern-regex: "eprintln!\\("
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/"
+    message: >
+      Use the `log` crate (warn!, error!) instead of eprintln!.
+    languages: [rust]
+    severity: ERROR
+
+  - id: no-std-process-exit
+    pattern-regex: "std::process::exit"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/"
+      exclude:
+        - "/p0-ide/src-tauri/src/main.rs"
+    message: >
+      Do not call std::process::exit outside main.rs.
+      Return errors upward and let the composition root decide.
+    languages: [rust]
+    severity: ERROR
+
+  - id: no-box-dyn-in-domain
+    pattern-regex: "Box<dyn"
+    paths:
+      include:
+        - "/p0-ide/src-tauri/src/domain/"
+    message: >
+      Prefer generics + trait bounds over Box<dyn> in the domain layer.
+      Dynamic dispatch is an infrastructure concern, not a domain concern.
+    languages: [rust]
+    severity: WARNING

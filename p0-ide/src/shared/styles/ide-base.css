@@ -61,7 +61,7 @@
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
   letter-spacing: -0.005em;
   --files-w: 240px;
@@ -142,9 +142,13 @@
 }
 
 /* ── Scrollbars (모든 IDE 패널 공통) ────────────────────────────────── */
+.ide * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
 .ide *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 .ide *::-webkit-scrollbar-track {
   background: transparent;
@@ -2371,6 +2375,36 @@
   --risk-4: color-mix(in srgb, var(--accent) 36%, transparent);
   --token-com:   var(--ink-4);
   --token-punct: var(--ink-3);
+
+  /* Feedback — Vercel 스타일: 흰 배경에 맞는 고채도 fg */
+  --color-feedback-success-fg:     #059669;
+  --color-feedback-success-bg:     color-mix(in srgb, #059669 10%, transparent);
+  --color-feedback-success-border: color-mix(in srgb, #059669 28%, transparent);
+
+  --color-feedback-warn-fg:        #d97706;
+  --color-feedback-warn-bg:        color-mix(in srgb, #d97706 10%, transparent);
+  --color-feedback-warn-border:    color-mix(in srgb, #d97706 28%, transparent);
+
+  --color-feedback-danger-fg:      #dc2626;
+  --color-feedback-danger-bg:      color-mix(in srgb, #dc2626 10%, transparent);
+  --color-feedback-danger-border:  color-mix(in srgb, #dc2626 28%, transparent);
+
+  --color-feedback-info-fg:        #0070f3;
+  --color-feedback-info-bg:        color-mix(in srgb, #0070f3 10%, transparent);
+  --color-feedback-info-border:    color-mix(in srgb, #0070f3 28%, transparent);
+
+  /* Signal — 동일한 고채도 */
+  --color-signal-stable-fg:   var(--accent);
+  --color-signal-stable-bg:   color-mix(in srgb, var(--accent) 10%, transparent);
+  --color-signal-stable-ring: color-mix(in srgb, var(--accent) 24%, transparent);
+
+  --color-signal-flux-fg:     #d97706;
+  --color-signal-flux-bg:     color-mix(in srgb, #d97706 10%, transparent);
+  --color-signal-flux-ring:   color-mix(in srgb, #d97706 24%, transparent);
+
+  --color-signal-critical-fg:   #dc2626;
+  --color-signal-critical-bg:   color-mix(in srgb, #dc2626 10%, transparent);
+  --color-signal-critical-ring: color-mix(in srgb, #dc2626 28%, transparent);
 }
 .ide[data-theme="vercel-dash"] .ide-editor-code .kw    { color: var(--token-kw); }
 .ide[data-theme="vercel-dash"] .ide-editor-code .fn    { color: var(--token-fn); }
@@ -3442,5 +3476,10 @@
   line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* ── Tauri 네이티브 — 타이틀바 높이 확대 ─────────────────────────── */
+:root.is-tauri .ide-shell {
+  grid-template-rows: 52px 1fr var(--bottom-h) 28px;
 }
 

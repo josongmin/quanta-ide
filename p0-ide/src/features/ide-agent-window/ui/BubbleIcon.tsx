@@ -62,7 +62,7 @@ export function BubbleIcon({ initialPos, clickOrigin, mouseVel, onExpand, onMove
       const speed = Math.sqrt(vel.x ** 2 + vel.y ** 2) || 1;
       const nx = vel.x / speed;
       const ny = vel.y / speed;
-      const OFFSET = 80;
+      const OFFSET = 48;
       const bub = 48;
       const pad = 16;
       const raw: Vec2 = {

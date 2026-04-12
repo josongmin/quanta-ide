@@ -22,7 +22,11 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] },
+    "paths": {
+      "@/*": ["src/*"],
+      "@corpus/*": ["../demo-corpus/payments-api/*"],
+      "@analysis/*": ["../demo-corpus/payments-api/.analysis/generated/*"]
+    },
     "ignoreDeprecations": "6.0"
   },
   "include": ["src"]

@@ -1,0 +1,9 @@
+[{"file":"codegraph_agent/orchestrator/orchestrator.py","commits_30d":28,"authors_30d":4,"lines_changed":1240,"trend":"rising","spark_7d":"[0.3,0.4,0.5,0.7,0.8,0.9,1.0]"},
+{"file":"infrastructure/fee.py","commits_30d":22,"authors_30d":3,"lines_changed":890,"trend":"rising","spark_7d":"[0.2,0.3,0.5,0.6,0.8,0.7,0.9]"},
+{"file":"codegraph_agent/tools/plan_orchestration/security.py","commits_30d":19,"authors_30d":3,"lines_changed":720,"trend":"rising","spark_7d":"[0.2,0.3,0.4,0.5,0.7,0.8,0.9]"},
+{"file":"infrastructure/webhook.py","commits_30d":18,"authors_30d":3,"lines_changed":640,"trend":"stable","spark_7d":"[0.5,0.6,0.5,0.5,0.6,0.5,0.6]"},
+{"file":"infrastructure/retry.py","commits_30d":15,"authors_30d":2,"lines_changed":410,"trend":"stable","spark_7d":"[0.4,0.4,0.3,0.5,0.4,0.5,0.4]"},
+{"file":"codegraph_agent/orchestrator/routing_policy.py","commits_30d":14,"authors_30d":2,"lines_changed":380,"trend":"stable","spark_7d":"[0.4,0.5,0.4,0.4,0.5,0.4,0.5]"},
+{"file":"infrastructure/ledger.py","commits_30d":12,"authors_30d":2,"lines_changed":320,"trend":"falling","spark_7d":"[0.8,0.7,0.5,0.4,0.3,0.2,0.2]"},
+{"file":"infrastructure/billing.py","commits_30d":9,"authors_30d":2,"lines_changed":210,"trend":"falling","spark_7d":"[0.6,0.5,0.4,0.3,0.3,0.2,0.1]"},
+{"file":"infrastructure/audit_store.py","commits_30d":3,"authors_30d":1,"lines_changed":40,"trend":"falling","spark_7d":"[0.3,0.2,0.1,0.1,0.1,0.0,0.0]"}]

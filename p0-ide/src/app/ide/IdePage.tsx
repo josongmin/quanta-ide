@@ -323,10 +323,10 @@ export function IdePage({ onExit }: IdePageProps) {
         {inspCtx.mode === "impact" ? (
           /* ── Tier: Impact ── */
           <ChangeImpactPanel>
-            <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
+            <BlastRadiusViz centerLabel={fd.funcName} fileName={active} onNodeClick={navigateToFile} />
             <CrossServicePanel />
             <RootCausePanel />
-            <EvidenceReplayPanel />
+            <EvidenceReplayPanel externalEvidence={fix.proposal.evidence} />
             <ComplianceAuditPanel />
             <IncrementalPanel />
           </ChangeImpactPanel>
@@ -336,7 +336,7 @@ export function IdePage({ onExit }: IdePageProps) {
         ) : inspCtx.mode === "file" ? (
           /* ── Tier 1: File ── */
           <FileInspector data={FILE_INSPECTOR[inspCtx.fileName] ?? FILE_INSPECTOR[active]} onNavigate={navigateToFile}>
-            <BlastRadiusViz centerLabel={fd.funcName} onNodeClick={navigateToFile} />
+            <BlastRadiusViz centerLabel={fd.funcName} fileName={active} onNodeClick={navigateToFile} />
             <CoverageGapPanel fileName={active} />
             <DeadCodePanel fileName={active} />
             <ChurnHotspotPanel fileName={active} />
@@ -344,7 +344,7 @@ export function IdePage({ onExit }: IdePageProps) {
         ) : inspCtx.mode === "symbol" ? (
           /* ── Tier 2: Symbol ── */
           <SymbolInspector ctx={inspCtx}>
-            <BlastRadiusViz centerLabel={inspCtx.name} onNodeClick={navigateToFile} />
+            <BlastRadiusViz centerLabel={inspCtx.name} fileName={active} onNodeClick={navigateToFile} />
             <InspectorSection label={t("ide.inspector.callGraph")}>
               <IdeCallGraph nodes={fd.callGraph} onNodeClick={navigateToFile} />
             </InspectorSection>
@@ -373,7 +373,7 @@ export function IdePage({ onExit }: IdePageProps) {
             <DeadCodePanel fileName={active} />
             <ChurnHotspotPanel fileName={active} />
             <RootCausePanel />
-            <EvidenceReplayPanel />
+            <EvidenceReplayPanel externalEvidence={fix.proposal.evidence} />
           </SymbolInspector>
         ) : null}
       </IdeInspector>

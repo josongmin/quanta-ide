@@ -1,0 +1,6 @@
+[{"from_service":"payments","to_service":"billing","protocol":"gRPC","impacted":1},
+{"from_service":"payments","to_service":"webhook","protocol":"HTTP","impacted":1},
+{"from_service":"payments","to_service":"ledger","protocol":"gRPC","impacted":1},
+{"from_service":"billing","to_service":"notify","protocol":"Kafka","impacted":1},
+{"from_service":"ledger","to_service":"audit","protocol":"Kafka","impacted":0},
+{"from_service":"webhook","to_service":"notify","protocol":"HTTP","impacted":0}]

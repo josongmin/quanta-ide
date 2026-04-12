@@ -1,0 +1,6 @@
+[{"service_id":"payments","name":"payments-api","owner":"@payments-team","status":"healthy"},
+{"service_id":"billing","name":"billing-service","owner":"@billing-team","status":"healthy"},
+{"service_id":"webhook","name":"webhook-relay","owner":"@infra-team","status":"degraded"},
+{"service_id":"ledger","name":"ledger-service","owner":"@finance-team","status":"healthy"},
+{"service_id":"notify","name":"notification-svc","owner":"@platform-team","status":"healthy"},
+{"service_id":"audit","name":"audit-trail","owner":"@compliance-team","status":"healthy"}]

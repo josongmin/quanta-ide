@@ -9,17 +9,29 @@ import { riskColor } from "./sections/helpers";
 
 export { LineTooltip } from "./LineTooltip";
 
+/** Px the tooltip overlaps the anchor symbol — keeps visual connection. */
+const SYMBOL_OVERLAP = 3;
+
 export function SymbolTooltip() {
   const hovered = useEditorHover((s) => s.hoveredSymbol);
+  const cancelDismiss = useEditorHover((s) => s.cancelDismiss);
+  const dismissFromTooltip = useEditorHover((s) => s.dismissFromTooltip);
   if (!hovered) return null;
 
-  const { info, x, y } = hovered;
+  const { info, anchor } = hovered;
   const TT_WIDTH = 300;
   const ESTIMATED_H = 280;
   const renderer = SYMBOL_REGISTRY[info.kind];
 
   return (
-    <Tooltip x={x} y={y} width={TT_WIDTH} estimatedHeight={ESTIMATED_H} className="symtip">
+    <Tooltip
+      anchor={anchor} overlap={SYMBOL_OVERLAP}
+      width={TT_WIDTH} estimatedHeight={ESTIMATED_H}
+      className="symtip"
+      interactive
+      onMouseEnter={cancelDismiss}
+      onMouseLeave={dismissFromTooltip}
+    >
 
       {/* ── Header ── */}
       <div className="symtip-head">

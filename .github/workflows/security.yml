@@ -7,12 +7,14 @@ on:
       - "p0-ide/**"
       - ".github/workflows/security.yml"
       - ".semgrepignore"
+      - ".semgrep/**"
       - ".gitleaks.toml"
   pull_request:
     paths:
       - "p0-ide/**"
       - ".github/workflows/**"
       - ".semgrepignore"
+      - ".semgrep/**"
       - ".gitleaks.toml"
   workflow_dispatch:
   schedule:
@@ -36,8 +38,8 @@ jobs:
           persist-credentials: false
       - uses: rhysd/actionlint@v1.7.7
 
-  semgrep:
-    name: Semgrep
+  semgrep-community:
+    name: Semgrep (community rules)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -54,6 +56,46 @@ jobs:
           --config p/react
           --severity ERROR
           --error .
+
+  semgrep-custom:
+    name: Semgrep (architecture rules)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Scan (hexagonal + FSD + quality rules)
+        run: >-
+          semgrep scan --metrics=off
+          --config .semgrep/
+          --error .
+
+  rust-lint:
+    name: Rust lint (fmt + clippy + test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: p0-ide/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: p0-ide/src-tauri
+      - name: Format check
+        run: cargo fmt -- --check
+      - name: Clippy (deny warnings)
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Tests
+        run: cargo test
 
   gitleaks:
     name: Gitleaks

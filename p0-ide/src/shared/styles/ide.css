@@ -80,3 +80,4 @@
 @import "../../features/ide-cross-service/styles/ide-cross-service.css";
 @import "../../features/ide-compliance-audit/styles/ide-compliance-audit.css";
 @import "../../features/ide-incremental-analysis/styles/ide-incremental-analysis.css";
+@import "../../features/ide-pr-loc-trends/styles/ide-pr-loc-trends.css";

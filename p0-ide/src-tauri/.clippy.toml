@@ -1,0 +1,18 @@
+# ── Clippy thresholds ────────────────────────────────────────────────
+# Cognitive complexity before clippy::cognitive_complexity fires.
+cognitive-complexity-threshold = 15
+
+# Max lines in a single function before too_many_lines fires.
+too-many-lines-threshold = 80
+
+# Max arguments before too_many_arguments fires.
+too-many-arguments-threshold = 5
+
+# Max struct fields before too_many_fields fires (only in pedantic).
+max-struct-bools = 3
+
+# Type complexity threshold.
+type-complexity-threshold = 250
+
+# NOTE: unwrap/expect are covered by `unwrap_used` and `expect_used` lints
+# in Cargo.toml. No `disallowed-methods` needed — single source of truth.

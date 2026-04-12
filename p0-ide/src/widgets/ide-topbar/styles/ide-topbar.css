@@ -10,6 +10,23 @@
   user-select: none;
   position: relative;
 }
+
+/* ── Tauri 네이티브 — 타이틀바 통합 ──────────────────────────────── */
+:root.is-tauri .ide-topbar {
+  /* 좌측 78px = macOS 신호등 영역 (●●● 12px×3 + 간격 + 여백) */
+  padding-left: 78px;
+  -webkit-app-region: drag;
+}
+:root.is-tauri .ide-topbar button,
+:root.is-tauri .ide-topbar input,
+:root.is-tauri .ide-topbar a,
+:root.is-tauri .ide-topbar [role="button"],
+:root.is-tauri .ide-topbar .ide-topbar-brand,
+:root.is-tauri .ide-topbar .ide-topbar-path,
+:root.is-tauri .ide-topbar .ide-topbar-ask,
+:root.is-tauri .ide-topbar .ide-topbar-right {
+  -webkit-app-region: no-drag;
+}
 .ide-topbar-brand {
   font-family: var(--font-mono);
   font-size: var(--font-size-5);
@@ -21,7 +38,7 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 .ide-topbar-group {
   display: flex;
@@ -33,7 +50,6 @@
   height: var(--space-6);
   background: var(--line-2);
   flex-shrink: 0;
-  margin: 0 var(--space-1);
 }
 .ide-topbar-path {
   flex: 0 1 auto;
@@ -261,7 +277,7 @@
 .ide-topbar-diff-add { color: var(--color-feedback-success-fg); }
 .ide-topbar-diff-del { color: var(--color-feedback-danger-fg); }
 
-/* ── Icon-only buttons — review & bell (same as .ide-topbar-time) ── */
+/* ── Icon-only buttons — review & bell ─────────────────────────────── */
 .ide-topbar-icon-btn {
   appearance: none;
   cursor: pointer;
@@ -272,39 +288,41 @@
   width: 28px;
   height: 28px;
   padding: 0;
-  border-radius: var(--radius-row);
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  color: var(--ink-3);
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--color-fg-faint);
+  transition: background var(--transition), color var(--transition);
+}
+.ide-topbar-icon-btn svg {
+  stroke-width: 2.4;
 }
 .ide-topbar-icon-btn:hover {
-  background: var(--paper-3);
-  border-color: var(--line-2);
-  color: var(--ink);
+  background: var(--color-bg-muted);
+  color: var(--color-fg-default);
 }
 .ide-topbar-badge {
   position: absolute;
-  top: -2px;
-  right: -2px;
-  min-width: 14px;
-  height: 14px;
+  top: -3px;
+  right: -3px;
+  min-width: 16px;
+  height: 16px;
   padding: 0 var(--space-1);
-  border-radius: var(--radius-3);
-  background: var(--line-3);
-  color: var(--ink);
+  border-radius: var(--radius-full);
+  background: var(--ink-3);
+  color: var(--paper-1);
   font-family: var(--font-num);
-  font-size: var(--font-size-0);
-  font-weight: var(--font-weight-bold);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
   display: flex;
   align-items: center;
   justify-content: center;
-  line-height: var(--line-height-tight);
-  border: 1.5px solid var(--paper-1);
+  line-height: 1;
+  border: 2px solid var(--paper-1);
 }
 .ide-topbar-badge--alert {
   background: var(--color-feedback-danger-fg);
-  color: #ffffff; /* stylelint-disable-line scale-unlimited/declaration-strict-value */
+  color: #fff;
 }
 
 /* ── User Menu ───────────────────────────────────────────────────── */
@@ -466,8 +484,8 @@
 .ide-settings-trigger {
   appearance: none;
   cursor: pointer;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border-radius: var(--radius-row);
   background: transparent;

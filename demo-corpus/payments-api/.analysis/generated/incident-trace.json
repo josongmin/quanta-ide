@@ -1,0 +1,5 @@
+[{"trace_id":1,"incident_id":"INC-2024-0312","step_order":1,"file":"codegraph_agent/orchestrator/orchestrator.py","line_no":64,"symbol":"execute","kind":"entry","summary":"HTTP POST /refund received → execute()"},
+{"trace_id":2,"incident_id":"INC-2024-0312","step_order":2,"file":"codegraph_agent/orchestrator/orchestrator.py","line_no":71,"symbol":"retryLoop","kind":"propagation","summary":"Retry loop begins, attempt 1"},
+{"trace_id":3,"incident_id":"INC-2024-0312","step_order":3,"file":"codegraph_agent/orchestrator/orchestrator.py","line_no":73,"symbol":"retryLoop","kind":"root","summary":"No idempotency key check — duplicate write"},
+{"trace_id":4,"incident_id":"INC-2024-0312","step_order":4,"file":"codegraph_agent/orchestrator/orchestrator.py","line_no":86,"symbol":"experience_store.save","kind":"propagation","summary":"3× refund entry created"},
+{"trace_id":5,"incident_id":"INC-2024-0312","step_order":5,"file":"infrastructure/ledger.py","line_no":32,"symbol":"postEntry","kind":"propagation","summary":"3 ledger entries posted"}]

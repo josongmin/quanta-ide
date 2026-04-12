@@ -18,7 +18,14 @@
     "validate": "pnpm typecheck && pnpm lint && pnpm test",
     "validate:full": "pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm test:coverage",
     "preview": "vite preview",
-    "security:audit": "pnpm audit --audit-level=high"
+    "security:audit": "pnpm audit --audit-level=high",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:clippy": "cd src-tauri && cargo clippy --all-targets -- -D warnings",
+    "tauri:fmt": "cd src-tauri && cargo fmt -- --check",
+    "tauri:test": "cd src-tauri && cargo test",
+    "tauri:validate": "pnpm tauri:fmt && pnpm tauri:clippy && pnpm tauri:test"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",
@@ -28,6 +35,7 @@
     "@codemirror/view": "^6.41.0",
     "@lezer/highlight": "^1.2.3",
     "@radix-ui/react-avatar": "^1.1.11",
+    "@tauri-apps/api": "^2.10.1",
     "boring-avatars": "^2.0.4",
     "codemirror": "^6.0.2",
     "framer-motion": "^12.38.0",
@@ -39,6 +47,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@tauri-apps/cli": "^2.10.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

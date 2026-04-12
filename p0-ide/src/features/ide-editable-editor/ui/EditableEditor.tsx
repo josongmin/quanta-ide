@@ -6,7 +6,7 @@ import { python } from "@codemirror/lang-python";
 import { syntaxHighlighting, HighlightStyle } from "@codemirror/language";
 import { tags } from "@lezer/highlight";
 import { useEditorHover } from "@/features/ide-editor-hover";
-import type { SymbolInfo } from "@/features/ide-editor-hover";
+import type { SymbolInfo, SymbolHover } from "@/features/ide-editor-hover";
 import type { LineMeta } from "@/app/ide/mock-source";
 import { SYMBOL_INFO } from "@/app/ide/mock-source";
 
@@ -25,7 +25,7 @@ const ideHighlight = HighlightStyle.define([
   { tag: tags.string,             color: "var(--token-str)" },
   { tag: tags.number,             color: "var(--token-num)" },
   { tag: tags.bool,               color: "var(--token-num)" },
-  { tag: tags.comment,            color: "var(--ink-4)", fontStyle: "italic" },
+  { tag: tags.comment,            color: "color-mix(in srgb, var(--ink-4) 55%, transparent)", fontStyle: "italic" },
   { tag: tags.operator,           color: "var(--ink-2)" },
   { tag: tags.punctuation,        color: "var(--ink-3)" },
   { tag: tags.variableName,       color: "var(--ink)" },
@@ -313,7 +313,7 @@ function identifierAtPos(view: EditorView, pos: number): { from: number; to: num
   while ((m = re.exec(lineText)) !== null) {
     const start = m.index;
     const end = start + m[0].length;
-    if (col >= start && col <= end) {
+    if (col >= start && col < end) {
       return { from: line.from + start, to: line.from + end, text: m[0] };
     }
   }
@@ -321,22 +321,26 @@ function identifierAtPos(view: EditorView, pos: number): { from: number; to: num
 }
 
 function createHoverExtension(
-  setSymbol: (s: { info: SymbolInfo; x: number; y: number } | null) => void,
+  setSymbol: (s: SymbolHover | null) => void,
+  scheduleDismiss: () => void,
 ) {
   let lastWord = "";
+
+  function dismiss() {
+    if (lastWord) { lastWord = ""; scheduleDismiss(); }
+  }
+
   return EditorView.domEventHandlers({
     mousemove(event, view) {
-      // use { bias: -1 } so edges still resolve to a valid pos
-      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
-      if (pos < 0) {
-        if (lastWord) { lastWord = ""; setSymbol(null); }
-        return;
-      }
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (pos === null) { dismiss(); return; }
+
+      // Verify cursor is over actual text, not trailing whitespace
+      const charCoords = view.coordsAtPos(pos);
+      if (charCoords && event.clientX > charCoords.right + 2) { dismiss(); return; }
+
       const ident = identifierAtPos(view, pos);
-      if (!ident) {
-        if (lastWord) { lastWord = ""; setSymbol(null); }
-        return;
-      }
+      if (!ident) { dismiss(); return; }
       if (ident.text === lastWord) return;
 
       const info = SYMBOL_INFO[ident.text] as SymbolInfo | undefined;
@@ -344,16 +348,13 @@ function createHoverExtension(
         lastWord = ident.text;
         const coords = view.coordsAtPos(ident.from);
         if (coords) {
-          setSymbol({ info, x: coords.left, y: coords.top });
+          setSymbol({ info, anchor: { left: coords.left, top: coords.top, bottom: coords.bottom } });
         }
-      } else if (lastWord) {
-        lastWord = "";
-        setSymbol(null);
+      } else {
+        dismiss();
       }
     },
-    mouseleave() {
-      if (lastWord) { lastWord = ""; setSymbol(null); }
-    },
+    mouseleave() { dismiss(); },
   });
 }
 
@@ -397,6 +398,7 @@ function useCodeMirror(
   const onChangeRef = useRef(onChange);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const setSymbol = useEditorHover((s) => s.setSymbol);
+  const scheduleDismiss = useEditorHover((s) => s.scheduleDismiss);
 
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
 
@@ -435,7 +437,7 @@ function useCodeMirror(
         churnGutter,
         deadLinesPlugin,
         inlineHintsPlugin,
-        createHoverExtension(setSymbol),
+        createHoverExtension(setSymbol, scheduleDismiss),
         updateListener,
       ],
     });

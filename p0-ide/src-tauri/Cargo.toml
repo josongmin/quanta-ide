@@ -1,0 +1,95 @@
+[package]
+name        = "quanta-ide"
+version     = "0.1.0"
+description = "Quanta IDE — software intelligence desktop shell"
+authors     = ["Quanta Team"]
+license     = "MIT"
+edition     = "2024"
+rust-version = "1.85"
+
+[lib]
+name       = "quanta_ide_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+# ── Build ────────────────────────────────────────────────────────────
+[build-dependencies]
+tauri-build = { version = "2.5.6", features = [] }
+
+# ── Runtime ──────────────────────────────────────────────────────────
+[dependencies]
+# Tauri core
+tauri            = { version = "2.10.3", features = [] }
+tauri-plugin-log = "2"
+
+# Serialisation
+serde      = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "2"
+anyhow    = "1"
+
+# Logging
+log = "0.4"
+
+# ── Workspace Lints ──────────────────────────────────────────────────
+# SOTA-level Clippy: deny on correctness/suspicious, warn on everything else.
+[lints.rust]
+unsafe_code                    = "forbid"
+unused_must_use                = "deny"
+unused_import_braces           = "warn"
+unused_qualifications          = "warn"
+missing_docs                   = "warn"
+unreachable_pub                = "warn"
+elided_lifetimes_in_paths      = "warn"
+trivial_numeric_casts          = "warn"
+redundant_lifetimes            = "warn"
+
+[lints.clippy]
+# ── Deny: bugs & correctness ──
+correctness      = { level = "deny", priority = -1 }
+suspicious       = { level = "deny", priority = -1 }
+
+# ── Warn: style & complexity ──
+style            = { level = "warn", priority = -1 }
+complexity       = { level = "warn", priority = -1 }
+perf             = { level = "warn", priority = -1 }
+
+# ── Pedantic group (per-lint allow when genuinely noisy) ──
+pedantic         = { level = "warn", priority = -1 }
+
+# ── Nursery (experimental but useful) ──
+nursery          = { level = "warn", priority = -1 }
+
+# ── Cargo hygiene ──
+cargo            = { level = "warn", priority = -1 }
+
+# ── Extra individual lints ──
+unwrap_used                      = "warn"
+expect_used                      = "warn"
+panic                            = "warn"
+todo                             = "warn"
+unimplemented                    = "warn"
+dbg_macro                        = "deny"
+print_stdout                     = "warn"
+print_stderr                     = "warn"
+str_to_string                    = "allow"
+clone_on_ref_ptr                 = "warn"
+rc_buffer                        = "warn"
+rc_mutex                         = "warn"
+rest_pat_in_fully_bound_structs  = "warn"
+verbose_file_reads               = "warn"
+inefficient_to_string            = "warn"
+macro_use_imports                = "warn"
+mem_forget                       = "warn"
+semicolon_if_nothing_returned    = "warn"
+used_underscore_binding          = "warn"
+large_types_passed_by_value      = "warn"
+needless_pass_by_value           = "warn"
+
+# ── Relax: genuinely noisy in Tauri/serde context ──
+multiple_crate_versions          = "allow"
+module_name_repetitions          = "allow"
+
+# ── Relax: cargo metadata not relevant for non-published crate ──
+cargo_common_metadata            = "allow"

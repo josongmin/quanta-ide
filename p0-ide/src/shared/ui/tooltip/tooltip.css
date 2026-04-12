@@ -21,6 +21,10 @@
   animation: overlay-popover-in var(--overlay-duration-in) var(--overlay-ease-out) both;
 }
 
+.tooltip--interactive {
+  pointer-events: auto;
+}
+
 .tooltip--muted {
   background: var(--color-bg-muted);
   color: var(--color-fg-muted);

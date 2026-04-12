@@ -3,6 +3,9 @@ import type { Connect } from "vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+// Tauri sets TAURI_ENV_PLATFORM at dev/build time.
+const isTauri = !!process.env.TAURI_ENV_PLATFORM;
+
 /** `/ide` without trailing slash 404s; send clients to `/ide/` (query preserved). */
 function ideTrailingSlashRedirect(): Connect.NextHandleFunction {
   return (req, res, next) => {
@@ -23,23 +26,31 @@ function ideTrailingSlashRedirect(): Connect.NextHandleFunction {
   };
 }
 
-// SPA under `/ide/` (assets). Dev & preview: `/` → `/ide/`; `/ide` → `/ide/`.
+// Tauri loads from local files (base "/"); web deployment serves under "/ide/".
 export default defineConfig({
-  base: "/ide/",
+  base: isTauri ? "/" : "/ide/",
   plugins: [
     react(),
-    {
-      name: "ide-trailing-slash-redirect",
-      configureServer(server) {
-        server.middlewares.use(ideTrailingSlashRedirect());
-      },
-      configurePreviewServer(server) {
-        server.middlewares.use(ideTrailingSlashRedirect());
-      },
-    },
+    // Trailing-slash redirect is only needed for the web dev server, not Tauri.
+    ...(!isTauri
+      ? [
+          {
+            name: "ide-trailing-slash-redirect",
+            configureServer(server: Parameters<NonNullable<import("vite").Plugin["configureServer"]>>[0]) {
+              server.middlewares.use(ideTrailingSlashRedirect());
+            },
+            configurePreviewServer(server: Parameters<NonNullable<import("vite").Plugin["configurePreviewServer"]>>[0]) {
+              server.middlewares.use(ideTrailingSlashRedirect());
+            },
+          },
+        ]
+      : []),
   ],
   // Avoid HMR churn when coverage HTML exists locally (gitignored but still watched).
   server: {
+    port: 5173,
+    // In Tauri mode port must match devUrl exactly; in web mode allow fallback.
+    strictPort: isTauri,
     watch: {
       ignored: ["**/coverage/**", "**/dist/**"],
     },
@@ -47,6 +58,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
+      "@corpus": path.resolve(__dirname, "../demo-corpus/payments-api"),
+      "@analysis": path.resolve(__dirname, "../demo-corpus/payments-api/.analysis/generated"),
     },
   },
   build: {

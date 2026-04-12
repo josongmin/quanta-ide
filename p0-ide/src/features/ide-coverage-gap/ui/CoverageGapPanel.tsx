@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { getCoverageGaps, type CoverageGapFile } from "../model/coverage-gap-data";
+import { getCoverageFromDB } from "@/app/ide/analysis-data";
 
 const KIND_PREFIX: Record<string, string> = { function: "ƒ", method: "ƒ", class: "C" };
 
@@ -10,7 +10,7 @@ interface CoverageGapPanelProps {
 
 export function CoverageGapPanel({ fileName = "orchestrator.py" }: CoverageGapPanelProps) {
   const { t } = useTranslation();
-  const gaps = getCoverageGaps(fileName);
+  const gaps = getCoverageFromDB(fileName);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const toggle = (id: string) => {
@@ -50,37 +50,34 @@ export function CoverageGapPanel({ fileName = "orchestrator.py" }: CoverageGapPa
       </div>
 
       <ul className="cgap-list">
-        {gaps.map((f) => (
-          <FileRow key={f.id} file={f} isExpanded={expanded.has(f.id)} onToggle={() => { toggle(f.id); }} />
-        ))}
+        {gaps.map((f) => {
+          const isOpen = expanded.has(f.id);
+          const pctFile = Math.round((f.covered / f.total) * 100);
+          return (
+            <li key={f.id} className="cgap-file">
+              <button type="button" className="cgap-file-row" onClick={() => { toggle(f.id); }}>
+                <span className="cgap-file-name">{f.file}</span>
+                <span className="cgap-file-ratio">{f.covered}/{f.total}</span>
+                <span className="cgap-file-bar-track">
+                  <span className="cgap-file-bar-fill" style={{ width: `${pctFile.toString()}%` }} />
+                </span>
+                <span className="cgap-file-gap">−{f.uncovered.length}</span>
+              </button>
+              {isOpen && (
+                <ul className="cgap-sym-list">
+                  {f.uncovered.map((s) => (
+                    <li key={s.name} className="cgap-sym">
+                      <span className="cgap-sym-kind" data-risk={s.risk}>{KIND_PREFIX[s.kind] ?? "?"}</span>
+                      <span className="cgap-sym-name">{s.name}</span>
+                      <span className="cgap-sym-line">:{s.line}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
-  );
-}
-
-function FileRow({ file, isExpanded, onToggle }: { file: CoverageGapFile; isExpanded: boolean; onToggle: () => void }) {
-  const pct = Math.round((file.covered / file.total) * 100);
-  return (
-    <li className="cgap-file">
-      <button type="button" className="cgap-file-row" onClick={onToggle}>
-        <span className="cgap-file-name">{file.file}</span>
-        <span className="cgap-file-ratio">{file.covered}/{file.total}</span>
-        <span className="cgap-file-bar-track">
-          <span className="cgap-file-bar-fill" style={{ width: `${pct.toString()}%` }} />
-        </span>
-        <span className="cgap-file-gap">−{file.uncovered.length}</span>
-      </button>
-      {isExpanded && (
-        <ul className="cgap-sym-list">
-          {file.uncovered.map((s) => (
-            <li key={s.name} className="cgap-sym">
-              <span className="cgap-sym-kind" data-risk={s.risk}>{KIND_PREFIX[s.kind] ?? "?"}</span>
-              <span className="cgap-sym-name">{s.name}</span>
-              <span className="cgap-sym-line">:{s.line}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </li>
   );
 }
