@@ -878,7 +878,19 @@
   transition: background var(--transition);
 }
 .agw-send-btn:hover { background: var(--ink); }
-.agw-send-btn:disabled { background: var(--ink-4); cursor: default; }
+.agw-send-btn:disabled {
+  background: var(--ink-4);
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+  pointer-events: none;
+}
+.agw-toolbar-btn:disabled,
+.agw-pin-btn:disabled,
+.agw-input:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+  pointer-events: none;
+}
 
 /* model / mode selector buttons */
 .agw-toolbar-model {

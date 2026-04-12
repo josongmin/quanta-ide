@@ -36,11 +36,14 @@
         "severity": "warning"
       }
     ],
-    "declaration-property-value-disallowed-list": {
-      "/^padding/": ["/[0-9]+px/"],
-      "/^margin/": ["/[0-9]+px/"],
-      "gap": ["/[0-9]+px/"]
-    },
+    "declaration-property-value-disallowed-list": [
+      {
+        "/^padding/": ["/[0-9]+px/"],
+        "/^margin/": ["/[0-9]+px/"],
+        "gap": ["/[0-9]+px/"]
+      },
+      { "severity": "warning" }
+    ],
     "selector-class-pattern": null,
     "custom-property-pattern": null,
     "keyframes-name-pattern": null,
@@ -50,7 +53,34 @@
     "color-function-notation": null,
     "hue-degree-notation": null,
     "shorthand-property-no-redundant-values": null,
-    "media-feature-range-notation": null
+    "media-feature-range-notation": null,
+    "color-hex-length": null,
+    "rule-empty-line-before": null,
+    "comment-empty-line-before": null,
+    "declaration-empty-line-before": null,
+    "at-rule-empty-line-before": null,
+    "property-no-vendor-prefix": null,
+    "value-no-vendor-prefix": null,
+    "selector-no-vendor-prefix": null,
+    "at-rule-no-vendor-prefix": null,
+    "length-zero-no-unit": null,
+    "number-max-precision": null,
+    "declaration-block-no-shorthand-property-overrides": null,
+    "font-family-name-quotes": null,
+    "font-family-no-missing-generic-family-keyword": null,
+    "no-duplicate-selectors": null,
+    "declaration-block-single-line-max-declarations": null,
+    "no-invalid-double-slash-comments": null,
+    "comment-whitespace-inside": null,
+    "selector-pseudo-element-colon-notation": null,
+    "selector-attribute-quotes": null,
+    "function-url-quotes": null,
+    "import-notation": null,
+    "keyframe-selector-notation": null,
+    "media-query-no-invalid": null,
+    "no-unknown-animations": null,
+    "value-keyword-case": null,
+    "block-no-empty": null
   },
   "ignoreFiles": [
     "node_modules/**",

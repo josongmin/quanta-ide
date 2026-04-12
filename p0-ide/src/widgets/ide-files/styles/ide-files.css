@@ -211,6 +211,7 @@
   user-select: none;
   position: relative;
   min-height: 24px;
+  min-width: 0;
 }
 .ide-files-row > * { position: relative; z-index: 1; }
 .ide-files-row:hover::before {

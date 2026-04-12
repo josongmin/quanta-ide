@@ -3379,3 +3379,40 @@
   .own-overlay { inset: 40px 0 28px 200px; }
 }
 
+/* ── Disabled state (shared utility) ───────────────────────────────── */
+.ide [disabled],
+.ide [aria-disabled="true"],
+.ide .is-disabled {
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+  pointer-events: none;
+}
+
+/* ── Text truncation utilities ─────────────────────────────────────────
+   Usage: apply to the element whose TEXT should ellipsis, AND make sure
+   its flex ancestor has .truncate-host (or min-width: 0) so shrinking
+   actually works. */
+.ide .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ide .truncate-host {
+  min-width: 0;
+}
+.ide .clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ide .clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+

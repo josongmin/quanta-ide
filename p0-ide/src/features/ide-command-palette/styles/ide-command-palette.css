@@ -55,6 +55,11 @@
 .cmdk-input::placeholder {
   color: var(--ink-3);
 }
+.cmdk-input:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+  pointer-events: none;
+}
 .cmdk-input-kbd {
   font-family: var(--font-mono);
   font-size: 0.66rem;

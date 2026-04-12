@@ -75,6 +75,10 @@
   /* Focus ring */
   --focus-ring-width:  2px;
   --focus-ring-offset: 2px;
+
+  /* Disabled state */
+  --opacity-disabled: 0.5;
+  --cursor-disabled: not-allowed;
 }
 
 /* ── Dark theme (default) ────────────────────────────────────────────────── */

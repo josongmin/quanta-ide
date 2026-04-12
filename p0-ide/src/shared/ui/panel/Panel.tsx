@@ -1,5 +1,6 @@
-import { forwardRef, type CSSProperties, type ReactNode } from "react";
+import { forwardRef, useRef, type CSSProperties, type ReactNode } from "react";
 import { Overlay } from "../Overlay";
+import { useFocusTrap } from "./useFocusTrap";
 
 export type PanelTier = "sheet" | "dialog" | "popover" | "floating";
 export type PanelSize = "sm" | "md" | "lg" | "xl";
@@ -37,16 +38,27 @@ export const Panel = forwardRef<HTMLDivElement, PanelProps>(function Panel(
   },
   ref,
 ) {
+  const innerRef = useRef<HTMLDivElement>(null);
+  const setRefs = (node: HTMLDivElement | null) => {
+    innerRef.current = node;
+    if (typeof ref === "function") ref(node);
+    else if (ref) ref.current = node;
+  };
+
+  const shouldTrap = open && (tier === "dialog" || tier === "sheet");
+  useFocusTrap(innerRef, shouldTrap);
+
   const cls = `panel panel--${tier} panel--${size}${className ? ` ${className}` : ""}`;
   return (
     <Overlay tier={tier} open={open} onClose={onClose} closeOnEsc={closeOnEsc}>
       <div
-        ref={ref}
+        ref={setRefs}
         className={cls}
         style={style}
         aria-label={ariaLabel}
         role={role}
         aria-modal={ariaModal}
+        tabIndex={-1}
       >
         {children}
       </div>

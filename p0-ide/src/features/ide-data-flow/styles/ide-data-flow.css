@@ -171,6 +171,11 @@
   background: color-mix(in srgb, var(--accent) 26%, var(--paper-2));
   border-color: color-mix(in srgb, var(--accent) 50%, transparent);
 }
+.ide-btn:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+  pointer-events: none;
+}
 .ide-btn-key {
   font-family: var(--font-mono);
   font-size: 0.62rem;
