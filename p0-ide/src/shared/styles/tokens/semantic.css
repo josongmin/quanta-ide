@@ -139,16 +139,17 @@
   --shadow-xl: 0 24px 56px rgba(0, 0, 0, var(--shadow-alpha-5));
 
   /* Floating element shadows — Vercel/Linear style 3-layer drop.
-     Y-biased (light from above), tight contact + mid drop + ambient ring.
-     Use for bubbles, FABs, persistent floating UI. */
+     Y-biased (light from above), tight contact + mid drop + small ambient.
+     Intentionally MUCH subtler than dialog/sheet shadows so persistent
+     floating UI doesn't bleed glow into the canvas. */
   --shadow-floating-rest:
-    0 1px 2px rgba(0, 0, 0, 0.18),
-    0 6px 16px rgba(0, 0, 0, 0.22),
-    0 16px 40px rgba(0, 0, 0, 0.16);
+    0 1px 2px rgba(0, 0, 0, 0.10),
+    0 3px 8px rgba(0, 0, 0, 0.12),
+    0 8px 20px rgba(0, 0, 0, 0.08);
   --shadow-floating-hover:
-    0 2px 4px rgba(0, 0, 0, 0.20),
-    0 10px 24px rgba(0, 0, 0, 0.26),
-    0 28px 60px rgba(0, 0, 0, 0.20);
+    0 1px 2px rgba(0, 0, 0, 0.12),
+    0 5px 14px rgba(0, 0, 0, 0.16),
+    0 14px 32px rgba(0, 0, 0, 0.10);
 
   /* Focus ring color */
   --color-focus-ring: var(--accent);
@@ -171,13 +172,14 @@
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.18);
   --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.22);
 
-  /* Floating shadows — light theme: lower alpha, same Y-bias structure */
+  /* Floating shadows — light theme: very subtle, tight ambient.
+     Keeps depth without bleeding into surrounding canvas. */
   --shadow-floating-rest:
-    0 1px 2px rgba(0, 0, 0, 0.04),
-    0 4px 12px rgba(0, 0, 0, 0.08),
-    0 12px 32px rgba(0, 0, 0, 0.06);
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 2px 6px rgba(0, 0, 0, 0.04),
+    0 8px 20px rgba(0, 0, 0, 0.04);
   --shadow-floating-hover:
-    0 2px 4px rgba(0, 0, 0, 0.05),
-    0 8px 20px rgba(0, 0, 0, 0.10),
-    0 20px 48px rgba(0, 0, 0, 0.08);
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 4px 10px rgba(0, 0, 0, 0.06),
+    0 12px 28px rgba(0, 0, 0, 0.05);
 }
