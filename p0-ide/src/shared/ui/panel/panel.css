@@ -64,12 +64,12 @@
    Draggable / resizable window. No scrim, no scroll-lock, no enforced
    position. Consumer owns top/left/transform/width/height (via inline style
    or CSS custom props). We still provide chrome (bg, border, shadow, radius).
-   Shadow is intentionally MINIMAL — floating windows are persistent UI, so a
-   heavy dialog-grade glow leaks/distracts. Use --shadow-md (single-layer).  */
+   Uses the floating shadow token (3-layer Y-biased drop) — natural depth
+   without leaking glow that distracts from persistent UI. */
 .panel--floating {
   background: var(--overlay-bg-dialog);
   border-radius: var(--overlay-radius-dialog);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-floating-rest);
   backdrop-filter: var(--overlay-blur-dialog);
   -webkit-backdrop-filter: var(--overlay-blur-dialog);
   max-height: none;

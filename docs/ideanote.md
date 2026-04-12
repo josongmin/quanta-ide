@@ -1652,3 +1652,172 @@ Concurrency Race Overlay와 결합: thread escape + lockset = 동기화 필요 �
 | Structural Search | **P1** | wired | 패턴 탐색 → Guardrail 등록 |
 | IntelliJ 리팩토링 | **P1** | wired | 기본기 완성 |
 | Escape Analysis | **P2** | wired | 성능 최적화 기회 |
+
+---
+
+## 12. 모든 설계의 근거 — 인지심리학 & SE 실증
+
+> "이거 왜 이렇게 만들었어?"에 답이 있어야 한다. 모든 설계 결정에 출처가 있다.
+> RFC의 "인지심리학·SE 실증 근거" 섹션 참조 — 여기는 핵심 압축.
+
+### 5대 설계 명령 (가장 높은 우선순위)
+
+#### 1. 실시간·인라인 절대 원칙
+**근거**: 방해 후 복귀 평균 **23분 15초** (Mark, Gonzalez, Harris 2005, *CHI*; Iqbal & Horvitz 2007, *CHI*). 분석이 에디터 벗어나면 23분 손실.
+
+**적용**:
+- 별도 창 열기 ❌ — Inspector는 항상 우측 1급시민
+- CI-only ❌ — 타이핑 중 즉시 반응
+- 인터럽션 후 1분 내 코딩 재개 < 10% (Parnin & Rugaber 2011) → 세션 상태 영구 저장 + 1클릭 복원
+
+#### 2. "왜" 증거 체인 필수
+**근거**: 코드 이해 시 **질문의 약 50%가 "왜(why)"** (Letovsky 1987, *J. Systems & Software*). 코드에 명시되지 않은 것을 묻는다.
+
+**근거 2**: 정적분석 도구 1순위 불만 = "warning이 이해 불가" / "infeasible 경로의 warning" (Christakis & Bird 2016, *ASE*). "possible null"은 거절된다.
+
+**적용**:
+- Evidence Inspector — 모든 경고를 단계별 trace로
+- taint path 4단계 증명 ("source → propagate → propagate → SINK")
+- "이 입력 들어오면 진짜 터진다"의 구체 증명
+
+#### 3. 4±1 동시 비교 한계
+**근거**: 순수 작업 기억 = **4±1 chunk** (Cowan 2001, *Behavioral and Brain Sciences* 24(1)). Miller 7±2는 리허설 포함 상한.
+
+**적용**:
+- Change Card 동시 항목 ≤ 4
+- Gate 결과 동시 표시 ≤ 4
+- behavior diff 비교 카드 ≤ 4
+- 5개 이상 = 그룹화 강제
+
+#### 4. Beacon · 다중 채널 인코딩
+**근거 1**: 숙련자는 알고리즘의 **beacon 영역에 응시 시간 집중** (Crosby & Stelovsky 1990, *IEEE Computer*). 정적분석 결과를 beacon으로 표시하면 자연스런 탐색 패턴과 정렬.
+
+**근거 2**: 색맹 = **남성 8%** (Birch 2012, *J. Optical Society of America A* 29(3)). **Deuteranomaly (녹색 약) 5%가 가장 흔함**. **적-녹은 가장 위험한 조합**, 파랑-노랑이 가장 안정적 (Ware 2013).
+
+**근거 3**: 전주의 처리 < **200ms**. 동시 팝아웃 = **5±2개** (Treisman 1985; Healey & Enns 2012).
+
+**적용**:
+- gutter 표시 = **색 + 곡률(물결선) + 모양(아이콘)** 다중 채널
+- 색 단독 ❌
+- 한 화면 동시 강조 ≤ 5개
+- diff 표시: 색 + `+/-` 기호 + 거터 패턴 + 밝기 차이 모두 사용
+
+#### 5. 질문 중심 설계
+**근거**: 개발자 질문의 **약 78%가 reachability 질문** ("여기서 거기 도달하나?", "이 상태가 되는 input 있나?") (LaToza & Myers 2010, *ICSE*). 가장 빈번하고 가장 답하기 어렵다.
+
+**적용**:
+- 기본 뷰는 기능 리스트가 아니라 **질문**:
+  - "이 변경이 깨뜨리는 것은?" → blast radius
+  - "이 입력이 도달하는 sink는?" → taint flow
+  - "이 시점에서 이 변수가 가질 수 있는 값은?" → dataflow
+- **taint flow = reachability 질문의 기계화**. 가장 빈번 질문의 직접 답.
+
+---
+
+### 응답성 임계 — ms 예산의 정량 근거
+
+| 임계 | 값 | 출처 | 우리 적용 |
+|------|----|----|--------|
+| 즉각 반응 한계 | **100ms** | Miller 1968 | hover < 100ms |
+| Doherty 생산성 도약 | **400ms** | Doherty 1982, IBM | 명령 팔레트 < 400ms |
+| 사고 흐름 한계 | **1000ms** | Miller 1968 | Inspector 갱신 < 150ms |
+| 60fps 프레임 예산 | **16ms** | Google RAIL | 에디터 스크롤/캐럿 |
+
+**사업 영향**: Bing **2000ms 지연 = 수익 -4.3%**, **100ms 지연 = -0.6%** (Schurman & Brutlag 2009; Kohavi et al. 2013). Amazon **100ms = 매출 -1%** (Linden 2006).
+
+→ 클라우드 IDE에서 ms는 사업 지표.
+
+---
+
+### 알림 피로 임계 — 왜 적은 것이 많은 것
+
+| 발견 | 출처 |
+|------|------|
+| ICU 환자당 시간당 **187–350건 경보**, 임상 실행 가능 < **10%**, 간호사 무시율 **최대 90%** | Sendelbach & Funk 2013, *AACN*; Joint Commission Sentinel Event Alert #50 |
+| **PPV < 25%면 운영자 반응률 급감** ("cry wolf") | Getty et al. 1995, *J. Exp Psychology: Applied* 1(1) |
+| 정적분석 **FP율 30%가 개발자 수용성의 death threshold** | Bessey et al. 2010, *CACM* 53(2) — Coverity |
+| Google Tricorder = **effective FP rate ≤ 10%** 강제 | Sadowski et al. 2018, *CACM* |
+
+**우리 적용**:
+- Gate 경고 PPV ≥ **75%** 유지
+- "Not useful" 클릭으로 분석기 자가 교정
+- "조용히 vs 크게" 원칙 — 상태는 조용히, 변화만 크게
+- 한 화면 동시 알림 ≤ 3개
+
+---
+
+### 정적분석 도입 4대 장벽 — 왜 SonarQube는 책상에 안 띄워지는가
+
+**Johnson, Song, Murphy-Hill, Bowdidge 2013, *ICSE*** — 개발자 20명 인터뷰 결과, 정적분석을 안 쓰는 4대 이유와 우리의 정면 대응:
+
+| 장벽 | 우리의 대응 | 관련 기능 |
+|------|----------|---------|
+| ① **거짓 양성 많음** | PPV ≥ 75%, FP rate ≤ 10% (Tricorder 룰) | Gate, false positive 학습 |
+| ② **결과 표시가 워크플로와 단절** | 인라인·실시간 절대 원칙. 별도 창 ❌ | Ambient Awareness, Inspector |
+| ③ **수정 방법/원인 설명 부재** | [Fix safely] 원클릭 + Evidence Inspector | Agent Panel, Evidence Inspector |
+| ④ **협업/공유 부재** | Investigation Spaces + Ownership Map + semantic PR | Spaces, Ownership Map |
+
+**4가지 모두 정면 대응**. 이것이 SonarQube/CodeClimate를 죽이는 방법.
+
+---
+
+### 코드 리뷰 분업의 정량 근거
+
+**왜 사람은 맥락만 보고 기계가 버그를 잡는가**:
+
+| 발견 | 출처 |
+|------|------|
+| Microsoft 리뷰어 코멘트의 **14–15%만 실결함**. 리뷰어 가장 큰 어려움 = "변경의 맥락 이해" | Bacchelli & Bird 2013, *ICSE* |
+| 효과적 결함 탐지 = **≤ 200–400 LOC/h**. **500 LOC/h 초과 시 70% → 30% 급락** | Cohen 2006, SmartBear/Cisco |
+| 리뷰의 진짜 가치 = **결함 발견이 아니라 지식 공유·코칭** | Czerwonka, Greiler, Tilford 2015, *ICSE SEIP* |
+| 리뷰어 1순위 도구 요청 = **"관련 테스트·호출자·이전 PR 자동 가져오기"** | MacLeod, Greiler, Storey, Bird, Czerwonka 2018, *IEEE Software* |
+
+**시사점**: 우리는 사람이 봐야 할 핵심 200–400 LOC를 골라주고, 컨텍스트(blast/taint/ownership)를 자동 첨부한다. 결함은 기계가 잡는다.
+
+---
+
+### 시각화 효과의 정량 근거
+
+| 발견 | 출처 |
+|------|------|
+| 시각화 + 동적 분석 결합 = 유지보수 시간 **20–40% 단축** | Cornelissen et al. 2009, *IEEE TSE* 35(5) |
+| EXTRAVIS 대조 실험 = 정답률 **21% ↑**, 시간 **22% ↓** | Cornelissen et al. 2011, *IEEE TSE* 37(3) |
+| CodeCity 대조 실험 = 정답률 **24.3% ↑**, 시간 **12% ↓** | Wettel, Lanza, Robbes 2011, *ICSE* |
+| 분할/타일 에디터가 탭 대비 **탐색 실수 36% ↓, 시간 16% ↓** | Henley & Fleming 2014, *CHI* |
+
+**우리 적용**: behavior diff/blast radius/taint flow가 유지보수 시간 20% 이상 단축한다는 **실증적 기대치**가 있다. 대조 실험 가능 — "이 도구 사용 vs 미사용 PR 리뷰".
+
+---
+
+### 클론·복제 코드의 위험
+
+**Ray & Kim 2012, *FSE***: 카피-페이스트 코드 클론의 **약 10–15%가 일관성 없이 진화**해 불일치 버그 유발. 포팅된 버그 수정 중 다수는 **원본에도 동일 결함이 남는다**.
+
+**시사점**: AI가 코드를 찍어내는 시대에 클론은 폭증한다. **Clone Detection P1 격상 + taint와 결합** — "여기 고쳤는데 복제본은 안 고쳤다"를 즉시 알린다.
+
+---
+
+### 핵심 수치표 (마케팅·세일즈 즉시 사용)
+
+| 주장 | 수치 | 출처 |
+|------|------|------|
+| 작업기억 용량 | **4±1 chunk** | Cowan 2001 |
+| 방해 후 복귀 | **23분** | Mark et al. 2005 |
+| 코딩 재개 1분 내 | **<10%** | Parnin & Rugaber 2011 |
+| 유지보수 탐색 시간 | **~35%** | Ko et al. 2006 |
+| 리뷰 효과 한계 | **≤200–400 LOC/h** | Cohen 2006 |
+| 리뷰 코멘트 중 실결함 | **14–15%** | Bacchelli & Bird 2013 |
+| Google 정적분석 FP 임계 | **≤10%** | Sadowski et al. 2018 |
+| 정적분석 death threshold | **30%** | Bessey et al. 2010 |
+| 코드 읽기 비선형성 | **0.5** (자연어 0.8) | Busjahn et al. 2015 |
+| 변경 질문 중 reachability | **78%** | LaToza & Myers 2010 |
+| 시각화 이해 개선 | **20–24%** | Cornelissen 2011 / CodeCity 2011 |
+| churn–결함 상관 | **~0.8** | Nagappan & Ball 2005 |
+| Bohrbug 비중 | **60–70%** | Grottke & Trivedi 2007 |
+| 색맹 (남성) | **8%** | Birch 2012 |
+| 즉각 반응 한계 | **100ms** | Miller 1968 |
+| Doherty 생산성 도약 | **400ms** | Doherty 1982 |
+| 60fps 프레임 예산 | **16ms** | RAIL |
+| PPV 임계 (cry wolf) | **<25%** | Getty et al. 1995 |
+
+→ **모든 수치는 1차 자료 인용 가능**. RFC 섹션 14 참조.

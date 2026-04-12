@@ -1720,3 +1720,287 @@ hover:
 "규칙으로 저장" → Architecture Guardrails에 등록. 이후 같은 패턴 발생 시 자동 경고.
 
 > capability: `structural_code_search`, `explain`
+
+---
+
+## 인지심리학·SE 실증 근거 — 모든 설계 결정의 데이터 기반
+
+이 섹션은 위 기능들이 "감각"이 아니라 **40년 누적된 HCI/SE 연구**에 직접 발 딛고 있음을 보인다. 모든 설계 결정에 출처가 있다.
+
+### 1. 개발자가 코드를 어떻게 읽는가
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| 코드 이해는 **가설 기반 루프** ("질문 → 추측 → 검증"). 질문의 약 **50%가 "왜"** 질문이며 코드에 명시되지 않음 | Letovsky 1987, *J. Systems & Software* | Evidence Inspector — 모든 경고를 단계별 증거로 재생 |
+| 숙련자는 **program model(제어 흐름) + domain model(도메인 의미)** 두 층을 동시에 유지. 두 모델 매핑 능력이 유지보수 성과 예측 | Pennington 1987, *Cognitive Psychology* 19(3) | behavior diff가 두 층 연결: "1줄 변경 = 환불 흐름 변경" |
+| 이해는 **하향식 가설 검증** — 도메인 가설 → beacon으로 확정/기각 | Brooks 1983, *IJMMS* 18(6) | 정적분석 결과를 beacon으로 시각화 (gutter ⛔/⚡/⚠) |
+| 숙련자는 **plan(관용적 코드 조각)** 으로 청킹. plan을 깬 코드에선 **숙련자 정답률 80% → 50%로 급락** | Soloway & Ehrlich 1984, *IEEE TSE* SE-10(5) | behavior diff = plan 변경 감지. AI/리팩토링이 관용구를 깰 때가 가장 위험 |
+| OOP 코드는 plan이 여러 클래스/파일에 **분산(delocalized)** 되어 이해 더 어려움 | Détienne 2001 | call graph + dataflow + taint를 **단일 뷰에 응집** |
+| 코드 읽기 **linearity ≈ 0.5** (자연어 0.8). 숙련자일수록 더 비선형 | Busjahn et al. 2015, *ICPC* | peek definition, ⌘K rich preview, breadcrumb로 점프 비용 0 |
+| 숙련자는 알고리즘의 **beacon 영역에 응시 시간 집중** | Crosby & Stelovsky 1990 | high-complexity hotspot, taint sink를 미니맵 + gutter로 강조 |
+| 초보자는 뷰 사이를 자주·짧게 전환. 숙련자는 한 뷰에 오래 머묾 | Bednarik & Tukiainen 2006, *ETRA* | linked highlighting — Inspector 선택 시 에디터/그래프/테스트 즉시 동기화 |
+| **fMRI: 코드 이해는 수학이 아닌 언어 처리 영역 활성화** (BA 6/21/40/44/47) | Siegmund et al. 2014, *ICSE* | 분석 결과를 그래프뿐 아니라 **자연어 한 줄 요약**으로 |
+
+### 2. 작업 기억 한계 — UI 정보 밀도의 강제 규칙
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| Miller 7±2는 리허설 포함 상한 | Miller 1956, *Psychological Review* 63(2) | Command Palette 초기 노출 7~10개 |
+| **순수 작업 기억 = 4±1 chunk** | Cowan 2001, *BBS* 24(1) | **동시 비교 카드 ≤ 4개** — Change Card, Gate 결과 강제 규칙 |
+| Cognitive Load = intrinsic + **extraneous** + germane. extraneous(형식 문제)를 줄이면 germane(이해) 가용 | Sweller 1988, *Cognitive Science* 12(2) | spatial contiguity (Mayer) — 진단을 **그 줄에 인라인** |
+| 전문가는 의미 있는 코드 **2배 더 많이 재현**. 무작위 코드는 초보자와 동일 | McKeithen et al. 1981, *Cognitive Psychology* 13 | 전문성 = chunking. 의미 단위(plan)를 IDE가 명시하면 강화 |
+
+### 3. 컨텍스트 스위치 비용 — 왜 모든 게 에디터 안에 있어야 하는가
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| 방해 후 복귀 평균 **23분 15초** | Mark, Gonzalez, Harris 2005, *CHI*; Iqbal & Horvitz 2007, *CHI* | 에디터 벗어나면 23분 손실. **인라인·실시간 원칙**의 정량 근거 |
+| 인터럽션 후 **1분 내 코딩 재개 < 10%**, 평균 10–15분 재오리엔테이션 | Parnin & Rugaber 2011 | 세션 상태 영구 저장 → 1클릭 복원 |
+| 유지보수 시간의 **35%가 탐색** | Ko, Myers et al. 2006, *IEEE TSE* 32(12) | taint flow가 "관련 위치 집합" 한 번에 제공 |
+| **개발자 질문의 78%가 reachability** ("여기서 거기 도달하나?", "이 상태가 되는 input 있나?") | LaToza & Myers 2010, *ICSE* | **taint flow = reachability 질문의 기계화**. 가장 빈번 질문에 직접 매핑 |
+| 78%가 "흩어진 정보 모으기"를 심각 문제로 지목. **44종 반복 질문 중 다수가 impact 질문** | LaToza/Sillito 2006, 2008 | **blast radius = 가장 자주 묻는 질문의 자동 답** |
+
+### 4. 코드 리뷰 — 사람 vs 기계 분업의 정량 근거
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| MS 리뷰어 코멘트의 **14–15%만 실결함**. 가장 큰 어려움 = "**변경의 맥락 이해**" | Bacchelli & Bird 2013, *ICSE* | 우리는 PR에 blast/behavior/ownership을 자동 첨부 |
+| 효과적 결함 탐지 ≤ **200–400 LOC/h**. 500 LOC/h 초과 시 **70% → 30% 급락**. 60분 초과 시 효과성 급감 | Cohen 2006, SmartBear/Cisco | 큰 PR에 자동 요약 + 영향 분석으로 핵심 200–400 LOC만 골라줌 |
+| 리뷰의 진짜 가치 = **결함 발견이 아니라 지식 공유·코칭** | Czerwonka, Greiler, Tilford 2015, *ICSE SEIP* | "AI/정적분석은 버그, 사람은 맥락·설계" 분업의 직접 근거 |
+| 리뷰어 1순위 도구 요청 = **"관련 테스트·호출자·이전 PR 자동 가져오기"** | MacLeod, Greiler, Storey, Bird, Czerwonka 2018, *IEEE Software* | semantic PR + Ownership Map = 정확히 이 수요 |
+
+### 5. 정적분석 도입 장벽 — 왜 SonarQube는 책상에 안 띄워지는가
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| 개발자가 정적분석 안 쓰는 4대 이유: ① **거짓 양성**, ② **워크플로 단절**, ③ **수정 방법 부재**, ④ **협업 부재** | Johnson, Song, Murphy-Hill, Bowdidge 2013, *ICSE* | (1) blast 우선순위, (2) 인라인, (3) [Fix safely] + Evidence, (4) Spaces + Ownership. **4가지 정면 대응** |
+| Google Tricorder 룰: **effective FP rate ≤ 10%** 없으면 런칭 거부 | Sadowski et al. 2015/2018 | 우리 Gate FP 임계 ≤ 10% 강제 |
+| 1순위 불만 = "warning 이해 불가", "infeasible 경로 warning". 1순위 요구 = **정확도 > 속도 > 커버리지** | Christakis & Bird 2016, *ASE* | 모든 경고에 구체 trace. taint flow가 "이 입력 들어오면 진짜 터진다" 증명 |
+| **FP율 30%가 수용성 death threshold** | Bessey et al. 2010, *CACM* 53(2) (Coverity) | 우리 목표 ≤ 10% |
+| ICU 경보 무시율 **최대 90%** (신뢰도 낮을 때). **PPV < 25%면 운영자 반응률 급감** | Sendelbach & Funk 2013; Getty et al. 1995 | 우리 PPV ≥ 75% 유지. 신뢰도 낮은 규칙 기본 OFF |
+| Google FindBugs 경고 **절반 미만만 수정 대상** → "노출 UX가 결정적" | Ayewah, Pugh et al. 2008, *IEEE Software* | **분석기 정확도가 아니라 노출 UX가 해자** |
+
+### 6. 응답 시간 임계값 — ms가 사업 결과를 결정한다
+
+| 임계 | 의미 | 출처 |
+|------|------|------|
+| **100ms** | 즉각 반응 한계 | Miller 1968; Card 1991; RAIL |
+| **400ms** | 생산성 비선형 도약 (Doherty threshold) | Doherty & Thadani 1982, IBM |
+| **1000ms** | 사고 흐름 유지 한계 | Miller 1968 |
+| **10s** | 주의 이탈 한계 | Miller 1968 |
+| **16ms** | 60fps 프레임 예산 | Google RAIL |
+
+**사업 영향**:
+- Bing **2000ms 지연 → 수익 -4.3%** (Schurman & Brutlag 2009, *Velocity*)
+- Bing **100ms 지연 → 수익 -0.6%** (Kohavi et al. 2013, *KDD*)
+- Amazon **100ms 지연 → 매출 -1%** (Linden 2006, Velocity '09)
+
+**우리 적용**: hover < 100ms / Inspector 갱신 < 150ms / 명령 팔레트 < 400ms / simulate < 2s.
+
+### 7. KLM-GOMS — 키보드 vs 마우스의 실제 시간
+
+| 연산자 | 시간 | 의미 |
+|--------|------|------|
+| **K** keystroke (숙련) | **0.20s** | 한 글자 입력 |
+| K keystroke (보통) | 0.28s | |
+| **P** pointing (Fitts) | **1.10s** | 마우스 포인팅 |
+| **H** homing | 0.40s | 손 이동 |
+| **M** mental preparation | **1.35s** | 정신 준비 |
+| B button press | 0.10s | 클릭 |
+
+**출처**: Card, Moran, Newell 1980, *CACM* 23(7).
+
+**시사점**: 단축키는 일회성 액션이 아니라 **시퀀스 작업에 결정적**. M 1.35s를 여러 K에 상각시켜야 키보드가 마우스를 이긴다. **Tog 연구 (1992)**: 마우스 ≈ 1.5s vs 키보드 ≈ 2.0s — 사용자는 주관적으로 키보드가 빠르다 느끼지만 객관적으로는 마우스가 빠른 경우가 많다.
+
+→ **결론**: 시퀀스 키 패턴 (`g d`, `g r`, `⌘K → ⌘S → ⏎`) 우선 설계.
+
+### 8. Fitts의 법칙 — UI 위치의 정량 근거
+
+- **MT = a + b · log₂(D/W + 1)** (Shannon 형식). 인간 포인팅 채널 용량 ≈ 4.5–10 bits/s (MacKenzie 1992, *HCI* 7(1))
+- **화면 모서리/가장자리 = W = ∞** → Mac 메뉴바가 Windows보다 우월 (Walker & Smelcer 1990, *CHI*)
+- 호버 툴팁 지연: MS **500ms** / JetBrains **1500ms** / VS Code **300ms**
+- 데스크톱 최소 클릭 타겟 = **24×24px / 9.2mm** (Parhi, Karlson, Bederson 2006, *MobileHCI*)
+
+**우리 적용**: 자주 쓰는 도구는 가장자리, hover는 300–500ms, 모든 클릭 타겟 ≥ 24×24px.
+
+### 9. 색상과 색맹 — 적/녹 조합이 왜 금지인가
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| 색맹 = **남성 8%, 여성 0.5%**. **Deuteranomaly (녹색 약)이 가장 흔함 — 남성 5%** | Birch 2012, *J. Optical Society of America A* 29(3) | diff (추가=녹/삭제=빨)는 남성 8%가 구분 불가. **+/- 기호, gutter 패턴, 밝기 차이 병행 필수** |
+| 적-녹(L-M) 채널이 deuteranomaly가 가장 자주 손상. **파랑-노랑(S-(L+M))이 가장 안정적** | Ware 2013, *Information Visualization* 3rd ed. | 상태 표시 **청색/주황 이중 인코딩** 우선 |
+| 전주의(pre-attentive) 처리 < **200–250ms**. 동시 팝아웃 = **5±2개** | Treisman 1985; Healey & Enns 2012, *IEEE TVCG* 18(7) | 에러 = **색 + 곡률(물결선) + 거터 모양** 다중 채널. 동시 강조 ≤ 5개 |
+| WCAG 2.1 AA: 본문 **4.5:1**, 큰 텍스트 **3:1**, UI 요소 **3:1** | W3C WCAG 2.1 | 다크 테마 4.5:1 이상 (Dracula 등 인기 테마 다수가 실패 — Lea Verou 2020) |
+
+### 10. 알림 피로 — 과한 경고가 도구를 죽인다
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| ICU 환자당 시간당 **187–350건 경보**, 임상 실행 가능 비율 **<10%**. 간호사 경보 무시율 **최대 90%**. 2009–2012 경보 관련 사망 98건 | Sendelbach & Funk 2013; Joint Commission Sentinel Event Alert #50 | "조용히 vs 크게" 원칙. 한 화면 동시 알림 ≤ 3개 |
+| **PPV < 25%면 운영자 반응률 급감** ("cry wolf") | Getty et al. 1995, *J. Exp Psychology: Applied* 1(1) | PPV 목표 ≥ 75% |
+
+### 11. 변경 영향 분석 — slicing은 왜 보수적인가
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| 정적 slicing은 **종종 모듈의 20% 이상을 과추정** | Arnold & Bohner 1993, *ICSM* | blast radius는 필연적 보수적 → **랭킹·필터·feasibility 가지치기**가 핵심 |
+| 디버깅 시 개발자는 **무의식적으로 program slice를 구성** | Weiser 1984, *IEEE TSE* SE-10(4) | 명시적 slice 자동 제공 → 인지 부하 직접 경감 |
+| **churn ≈ 결함 밀도 (상관 0.8+)** | Nagappan & Ball 2005, *ICSE* | blast radius 가중치에 churn 추가. 미니맵 hotspot 자동 부상 |
+| **Bohrbug (재현 쉬움) = 60–70%**, Mandelbug = 30–40% | Grottke & Trivedi 2007, *IEEE Computer*; Gray 1986 | 정적분석은 Bohrbug에 매우 효과적. **"재현 가능한 버그의 대부분을 커밋 전에 잡는다"** = 가치 메시지 정량 정당화 |
+
+### 12. 시각화 효과 — 정말 효과 있는가
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| 시각화 + 동적 분석 결합이 유지보수 시간 **20–40% 단축** | Cornelissen et al. 2009, *IEEE TSE* 35(5) | call graph + dataflow + behavior diff 통합 |
+| EXTRAVIS 대조 실험: **정답률 21% ↑, 시간 22% ↓** | Cornelissen et al. 2011, *IEEE TSE* 37(3) | 우리도 대조 실험 가능 — "behavior diff 사용 vs 미사용 PR 리뷰" |
+| CodeCity 대조 실험: 정답률 **24.3% ↑, 시간 12% ↓** | Wettel, Lanza, Robbes 2011, *ICSE* | 대형 코드베이스 blast radius 전역 뷰 정당화 |
+| SeeSoft: 한 화면에 수만 LOC 속성 오버뷰 → 결함 밀집 영역 수 초 식별 | Eick, Steffen, Sumner 1992, *IEEE TSE* 18(11) | 미니맵 risk density 오버레이 = SeeSoft 직접 차용 |
+| 분할/타일 에디터가 탭 대비 **탐색 실수 36% ↓, 시간 16% ↓** | Henley & Fleming 2014, *CHI* | Investigation Spaces — 타일 레이아웃 정당화 |
+
+### 13. 클론·중복 — AI가 찍어내는 코드의 진짜 위험
+
+| 발견 | 출처 | 우리의 대응 |
+|------|------|-----------|
+| 카피-페이스트 코드 클론의 **약 10–15%가 일관성 없이 진화** → 불일치 버그. 포팅된 버그 수정 중 다수는 **원본에도 동일 결함이 남음** | Ray & Kim 2012, *FSE*; Kim et al. 2004, *ISESE* | Clone Detection P1 격상. taint와 결합 — "여기 고쳤는데 복제본은 안 고쳤다" 즉시 알림 |
+
+---
+
+### 14. 핵심 수치 인용표 (마케팅·세일즈에 즉시 사용 가능)
+
+| 주장 | 수치 | 출처 |
+|------|------|------|
+| 작업기억 용량 | **4±1 chunk** | Cowan 2001 |
+| 방해 후 복귀 | **23분** | Mark et al. 2005 |
+| 코딩 재개 1분 내 | **<10%** | Parnin & Rugaber 2011 |
+| 유지보수 탐색 시간 | **~35%** | Ko et al. 2006 |
+| 리뷰 효과 한계 | **≤200–400 LOC/h** | Cohen 2006 |
+| 리뷰 코멘트 중 실결함 | **14–15%** | Bacchelli & Bird 2013 |
+| 정적분석 FP 임계 (Google) | **≤10%** | Sadowski et al. 2018 |
+| 정적분석 death threshold | **30%** | Bessey et al. 2010 |
+| 코드 읽기 비선형성 | **0.5** (자연어 0.8) | Busjahn et al. 2015 |
+| 변경 질문 중 reachability | **78%** | LaToza & Myers 2010 |
+| 시각화 이해 개선 | **20–24%** | Cornelissen 2011 / CodeCity 2011 |
+| churn–결함 상관 | **~0.8** | Nagappan & Ball 2005 |
+| Bohrbug 비중 (정적분석으로 잡힘) | **60–70%** | Grottke & Trivedi 2007 |
+| 색맹 (남성) | **8%** | Birch 2012 |
+| 즉각 반응 한계 | **100ms** | Miller 1968 |
+| Doherty 생산성 도약 | **400ms** | Doherty 1982 |
+| 60fps 프레임 예산 | **16ms** | RAIL |
+
+---
+
+### 15. 통합 설계 명령 (위 근거의 압축)
+
+**5대 원칙 — 모든 설계 결정의 시금석**:
+
+1. **실시간·인라인 절대 원칙** (Mark, Parnin, Sadowski, Johnson)
+   - 분석이 에디터 벗어나면 23분 손실 + 90% 무시. **별도 창 ❌, CI-only ❌**
+
+2. **"왜" 증거 체인 필수** (Letovsky, Christakis & Bird)
+   - 질문 50%가 "why". 경고는 trace + 단계별 증명. "possible null"은 거절된다
+
+3. **4±1 동시 비교 한계** (Cowan, Mayer)
+   - 한 화면 동시 비교 카드 ≤ 4. behavior diff/Change Card/Gate 강제 규칙
+
+4. **Beacon·다중 채널 인코딩** (Crosby, Eick, Treisman, Birch, Ware)
+   - 미니맵/리본에 blast/taint/churn 밀도. **색 + 곡률 + 모양** 다중 채널. 색 단독 ❌
+
+5. **질문 중심 설계** (LaToza, Sillito)
+   - 기본 뷰는 기능 리스트가 아니라 **개발자 질문**. blast radius = "뭐가 깨지냐", taint flow = "어디 도달하냐". 가장 빈번하고 가장 답하기 어려운 질문이라는 **실증 근거가 있다**.
+
+---
+
+## AI 코딩 도구 흡수 — Cursor/Zed/Windsurf/Copilot/Cody/Aider/JetBrains AI
+
+위 IntelliJ 흡수 섹션에 더해, 2024–2026 AI 코딩 도구의 **검증된 패턴**을 정적분석 위에서 재구상한다. LLM 추측을 정적분석 확정값으로 대체.
+
+### 1. Cursor → Composer / Apply / Tab / @-Mentions / Rules / Background Agent
+
+| Cursor 기능 | 우리의 재해석 | 차별화 |
+|-----------|-------------|------|
+| **Composer (multi-file edit)** | LLM이 "관련 파일"을 추측하는 대신 call graph + import graph로 영향 파일을 **확정적**으로 수집. 사용자는 범위를 검증 후 실행 | "추측 없는 Composer". 환각 zero |
+| **Apply diff (Fast Apply)** | 라인 매칭이 아니라 **AST 단위 patch** — "이 함수 body만 교체", "이 import만 추가". Merge 충돌이 구조적으로 불가능 | 텍스트 fuzzy match → 구조 transform |
+| **Tab Completion (점프까지)** | rename refactoring은 정적분석이 100% 정확. Tab 점프를 refactoring engine이 예측 가능한 곳에만 발동 → 환각 zero. 타입 변경 시 impacted site를 순차로 안내하는 **guided propagation** | "텔레파시"가 아니라 "증명된 다음 위치" |
+| **@Files / @Folders / @Code / @Codebase** | `@Symbol` 멘션 시 transitive callers/callees/type hierarchy 자동 포함. 추가 멘션: `@Impacted` (이 변경이 건드리는 것), `@Contract` (인터페이스 + 모든 구현), `@Invariant` (이 타입의 불변식) | 구조적 멘션 시스템 |
+| **`.cursorrules` (자연어 규칙)** | 자연어가 아니라 **집행 가능한 아키텍처 계약** — "domain/은 infra/를 import할 수 없다". 위반 시 컴파일 단계 차단. Architecture Guardrails 통합 | 자연어 규칙 → 구조 계약 |
+| **Background Agents** | 백그라운드 job이 "이 PR을 머지하면 깨지는 호출처"를 사전 계산. Agent가 코드 쓰기 전에 정적분석 proof 제공 | proof-carrying agent |
+| **YOLO Mode** | AI 변경 각각에 "타입 체크 + 호출처 영향 + invariant 체크" 자동 검증. 실패 시 agent에게 proof-carrying feedback. **"YOLO인데 안전한"** 모드 | 검증된 자율 실행 |
+| **Shadow Workspace** | Shadow workspace를 정적분석 sandbox로 — "이 변경이 type check + arch + behavior equivalence 통과하나"를 본체 영향 없이 검증 | shadow = 정적 검증 sandbox |
+
+### 2. Zed → Multibuffer / Collaboration / Assistant Worksheet
+
+| Zed 기능 | 우리의 재해석 |
+|---------|-------------|
+| **Multibuffer (검색 결과를 편집 가능 버퍼로)** | 텍스트 검색이 아니라 **semantic query**로 채워짐 — "이 함수의 모든 호출처", "이 타입을 쓰는 모든 곳". 거기서 편집하면 타입 체크 즉시 검증 |
+| **Code With Me / Channels (페어 프로그래밍)** | guest가 host의 **precise index** 실시간 공유. 원격 reviewer가 "이 변경의 impact"를 즉시 봄. Investigation Space로 공유 |
+| **Assistant Worksheet (markdown 형태)** | AI 대화가 "편집 가능한 문서". `/diagnostics`가 LSP 경고를 넘어 "이 PR이 위반한 아키텍처 규칙"을 삽입. Worksheet가 proof log |
+
+### 3. Copilot Workspace / Copilot Chat → Spec → Plan → Implementation
+
+| Copilot 기능 | 우리의 재해석 |
+|-------------|-------------|
+| **Spec → Plan → Implementation** | Plan 단계를 정적분석이 **검증** — "이 파일 목록은 실제 impacted set과 일치하나?", "이 계획은 기존 invariant를 깨지 않나?". **Plan에 proof 첨부**. 가장 큰 차별화 기회 |
+| **Inline Chat (⌘I)** | 코드 위에서 자연어 → diff 미리보기. selection 컨텍스트 자동 + blast radius/taint 컨텍스트 자동 |
+| **/explain, /fix, /tests, /doc** | `/tests`가 path-sensitive analysis로 "커버해야 할 branch"를 먼저 뽑고 테스트 생성. `/fix`는 proof로 증명된 bug에서만 발동 |
+
+### 4. Sourcegraph Cody → Repository-Level Precise Index
+
+| Cody 기능 | 우리의 입장 |
+|----------|-----------|
+| **Precise LSIF/SCIP 인덱스 + embeddings 하이브리드** | 우리 thesis의 **이미 검증된 사례**. "엔터프라이즈 모놀리포에서 쓸 만한 유일한 AI 코딩 도구". precise index가 LLM context의 승부처임을 입증 |
+| **Natural Language Code Search** | "where do we validate user email" → 정적분석으로 후보 확정 + LLM ranking |
+
+### 5. Aider → Git-Native AI
+
+| Aider 기능 | 우리의 재해석 |
+|-----------|-------------|
+| **각 AI 편집을 자동 git commit, `/undo`로 rollback** | commit 전 자동으로 "이 커밋이 깨는 호출처 N개"를 commit message에 첨부. `/undo`가 structural — "이 심볼만 이전 상태로" |
+| **Repo Map (PageRank로 심볼 중요도)** | PageRank 대신 **call graph 중심성 + 이 변경에 영향받는 surface**로 컨텍스트 선택 |
+| **`/ask` (read-only) vs `/code` (edit) 모드 분리** | 우리 에이전트도 **탐색 모드 / 수정 모드** 명시적 분리 — "실수로 수정됨" 방지 |
+
+### 6. JetBrains AI Assistant + Junie (가장 가까운 경쟁자)
+
+| JetBrains 기능 | 우리의 차별화 |
+|--------------|-------------|
+| **AI Inspection + 기존 정적 inspection 통합** | 이것이 정확히 우리 thesis. JetBrains는 PSI를 **읽기**로만 사용. 우리는 PSI를 **쓰기**로도 — AI patch를 PSI tree transform으로 강제 |
+| **Junie autonomous agent** | Junie의 한계는 "단일 IDE에 갇힘". 우리는 **MCP 서버**로 모든 AI IDE에 정적분석 컨텍스트 제공 가능 (Go-to-market 지름길) |
+| **Full Line Code Completion (오프라인 로컬 모델)** | 오프라인 모델 + 정적분석 = 외부 API 없이도 정확한 컨텍스트. 컴플라이언스 시장 |
+
+### 7. JetBrains 킬러 기능 흡수
+
+| 기능 | 우리의 재해석 |
+|------|-------------|
+| **Reader Mode** (코드를 "독서"용으로) | call context 오버레이 — "이 함수는 3곳에서 호출됨, 주요 caller는 X" 각주처럼. 코드를 논문처럼 읽기 |
+| **Run Anything (Double Shift)** | ⌘K에 통합. 명령/script/URL/심볼/액션을 한 입구로 |
+| **Search Everywhere (ML 랭킹)** | 자연어 의미 검색까지 — "email validation 하는 곳" → 정적분석 후보 + LLM 랭킹 |
+| **Endpoints 툴 윈도우** | Endpoint를 **API contract 노드**로 — client 타입과 server 타입 일치 정적 검증 |
+| **Structural Search and Replace (SSR)** | **타입 인식 SSR** — "T가 Optional인 경우에만". LLM이 SSR 패턴 생성하면 환각 zero |
+
+### 8. MCP (Model Context Protocol) — Go-to-Market 지름길
+
+Anthropic 주도 표준. Cursor/Windsurf/Claude Code 등이 채택.
+
+**전략**: 우리 정적분석 엔진을 **MCP 서버로 노출**하면 자체 IDE 만들기 전에 모든 AI IDE의 context provider로 침투. blast radius/taint/behavior diff를 다른 AI 도구가 가져다 쓰게 만든다.
+
+### 9. AI 도구 통합의 8가지 기둥 (위 모든 도구의 압축)
+
+위 분석에서 도출되는 **AI × 정적분석 통합 원칙**:
+
+1. **Precise over Approximate** — AI가 추측하는 모든 지점을 정적분석 확정값으로 대체
+2. **Proof-Carrying Edits** — AI 변경 각각에 impact + invariant + type delta 자동 첨부
+3. **Structural Rules > Prompt Rules** — `.cursorrules` 자연어를 집행 가능 계약으로
+4. **Shadow Verification** — YOLO/Agent 모드의 안전장치를 LLM self-check가 아닌 정적 검증으로
+5. **Semantic Multibuffer / Semantic Search** — 텍스트 검색을 구조 쿼리로
+6. **Reader Mode for Impact** — 읽기 모드에 "이 코드 바꾸면 뭐가 깨지나"를 각주처럼
+7. **MCP 서버로서의 정적분석 엔진** — 자체 IDE 전에 모든 AI IDE의 context layer 침투
+8. **Plan Verification** — Copilot Workspace의 Spec/Plan을 정적분석이 검증하는 것이 가장 큰 차별화 기회
+
+---
+
+## 출처 주의
+
+- 위 수치 다수는 1차 자료에서 인용. 일부 (Busjahn linearity 정확값, Bacchelli 14–15% 소수점, Bing 100ms = -0.6%) 는 컨텍스트별로 다른 값으로 보고된다. 외부 인용 시 1차 PDF 재확인 권장.
+- Tufte chart junk 원칙은 Bateman 2010 (*CHI*) 이 부분 반박. 정기 사용 도구 ↔ 일회성 마케팅 차트 구분 필요.
+- F-패턴 (Nielsen 2006)은 NN/g 자신이 후속 글에서 "실패한 스캔"이라 정정. 권장 레이아웃 ❌.
+- Tog의 "마우스가 키보드보다 빠르다" 주장은 평균 사용자 대상. 숙련 개발자(Vim/단축키)는 시퀀스 작업에서 키보드 우월.

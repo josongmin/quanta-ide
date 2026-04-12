@@ -14,11 +14,9 @@
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border: 1.5px solid var(--line-2);
   border-radius: var(--overlay-radius-ephemeral);
-  /* Pre-DS shadow restored: minimal two-layer drop, no accent glow.
-     Floating windows are persistent UI; the dialog-grade glow leaks. */
+  /* Use the floating-rest token + a subtle inner highlight for glass feel. */
   box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.10),
+    var(--shadow-floating-rest),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   font-family: var(--font-ui);
 }
@@ -510,7 +508,7 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   pointer-events: none;
   z-index: var(--z-popover);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-floating-rest);
 }
 @keyframes agw-blink {
   0%, 85%, 100% { transform: scaleY(1); }
@@ -529,22 +527,30 @@
   height: 48px;
   border-radius: var(--radius-full);
   background: var(--paper-2);
-  border: 1.5px solid var(--line-1);
-  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-floating-rest);
   color: var(--ink-2);
   display: flex;
   align-items: center;
   justify-content: center;
   /* pop 등장 애니메이션 — transform이 translate와 충돌 안 하도록 wrap 분리 */
   animation: agw-bubble-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  transition: background var(--transition), box-shadow var(--transition);
+  transition:
+    background var(--duration-3) var(--ease-out),
+    box-shadow var(--duration-3) var(--ease-out),
+    transform var(--duration-3) var(--ease-spring);
+  will-change: transform;
 }
 .agw-bubble-wrap:hover .agw-bubble {
   background: var(--paper-3);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-floating-hover);
+  /* lift 1px on hover — completes the SOTA "rising" feeling */
+  transform: translateY(-1px);
 }
 .agw-bubble-wrap:active .agw-bubble {
-  opacity: 0.85;
+  opacity: 0.92;
+  transform: translateY(0);
+  box-shadow: var(--shadow-floating-rest);
 }
 .agw-bubble-wrap:active {
   cursor: grabbing;
