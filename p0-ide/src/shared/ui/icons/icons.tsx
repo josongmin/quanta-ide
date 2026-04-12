@@ -140,6 +140,74 @@ export const IconFolder = createIcon(
   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />,
 );
 
+export const IconBranch = createIcon(
+  "IconBranch",
+  <>
+    <circle cx="4" cy="3.5" r="1.5" />
+    <circle cx="4" cy="12.5" r="1.5" />
+    <circle cx="12" cy="3.5" r="1.5" />
+    <path d="M4 5v5.5" />
+    <path d="M12 5c0 3.5-8 3.5-8 7" />
+  </>,
+);
+
+export const IconRepo = createIcon(
+  "IconRepo",
+  <>
+    <rect x="3" y="3" width="18" height="18" rx="3" />
+    <line x1="3" y1="9" x2="21" y2="9" />
+    <line x1="9" y1="9" x2="9" y2="21" />
+  </>,
+);
+
+export const IconExpandAll = createIcon(
+  "IconExpandAll",
+  <>
+    <polyline points="7 4 3 4 3 20 7 20" />
+    <polyline points="17 4 21 4 21 20 17 20" />
+    <line x1="12" y1="4" x2="12" y2="20" />
+  </>,
+);
+
+export const IconCollapseAll = createIcon(
+  "IconCollapseAll",
+  <>
+    <polyline points="9 6 3 12 9 18" />
+    <polyline points="15 6 21 12 15 18" />
+  </>,
+);
+
+export const IconGrid2x2 = createIcon(
+  "IconGrid2x2",
+  <>
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </>,
+);
+
+export const IconGlobe = createIcon(
+  "IconGlobe",
+  <>
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <line x1="2" y1="9" x2="22" y2="9" />
+  </>,
+);
+
+export const IconBolt = createIcon(
+  "IconBolt",
+  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />,
+);
+
+export const IconClock = createIcon(
+  "IconClock",
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </>,
+);
+
 export const IconPlay = createIcon("IconPlay", <polygon points="6 3 20 12 6 21 6 3" />);
 export const IconPause = createIcon(
   "IconPause",

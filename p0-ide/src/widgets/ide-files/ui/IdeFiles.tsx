@@ -1,6 +1,14 @@
 import { useState, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { PanelResizer } from "@/shared/ui";
+import {
+  IconBranch,
+  IconChevronRight,
+  IconClock,
+  IconCollapseAll,
+  IconExpandAll,
+  IconRepo,
+  PanelResizer,
+} from "@/shared/ui";
 
 export interface FileNode {
   name: string;
@@ -46,17 +54,18 @@ function splitRepoEmoji(name: string): [string | null, string] {
 
 function ChevronIcon({ open }: { open: boolean }) {
   return (
-    <svg
+    <IconChevronRight
+      size={12}
+      strokeWidth={1.8}
       className={`ide-files-chev${open ? " is-open" : ""}`}
-      viewBox="0 0 16 16" fill="none" stroke="currentColor"
-      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-    >
-      <polyline points="6 3 11 8 6 13" />
-    </svg>
+    />
   );
 }
 
 function FolderIcon({ open }: { open: boolean }) {
+  // Branded folder glyph: distinct open/closed silhouettes. The shared
+  // IconFolder is a single closed variant, so this feature keeps its own
+  // path data — the raw <svg> stays intentional.
   return (
     <svg className="ide-files-icon is-folder" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
       {open ? (
@@ -176,25 +185,11 @@ function pickFileIcon(name: string) {
 }
 
 function RepoIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="3" />
-      <line x1="3" y1="9" x2="21" y2="9" />
-      <line x1="9" y1="9" x2="9" y2="21" />
-    </svg>
-  );
+  return <IconRepo size={12} strokeWidth={2} />;
 }
 
 function BranchIcon() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="4" cy="3.5" r="1.5" />
-      <circle cx="4" cy="12.5" r="1.5" />
-      <circle cx="12" cy="3.5" r="1.5" />
-      <path d="M4 5v5.5" />
-      <path d="M12 5c0 3.5-8 3.5-8 7" />
-    </svg>
-  );
+  return <IconBranch size={10} strokeWidth={1.7} />;
 }
 
 /* ── visibility helpers ─────────────────────────────────────────────── */
@@ -293,22 +288,16 @@ export function IdeFiles({ nodes, repoName, repoIcon, onNodeSelect, onFileClick,
             </>
           );
         })()}
-        <svg className="ide-files-repo-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
+        <IconChevronRight className="ide-files-repo-chevron" size={10} strokeWidth={2} />
       </button>
 
       {/* ── Toolbar ── */}
       <div className="ide-files-toolbar">
-        <button type="button" className="ide-files-tool-btn" onClick={expandAll} title="모두 펼치기">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="7 4 3 4 3 20 7 20" /><polyline points="17 4 21 4 21 20 17 20" /><line x1="12" y1="4" x2="12" y2="20" />
-          </svg>
+        <button type="button" className="ide-files-tool-btn" onClick={expandAll} title="모두 펼치기" aria-label="모두 펼치기">
+          <IconExpandAll size={11} strokeWidth={2} />
         </button>
-        <button type="button" className="ide-files-tool-btn" onClick={collapseAll} title="모두 접기">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <polyline points="9 6 3 12 9 18" /><polyline points="15 6 21 12 15 18" />
-          </svg>
+        <button type="button" className="ide-files-tool-btn" onClick={collapseAll} title="모두 접기" aria-label="모두 접기">
+          <IconCollapseAll size={11} strokeWidth={2} />
         </button>
         <div className="ide-files-tool-sep" />
         <span className="ide-files-count">{nodes.filter(n => n.type === "file").length} files</span>
@@ -410,7 +399,7 @@ export function IdeFiles({ nodes, repoName, repoIcon, onNodeSelect, onFileClick,
                   )}
                   {node.stale && (
                     <span className="ide-files-sig ide-files-sig-stale" title={`Last changed: ${node.stale} ago`}>
-                      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <IconClock size={7} strokeWidth={2.5} />
                       {node.stale}
                     </span>
                   )}
