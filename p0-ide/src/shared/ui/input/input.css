@@ -69,6 +69,15 @@
   border: 0;
   padding: 0;
 }
+/* minimal variant has no chrome of its own — host container owns focus
+   affordance (e.g. focus-within ring on a wrapper). Strip the default
+   focus ring so we don't paint a stray blue outline inside the host. */
+.input--minimal:focus-visible,
+.input--minimal:focus {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
 
 /* ── Textarea ── */
 .textarea {
