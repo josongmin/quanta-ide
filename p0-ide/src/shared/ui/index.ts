@@ -9,4 +9,5 @@ export * from "./menu";
 export * from "./panel";
 export * from "./popover";
 export * from "./select";
+export * from "./toggle";
 export * from "./tooltip";

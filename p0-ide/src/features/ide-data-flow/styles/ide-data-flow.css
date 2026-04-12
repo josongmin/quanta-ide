@@ -4,7 +4,7 @@
   flex-direction: column;
   gap: 0;
   position: relative;
-  padding-left: 20px;
+  padding-left: var(--space-7);
 }
 /* vertical connector */
 .ide-flow::before {
@@ -24,13 +24,13 @@
 .ide-flow-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  border-radius: 4px;
+  gap: var(--space-5);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-1);
   background: transparent;
   border: 1px solid transparent;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--font-size-2);
   color: var(--ink);
   position: relative;
   transition: background var(--transition), border-color var(--transition);
@@ -62,13 +62,13 @@
 .ide-flow-row .ide-flow-tag {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 0.54rem;
-  font-weight: 600;
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
   color: var(--ink-4);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 1px 6px;
-  border-radius: 3px;
+  padding: 1px var(--space-3);
+  border-radius: var(--radius-1);
   background: var(--paper-3);
   border: 1px solid var(--line);
 }
@@ -85,7 +85,7 @@
 .ide-flow-row .ide-flow-tag {
   margin-left: auto;
   font-family: var(--font-ui);
-  font-size: 0.66rem;
+  font-size: var(--font-size-1);
   color: var(--ink-3);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -102,25 +102,25 @@
 .ide-fix {
   background: var(--paper-3);
   border: 1px solid var(--line-2);
-  border-radius: 6px;
-  padding: 14px;
+  border-radius: var(--radius-2);
+  padding: var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-5);
 }
 .ide-fix-title {
-  font-size: 0.78rem;
-  font-weight: 600;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-semibold);
   color: var(--ink);
 }
 .ide-fix-code {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  line-height: 1.55;
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-base);
   background: var(--paper);
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 10px 12px;
+  border-radius: var(--radius-1);
+  padding: var(--space-5) var(--space-5);
   color: var(--ink-2);
   white-space: pre;
   overflow-x: auto;
@@ -130,15 +130,15 @@
 .ide-fix-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  font-size: 0.7rem;
+  gap: var(--space-3);
+  font-size: var(--font-size-2);
 }
 .ide-fix-meta-k { color: var(--ink-3); }
-.ide-fix-meta-v { color: var(--ink); text-align: right; font-family: var(--font-num); font-weight: 500; }
+.ide-fix-meta-v { color: var(--ink); text-align: right; font-family: var(--font-num); font-weight: var(--font-weight-medium); }
 .ide-fix-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 2px;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
 }
 
 /* buttons */
@@ -147,12 +147,12 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 4px;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-1);
   font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 500;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
   color: var(--ink);
   background: var(--paper-3);
   border: 1px solid var(--line-2);
@@ -178,8 +178,7 @@
 }
 .ide-btn-key {
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: var(--font-size-0);
   color: var(--ink-3);
-  margin-left: 4px;
+  margin-left: var(--space-2);
 }
-
