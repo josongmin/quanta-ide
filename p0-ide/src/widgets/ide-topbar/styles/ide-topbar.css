@@ -3,8 +3,8 @@
   grid-area: topbar;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 16px;
+  gap: var(--space-6);
+  padding: 0 var(--space-6);
   border-bottom: 1px solid var(--line);
   background: var(--paper-1);
   user-select: none;
@@ -26,22 +26,22 @@
 .ide-topbar-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 .ide-topbar-sep {
   width: 1px;
-  height: 16px;
+  height: var(--space-6);
   background: var(--line-2);
   flex-shrink: 0;
-  margin: 0 2px;
+  margin: 0 var(--space-1);
 }
 .ide-topbar-path {
   flex: 0 1 auto;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   font-family: var(--font-mono);
-  font-size: 0.78rem;
+  font-size: var(--font-size-3);
   color: var(--ink-3);
 }
 .ide-topbar-path .crumb-sep {
@@ -62,8 +62,8 @@
   border: 1px solid var(--line);
   color: var(--ink-3);
   font-family: var(--font-ui);
-  font-size: 0.74rem;
-  font-weight: 400;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-regular);
   min-width: 340px;
   transition: background var(--transition), border-color var(--transition), color var(--transition);
   position: absolute;
@@ -111,15 +111,15 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   padding: 5px 10px;
   border-radius: var(--radius-row);
   background: var(--paper-2);
   border: 1px solid var(--line);
   color: var(--ink-2);
   font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 500;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
   transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 .ide-topbar-pr:hover {
@@ -135,14 +135,14 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 8px;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-row);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
   background: color-mix(in srgb, var(--accent) 8%, var(--paper-2));
   color: color-mix(in srgb, var(--accent) 90%, var(--ink));
   font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 500;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
   transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 .ide-topbar-agent:hover {
@@ -154,14 +154,14 @@
   appearance: none;
   cursor: pointer;
   min-width: 2.25rem;
-  padding: 5px 8px;
+  padding: 5px var(--space-4);
   border-radius: var(--radius-row);
   background: var(--paper-2);
   border: 1px solid var(--line);
   color: var(--ink-2);
   font-family: var(--font-ui);
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.04em;
   transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
@@ -175,12 +175,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 10px;
+  padding: var(--space-2) 10px;
   border-radius: var(--radius-row);
   background: var(--paper-2);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--font-size-2);
   color: var(--ink-2);
 }
 .ide-topbar-risk.is-clickable {
@@ -193,8 +193,8 @@
 }
 .ide-topbar-risk-num {
   font-family: var(--font-num);
-  font-size: 0.92rem;
-  font-weight: 600;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-semibold);
   color: var(--ink);
   letter-spacing: -0.02em;
 }
@@ -218,15 +218,15 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   padding: 5px 10px;
   border-radius: var(--radius-row);
   background: var(--paper-2);
   border: 1px solid var(--line);
   color: var(--ink-2);
   font-family: var(--font-ui);
-  font-size: 0.72rem;
-  font-weight: 500;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
   transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 .ide-topbar-commit:hover {
@@ -249,8 +249,8 @@
   background: var(--paper-2);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 0.7rem;
-  font-weight: 500;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
   transition: background var(--transition), border-color var(--transition);
 }
 .ide-topbar-diff:hover {
@@ -290,12 +290,12 @@
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
-  border-radius: 7px;
+  border-radius: var(--radius-3);
   background: var(--line-3);
   color: var(--ink);
   font-family: var(--font-num);
-  font-size: 0.6rem;
-  font-weight: 700;
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-bold);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -313,7 +313,7 @@
 .usermenu-trigger {
   appearance: none;
   cursor: pointer;
-  padding: 0 4px 0 0;
+  padding: 0 var(--space-2) 0 0;
   border: none;
   background: none;
   display: flex;
@@ -322,8 +322,8 @@
 }
 .usermenu-trigger-name {
   font-family: var(--font-ui);
-  font-size: 0.76rem;
-  font-weight: 500;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
   color: var(--ink-2);
   transition: color var(--transition);
 }
@@ -332,14 +332,14 @@
   color: var(--ink);
 }
 .usermenu-avatar {
-  width: 24px;
-  height: 24px;
+  width: var(--space-8);
+  height: var(--space-8);
   border-radius: 50%;
   background: var(--accent);
   border: none;
   color: #fff;
-  font-size: 0.6rem;
-  font-weight: 700;
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-bold);
   letter-spacing: 0.04em;
   display: flex;
   align-items: center;
@@ -380,8 +380,8 @@
 .usermenu-search-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px 8px;
+  gap: var(--space-4);
+  padding: 10px var(--space-5) var(--space-4);
   border-bottom: 1px solid var(--line);
 }
 .usermenu-search-icon { color: var(--ink-4); flex-shrink: 0; }
@@ -391,7 +391,7 @@
   background: none;
   outline: none;
   font-family: var(--font-ui);
-  font-size: 0.8rem;
+  font-size: var(--font-size-3);
   color: var(--ink);
   caret-color: var(--accent);
 }
@@ -401,9 +401,9 @@
 .usermenu-scroll {
   overflow-y: auto;
   max-height: 480px;
-  padding: 6px 0;
+  padding: var(--space-3) 0;
 }
-.usermenu-section { padding: 0 6px; }
+.usermenu-section { padding: 0 var(--space-3); }
 
 /* Divider */
 .usermenu-divider {
@@ -420,17 +420,17 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-row);
   border: none;
   background: none;
   color: var(--ink-2);
   font-family: var(--font-ui);
-  font-size: 0.78rem;
-  font-weight: 400;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-regular);
   text-align: left;
-  transition: background 0.1s, color 0.1s;
-  line-height: 1.4;
+  transition: background var(--duration-2), color var(--duration-2);
+  line-height: var(--line-height-snug);
 }
 .usermenu-item:hover {
   background: var(--paper-2);
@@ -440,16 +440,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--space-7);
+  height: var(--space-7);
   flex-shrink: 0;
   color: var(--ink-3);
-  transition: color 0.1s;
+  transition: color var(--duration-2);
 }
 .usermenu-item:hover .usermenu-item-icon { color: var(--ink-2); }
 .usermenu-item-label { flex: 1; }
 .usermenu-item-badge {
-  font-size: 0.68rem;
+  font-size: var(--font-size-1);
   color: var(--ink-3);
   white-space: nowrap;
 }
@@ -466,27 +466,27 @@
 
 /* Empty state */
 .usermenu-empty {
-  padding: 12px 8px;
-  font-size: 0.74rem;
+  padding: var(--space-5) var(--space-4);
+  font-size: var(--font-size-2);
   color: var(--ink-4);
   text-align: center;
 }
 
 /* Footer meta */
 .usermenu-footer {
-  padding: 8px 14px 10px;
+  padding: var(--space-4) 14px 10px;
 }
 .usermenu-footer-user {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 .usermenu-footer-name {
-  font-size: 0.68rem;
+  font-size: var(--font-size-1);
   color: var(--ink-4);
 }
 .usermenu-footer-date {
-  font-size: 0.66rem;
+  font-size: var(--font-size-1);
   color: var(--ink-4);
   opacity: 0.7;
 }
@@ -528,7 +528,7 @@
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 60px);
   overflow-y: auto;
-  padding: 12px;
+  padding: var(--space-5);
   background: var(--paper-1);
   border: 1px solid var(--line-2);
   border-radius: var(--overlay-radius-dialog);
@@ -538,25 +538,25 @@
   animation: ctxmenu-in 0.14s ease-out;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
 }
 .ide-settings-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
 }
 .ide-settings-label {
-  font-size: 0.68rem;
-  font-weight: 600;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-3);
-  padding: 0 2px;
+  padding: 0 var(--space-1);
 }
 .ide-settings-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
+  gap: var(--space-2);
 }
 .ide-settings-opt {
   appearance: none;
@@ -565,13 +565,13 @@
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 6px 8px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-row);
   background: var(--paper-2);
   border: 1px solid var(--line);
   color: var(--ink-2);
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--font-size-2);
   white-space: nowrap;
   transition: background var(--transition), border-color var(--transition), color var(--transition);
 }
@@ -684,7 +684,7 @@
 .ide-settings-divider {
   height: 1px;
   background: var(--line);
-  margin: 0 -2px;
+  margin: 0 calc(-1 * var(--space-1));
 }
 
 /* ── IDE Aurora Picker (GNB) ─────────────────────────────────────── */
@@ -697,7 +697,7 @@
   width: 26px;
   height: 26px;
   padding: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-3);
   background: var(--paper-2);
   border: 1px solid var(--line);
   display: inline-flex;
@@ -750,7 +750,7 @@
   right: 0;
   z-index: 160;
   width: 224px;
-  padding: 8px;
+  padding: var(--space-4);
   background: var(--paper-1);
   border: 1px solid var(--line-2);
   border-radius: 12px;
@@ -770,7 +770,7 @@
   width: 100%;
   aspect-ratio: 1;
   padding: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-4);
   background: transparent;
   border: 2px solid transparent;
   display: flex;

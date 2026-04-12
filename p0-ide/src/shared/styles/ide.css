@@ -15,7 +15,10 @@
 
 /* ── Shared UI components ── */
 @import "../../shared/ui/button/button.css";
+@import "../../shared/ui/badge/badge.css";
+@import "../../shared/ui/input/input.css";
 @import "../../shared/ui/panel/panel.css";
+@import "../../shared/ui/tooltip/tooltip.css";
 
 /* ── Widgets ── */
 @import "../../widgets/ide-topbar/styles/ide-topbar.css";

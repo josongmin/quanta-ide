@@ -1,0 +1,84 @@
+/* =============================================================================
+   input.css — shared TextInput / Textarea styles
+   Token-only. Consumed by TextInput.tsx and Textarea.tsx.
+   ============================================================================= */
+
+.input {
+  appearance: none;
+  font-family: var(--font-ui);
+  color: var(--color-fg-default);
+  background: var(--color-bg-muted);
+  border: var(--border-width-1) solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: var(--motion-fast);
+  width: 100%;
+}
+
+.input::placeholder {
+  color: var(--color-fg-faint);
+}
+
+.input:focus-visible {
+  border-color: var(--color-focus-ring);
+  outline: var(--focus-ring-width) solid var(--color-focus-ring);
+  outline-offset: 0;
+}
+
+.input:disabled,
+.input[aria-disabled="true"] {
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+}
+
+.input.is-invalid {
+  border-color: var(--color-feedback-danger-border);
+}
+
+.input.is-invalid:focus-visible {
+  border-color: var(--color-feedback-danger-fg);
+  outline-color: var(--color-feedback-danger-fg);
+}
+
+/* ── Sizes ── */
+.input--sm {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-2);
+}
+.input--md {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--font-size-3);
+}
+.input--lg {
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--font-size-4);
+}
+
+/* ── Variants ── */
+.input--default {
+}
+.input--ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.input--ghost:hover {
+  background: var(--color-bg-muted);
+}
+.input--minimal {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+/* ── Textarea ── */
+.textarea {
+  resize: vertical;
+  min-height: var(--space-10);
+  line-height: var(--line-height-base);
+}
+.textarea[data-resize="none"] {
+  resize: none;
+}
+.textarea[data-resize="vertical"] {
+  resize: vertical;
+}
