@@ -6,6 +6,7 @@ import type { CodeLine } from "@/widgets/ide-editor";
 import { EditableEditor } from "@/features/ide-editable-editor";
 import { IdeInspector, InspectorSection } from "@/widgets/ide-inspector";
 import { IdeStatusBar } from "@/widgets/ide-statusbar";
+import { IdeBottomPanel } from "@/widgets/ide-bottom-panel";
 import { IdeCallGraph, type CallNode } from "@/features/ide-call-graph";
 import { IdeDataFlow, type FlowStep } from "@/features/ide-data-flow";
 import { IdeSuggestedFix } from "@/features/ide-suggested-fix";
@@ -361,6 +362,7 @@ export function IdePage({ onExit }: IdePageProps) {
           </SymbolInspector>
         ) : null}
       </IdeInspector>
+      <IdeBottomPanel />
       <IdeStatusBar
         issues={isEditing && blastDelta > 0 ? 3 : 2}
         buildState="passed"

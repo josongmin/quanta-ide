@@ -65,3 +65,6 @@
 @import "../../features/ide-agent-window/styles/ide-agent-window.css";
 @import "../../features/ide-change-impact/styles/ide-change-impact.css";
 @import "../../features/ide-editable-editor/styles/ide-editable-editor.css";
+@import "../../features/ide-bottom-panel/styles/bottom-panel.css";
+@import "../../features/ide-activity-rail/styles/activity-rail.css";
+@import "../../features/ide-watcher/styles/watcher.css";

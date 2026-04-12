@@ -66,13 +66,16 @@
   letter-spacing: -0.005em;
   --files-w: 240px;
   --inspector-w: 360px;
+  --rail-w: 40px;
+  --bottom-h: 240px;
   display: grid;
-  grid-template-rows: 40px 1fr 28px;
-  grid-template-columns: var(--files-w) 1fr var(--inspector-w);
+  grid-template-rows: 40px 1fr var(--bottom-h) 28px;
+  grid-template-columns: var(--rail-w) calc(var(--files-w) - var(--rail-w)) 1fr var(--inspector-w);
   grid-template-areas:
-    "topbar topbar topbar"
-    "files  editor inspector"
-    "status status status";
+    "topbar topbar  topbar topbar"
+    "files  files   editor inspector"
+    "rail   bottom  bottom bottom"
+    "status status  status status";
   overflow: hidden;
 }
 
@@ -3366,11 +3369,12 @@
 /* ── Mobile (1024px 이하) ───────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .ide {
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: var(--rail-w) calc(200px - var(--rail-w)) 1fr;
     grid-template-areas:
-      "topbar topbar"
-      "files  editor"
-      "status status";
+      "topbar topbar topbar"
+      "files  files  editor"
+      "rail   bottom bottom"
+      "status status status";
   }
   .ide-inspector {
     display: none;

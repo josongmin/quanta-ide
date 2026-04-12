@@ -1,0 +1,91 @@
+/* =============================================================================
+   ActivityRail — 좌측 신설 아이콘 rail
+   하단 패널의 부모 탭 컨트롤. VSCode Activity bar와 다른 점: 사이드바가
+   아니라 하단 패널을 컨트롤한다.
+   ============================================================================= */
+
+.ar-root {
+  grid-area: rail;
+  width: 100%;
+  height: 100%;
+  background: var(--paper-1);
+  border-top: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 0;
+  overflow: hidden;
+}
+
+.ar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  align-items: center;
+}
+
+.ar-item {
+  display: flex;
+  justify-content: center;
+}
+
+.ar-btn {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition:
+    background var(--transition),
+    color var(--transition),
+    border-color var(--transition);
+}
+
+.ar-btn:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+
+.ar-btn:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.ar-btn.is-active {
+  background: var(--paper-3);
+  color: var(--ink);
+}
+
+.ar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Status dot — 우측 하단 코너에 작게 */
+.ar-dot {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--paper-1);
+}
+
+.ar-dot-ok     { background: #86efac; }
+.ar-dot-warn   { background: #fbbf24; }
+.ar-dot-danger { background: #f87171; }
