@@ -3,11 +3,19 @@
    각 feature/widget의 CSS를 모듈별로 분산하여 관리합니다.
    ============================================================================= */
 
+/* ── Design tokens: Tier 1 Primitive → Tier 2 Semantic ── */
+@import "./tokens/primitive.css";
+@import "./tokens/semantic.css";
+
 /* ── Base tokens, layout, themes ── */
 @import "./ide-base.css";
 
 /* ── Overlay design system (z-index, shadow, blur, animation tokens) ── */
 @import "./overlay-tokens.css";
+
+/* ── Shared UI components ── */
+@import "../../shared/ui/button/button.css";
+@import "../../shared/ui/panel/panel.css";
 
 /* ── Widgets ── */
 @import "../../widgets/ide-topbar/styles/ide-topbar.css";

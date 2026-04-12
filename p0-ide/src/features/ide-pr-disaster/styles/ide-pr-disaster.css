@@ -1,44 +1,16 @@
 /* ═════════════════════════════════════════════════════════════════════
    Phase 25 — PR Disaster Preview
    ═════════════════════════════════════════════════════════════════════ */
-.prd-root {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-dialog);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5vh 16px;
-  font-family: var(--font-ui);
-  animation: overlay-scrim-in var(--overlay-duration-in) var(--overlay-ease) both;
+.panel.prd .panel__header {
+  background: color-mix(in srgb, var(--accent) 8%, var(--paper-3));
 }
-.prd-backdrop {
-  position: absolute;
-  inset: 0;
-  background: var(--overlay-scrim-dialog);
-  backdrop-filter: var(--overlay-blur-dialog);
-  -webkit-backdrop-filter: var(--overlay-blur-dialog);
+.panel.prd .panel__footer {
+  background: var(--paper-3);
 }
-.prd-panel {
-  position: relative;
-  width: min(640px, 100%);
-  max-height: 90vh;
+.prd-body {
   display: flex;
   flex-direction: column;
-  background: var(--overlay-bg-dialog);
-  border: var(--overlay-border);
-  border-radius: var(--overlay-radius-dialog);
-  box-shadow: var(--overlay-shadow-dialog);
-  overflow: hidden;
-  animation: overlay-dialog-in var(--overlay-duration-in) var(--overlay-ease) both;
-}
-.prd-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--line-2);
-  background: color-mix(in srgb, var(--accent) 8%, var(--paper-3));
+  gap: 18px;
 }
 .prd-head-left { display: flex; align-items: center; gap: 12px; }
 .prd-head-icon {
@@ -57,30 +29,6 @@
 .prd-head-text { display: flex; flex-direction: column; gap: 2px; }
 .prd-head-title { font-size: 0.9rem; font-weight: 600; color: var(--ink); }
 .prd-head-sub { font-size: 0.7rem; color: var(--ink-3); }
-.prd-close {
-  appearance: none;
-  cursor: pointer;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  color: var(--ink-3);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition), color var(--transition);
-}
-.prd-close:hover { background: var(--paper-3); color: var(--ink); }
-.prd-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  scrollbar-width: thin;
-}
 .prd-headline {
   display: flex;
   align-items: center;
@@ -220,12 +168,3 @@
 }
 .prd-verdict-text { font-size: 0.84rem; color: var(--ink); line-height: 1.6; }
 .prd-verdict-text strong { color: var(--accent); font-weight: 700; }
-.prd-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 14px 18px;
-  border-top: 1px solid var(--line-2);
-  background: var(--paper-3);
-}
-

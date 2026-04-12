@@ -9,6 +9,13 @@ import { SessionTabs } from "./SessionTabs";
 import { MsgPart } from "./MsgPart";
 import { IconClose, IconChevron, IconPlus, IconSend } from "./icons";
 
+/* TODO(ds): migrate to Panel — deferred. This is a draggable/resizable floating
+ * window (no scrim, custom translate()+resize handles, outside-click minimizes
+ * rather than closes). Neither `dialog` nor `sheet` tier fits: Overlay would
+ * inject a scrim, scroll-lock the body, and override positioning. A new
+ * `floating` tier (or a Panel variant that opts out of Overlay) is required
+ * before the shell can be migrated. Icons have been redirected to @/shared/ui. */
+
 /* pin / unpin icon — thumbtack */
 function IconPin({ pinned }: { pinned: boolean }) {
   return (

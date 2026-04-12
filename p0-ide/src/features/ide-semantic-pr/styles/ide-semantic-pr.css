@@ -1,27 +1,13 @@
 /* ═════════════════════════════════════════════════════════════════════
    Phase 24 — Semantic PR Auto-Pilot
+   Shell(root/backdrop/panel/head/close/foot)은 shared Panel/Button으로 이관됨.
    ═════════════════════════════════════════════════════════════════════ */
-.spr-root { position: fixed; inset: 0; z-index: var(--z-sheet); display: flex; justify-content: flex-end; pointer-events: none; }
-.spr-backdrop { position: absolute; inset: 0; background: var(--overlay-scrim-sheet); backdrop-filter: var(--overlay-blur-sheet); -webkit-backdrop-filter: var(--overlay-blur-sheet); pointer-events: auto; animation: overlay-scrim-in var(--overlay-duration-in) var(--overlay-ease) both; }
-.spr-panel {
-  position: relative;
-  width: min(560px, calc(100vw - 32px));
-  height: 100%;
-  background: var(--overlay-bg-sheet);
-  border-left: var(--overlay-border);
-  box-shadow: var(--overlay-shadow-sheet);
-  display: flex;
-  flex-direction: column;
-  pointer-events: auto;
-  animation: overlay-sheet-in var(--overlay-duration-in) var(--overlay-ease) both;
-}
-.spr-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line-2); background: var(--paper-3); }
+.panel.spr .panel__header { background: var(--paper-3); }
+.panel.spr .panel__footer { background: var(--paper-3); }
+.spr-body { display: flex; flex-direction: column; gap: 18px; }
 .spr-head-left { display: flex; align-items: baseline; gap: 12px; }
 .spr-head-label { font-family: var(--font-mono); font-size: 0.6rem; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-3); }
 .spr-head-branch { font-family: var(--font-mono); font-size: 0.7rem; color: var(--ink-2); }
-.spr-close { appearance: none; cursor: pointer; width: 28px; height: 28px; border-radius: 6px; background: var(--paper-2); border: 1px solid var(--line); color: var(--ink-3); display: inline-flex; align-items: center; justify-content: center; transition: background var(--transition), color var(--transition); }
-.spr-close:hover { background: var(--paper-3); color: var(--ink); }
-.spr-body { flex: 1; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 18px; scrollbar-width: thin; }
 .spr-section { display: flex; flex-direction: column; gap: 8px; }
 .spr-section-attn { padding: 10px 12px; background: var(--paper-3); border: 1px solid var(--line-2); border-radius: 8px; }
 .spr-label { font-family: var(--font-mono); font-size: 0.56rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-4); }
@@ -51,5 +37,3 @@
 .spr-file-name { color: var(--ink); }
 .spr-badge { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--paper); border: 1px solid var(--line); border-radius: 7px; font-size: 0.66rem; color: var(--ink-4); align-self: flex-start; }
 .spr-badge-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ink-4); }
-.spr-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 14px 18px; border-top: 1px solid var(--line-2); background: var(--paper-3); }
-

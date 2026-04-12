@@ -1,40 +1,55 @@
+/**
+ * Icon re-exports — design system migration.
+ *
+ * IconClose / IconSend / IconChevron / IconPlus are thin wrappers over the
+ * shared `@/shared/ui` icon set that preserve the original pixel sizes used
+ * throughout this feature (the shared icons default to 14px, while the agent
+ * window historically used 10–12px glyphs).
+ *
+ * `IconChevron` maps to shared `IconChevronDown`.
+ *
+ * `Dot` is intentionally kept local: the shared `IconDot` uses a different
+ * color token (`--color-accent-fg`) and omits the `marginTop: 6` offset that
+ * the agent chat bubbles rely on. Swapping it would cause a visual regression.
+ * TODO(ds): unify Dot with shared IconDot once the agent bubble layout is
+ * refactored.
+ */
+
+import {
+  IconClose as SharedIconClose,
+  IconSend as SharedIconSend,
+  IconPlus as SharedIconPlus,
+  IconChevronDown as SharedIconChevronDown,
+} from "@/shared/ui";
+
 export function IconClose() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="6" y1="6" x2="18" y2="18" />
-      <line x1="18" y1="6" x2="6" y2="18" />
-    </svg>
-  );
+  return <SharedIconClose size={12} strokeWidth={2} />;
 }
 
 export function IconSend() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="19" x2="12" y2="5" />
-      <polyline points="5 12 12 5 19 12" />
-    </svg>
-  );
+  return <SharedIconSend size={10} strokeWidth={2.5} />;
 }
 
 export function IconChevron() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
+  return <SharedIconChevronDown size={10} strokeWidth={2.5} />;
 }
 
 export function IconPlus() {
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
+  return <SharedIconPlus size={10} strokeWidth={2.5} />;
 }
 
 export function Dot() {
   return (
-    <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", display: "inline-block", flexShrink: 0, marginTop: 6 }} />
+    <span
+      style={{
+        width: 5,
+        height: 5,
+        borderRadius: "50%",
+        background: "var(--accent)",
+        display: "inline-block",
+        flexShrink: 0,
+        marginTop: 6,
+      }}
+    />
   );
 }

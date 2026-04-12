@@ -1,0 +1,103 @@
+/* =============================================================================
+   tokens/primitive.css — Tier 1: Reference tokens
+   =============================================================================
+   원칙:
+   - 값만 가진다. 의미 없음.
+   - 컴포넌트/feature CSS에서 직접 참조 금지.
+   - 테마 전환 시에도 변하지 않는다.
+   - semantic.css가 이 위에 의도를 덧씌운다.
+   ============================================================================= */
+
+:root {
+  /* ── Scale: Space (4/8 hybrid, 13-step) ────────────────────────────────── */
+  --space-0:  0;
+  --space-1:  2px;
+  --space-2:  4px;
+  --space-3:  6px;
+  --space-4:  8px;
+  --space-5:  12px;
+  --space-6:  16px;
+  --space-7:  20px;
+  --space-8:  24px;
+  --space-9:  32px;
+  --space-10: 40px;
+  --space-11: 56px;
+  --space-12: 80px;
+
+  /* ── Scale: Radius ─────────────────────────────────────────────────────── */
+  --radius-0: 0;
+  --radius-1: 3px;   /* kbd, tag */
+  --radius-2: 5px;   /* row, menu-item */
+  --radius-3: 7px;   /* input, small button */
+  --radius-4: 8px;   /* popover, card */
+  --radius-5: 10px;  /* sheet, dialog */
+  --radius-6: 14px;
+  --radius-full: 9999px;
+
+  /* ── Scale: Font size (rem based on 13px root) ─────────────────────────── */
+  --font-size-0:  0.58rem;  /*  ~7.5px  caption/label */
+  --font-size-1:  0.66rem;  /*  ~8.6px  micro */
+  --font-size-2:  0.72rem;  /*  ~9.4px  small */
+  --font-size-3:  0.78rem;  /* ~10.1px  body-sm */
+  --font-size-4:  0.86rem;  /* ~11.2px  body */
+  --font-size-5:  0.92rem;  /*   ~12px  body-lg */
+  --font-size-6:  1.00rem;  /*   13px   ui-base */
+  --font-size-7:  1.15rem;  /*   15px   title-sm */
+  --font-size-8:  1.35rem;  /* ~17.5px  title */
+  --font-size-9:  1.70rem;  /*   22px   display */
+
+  /* ── Scale: Line-height ────────────────────────────────────────────────── */
+  --line-height-tight:   1.2;
+  --line-height-snug:    1.35;
+  --line-height-base:    1.5;
+  --line-height-relaxed: 1.7;
+
+  /* ── Scale: Font-weight ────────────────────────────────────────────────── */
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+
+  /* ── Scale: Letter-spacing ─────────────────────────────────────────────── */
+  --tracking-tight:   -0.01em;
+  --tracking-normal:  -0.005em;
+  --tracking-wide:    0.05em;
+  --tracking-widest:  0.1em;
+
+  /* ── Scale: Duration ───────────────────────────────────────────────────── */
+  --duration-1:  60ms;
+  --duration-2:  120ms;
+  --duration-3:  180ms;
+  --duration-4:  240ms;
+  --duration-5:  360ms;
+  --duration-6:  520ms;
+
+  /* ── Scale: Easing ─────────────────────────────────────────────────────── */
+  --ease-linear:   linear;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:       cubic-bezier(0.4, 0, 1, 1);
+  --ease-spring:   cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ── Scale: Shadow (rgba alpha tiers) ──────────────────────────────────── */
+  --shadow-alpha-1: 0.20;
+  --shadow-alpha-2: 0.28;
+  --shadow-alpha-3: 0.40;
+  --shadow-alpha-4: 0.50;
+  --shadow-alpha-5: 0.60;
+
+  /* ── Scale: Z-index layers ─────────────────────────────────────────────── */
+  --z-base:       0;
+  --z-raised:     10;
+  --z-sticky:     50;
+  --z-app:        100;   /* .ide root */
+  --z-sheet:      200;
+  --z-dialog:     300;
+  --z-popover:    400;
+  --z-ephemeral:  500;
+
+  /* ── Scale: Line width ─────────────────────────────────────────────────── */
+  --border-width-1: 1px;
+  --border-width-2: 2px;
+  --border-width-3: 3px;
+}

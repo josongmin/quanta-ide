@@ -1,22 +1,12 @@
 /* ═════════════════════════════════════════════════════════════════════
    Phase 6 — Risk Score Drawer
    ═════════════════════════════════════════════════════════════════════ */
-/* ─── Risk Popover ─────────────────────────────────────────────────────── */
-.rdw-popover {
-  position: fixed;
-  z-index: var(--z-popover);
-  background: var(--overlay-bg-popover);
-  border: var(--overlay-border);
-  border-radius: var(--overlay-radius-popover);
-  box-shadow: var(--overlay-shadow-popover);
-  display: flex;
-  flex-direction: column;
+/* ─── Risk Popover (shell handled by shared Panel tier="popover") ────── */
+.panel.rdw {
   max-height: 540px;
-  overflow: hidden;
-  animation: overlay-popover-in var(--overlay-duration-in) var(--overlay-ease-out) both;
   transform-origin: top right;
 }
-.rdw-popover.is-flip { transform-origin: bottom right; }
+.panel.rdw.is-flip { transform-origin: bottom right; }
 
 /* caret arrow */
 .rdw-caret {
@@ -30,15 +20,6 @@
 }
 
 /* ── header ── */
-.rdw-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--line);
-  background: var(--paper);
-  flex-shrink: 0;
-}
 .rdw-head-left {
   display: flex;
   align-items: center;
@@ -58,29 +39,8 @@
   text-transform: uppercase;
   color: var(--accent);
 }
-.rdw-close {
-  appearance: none;
-  cursor: pointer;
-  width: 24px;
-  height: 24px;
-  border-radius: 5px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--ink-4);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--transition), color var(--transition), border-color var(--transition);
-}
-.rdw-close:hover {
-  background: var(--paper-3);
-  border-color: var(--line);
-  color: var(--ink);
-}
-
 /* ── body ── */
 .rdw-body {
-  flex: 1;
   overflow-y: auto;
   padding: 16px;
   display: flex;

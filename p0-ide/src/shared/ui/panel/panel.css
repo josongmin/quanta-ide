@@ -1,0 +1,129 @@
+/* =============================================================================
+   Panel — shared panel component (wraps Overlay)
+   ============================================================================= */
+
+.panel {
+  --panel-width-sm: 420px;
+  --panel-width-md: 560px;
+  --panel-width-lg: 720px;
+  --panel-width-xl: 960px;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 90vh;
+  color: var(--color-fg-default);
+  background: var(--overlay-bg-dialog);
+  border: var(--border-width-1) solid var(--color-border-default);
+  border-radius: var(--overlay-radius-dialog);
+  box-shadow: var(--overlay-shadow-dialog);
+  backdrop-filter: var(--overlay-blur-dialog);
+  -webkit-backdrop-filter: var(--overlay-blur-dialog);
+}
+
+/* ── Tier: dialog ── */
+.panel--dialog {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--overlay-bg-dialog);
+  border-radius: var(--overlay-radius-dialog);
+  box-shadow: var(--overlay-shadow-dialog);
+  backdrop-filter: var(--overlay-blur-dialog);
+  -webkit-backdrop-filter: var(--overlay-blur-dialog);
+}
+
+/* ── Tier: sheet ── */
+.panel--sheet {
+  position: fixed;
+  right: 0;
+  top: 0;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border: 0;
+  border-left: var(--border-width-1) solid var(--color-border-default);
+  background: var(--overlay-bg-sheet);
+  box-shadow: var(--overlay-shadow-sheet);
+  backdrop-filter: var(--overlay-blur-sheet);
+  -webkit-backdrop-filter: var(--overlay-blur-sheet);
+}
+
+/* ── Tier: popover ── */
+.panel--popover {
+  position: fixed;
+  background: var(--overlay-bg-popover);
+  border-radius: var(--overlay-radius-popover);
+  box-shadow: var(--overlay-shadow-popover);
+  backdrop-filter: var(--overlay-blur-popover);
+  -webkit-backdrop-filter: var(--overlay-blur-popover);
+}
+
+/* ── Size ── */
+.panel--sm { width: min(var(--panel-width-sm), calc(100vw - var(--space-8))); }
+.panel--md { width: min(var(--panel-width-md), calc(100vw - var(--space-8))); }
+.panel--lg { width: min(var(--panel-width-lg), calc(100vw - var(--space-8))); }
+.panel--xl { width: min(var(--panel-width-xl), calc(100vw - var(--space-8))); }
+
+/* sheet fills full width up to size cap, no viewport inset */
+.panel--sheet.panel--sm { width: min(var(--panel-width-sm), 100vw); }
+.panel--sheet.panel--md { width: min(var(--panel-width-md), 100vw); }
+.panel--sheet.panel--lg { width: min(var(--panel-width-lg), 100vw); }
+.panel--sheet.panel--xl { width: min(var(--panel-width-xl), 100vw); }
+
+/* ── Header ── */
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-inline-md);
+  padding: var(--space-inset-md) var(--space-inset-lg);
+  border-bottom: var(--border-width-1) solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.panel__header-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-inline-sm);
+  min-width: 0;
+  flex: 1;
+}
+
+.panel__title {
+  font-size: var(--text-title-size);
+  line-height: var(--text-title-lh);
+  font-weight: var(--text-title-weight);
+  color: var(--color-fg-default);
+  margin: 0;
+}
+
+/* ── Body ── */
+.panel__body {
+  flex: 1;
+  min-height: 0;
+}
+
+.panel__body--padded {
+  padding: var(--space-inset-lg);
+}
+
+.panel__body--scrollable {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* ── Footer ── */
+.panel__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-inline-sm);
+  padding: var(--space-inset-md) var(--space-inset-lg);
+  border-top: var(--border-width-1) solid var(--color-border-default);
+  flex-shrink: 0;
+}
+
+.panel__footer--start   { justify-content: flex-start; }
+.panel__footer--end     { justify-content: flex-end; }
+.panel__footer--between { justify-content: space-between; }

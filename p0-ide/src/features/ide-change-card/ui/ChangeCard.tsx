@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/features/ide-toast";
+import { Panel, PanelHeader, PanelBody, PanelFooter, Button } from "@/shared/ui";
 import { useChangeCard } from "../model/useChangeCard";
 
 export function ChangeCard() {
@@ -11,7 +12,6 @@ export function ChangeCard() {
   useEffect(() => {
     if (!isOpen || !proposal) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.preventDefault(); close(); return; }
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         const taintMsg = proposal.impact.taintDelta < 0 ? `${Math.abs(proposal.impact.taintDelta).toString()} taint path resolved` : "no taint change";
@@ -28,29 +28,29 @@ export function ChangeCard() {
     return () => { window.removeEventListener("keydown", handler); };
   }, [isOpen, proposal, close, showToast]);
 
-  if (!isOpen || !proposal) return null;
-
-  const blastDelta = proposal.impact.blastAfter - proposal.impact.blastBefore;
+  const blastDelta = proposal?.impact
+    ? proposal.impact.blastAfter - proposal.impact.blastBefore
+    : 0;
 
   return (
-    <div className="ccard-root">
-      {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- decorative backdrop */}
-      <div className="ccard-backdrop" onClick={close} />
-      <div className="ccard-panel" role="dialog" aria-modal="true">
-        <header className="ccard-head">
+    <Panel
+      tier="dialog"
+      size="md"
+      open={isOpen && !!proposal}
+      onClose={close}
+      ariaLabel={t("ide.changeCard.closeAria")}
+      className="ccard"
+    >
+      {proposal && (
+        <>
+        <PanelHeader onClose={close} ariaLabel={t("ide.changeCard.closeAria")}>
           <div className="ccard-source">
             <span className="ccard-source-dot" data-source={proposal.source} />
             <span className="ccard-source-label">{proposal.source} {t("ide.changeCard.proposalSuffix")}</span>
           </div>
-          <button type="button" className="ccard-close" onClick={close} aria-label={t("ide.changeCard.closeAria")}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="6" y1="6" x2="18" y2="18" />
-              <line x1="18" y1="6" x2="6" y2="18" />
-            </svg>
-          </button>
-        </header>
+        </PanelHeader>
 
-        <div className="ccard-body">
+        <PanelBody className="ccard-body">
           <div className="ccard-title">{proposal.title}</div>
           <div className="ccard-summary">{proposal.summary}</div>
 
@@ -157,9 +157,9 @@ export function ChangeCard() {
               ))}
             </div>
           </section>
-        </div>
+        </PanelBody>
 
-        <footer className="ccard-foot">
+        <PanelFooter align="between">
           <div className="ccard-foot-meta">
             <div className="ccard-meta-row">
               <span className="ccard-k">{t("ide.changeCard.risk")}</span>
@@ -171,29 +171,24 @@ export function ChangeCard() {
             </div>
           </div>
           <div className="ccard-foot-actions">
-            <button
-              type="button"
-              className="ide-btn"
+            <Button
               onClick={() => {
                 showToast(`${proposal.title} — opened in editor for manual edit`);
                 close();
               }}
             >
               {t("ide.changeCard.modify")}
-            </button>
-            <button
-              type="button"
-              className="ide-btn"
+            </Button>
+            <Button
               onClick={() => {
                 showToast(`${proposal.id} rejected`);
                 close();
               }}
             >
               {t("ide.changeCard.reject")}<span className="ide-btn-key">⌘⌫</span>
-            </button>
-            <button
-              type="button"
-              className="ide-btn is-primary"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => {
                 const taintMsg = proposal.impact.taintDelta < 0 ? `${Math.abs(proposal.impact.taintDelta).toString()} taint path resolved` : "no taint change";
                 const testMsg = proposal.impact.testsBroken === 0 ? "0 tests broken" : `${proposal.impact.testsBroken.toString()} tests need update`;
@@ -202,10 +197,11 @@ export function ChangeCard() {
               }}
             >
               {t("ide.changeCard.approve")}<span className="ide-btn-key">⏎</span>
-            </button>
+            </Button>
           </div>
-        </footer>
-      </div>
-    </div>
+        </PanelFooter>
+        </>
+      )}
+    </Panel>
   );
 }
