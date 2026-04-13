@@ -2336,7 +2336,7 @@
 /* Vercel dashboard: white chrome + inverse solids. 상단 Tokens(paper/ink/line)만
    재정의하고, 오버라이드는 var(--paper*)/var(--ink*)/var(--line*)/var(--accent*)와
    color-mix(in srgb, …)로만 표현한다(테마 전용 병렬 토큰 네이밍 없음). */
-.ide[data-theme="vercel-dash"] {
+.ide[data-theme="p0-light"] {
   --accent:   #0070f3;   /* Vercel blue */
   --accent-2: #7928ca;   /* Vercel purple gradient end */
   --token-kw:  #0070f3;
@@ -2417,194 +2417,194 @@
     0 0 0 1px rgba(0, 0, 0, 0.06);
   --overlay-inset-highlight: none;
 }
-.ide[data-theme="vercel-dash"] .ide-editor-code .kw    { color: var(--token-kw); }
-.ide[data-theme="vercel-dash"] .ide-editor-code .fn    { color: var(--token-fn); }
-.ide[data-theme="vercel-dash"] .ide-editor-code .str   { color: var(--token-str); }
-.ide[data-theme="vercel-dash"] .ide-editor-code .com   { color: var(--token-com); font-style: italic; }
-.ide[data-theme="vercel-dash"] .ide-editor-code .num   { color: var(--token-num); }
-.ide[data-theme="vercel-dash"] .ide-editor-code .punct { color: var(--token-punct); }
-.ide[data-theme="vercel-dash"] .ide-editor-code .var   { color: var(--ink); }
-.ide[data-theme="vercel-dash"] *::-webkit-scrollbar-thumb       { background: var(--line-2); }
-.ide[data-theme="vercel-dash"] *::-webkit-scrollbar-thumb:hover { background: var(--line-3); }
-.ide[data-theme="vercel-dash"] .cmdk-backdrop { background: color-mix(in srgb, var(--ink) 18%, transparent); }
-.ide[data-theme="vercel-dash"] .sim-backdrop  { background: color-mix(in srgb, var(--ink) 10%, transparent); }
-.ide[data-theme="vercel-dash"] .tour-spot     { background: color-mix(in srgb, var(--paper) 75%, transparent); }
-.ide[data-theme="vercel-dash"] .cmdk-shell,
-.ide[data-theme="vercel-dash"] .sim-panel,
-.ide[data-theme="vercel-dash"] .rdw-popover,
-.ide[data-theme="vercel-dash"] .ctxmenu,
-.ide[data-theme="vercel-dash"] .ctxmenu-ghost,
-.ide[data-theme="vercel-dash"] .symtip,
-.ide[data-theme="vercel-dash"] .tt-tooltip,
-.ide[data-theme="vercel-dash"] .ide-toast,
-.ide[data-theme="vercel-dash"] .tour-card,
-.ide[data-theme="vercel-dash"] .own-overlay {
+.ide[data-theme="p0-light"] .ide-editor-code .kw    { color: var(--token-kw); }
+.ide[data-theme="p0-light"] .ide-editor-code .fn    { color: var(--token-fn); }
+.ide[data-theme="p0-light"] .ide-editor-code .str   { color: var(--token-str); }
+.ide[data-theme="p0-light"] .ide-editor-code .com   { color: var(--token-com); font-style: italic; }
+.ide[data-theme="p0-light"] .ide-editor-code .num   { color: var(--token-num); }
+.ide[data-theme="p0-light"] .ide-editor-code .punct { color: var(--token-punct); }
+.ide[data-theme="p0-light"] .ide-editor-code .var   { color: var(--ink); }
+.ide[data-theme="p0-light"] *::-webkit-scrollbar-thumb       { background: var(--line-2); }
+.ide[data-theme="p0-light"] *::-webkit-scrollbar-thumb:hover { background: var(--line-3); }
+.ide[data-theme="p0-light"] .cmdk-backdrop { background: color-mix(in srgb, var(--ink) 18%, transparent); }
+.ide[data-theme="p0-light"] .sim-backdrop  { background: color-mix(in srgb, var(--ink) 10%, transparent); }
+.ide[data-theme="p0-light"] .tour-spot     { background: color-mix(in srgb, var(--paper) 75%, transparent); }
+.ide[data-theme="p0-light"] .cmdk-shell,
+.ide[data-theme="p0-light"] .sim-panel,
+.ide[data-theme="p0-light"] .rdw-popover,
+.ide[data-theme="p0-light"] .ctxmenu,
+.ide[data-theme="p0-light"] .ctxmenu-ghost,
+.ide[data-theme="p0-light"] .symtip,
+.ide[data-theme="p0-light"] .tt-tooltip,
+.ide[data-theme="p0-light"] .ide-toast,
+.ide[data-theme="p0-light"] .tour-card,
+.ide[data-theme="p0-light"] .own-overlay {
   box-shadow: var(--overlay-shadow-popover);
 }
-.ide[data-theme="vercel-dash"] .own-overlay { background: color-mix(in srgb, var(--paper) 94%, transparent); }
+.ide[data-theme="p0-light"] .own-overlay { background: color-mix(in srgb, var(--paper) 94%, transparent); }
 /* ── Vercel-dash: Topbar — Risk solid black, PR black outline ── */
-.ide[data-theme="vercel-dash"] .ide-topbar-risk {
+.ide[data-theme="p0-light"] .ide-topbar-risk {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--paper);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-risk .ide-topbar-risk-num {
+.ide[data-theme="p0-light"] .ide-topbar-risk .ide-topbar-risk-num {
   color: var(--paper);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-risk .ide-topbar-risk-dots i {
+.ide[data-theme="p0-light"] .ide-topbar-risk .ide-topbar-risk-dots i {
   background: color-mix(in srgb, var(--paper) 30%, transparent);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-risk .ide-topbar-risk-dots i.on {
+.ide[data-theme="p0-light"] .ide-topbar-risk .ide-topbar-risk-dots i.on {
   background: var(--paper);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-risk.is-clickable:hover {
+.ide[data-theme="p0-light"] .ide-topbar-risk.is-clickable:hover {
   background: color-mix(in srgb, var(--ink) 87%, var(--paper));
   border-color: color-mix(in srgb, var(--ink) 87%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-pr {
+.ide[data-theme="p0-light"] .ide-topbar-pr {
   background: var(--paper);
   border: 1px solid var(--ink);
   color: var(--ink);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-pr svg { color: var(--ink); }
-.ide[data-theme="vercel-dash"] .ide-topbar-pr:hover {
+.ide[data-theme="p0-light"] .ide-topbar-pr svg { color: var(--ink); }
+.ide[data-theme="p0-light"] .ide-topbar-pr:hover {
   background: var(--paper-2);
   border-color: var(--ink);
   color: var(--ink);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-ask {
+.ide[data-theme="p0-light"] .ide-topbar-ask {
   background: var(--paper);
   border: 1px solid var(--paper-3);
   color: var(--ink-3);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-ask:hover {
+.ide[data-theme="p0-light"] .ide-topbar-ask:hover {
   background: var(--paper-1);
   border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
   color: color-mix(in srgb, var(--ink) 80%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-ask svg { color: color-mix(in srgb, var(--ink-3) 30%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .ide-topbar-ask-kbd {
+.ide[data-theme="p0-light"] .ide-topbar-ask svg { color: color-mix(in srgb, var(--ink-3) 30%, var(--paper)); }
+.ide[data-theme="p0-light"] .ide-topbar-ask-kbd {
   background: var(--paper-2);
   border-color: var(--paper-4);
   color: var(--ink-4);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-time {
+.ide[data-theme="p0-light"] .ide-topbar-time {
   background: var(--paper);
   border: 1px solid var(--paper-3);
   color: var(--ink-3);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-time:hover {
+.ide[data-theme="p0-light"] .ide-topbar-time:hover {
   background: var(--paper-2);
   border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
   color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-agent {
+.ide[data-theme="p0-light"] .ide-topbar-agent {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--paper);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-agent:hover {
+.ide[data-theme="p0-light"] .ide-topbar-agent:hover {
   background: color-mix(in srgb, var(--ink) 80%, var(--paper));
   border-color: color-mix(in srgb, var(--ink) 80%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-agent svg { color: var(--paper); }
-.ide[data-theme="vercel-dash"] .ide-settings-trigger {
+.ide[data-theme="p0-light"] .ide-topbar-agent svg { color: var(--paper); }
+.ide[data-theme="p0-light"] .ide-settings-trigger {
   background: transparent;
   border: none;
   color: var(--ink-3);
 }
-.ide[data-theme="vercel-dash"] .ide-settings-trigger:hover {
+.ide[data-theme="p0-light"] .ide-settings-trigger:hover {
   background: var(--paper-2);
   color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
 /* ide-btn (Suggested Fix 등 인스펙터 버튼) */
-.ide[data-theme="vercel-dash"] .ide-btn {
+.ide[data-theme="p0-light"] .ide-btn {
   background: var(--ink);
   border-color: var(--ink);
   color: var(--paper);
 }
-.ide[data-theme="vercel-dash"] .ide-btn:hover {
+.ide[data-theme="p0-light"] .ide-btn:hover {
   background: color-mix(in srgb, var(--ink) 87%, var(--paper));
   border-color: color-mix(in srgb, var(--ink) 87%, var(--paper));
 }
 
 /* ── Vercel-dash: File Tree ── */
-.ide[data-theme="vercel-dash"] .ide-files {
+.ide[data-theme="p0-light"] .ide-files {
   background: var(--paper-1);
   border-right: 1px solid var(--paper-3);
 }
-.ide[data-theme="vercel-dash"] .ide-files-repo-header {
+.ide[data-theme="p0-light"] .ide-files-repo-header {
   border-bottom: 1px solid var(--paper-3);
 }
-.ide[data-theme="vercel-dash"] .ide-files-repo-name { color: var(--ink); font-weight: 600; }
-.ide[data-theme="vercel-dash"] .ide-files-repo-branch { color: var(--ink-3); }
-.ide[data-theme="vercel-dash"] .ide-files-search {
+.ide[data-theme="p0-light"] .ide-files-repo-name { color: var(--ink); font-weight: 600; }
+.ide[data-theme="p0-light"] .ide-files-repo-branch { color: var(--ink-3); }
+.ide[data-theme="p0-light"] .ide-files-search {
   background: var(--paper);
   border: 1px solid var(--paper-3);
   color: color-mix(in srgb, var(--ink) 93%, var(--paper));
 }
-.ide[data-theme="vercel-dash"] .ide-files-search::placeholder { color: color-mix(in srgb, var(--ink-3) 30%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .file-item { color: var(--ink-2); }
-.ide[data-theme="vercel-dash"] .file-item:hover { background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); color: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .file-item.is-active {
+.ide[data-theme="p0-light"] .ide-files-search::placeholder { color: color-mix(in srgb, var(--ink-3) 30%, var(--paper)); }
+.ide[data-theme="p0-light"] .file-item { color: var(--ink-2); }
+.ide[data-theme="p0-light"] .file-item:hover { background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); color: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
+.ide[data-theme="p0-light"] .file-item.is-active {
   background: color-mix(in srgb, var(--ink) 93%, var(--paper));
   border-left: 2px solid color-mix(in srgb, var(--ink) 93%, var(--paper));
   color: var(--paper);
 }
-.ide[data-theme="vercel-dash"] .file-item.is-active .file-name { color: var(--paper); font-weight: 600; }
-.ide[data-theme="vercel-dash"] .file-item.is-active .file-badge { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.2); }
-.ide[data-theme="vercel-dash"] .file-badge { background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); color: var(--ink-3); border-color: var(--paper-4); }
-.ide[data-theme="vercel-dash"] .file-badge.risk-4 { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
-.ide[data-theme="vercel-dash"] .file-badge.risk-3 { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.ide[data-theme="vercel-dash"] .file-badge.risk-2 { background: #f5f5f5; color: #444444; border-color: #e0e0e0; }
-.ide[data-theme="vercel-dash"] .ide-files-git-badge { color: var(--ink-3); }
-.ide[data-theme="vercel-dash"] .ide-files-git-M { color: #d97706; }
-.ide[data-theme="vercel-dash"] .ide-files-git-A { color: #059669; }
-.ide[data-theme="vercel-dash"] .ide-files-git-D { color: #dc2626; }
+.ide[data-theme="p0-light"] .file-item.is-active .file-name { color: var(--paper); font-weight: 600; }
+.ide[data-theme="p0-light"] .file-item.is-active .file-badge { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); border-color: rgba(255,255,255,0.2); }
+.ide[data-theme="p0-light"] .file-badge { background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); color: var(--ink-3); border-color: var(--paper-4); }
+.ide[data-theme="p0-light"] .file-badge.risk-4 { background: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+.ide[data-theme="p0-light"] .file-badge.risk-3 { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.ide[data-theme="p0-light"] .file-badge.risk-2 { background: #f5f5f5; color: #444444; border-color: #e0e0e0; }
+.ide[data-theme="p0-light"] .ide-files-git-badge { color: var(--ink-3); }
+.ide[data-theme="p0-light"] .ide-files-git-M { color: #d97706; }
+.ide[data-theme="p0-light"] .ide-files-git-A { color: #059669; }
+.ide[data-theme="p0-light"] .ide-files-git-D { color: #dc2626; }
 
 /* ── Vercel-dash: Editor ── */
-.ide[data-theme="vercel-dash"] .ide-editor { background: var(--paper); }
-.ide[data-theme="vercel-dash"] .ide-editor-tabs {
+.ide[data-theme="p0-light"] .ide-editor { background: var(--paper); }
+.ide[data-theme="p0-light"] .ide-editor-tabs {
   background: var(--paper-1);
   border-bottom: 1px solid var(--paper-3);
 }
-.ide[data-theme="vercel-dash"] .ide-tab { color: var(--ink-4); }
-.ide[data-theme="vercel-dash"] .ide-tab:hover { color: var(--ink-2); background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .ide-tab.is-active {
+.ide[data-theme="p0-light"] .ide-tab { color: var(--ink-4); }
+.ide[data-theme="p0-light"] .ide-tab:hover { color: var(--ink-2); background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); }
+.ide[data-theme="p0-light"] .ide-tab.is-active {
   background: var(--paper);
   border-top: 2px solid var(--ink);
   color: var(--ink);
   font-weight: 600;
 }
-.ide[data-theme="vercel-dash"] .ide-gutter-num { color: color-mix(in srgb, var(--ink) 20%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .ide-editor-line.is-hovered { background: color-mix(in srgb, var(--ink) 2.5%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .ide-line-annotation.cpx     { color: var(--accent); }
-.ide[data-theme="vercel-dash"] .ide-line-annotation.taint   { color: #b91c1c; }
-.ide[data-theme="vercel-dash"] .ide-line-annotation.dead    { color: #bbbbbb; }
-.ide[data-theme="vercel-dash"] .ide-line-annotation.callers { color: var(--accent-2); }
-.ide[data-theme="vercel-dash"] .ide-line-annotation.blast   { color: #d97706; }
+.ide[data-theme="p0-light"] .ide-gutter-num { color: color-mix(in srgb, var(--ink) 20%, var(--paper)); }
+.ide[data-theme="p0-light"] .ide-editor-line.is-hovered { background: color-mix(in srgb, var(--ink) 2.5%, var(--paper)); }
+.ide[data-theme="p0-light"] .ide-line-annotation.cpx     { color: var(--accent); }
+.ide[data-theme="p0-light"] .ide-line-annotation.taint   { color: #b91c1c; }
+.ide[data-theme="p0-light"] .ide-line-annotation.dead    { color: #bbbbbb; }
+.ide[data-theme="p0-light"] .ide-line-annotation.callers { color: var(--accent-2); }
+.ide[data-theme="p0-light"] .ide-line-annotation.blast   { color: #d97706; }
 
 /* ── Vercel-dash: Inspector ── */
-.ide[data-theme="vercel-dash"] .ide-inspector {
+.ide[data-theme="p0-light"] .ide-inspector {
   background: var(--paper-1);
   border-left: 1px solid var(--paper-3);
 }
-.ide[data-theme="vercel-dash"] .idc-head {
+.ide[data-theme="p0-light"] .idc-head {
   background: var(--paper-2);
   border-bottom: 1px solid var(--paper-3);
 }
-.ide[data-theme="vercel-dash"] .idc-filename { color: var(--ink); font-weight: 600; }
+.ide[data-theme="p0-light"] .idc-filename { color: var(--ink); font-weight: 600; }
 /* Risk 배지 — 스크린샷: 파란 보더 아웃라인 스타일 */
-.ide[data-theme="vercel-dash"] .idc-risk-badge,
-.ide[data-theme="vercel-dash"] .insp-risk-badge {
+.ide[data-theme="p0-light"] .idc-risk-badge,
+.ide[data-theme="p0-light"] .insp-risk-badge {
   background: var(--clr-1);
   color: var(--accent);
   border: 1px solid #bfdbfe;
   font-weight: 700;
 }
 
-.ide[data-theme="vercel-dash"] .idc-section-label,
-.ide[data-theme="vercel-dash"] .sii-section-label {
+.ide[data-theme="p0-light"] .idc-section-label,
+.ide[data-theme="p0-light"] .sii-section-label {
   color: var(--ink-4);
   border-bottom-color: var(--paper-3);
   font-weight: 600;
@@ -2612,45 +2612,45 @@
   text-transform: uppercase;
   font-size: 0.67rem;
 }
-.ide[data-theme="vercel-dash"] .idc-section-label:hover,
-.ide[data-theme="vercel-dash"] .sii-section-label:hover { color: var(--ink); }
+.ide[data-theme="p0-light"] .idc-section-label:hover,
+.ide[data-theme="p0-light"] .sii-section-label:hover { color: var(--ink); }
 
 /* 메트릭 숫자 — BLAST 검정 bold, TAINT 파랑, DEAD 회색, BUS 검정 */
-.ide[data-theme="vercel-dash"] .ide-metric-val { color: var(--ink); font-weight: 700; font-size: 1.4rem; }
-.ide[data-theme="vercel-dash"] .ide-metric-row[data-key="cpx"]     .ide-metric-val { color: var(--accent); }
-.ide[data-theme="vercel-dash"] .ide-metric-row[data-key="tests"]   .ide-metric-val { color: #dc2626; }
-.ide[data-theme="vercel-dash"] .ide-metric-row[data-key="callers"] .ide-metric-val { color: var(--accent-2); }
-.ide[data-theme="vercel-dash"] .ide-metric-row[data-key="blast"]   .ide-metric-val { color: var(--ink); }
+.ide[data-theme="p0-light"] .ide-metric-val { color: var(--ink); font-weight: 700; font-size: 1.4rem; }
+.ide[data-theme="p0-light"] .ide-metric-row[data-key="cpx"]     .ide-metric-val { color: var(--accent); }
+.ide[data-theme="p0-light"] .ide-metric-row[data-key="tests"]   .ide-metric-val { color: #dc2626; }
+.ide[data-theme="p0-light"] .ide-metric-row[data-key="callers"] .ide-metric-val { color: var(--accent-2); }
+.ide[data-theme="p0-light"] .ide-metric-row[data-key="blast"]   .ide-metric-val { color: var(--ink); }
 
 /* 함수 복잡도 바 — 검정 */
-.ide[data-theme="vercel-dash"] .idc-fn-bar-fill,
-.ide[data-theme="vercel-dash"] .fn-bar-fill,
-.ide[data-theme="vercel-dash"] [class*="fn-bar"] > div,
-.ide[data-theme="vercel-dash"] .insp-fn-bar > div { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .idc-fn-bar,
-.ide[data-theme="vercel-dash"] .fn-bar-track,
-.ide[data-theme="vercel-dash"] [class*="fn-bar-track"] { background: var(--paper-3); }
+.ide[data-theme="p0-light"] .idc-fn-bar-fill,
+.ide[data-theme="p0-light"] .fn-bar-fill,
+.ide[data-theme="p0-light"] [class*="fn-bar"] > div,
+.ide[data-theme="p0-light"] .insp-fn-bar > div { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
+.ide[data-theme="p0-light"] .idc-fn-bar,
+.ide[data-theme="p0-light"] .fn-bar-track,
+.ide[data-theme="p0-light"] [class*="fn-bar-track"] { background: var(--paper-3); }
 
 /* 심볼 뱃지 — 스크린샷: 회색 아웃라인 박스, 숫자만 강조 */
-.ide[data-theme="vercel-dash"] .ide-pill { background: var(--paper); border: 1px solid var(--paper-4); color: var(--ink-2); border-radius: 5px; font-weight: 600; }
-.ide[data-theme="vercel-dash"] .ide-pill.risk-3 { background: #fff0f0; border-color: #fecaca; color: #b91c1c; }
-.ide[data-theme="vercel-dash"] .ide-pill.risk-2 { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-.ide[data-theme="vercel-dash"] .ide-pill.risk-1 { background: var(--clr-1); border-color: #bfdbfe; color: var(--accent); }
-.ide[data-theme="vercel-dash"] .ide-pill.risk-hot { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
+.ide[data-theme="p0-light"] .ide-pill { background: var(--paper); border: 1px solid var(--paper-4); color: var(--ink-2); border-radius: 5px; font-weight: 600; }
+.ide[data-theme="p0-light"] .ide-pill.risk-3 { background: #fff0f0; border-color: #fecaca; color: #b91c1c; }
+.ide[data-theme="p0-light"] .ide-pill.risk-2 { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+.ide[data-theme="p0-light"] .ide-pill.risk-1 { background: var(--clr-1); border-color: #bfdbfe; color: var(--accent); }
+.ide[data-theme="p0-light"] .ide-pill.risk-hot { background: #f5f3ff; border-color: #ddd6fe; color: #7c3aed; }
 
 /* 소유권 바 — 검정 primary, 회색 secondary */
-.ide[data-theme="vercel-dash"] .own-bar-fill-a { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .own-bar-fill-b { background: var(--ink-4); opacity: 0.5; }
-.ide[data-theme="vercel-dash"] .own-bar-track  { background: var(--paper-3); }
+.ide[data-theme="p0-light"] .own-bar-fill-a { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
+.ide[data-theme="p0-light"] .own-bar-fill-b { background: var(--ink-4); opacity: 0.5; }
+.ide[data-theme="p0-light"] .own-bar-track  { background: var(--paper-3); }
 
 /* Connected Files 배지 — 스크린샷: 파랑 dot + 회색/파랑 아웃라인 */
-.ide[data-theme="vercel-dash"] .fii-file-badge.r-high { background: #fff0f0; color: #b91c1c; border-color: #fecaca; font-weight: 700; }
-.ide[data-theme="vercel-dash"] .fii-file-badge.r-med  { background: #fffbeb; color: #92400e; border-color: #fde68a; font-weight: 700; }
-.ide[data-theme="vercel-dash"] .fii-file-badge.r-low  { background: var(--clr-1); color: var(--accent); border-color: #bfdbfe; font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-file-badge.r-high { background: #fff0f0; color: #b91c1c; border-color: #fecaca; font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-file-badge.r-med  { background: #fffbeb; color: #92400e; border-color: #fde68a; font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-file-badge.r-low  { background: var(--clr-1); color: var(--accent); border-color: #bfdbfe; font-weight: 700; }
 
 /* Risk Signals — 신호 행 */
-.ide[data-theme="vercel-dash"] .idc-signal-tag,
-.ide[data-theme="vercel-dash"] .insp-signal-tag {
+.ide[data-theme="p0-light"] .idc-signal-tag,
+.ide[data-theme="p0-light"] .insp-signal-tag {
   background: var(--paper-2);
   color: var(--ink-2);
   border: 1px solid var(--paper-4);
@@ -2659,89 +2659,100 @@
 }
 
 /* Call graph */
-.ide[data-theme="vercel-dash"] .cg-node-tag.unsafe   { color: #b91c1c; border-color: #fecaca; background: #fff0f0; }
-.ide[data-theme="vercel-dash"] .cg-node-tag.external { color: var(--accent); border-color: #bfdbfe; background: var(--clr-1); }
-.ide[data-theme="vercel-dash"] .cg-node-tag.dead     { color: #aaaaaa; }
-.ide[data-theme="vercel-dash"] .cg-line              { stroke: var(--paper-4); }
+.ide[data-theme="p0-light"] .cg-node-tag.unsafe   { color: #b91c1c; border-color: #fecaca; background: #fff0f0; }
+.ide[data-theme="p0-light"] .cg-node-tag.external { color: var(--accent); border-color: #bfdbfe; background: var(--clr-1); }
+.ide[data-theme="p0-light"] .cg-node-tag.dead     { color: #aaaaaa; }
+.ide[data-theme="p0-light"] .cg-line              { stroke: var(--paper-4); }
 
 /* Data flow */
-.ide[data-theme="vercel-dash"] .ide-flow-row.is-source { border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
-.ide[data-theme="vercel-dash"] .ide-flow-row.is-sink   { border-color: color-mix(in srgb, #b91c1c 35%, transparent); }
-.ide[data-theme="vercel-dash"] .ide-flow-row:first-child::before,
-.ide[data-theme="vercel-dash"] .ide-flow-row.is-sink::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
+.ide[data-theme="p0-light"] .ide-flow-row.is-source { border-color: color-mix(in srgb, var(--accent) 35%, transparent); }
+.ide[data-theme="p0-light"] .ide-flow-row.is-sink   { border-color: color-mix(in srgb, #b91c1c 35%, transparent); }
+.ide[data-theme="p0-light"] .ide-flow-row:first-child::before,
+.ide[data-theme="p0-light"] .ide-flow-row.is-sink::before { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
 
-/* Blast radius viz — 검정 노드/도트 (--accent 로컬 재정의) */
-.ide[data-theme="vercel-dash"] .brviz { --accent: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .brviz-dot { background: color-mix(in srgb, var(--ink) 93%, var(--paper)); }
+/* Blast radius viz — 시맨틱 risk 컬러 */
+.ide[data-theme="p0-light"] .brviz-dot[data-risk="1"] { background: #94a3b8; }
+.ide[data-theme="p0-light"] .brviz-dot[data-risk="2"] { background: #3b82f6; }
+.ide[data-theme="p0-light"] .brviz-dot[data-risk="3"] { background: #f59e0b; }
+.ide[data-theme="p0-light"] .brviz-dot[data-risk="4"] { background: #ef4444; }
+.ide[data-theme="p0-light"] .brviz-row-bar-fill[data-risk="1"] { background: #cbd5e1; }
+.ide[data-theme="p0-light"] .brviz-row-bar-fill[data-risk="2"] { background: #3b82f6; }
+.ide[data-theme="p0-light"] .brviz-row-bar-fill[data-risk="3"] { background: #f59e0b; }
+.ide[data-theme="p0-light"] .brviz-row-bar-fill[data-risk="4"] { background: #ef4444; }
+.ide[data-theme="p0-light"] .brviz-row-hot { color: #ef4444; }
+.ide[data-theme="p0-light"] .brviz-sym-kind[data-risk="1"] { color: #94a3b8; }
+.ide[data-theme="p0-light"] .brviz-sym-kind[data-risk="2"] { color: #3b82f6; }
+.ide[data-theme="p0-light"] .brviz-sym-kind[data-risk="3"] { color: #f59e0b; }
+.ide[data-theme="p0-light"] .brviz-sym-kind[data-risk="4"] { color: #ef4444; }
 
 /* Suggested fix */
-.ide[data-theme="vercel-dash"] .ide-fix-head   { color: #059669; }
-.ide[data-theme="vercel-dash"] .ide-fix-meta-k { color: var(--ink-4); }
-.ide[data-theme="vercel-dash"] .ide-fix-meta-v { color: var(--accent); font-weight: 600; }
+.ide[data-theme="p0-light"] .ide-fix-head   { color: #059669; }
+.ide[data-theme="p0-light"] .ide-fix-meta-k { color: var(--ink-4); }
+.ide[data-theme="p0-light"] .ide-fix-meta-v { color: var(--accent); font-weight: 600; }
 
 /* Inspector 심볼 타입 뱃지 (C/f) */
-.ide[data-theme="vercel-dash"] .sii-sym-kind-c { color: var(--accent); font-weight: 700; }
-.ide[data-theme="vercel-dash"] .sii-sym-kind-f { color: var(--accent-2); font-weight: 700; }
+.ide[data-theme="p0-light"] .sii-sym-kind-c { color: var(--accent); font-weight: 700; }
+.ide[data-theme="p0-light"] .sii-sym-kind-f { color: var(--accent-2); font-weight: 700; }
 
 /* Inspector 선택 하이라이트 */
-.ide[data-theme="vercel-dash"] .sii-sym-row:hover { background: var(--paper-2); }
-.ide[data-theme="vercel-dash"] .sii-sym-row.is-active { background: var(--clr-1); border-left: 2px solid var(--accent); }
+.ide[data-theme="p0-light"] .sii-sym-row:hover { background: var(--paper-2); }
+.ide[data-theme="p0-light"] .sii-sym-row.is-active { background: var(--clr-1); border-left: 2px solid var(--accent); }
 
 /* ── Vercel-dash: Statusbar — 검정 solid ── */
-.ide[data-theme="vercel-dash"] .ide-statusbar {
+.ide[data-theme="p0-light"] .ide-statusbar {
   background: color-mix(in srgb, var(--ink) 4.5%, var(--paper));
   color: var(--ink-2);
   border-top: 1px solid var(--line-2);
 }
-.ide[data-theme="vercel-dash"] .ide-statusbar-dot { background: #34d399; }
-.ide[data-theme="vercel-dash"] .ide-statusbar .ide-status-branch { color: var(--ink-3); }
-.ide[data-theme="vercel-dash"] .ide-statusbar .ide-status-issue-badge { background: var(--line); color: color-mix(in srgb, var(--ink) 80%, var(--paper)); }
-.ide[data-theme="vercel-dash"] .ide-statusbar .ide-status-build-ok { color: #059669; }
+.ide[data-theme="p0-light"] .ide-statusbar-dot { background: #34d399; }
+.ide[data-theme="p0-light"] .ide-statusbar .ide-status-branch { color: var(--ink-3); }
+.ide[data-theme="p0-light"] .ide-statusbar .ide-status-issue-badge { background: var(--line); color: color-mix(in srgb, var(--ink) 80%, var(--paper)); }
+.ide[data-theme="p0-light"] .ide-statusbar .ide-status-build-ok { color: #059669; }
 
 /* ── Vercel-dash: Topbar ── */
-.ide[data-theme="vercel-dash"] .ide-topbar {
+.ide[data-theme="p0-light"] .ide-topbar {
   background: var(--paper);
   border-bottom: 1px solid var(--paper-3);
 }
-.ide[data-theme="vercel-dash"] .ide-topbar-breadcrumb,
-.ide[data-theme="vercel-dash"] .ide-topbar-breadcrumb a,
-.ide[data-theme="vercel-dash"] .ide-topbar-breadcrumb span { color: var(--ink-3); }
-.ide[data-theme="vercel-dash"] .ide-topbar-breadcrumb span:last-child { color: var(--ink); font-weight: 600; }
+.ide[data-theme="p0-light"] .ide-topbar-breadcrumb,
+.ide[data-theme="p0-light"] .ide-topbar-breadcrumb a,
+.ide[data-theme="p0-light"] .ide-topbar-breadcrumb span { color: var(--ink-3); }
+.ide[data-theme="p0-light"] .ide-topbar-breadcrumb span:last-child { color: var(--ink); font-weight: 600; }
 
 /* ── Vercel-dash: Risk Drawer ── */
-.ide[data-theme="vercel-dash"] .rdw-panel { background: var(--paper); border-left: 1px solid var(--paper-3); box-shadow: -4px 0 20px color-mix(in srgb, var(--ink) 6%, transparent); }
-.ide[data-theme="vercel-dash"] .rdw-score-num { color: var(--ink); }
-.ide[data-theme="vercel-dash"] .rdw-bar-fill  { background: var(--ink); }
-.ide[data-theme="vercel-dash"] .rdw-delta { color: #dc2626; }
-.ide[data-theme="vercel-dash"] .rdw-delta.is-down { color: #059669; }
+.ide[data-theme="p0-light"] .rdw-panel { background: var(--paper); border-left: 1px solid var(--paper-3); box-shadow: -4px 0 20px color-mix(in srgb, var(--ink) 6%, transparent); }
+.ide[data-theme="p0-light"] .rdw-score-num { color: var(--ink); }
+.ide[data-theme="p0-light"] .rdw-bar-fill  { background: var(--ink); }
+.ide[data-theme="p0-light"] .rdw-delta { color: #dc2626; }
+.ide[data-theme="p0-light"] .rdw-delta.is-down { color: #059669; }
 
 /* ── Vercel-dash: FileInspector (fii-*) inline style overrides ── */
 /* Function heatmap bars — black for live, light gray for dead */
-.ide[data-theme="vercel-dash"] .fii-heat-bar { background: color-mix(in srgb, var(--ink) 93%, var(--paper)) !important; }
-.ide[data-theme="vercel-dash"] .fii-heat-row.is-dead .fii-heat-bar { background: color-mix(in srgb, var(--ink) 20%, var(--paper)) !important; }
+.ide[data-theme="p0-light"] .fii-heat-bar { background: color-mix(in srgb, var(--ink) 93%, var(--paper)) !important; }
+.ide[data-theme="p0-light"] .fii-heat-row.is-dead .fii-heat-bar { background: color-mix(in srgb, var(--ink) 20%, var(--paper)) !important; }
 /* Ownership fill — black primary */
-.ide[data-theme="vercel-dash"] .fii-owner-fill { background: color-mix(in srgb, var(--ink) 93%, var(--paper)) !important; }
+.ide[data-theme="p0-light"] .fii-owner-fill { background: color-mix(in srgb, var(--ink) 93%, var(--paper)) !important; }
 /* Risk badge — blue bg chip (color/border use var(--accent) inline → already blue) */
-.ide[data-theme="vercel-dash"] .fii-risk-badge { background: var(--clr-1); border-radius: 4px; }
+.ide[data-theme="p0-light"] .fii-risk-badge { background: var(--clr-1); border-radius: 4px; }
 /* Blast neighbor dots: inline style uses var(--accent) for high risk — already blue */
 /* Stats — BLAST uses base ink (no inline color), font-weight upgrade */
-.ide[data-theme="vercel-dash"] .fii-stat-value { font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-stat-value { font-weight: 700; }
 /* Symbol kind glyphs */
-.ide[data-theme="vercel-dash"] .fii-sym-kind[data-kind="function"] { color: var(--accent-2); font-weight: 700; }
-.ide[data-theme="vercel-dash"] .fii-sym-kind[data-kind="class"]    { color: var(--accent); font-weight: 700; }
-.ide[data-theme="vercel-dash"] .fii-sym-kind[data-kind="const"]    { color: var(--token-num); font-weight: 700; }
-.ide[data-theme="vercel-dash"] .fii-sym-kind[data-kind="type"]     { color: #059669; font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-sym-kind[data-kind="function"] { color: var(--accent-2); font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-sym-kind[data-kind="class"]    { color: var(--accent); font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-sym-kind[data-kind="const"]    { color: var(--token-num); font-weight: 700; }
+.ide[data-theme="p0-light"] .fii-sym-kind[data-kind="type"]     { color: #059669; font-weight: 700; }
 /* Symbol row hover — blue left border on active */
-.ide[data-theme="vercel-dash"] .fii-sym-row.is-clickable:hover { background: var(--paper-2); }
+.ide[data-theme="p0-light"] .fii-sym-row.is-clickable:hover { background: var(--paper-2); }
 /* Signal severity colors */
-.ide[data-theme="vercel-dash"] .fii-signal.is-crit { border-color: color-mix(in srgb, #b91c1c 20%, transparent); background: color-mix(in srgb, #b91c1c 3%, transparent); }
-.ide[data-theme="vercel-dash"] .fii-signal.is-crit .fii-signal-icon { color: #dc2626; }
-.ide[data-theme="vercel-dash"] .fii-signal.is-warn .fii-signal-icon { color: #d97706; }
-.ide[data-theme="vercel-dash"] .fii-signal-sym { color: var(--accent); }
+.ide[data-theme="p0-light"] .fii-signal.is-crit { border-color: color-mix(in srgb, #b91c1c 20%, transparent); background: color-mix(in srgb, #b91c1c 3%, transparent); }
+.ide[data-theme="p0-light"] .fii-signal.is-crit .fii-signal-icon { color: #dc2626; }
+.ide[data-theme="p0-light"] .fii-signal.is-warn .fii-signal-icon { color: #d97706; }
+.ide[data-theme="p0-light"] .fii-signal-sym { color: var(--accent); }
 /* Taint/callers badges on symbol rows */
-.ide[data-theme="vercel-dash"] .fii-sym-taint-source { color: #b91c1c; border-color: #fecaca; background: #fff0f0; }
-.ide[data-theme="vercel-dash"] .fii-sym-taint-sink   { color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
-.ide[data-theme="vercel-dash"] .fii-sym-callers { color: var(--accent-2); font-weight: 600; }
+.ide[data-theme="p0-light"] .fii-sym-taint-source { color: #b91c1c; border-color: #fecaca; background: #fff0f0; }
+.ide[data-theme="p0-light"] .fii-sym-taint-sink   { color: #7c3aed; border-color: #ddd6fe; background: #f5f3ff; }
+.ide[data-theme="p0-light"] .fii-sym-callers { color: var(--accent-2); font-weight: 600; }
 
 /* ── Vercel Light ────────────────────────────────────────────────────── */
 /* 순수 화이트 + 일렉트릭 블루. Vercel 다크 라이트 버전. 극도로 클린 */

@@ -13,7 +13,7 @@ interface IdeTopBarProps {
   onTimeTravel: () => void;
 }
 
-type GnbTab = "code" | "review" | "agent" | "quality" | "security" | "insight";
+type GnbTab = "code" | "review" | "agent" | "quality" | "security" | "policy";
 
 export function IdeTopBar({ onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps) {
   const [activeTab, setActiveTab] = useState<GnbTab>("code");
@@ -94,15 +94,16 @@ export function IdeTopBar({ onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps
         </button>
         <button
           type="button"
-          className={`ide-gnb-tab${activeTab === "insight" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("insight")}
+          className={`ide-gnb-tab${activeTab === "policy" ? " is-active" : ""}`}
+          onClick={() => setActiveTab("policy")}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="11" cy="11" r="8" />
-            <path d="M21 21l-4.35-4.35" />
-            <path d="M11 8v6M8 11h6" />
+            <path d="M4 7V4a2 2 0 0 1 2-2h8.5L20 7.5V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M2 15h10" />
+            <path d="M9 12l3 3-3 3" />
           </svg>
-          <span>Insight</span>
+          <span>Policy</span>
         </button>
       </nav>
 

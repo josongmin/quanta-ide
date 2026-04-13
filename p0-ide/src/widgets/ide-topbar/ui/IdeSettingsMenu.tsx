@@ -71,7 +71,7 @@ const THEME_AURORA: Partial<Record<IdeTheme, string>> = {
   "volcanic":       "sunset",
   "dusk-gradient":  "midnight",
   "mojave":         "tangerine",
-  "vercel-dash":    "cobalt",
+  "p0-light":    "cobalt",
 };
 
 export function IdeSettingsMenu() {
@@ -181,7 +181,7 @@ export function IdeSettingsMenu() {
               <button type="button" className={`ide-settings-opt${theme === "sakura-ink" ? " is-active" : ""}`} onClick={() => { handleTheme("sakura-ink"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 Q15 6 12 9 Q9 6 12 3"/><path d="M3 12 Q6 9 9 12 Q6 15 3 12"/><path d="M21 12 Q18 9 15 12 Q18 15 21 12"/><path d="M12 21 Q15 18 12 15 Q9 18 12 21"/><circle cx="12" cy="12" r="2"/></svg>Sakura</button>
               <button type="button" className={`ide-settings-opt${theme === "arctic-prism" ? " is-active" : ""}`} onClick={() => { handleTheme("arctic-prism"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L12 22 M2 12 L22 12 M5 5 L19 19 M19 5 L5 19"/></svg>Arctic</button>
               <button type="button" className={`ide-settings-opt${theme === "mojave" ? " is-active" : ""}`} onClick={() => { handleTheme("mojave"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20 Q6 14 10 18 Q14 22 18 16 Q20 13 22 14"/><circle cx="18" cy="5" r="3"/><path d="M15 5 L3 5"/></svg>Mojave</button>
-              <button type="button" className={`ide-settings-opt${theme === "vercel-dash" ? " is-active" : ""}`} onClick={() => { handleTheme("vercel-dash"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 22 20 2 20"/></svg>Vercel Dash</button>
+              <button type="button" className={`ide-settings-opt${theme === "p0-light" ? " is-active" : ""}`} onClick={() => { handleTheme("p0-light"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 22 20 2 20"/></svg>p0 Light</button>
             </div>
           </div>
 

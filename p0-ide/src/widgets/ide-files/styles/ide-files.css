@@ -6,7 +6,7 @@
   padding: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  font-family: var(--font-mono);
+  font-family: 'Satoshi', var(--font-ui);
   font-size: 0.82rem;
   font-weight: var(--font-weight-regular);
   scrollbar-width: thin;
@@ -314,7 +314,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: var(--font-mono);
+  font-family: 'Satoshi', var(--font-ui);
   font-size: 0.82rem;
   font-weight: var(--font-weight-regular);
   letter-spacing: -0.01em;
@@ -416,15 +416,15 @@
   background: var(--paper-2);
 }
 
-/* ── Vercel-dash: 파일 트리 활성 — paper/ink 스케일(color-mix)과 동일 톤 */
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active::before {
-  background: color-mix(in srgb, var(--ink) 93%, var(--paper));
+/* ── p0-light: 파일 트리 활성 — 회색 톤 */
+.ide[data-theme="p0-light"] .ide-files-row.is-active::before {
+  background: var(--paper-3);
 }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active { color: var(--paper); }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-name { color: var(--paper); }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-git-m { color: rgba(255,255,255,0.6); }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-chev { color: rgba(255,255,255,0.5); }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-icon { color: rgba(255,255,255,0.7); }
-.ide[data-theme="vercel-dash"] .ide-files-row.is-active .ide-files-sig { color: rgba(255,255,255,0.55); }
-.ide[data-theme="vercel-dash"] .ide-files-repo-changes { color: color-mix(in srgb, var(--ink) 93%, var(--paper)); font-weight: var(--font-weight-bold); }
+.ide[data-theme="p0-light"] .ide-files-row.is-active { color: var(--ink); }
+.ide[data-theme="p0-light"] .ide-files-row.is-active .ide-files-name { color: var(--ink); font-weight: var(--font-weight-semibold); }
+.ide[data-theme="p0-light"] .ide-files-row.is-active .ide-files-git-m { color: var(--ink-3); }
+.ide[data-theme="p0-light"] .ide-files-row.is-active .ide-files-chev { color: var(--ink-3); }
+.ide[data-theme="p0-light"] .ide-files-row.is-active .ide-files-icon { color: var(--ink-2); }
+.ide[data-theme="p0-light"] .ide-files-row.is-active .ide-files-sig { color: var(--ink-3); }
+.ide[data-theme="p0-light"] .ide-files-repo-changes { color: color-mix(in srgb, var(--ink) 93%, var(--paper)); font-weight: var(--font-weight-bold); }
 

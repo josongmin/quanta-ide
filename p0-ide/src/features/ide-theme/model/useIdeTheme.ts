@@ -1,11 +1,11 @@
 import { create } from "zustand";
 
-export type IdeTheme = "dark" | "light" | "cool-gray" | "cool-light" | "forest" | "amoled" | "sepia" | "dracula" | "solarized" | "monokai" | "nord" | "tokyo-night" | "github-light" | "paper" | "catppuccin" | "cyberpunk" | "obsidian" | "rose-pine" | "everforest" | "one-light" | "rose-pine-dawn" | "gruvbox-light" | "kanagawa" | "midnight-blue" | "deep-ocean" | "warm-void" | "slate-pro" | "parchment" | "zen" | "notion-light" | "notion-dark" | "augment" | "vercel" | "aurora-borealis" | "latte" | "noctis" | "horizon" | "supabase" | "firebase" | "linear" | "stripe" | "planetscale" | "figma" | "turso" | "vercel-light" | "linear-light" | "supabase-light" | "stripe-light" | "amethyst" | "coral-reef" | "triton" | "matcha-smoke" | "solaris" | "sakura-ink" | "arctic-prism" | "volcanic" | "dusk-gradient" | "mojave" | "vercel-dash";
+export type IdeTheme = "dark" | "light" | "cool-gray" | "cool-light" | "forest" | "amoled" | "sepia" | "dracula" | "solarized" | "monokai" | "nord" | "tokyo-night" | "github-light" | "paper" | "catppuccin" | "cyberpunk" | "obsidian" | "rose-pine" | "everforest" | "one-light" | "rose-pine-dawn" | "gruvbox-light" | "kanagawa" | "midnight-blue" | "deep-ocean" | "warm-void" | "slate-pro" | "parchment" | "zen" | "notion-light" | "notion-dark" | "augment" | "vercel" | "aurora-borealis" | "latte" | "noctis" | "horizon" | "supabase" | "firebase" | "linear" | "stripe" | "planetscale" | "figma" | "turso" | "vercel-light" | "linear-light" | "supabase-light" | "stripe-light" | "amethyst" | "coral-reef" | "triton" | "matcha-smoke" | "solaris" | "sakura-ink" | "arctic-prism" | "volcanic" | "dusk-gradient" | "mojave" | "p0-light";
 
 function loadSaved(): IdeTheme | null {
   try {
     const v = window.localStorage.getItem("p0-ide-theme");
-    const valid: IdeTheme[] = ["dark","light","cool-gray","cool-light","forest","amoled","sepia","dracula","solarized","monokai","nord","tokyo-night","github-light","paper","catppuccin","cyberpunk","obsidian","rose-pine","everforest","one-light","rose-pine-dawn","gruvbox-light","kanagawa","midnight-blue","deep-ocean","warm-void","slate-pro","parchment","zen","notion-light","notion-dark","augment","vercel","aurora-borealis","latte","noctis","horizon","supabase","firebase","linear","stripe","planetscale","figma","turso","vercel-light","linear-light","supabase-light","stripe-light","amethyst","coral-reef","triton","matcha-smoke","solaris","sakura-ink","arctic-prism","volcanic","dusk-gradient","mojave","vercel-dash"];
+    const valid: IdeTheme[] = ["dark","light","cool-gray","cool-light","forest","amoled","sepia","dracula","solarized","monokai","nord","tokyo-night","github-light","paper","catppuccin","cyberpunk","obsidian","rose-pine","everforest","one-light","rose-pine-dawn","gruvbox-light","kanagawa","midnight-blue","deep-ocean","warm-void","slate-pro","parchment","zen","notion-light","notion-dark","augment","vercel","aurora-borealis","latte","noctis","horizon","supabase","firebase","linear","stripe","planetscale","figma","turso","vercel-light","linear-light","supabase-light","stripe-light","amethyst","coral-reef","triton","matcha-smoke","solaris","sakura-ink","arctic-prism","volcanic","dusk-gradient","mojave","p0-light"];
     if (valid.includes(v as IdeTheme)) return v as IdeTheme;
   } catch {
     /* ignore */
@@ -28,7 +28,7 @@ interface IdeThemeState {
 }
 
 export const useIdeTheme = create<IdeThemeState>()((set) => ({
-  theme: loadSaved() ?? "vercel-dash",
+  theme: loadSaved() ?? "p0-light",
   setTheme: (theme) => {
     persist(theme);
     set({ theme });

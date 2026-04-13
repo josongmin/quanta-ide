@@ -96,7 +96,6 @@ function FilterChip({ sev, label, count, active, onClick }: FilterChipProps) {
         checked={active}
         onChange={onClick}
       />
-      <span className={`pb-chip-sev-icon pb-sev-${sev}`} aria-hidden>{SEV_ICON[sev]}</span>
       <span className="pb-chip-count">{count}</span>
       <span className="pb-chip-label">{label}</span>
     </label>

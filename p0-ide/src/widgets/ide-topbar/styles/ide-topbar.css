@@ -84,15 +84,16 @@
 }
 .ide-topbar-org-badge {
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: var(--font-weight-semibold);
+  font-size: 8px;
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--line-2);
-  color: var(--ink-3);
-  line-height: 1.4;
+  letter-spacing: 0.1em;
+  padding: 2px 6px;
+  border-radius: var(--radius-2);
+  border: none;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent) 8%, transparent));
+  color: var(--accent);
+  line-height: 1.2;
 }
 .ide-topbar-org-caret {
   color: var(--ink-4);
@@ -107,7 +108,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1);
-  border-radius: var(--radius-row);
+  border-radius: var(--radius-2);
   background: var(--paper-2);
   border: 1px solid var(--line);
 }
@@ -118,7 +119,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-5);
-  border-radius: calc(var(--radius-row) - 1px);
+  border-radius: var(--radius-2);
   background: transparent;
   border: 1px solid transparent;
   color: var(--ink-3);
@@ -535,7 +536,7 @@
 }
 
 /* Vercel-dash: 설정 메뉴 — .ide의 paper/ink/line 토큰만 사용 */
-.ide[data-theme="vercel-dash"] .ide-settings-opt {
+.ide[data-theme="p0-light"] .ide-settings-opt {
   background: var(--paper);
   border: 1px solid var(--paper-3);
   color: color-mix(in srgb, var(--ink) 33%, var(--paper));
@@ -566,7 +567,7 @@
   color: #111111;
 }
 
-.ide[data-theme="vercel-dash"] .ide-settings-opt:hover {
+.ide[data-theme="p0-light"] .ide-settings-opt:hover {
   background: var(--paper-2);
   border-color: color-mix(in srgb, var(--ink) 20%, var(--paper));
   color: color-mix(in srgb, var(--ink) 93%, var(--paper));
@@ -597,7 +598,7 @@
   color: #ffffff;
 }
 
-.ide[data-theme="vercel-dash"] .ide-settings-opt.is-active {
+.ide[data-theme="p0-light"] .ide-settings-opt.is-active {
   background: color-mix(in srgb, var(--ink) 93%, var(--paper));
   border-color: color-mix(in srgb, var(--ink) 93%, var(--paper));
   color: var(--paper);
