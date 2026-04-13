@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   IconChevronDown,
   IconInbox,
@@ -31,19 +30,15 @@ const APP_CATALOG: { app: AppType; label: string; icon: JSX.Element }[] = [
 
 export function IdeTopBar({ onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps) {
   const { tabs, activeTabId, addTab, closeTab, setActiveTab } = useGnbStore();
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
-    <div className="ide-topbar" {...(isTauri ? { "data-tauri-drag-region": true } : {})}>
-
+    <div className="ide-topbar">
       {/* ── Tab bar ── */}
       <div className="ide-tab-bar">
         {tabs.map((tab) => {
           const isHome = tab.app === "home";
           const isActive = tab.id === activeTabId;
           const icon = isHome ? HOME_ICON : APP_CATALOG.find(a => a.app === tab.app)?.icon;
-
-          const isShort = tab.label.length <= 10;
 
           return (
             <button
@@ -57,7 +52,7 @@ export function IdeTopBar({ onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps
               {!isHome && <span className="ide-tab-label">{tab.label}</span>}
               {!isHome && (
                 <span
-                  className={`ide-tab-close${isShort ? " is-visible" : ""}`}
+                  className="ide-tab-close"
                   role="button"
                   tabIndex={-1}
                   onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
@@ -70,38 +65,19 @@ export function IdeTopBar({ onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps
           );
         })}
 
-        {/* [+] Add tab */}
-        <div className="ide-tab-add-wrap">
-          <button
-            type="button"
-            className="ide-tab-add"
-            onClick={() => setPickerOpen(!pickerOpen)}
-            aria-label="New tab"
-          >
-            +
-          </button>
-
-          {/* App picker dropdown */}
-          {pickerOpen && (
-            <div className="ide-app-picker">
-              {APP_CATALOG.map((entry) => (
-                <button
-                  key={entry.app}
-                  type="button"
-                  className="ide-app-picker-item"
-                  onClick={() => {
-                    addTab(entry.app);
-                    setPickerOpen(false);
-                  }}
-                >
-                  <span className="ide-app-picker-icon">{entry.icon}</span>
-                  <span className="ide-app-picker-label">{entry.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* [+] Add tab — opens as "new" tab with app picker inside */}
+        <button
+          type="button"
+          className="ide-tab-add"
+          onClick={() => addTab("home", "새로 등록")}
+          aria-label="New tab"
+        >
+          +
+        </button>
       </div>
+
+      {/* Drag region — empty space between tabs and right actions */}
+      {isTauri && <div className="ide-topbar-drag" data-tauri-drag-region />}
 
       {/* ── Right actions ── */}
       <div className="ide-topbar-right">

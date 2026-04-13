@@ -2318,8 +2318,8 @@
 
 /* ── Vercel-dash: File Tree ── */
 .ide[data-theme="p0-light"] .ide-files {
-  background: var(--paper-1);
-  border-right: 1px solid var(--paper-3);
+  background: var(--paper);
+  border-right: 1px solid var(--line);
 }
 .ide[data-theme="p0-light"] .ide-files-repo-header {
   border-bottom: 1px solid var(--paper-3);
@@ -2357,13 +2357,8 @@
   border-bottom: 1px solid var(--paper-3);
 }
 .ide[data-theme="p0-light"] .ide-tab { color: var(--ink-4); }
-.ide[data-theme="p0-light"] .ide-tab:hover { color: var(--ink-2); background: color-mix(in srgb, var(--ink) 5.5%, var(--paper)); }
-.ide[data-theme="p0-light"] .ide-tab.is-active {
-  background: var(--paper);
-  border-top: 2px solid var(--ink);
-  color: var(--ink);
-  font-weight: 600;
-}
+.ide[data-theme="p0-light"] .ide-tab:hover { color: var(--ink-2); }
+.ide[data-theme="p0-light"] .ide-tab.is-active { color: var(--ink); }
 .ide[data-theme="p0-light"] .ide-gutter-num { color: color-mix(in srgb, var(--ink) 20%, var(--paper)); }
 .ide[data-theme="p0-light"] .ide-editor-line.is-hovered { background: color-mix(in srgb, var(--ink) 2.5%, var(--paper)); }
 .ide[data-theme="p0-light"] .ide-line-annotation.cpx     { color: var(--accent); }

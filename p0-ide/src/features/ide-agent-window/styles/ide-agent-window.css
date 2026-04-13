@@ -712,6 +712,64 @@
 }
 .agw-session-new:hover { background: var(--paper-3); color: var(--ink); }
 
+/* ── Session Picker ── */
+.agw-picker {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+.agw-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  max-width: 380px;
+  width: 100%;
+}
+.agw-picker-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--paper-1);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.agw-picker-card:hover {
+  background: var(--paper-2);
+  border-color: var(--ink-4);
+}
+.agw-picker-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-2);
+  background: var(--paper-2);
+  color: var(--ink-2);
+}
+.agw-picker-card:hover .agw-picker-icon {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper-3));
+}
+.agw-picker-label {
+  font-size: 0.78rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--ink-1);
+}
+.agw-picker-desc {
+  font-size: 0.68rem;
+  color: var(--ink-4);
+  text-align: center;
+  line-height: 1.3;
+}
+
 /* ── Chat UI ── */
 .agw-chat-body {
   flex: 1;

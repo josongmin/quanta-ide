@@ -8,6 +8,8 @@ const QualityPage = lazy(() => import("@/features/ide-gnb-pages/ui/QualityPage")
 const SecurityPage = lazy(() => import("@/features/ide-gnb-pages/ui/SecurityPage").then(m => ({ default: m.SecurityPage })));
 const PolicyPage = lazy(() => import("@/features/ide-gnb-pages/ui/PolicyPage").then(m => ({ default: m.PolicyPage })));
 import "@/features/ide-gnb-pages/styles/gnb-pages.css";
+import { HomePicker } from "@/features/ide-home-picker";
+import "@/features/ide-home-picker/styles/home-picker.css";
 import { IdeTopBar } from "@/widgets/ide-topbar";
 import { IdeFiles } from "@/widgets/ide-files";
 import type { CodeLine } from "@/widgets/ide-editor";
@@ -223,6 +225,9 @@ export function IdePage() {
         onHover={showFileTip}
         onHoverEnd={hideFileTip}
       />}
+
+      {/* ── Home / New Tab — App Picker ── */}
+      {activeTab === "home" && <HomePicker />}
 
       {/* ── GNB Tab Pages (full-bleed, replaces sidebar+editor+inspector+bottom) ── */}
       <Suspense fallback={null}>

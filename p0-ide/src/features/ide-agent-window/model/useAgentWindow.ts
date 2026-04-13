@@ -1,9 +1,12 @@
 import { create } from "zustand";
 
+export type SessionMode = "picker" | "chat";
+
 export interface AgentSession {
   id: string;
   title: string; // first user message, truncated
   messages: AgentChatMsg[];
+  mode: SessionMode;
 }
 
 export interface AgentChatMsg {
@@ -140,6 +143,7 @@ interface AgentWindowState {
   setActiveQuery: (id: string) => void;
   toggleExpand: (id: string) => void;
   newSession: () => void;
+  setSessionMode: (id: string, mode: SessionMode) => void;
   switchSession: (id: string) => void;
   closeSession: (id: string) => void;
   updateSessionTitle: (id: string, title: string) => void;
@@ -151,7 +155,7 @@ export const useAgentWindow = create<AgentWindowState>()((set) => ({
   hasInteracted: false,
   activeQueryId: "double-refund",
   expandedQueryId: "double-refund",
-  sessions: [{ id: INIT_SESSION_ID, title: "Which path can double-refund a customer?", messages: [] }],
+  sessions: [{ id: INIT_SESSION_ID, title: "Which path can double-refund a customer?", messages: [], mode: "chat" as SessionMode }],
   activeSessionId: INIT_SESSION_ID,
   minimizeAt: null,
   open:     () => { set({ isOpen: true, minimized: false }); },
@@ -167,8 +171,13 @@ export const useAgentWindow = create<AgentWindowState>()((set) => ({
   newSession: () => {
     const id = `session-${Date.now()}`;
     set((s) => ({
-      sessions: [...s.sessions, { id, title: "새 세션", messages: [] }],
+      sessions: [...s.sessions, { id, title: "새 세션", messages: [], mode: "picker" as SessionMode }],
       activeSessionId: id,
+    }));
+  },
+  setSessionMode: (id, mode) => {
+    set((s) => ({
+      sessions: s.sessions.map((ss) => ss.id === id ? { ...ss, mode } : ss),
     }));
   },
   switchSession: (id) => { set({ activeSessionId: id }); },

@@ -6,6 +6,7 @@ import { useResize, type ResizeEdge, RESIZE_CURSORS } from "../model/useResize";
 import { useAgentSession } from "../model/useAgentSession";
 import { useAgentInteraction } from "../model/useAgentInteraction";
 import { SessionTabs } from "./SessionTabs";
+import { SessionPicker } from "./SessionPicker";
 import { AgentPanelHeader } from "./AgentPanelHeader";
 import { AgentPanelChat } from "./AgentPanelChat";
 import { AgentPanelInput } from "./AgentPanelInput";
@@ -25,7 +26,7 @@ interface AgentPanelProps {
 export function AgentPanel({ initialPos }: AgentPanelProps) {
   const {
     close, minimize, sessions, activeSessionId,
-    newSession, switchSession, closeSession, updateSessionTitle,
+    newSession, switchSession, closeSession, updateSessionTitle, setSessionMode,
   } = useAgentWindow();
 
   const { pos, setPos, onMouseDown } = useDrag(initialPos);
@@ -36,6 +37,14 @@ export function AgentPanel({ initialPos }: AgentPanelProps) {
   const { input, setInput, sendMessage, messages, typing } = useAgentSession(
     activeSessionId, updateSessionTitle, serverOnlineRef,
   );
+
+  const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const isPicker = activeSession?.mode === "picker";
+
+  const handlePickerSelect = (type: string) => {
+    setSessionMode(activeSessionId, "chat");
+    updateSessionTitle(activeSessionId, type.charAt(0).toUpperCase() + type.slice(1));
+  };
 
   return (
     <Panel
@@ -76,15 +85,20 @@ export function AgentPanel({ initialPos }: AgentPanelProps) {
         onNew={newSession}
       />
 
-      <AgentPanelChat messages={messages} typing={typing} />
-
-      <AgentPanelInput
-        input={input}
-        onInputChange={setInput}
-        onSend={sendMessage}
-        typing={typing}
-        messageCount={messages.length}
-      />
+      {isPicker ? (
+        <SessionPicker onSelect={handlePickerSelect} />
+      ) : (
+        <>
+          <AgentPanelChat messages={messages} typing={typing} />
+          <AgentPanelInput
+            input={input}
+            onInputChange={setInput}
+            onSend={sendMessage}
+            typing={typing}
+            messageCount={messages.length}
+          />
+        </>
+      )}
     </Panel>
   );
 }
