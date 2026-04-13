@@ -97,9 +97,9 @@
   border: 1px solid color-mix(in srgb, var(--risk-3) 36%, transparent);
 }
 .gpill-dot-safe {
-  background: color-mix(in srgb, #34d399 22%, transparent);
-  color: #34d399;
-  border: 1px solid color-mix(in srgb, #34d399 36%, transparent);
+  background: color-mix(in srgb, var(--color-feedback-success-fg) 22%, transparent);
+  color: var(--color-feedback-success-fg);
+  border: 1px solid color-mix(in srgb, var(--color-feedback-success-fg) 36%, transparent);
 }
 .gpill-chip-chev {
   color: var(--ink-3);
@@ -119,8 +119,8 @@
   color: var(--risk-3);
 }
 .gpill-safe .gpill-chip-glyph {
-  background: color-mix(in srgb, #34d399 14%, transparent);
-  color: #34d399;
+  background: color-mix(in srgb, var(--color-feedback-success-fg) 14%, transparent);
+  color: var(--color-feedback-success-fg);
 }
 
 /* expanded body */
@@ -180,7 +180,7 @@
 }
 .gpill-count-blocked { background: color-mix(in srgb, var(--risk-4) 20%, transparent); color: var(--risk-4); }
 .gpill-count-warn { background: color-mix(in srgb, var(--risk-3) 20%, transparent); color: var(--risk-3); }
-.gpill-count-safe { background: color-mix(in srgb, #34d399 18%, transparent); color: #34d399; }
+.gpill-count-safe { background: color-mix(in srgb, var(--color-feedback-success-fg) 18%, transparent); color: var(--color-feedback-success-fg); }
 
 .gpill-list {
   display: flex;
@@ -205,7 +205,7 @@
 }
 .gpill-row-blocked .gpill-row-glyph { color: var(--risk-4); }
 .gpill-row-warn .gpill-row-glyph { color: var(--risk-3); }
-.gpill-row-safe .gpill-row-glyph { color: #34d399; }
+.gpill-row-safe .gpill-row-glyph { color: var(--color-feedback-success-fg); }
 .gpill-row-body {
   display: flex;
   flex-direction: column;

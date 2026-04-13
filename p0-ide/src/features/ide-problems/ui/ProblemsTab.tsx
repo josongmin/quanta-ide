@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MOCK_PROBLEMS,
   computeProblemCounts,
@@ -31,13 +31,14 @@ export function ProblemsTab({ onNavigate }: ProblemsTabProps) {
 
   const counts = useMemo(() => computeProblemCounts(snapshot), [snapshot]);
 
+  const initialized = useRef(false);
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     if (snapshot.groups.length === 0) {
       setSnapshot(MOCK_PROBLEMS);
     }
-    // 최초 시드만.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [snapshot, setSnapshot]);
 
   const [active, setActive] = useState<ReadonlySet<ProblemSeverity>>(
     () => new Set<ProblemSeverity>(["error", "warn", "info"]),

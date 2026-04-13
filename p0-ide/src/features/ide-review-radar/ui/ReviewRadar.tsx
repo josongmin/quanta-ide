@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { dispatchCommand } from "@/features/ide-command-palette";
+import { dispatchCommand } from "@/shared/hooks";
 import { useReviewRadar, RADAR_GROUPS, type RadarItem } from "../model/useReviewRadar";
 
 const KIND_ICON: Record<RadarItem["kind"], string> = {

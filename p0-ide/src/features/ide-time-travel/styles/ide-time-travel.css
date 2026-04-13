@@ -238,7 +238,7 @@
   font-weight: var(--font-weight-medium);
   color: var(--accent);
 }
-.ttcmp-delta.is-down { color: #86efac; }
+.ttcmp-delta.is-down { color: color-mix(in srgb, var(--color-feedback-success-fg) 60%, var(--paper)); }
 .ttcmp-commits {
   display: flex;
   flex-direction: column;

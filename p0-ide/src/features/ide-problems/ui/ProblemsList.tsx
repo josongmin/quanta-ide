@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   ProblemFileGroup,
   ProblemItem,
@@ -31,12 +31,12 @@ export function ProblemsList({ groups, activeSeverities, onItemActivate }: Probl
     });
   };
 
-  const visibleGroups = groups
+  const visibleGroups = useMemo(() => groups
     .map((g) => ({
       group: g,
       items: g.items.filter((it) => activeSeverities.has(it.severity)),
     }))
-    .filter((g) => g.items.length > 0);
+    .filter((g) => g.items.length > 0), [groups, activeSeverities]);
 
   if (visibleGroups.length === 0) {
     return (

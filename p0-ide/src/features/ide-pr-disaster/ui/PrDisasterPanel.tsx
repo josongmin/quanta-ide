@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { useToast } from "@/features/ide-toast";
+import { useToast } from "@/shared/hooks";
 import { Panel, PanelHeader, PanelBody, PanelFooter, Button } from "@/shared/ui";
 import { usePrDisaster, DISASTER_DATA } from "../model/usePrDisaster";
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MOCK_OUTPUT,
   selectActiveChannelId,
@@ -21,13 +21,14 @@ export function OutputTab() {
   const setActiveChannel = useOutputLogStore((s) => s.setActiveChannel);
   const clearActive = useOutputLogStore((s) => s.clearActive);
 
+  const initialized = useRef(false);
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     if (channels.length === 0) {
       setSnapshot(MOCK_OUTPUT);
     }
-    // 최초 시드만.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [channels, setSnapshot]);
 
   const [wrap, setWrap] = useState(false);
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useBubbleDrag } from "../model/useBubbleDrag";
 import { smartPos } from "../lib/smartPos";
 import type { Vec2 } from "../lib/findSafeBubblePos";
@@ -19,6 +20,7 @@ interface BubbleIconProps {
 }
 
 export function BubbleIcon({ initialPos, clickOrigin, mouseVel, onExpand, onMove: onMoveProp }: BubbleIconProps) {
+  const { t } = useTranslation();
   // 300ms 뒤 등장 전까지 숨김
   const [visible, setVisible] = useState(false);
   const [vanishing, setVanishing] = useState(false);
@@ -119,7 +121,7 @@ export function BubbleIcon({ initialPos, clickOrigin, mouseVel, onExpand, onMove
         onMouseDown={onMouseDown}
         role="button"
         tabIndex={0}
-        aria-label="에이전트 열기"
+        aria-label={t("ide.agent.openAgent")}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ")
             {onExpand(smartPos(anchorPos.x, anchorPos.y, INIT_W, INIT_H));}

@@ -29,8 +29,8 @@ export const useOutputLogStore = create<OutputState>()((set) => ({
     set((state) => {
       const channels = state.snapshot.channels.map((c): OutputChannel => {
         if (c.id !== channelId) return c;
-        const lines = [...c.lines, line];
-        if (lines.length > MAX_LINES) lines.splice(0, lines.length - MAX_LINES);
+        let lines = [...c.lines, line];
+        if (lines.length > MAX_LINES) lines = lines.slice(-MAX_LINES);
         return { ...c, lines };
       });
       return { snapshot: { ...state.snapshot, channels } };

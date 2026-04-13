@@ -10,11 +10,13 @@
         "background-color",
         "border-color",
         "box-shadow",
+        "font-family",
         "font-size",
         "font-weight",
         "line-height",
         "border-radius",
         "z-index",
+        "transition",
         "transition-duration",
         "animation-duration"
       ],
@@ -31,19 +33,25 @@
           "normal",
           "/^var\\(/",
           "/^color-mix\\(/",
-          "/^rgba?\\(/"
+          "/^calc\\(/"
         ],
-        "severity": "warning"
+        "severity": "error",
+        "message": "Use design tokens (var(--*)) instead of hardcoded values for '${property}'"
       }
     ],
     "declaration-property-value-disallowed-list": [
       {
-        "/^padding/": ["/[0-9]+px/"],
-        "/^margin/": ["/[0-9]+px/"],
-        "gap": ["/[0-9]+px/"]
+        "/^padding/": ["/^\\d/"],
+        "/^margin/": ["/^\\d/"],
+        "gap": ["/^\\d/"]
       },
-      { "severity": "warning" }
+      {
+        "severity": "error",
+        "message": "Use spacing tokens (var(--space-*)) instead of raw values for '${property}'"
+      }
     ],
+    "color-named": "never",
+    "function-disallowed-list": null,
     "selector-class-pattern": null,
     "custom-property-pattern": null,
     "keyframes-name-pattern": null,
@@ -88,7 +96,20 @@
     "build/**",
     "src/shared/styles/tokens/**",
     "src/shared/styles/ide-base.css",
+    "src/shared/styles/ide-layout.css",
+    "src/shared/styles/ide-components.css",
+    "src/shared/styles/ide-themes.css",
     "src/shared/styles/aurora.css",
-    "src/shared/styles/overlay-tokens.css"
+    "src/shared/styles/overlay-tokens.css",
+    "src/shared/styles/base.css"
+  ],
+  "overrides": [
+    {
+      "files": ["src/shared/styles/tokens/**"],
+      "rules": {
+        "scale-unlimited/declaration-strict-value": null,
+        "declaration-property-value-disallowed-list": null
+      }
+    }
   ]
 }

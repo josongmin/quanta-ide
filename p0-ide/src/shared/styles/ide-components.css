@@ -1,0 +1,122 @@
+/* =============================================================================
+   ide-components.css — Focus rings, interactive hover, theme toggle,
+   media queries, disabled state, text utilities
+   ============================================================================= */
+
+/* ═════════════════════════════════════════════════════════════════════
+   Focus Rings + Interactive hover
+   ═════════════════════════════════════════════════════════════════════ */
+.ide-btn:focus-visible,
+.ide-exit:focus-visible,
+.ide-topbar-ask:focus-visible,
+.ide-topbar-time:focus-visible,
+.ide-topbar-risk:focus-visible,
+.ide-editor-tab:focus-visible,
+.cmdk-row:focus-visible,
+.ctxmenu-row:focus-visible,
+.tt-marker:focus-visible,
+.tour-btn-skip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.ide-callgraph-row {
+  transition: background var(--transition);
+  border-radius: 4px;
+  padding: var(--space-1) var(--space-2);
+  margin: 0 -4px;
+}
+.ide-callgraph-row:hover {
+  background: var(--paper-2);
+}
+.ide-flow-row {
+  transition: border-color var(--transition), background var(--transition);
+}
+.ide-flow-row:hover {
+  border-color: var(--line-3);
+  background: var(--paper-3);
+}
+
+/* ── Theme toggle button ── */
+.ide-topbar-theme {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  color: var(--ink-3);
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.ide-topbar-theme:hover {
+  background: var(--paper-3);
+  border-color: var(--line-2);
+  color: var(--ink);
+}
+.ide-topbar-theme:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ── Mobile (1024px 이하) ───────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .ide {
+    grid-template-columns: var(--rail-w) calc(200px - var(--rail-w)) 1fr;
+    grid-template-areas:
+      "topbar topbar topbar"
+      "files  files  editor"
+      "rail   bottom bottom"
+      "status status status";
+  }
+  .ide-inspector {
+    display: none;
+  }
+  .radar-panel { display: none; }
+  .own-overlay { inset: 40px 0 28px 200px; }
+}
+
+/* ── Disabled state (shared utility) ───────────────────────────────── */
+.ide [disabled],
+.ide [aria-disabled="true"],
+.ide .is-disabled {
+  opacity: var(--opacity-disabled);
+  cursor: var(--cursor-disabled);
+  pointer-events: none;
+}
+
+/* ── Text truncation utilities ─────────────────────────────────────────
+   Usage: apply to the element whose TEXT should ellipsis, AND make sure
+   its flex ancestor has .truncate-host (or min-width: 0) so shrinking
+   actually works. */
+.ide .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ide .truncate-host {
+  min-width: 0;
+}
+.ide .clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ide .clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Tauri 네이티브 — 타이틀바 높이 확대 ─────────────────────────── */
+:root.is-tauri .ide-shell {
+  grid-template-rows: 59px 1fr var(--bottom-h) 28px;
+}

@@ -73,7 +73,7 @@ function HeatMap({ rows }: { rows: HeatRow[] }) {
             <div className="fii-heat-bar-wrap">
               <div
                 className="fii-heat-bar"
-                style={{ width: `${pct}%`, background: row.dead ? "var(--ink-4)" : "var(--accent)" }}
+                style={{ width: `${pct}%` }}
               />
             </div>
             {!row.dead && <span className="fii-heat-cpx" style={{ color: "var(--ink-3)" }}>
@@ -115,7 +115,7 @@ function StatGrid({ blast, taint, dead, bus }: { blast: number; taint: number; d
 function OwnerRow({ name, coverage }: { name: string; coverage: number }) {
   return (
     <div className="fii-owner-row">
-      <span className="fii-owner-avatar">{name[0].toUpperCase()}</span>
+      <span className="fii-owner-avatar">{name[0]?.toUpperCase() ?? "?"}</span>
       <span className="fii-owner-name">{name}</span>
       <div className="fii-owner-bar">
         <div className="fii-owner-fill" style={{ width: `${coverage}%` }} />

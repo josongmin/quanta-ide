@@ -56,5 +56,5 @@
   white-space: pre;
 }
 .ctxmenu-ghost-dim { color: var(--ink-3); }
-.ctxmenu-ghost-add { color: #86efac; }
+.ctxmenu-ghost-add { color: color-mix(in srgb, var(--color-feedback-success-fg) 60%, var(--paper)); }
 

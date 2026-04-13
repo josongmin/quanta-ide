@@ -85,9 +85,10 @@
   background: var(--paper-3);
   color: var(--ink);
 }
-/* Editor gutter trace indicator — vertical line */
-.ide-editor-line.is-traced .ide-editor-gutter {
-  background: var(--accent) !important;
+/* Editor gutter trace indicator — vertical line
+   .ide prefix raises specificity above .ide-editor-gutter[data-risk] */
+.ide .ide-editor-line.is-traced .ide-editor-gutter {
+  background: var(--accent);
   box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 .ide-editor-line.is-trace-source .ide-editor-code,

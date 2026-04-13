@@ -81,6 +81,10 @@
   font-weight: var(--font-weight-semibold);
   color: var(--ink);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .fii-risk-badge {
   font-family: var(--font-mono);
@@ -518,6 +522,7 @@
   text-transform: uppercase;
   color: var(--ink-4);
   flex: 1;
+  min-width: 0;
 }
 
 .fii-section-count {
@@ -559,6 +564,7 @@
   color: var(--ink-2);
   font-weight: var(--font-weight-semibold);
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -689,8 +695,12 @@
 .fii-heat-bar {
   height: 100%;
   border-radius: 0.125rem;
+  background: var(--accent);
   transition: width var(--duration-6) cubic-bezier(0.4, 0, 0.2, 1);
   opacity: 0.75;
+}
+.fii-heat-row.is-dead .fii-heat-bar {
+  background: var(--ink-4);
 }
 .fii-heat-cpx {
   font-family: var(--font-mono);
@@ -742,6 +752,7 @@
   font-size: var(--font-size-2);
   color: var(--ink-2);
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -922,6 +933,10 @@
   font-size: var(--font-size-2);
   color: var(--ink-2);
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .sii-calldepth-badge {
   font-family: var(--font-mono);

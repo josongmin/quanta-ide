@@ -8,9 +8,9 @@
 
 .editable-editor-body .cm-editor {
   height: 100%;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
 }
 
 .editable-editor-body .cm-scroller {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
 }

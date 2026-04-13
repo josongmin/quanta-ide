@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { IconBolt, IconGlobe, IconGrid2x2, IconSettings, Textarea } from "@/shared/ui";
 import { useAgentWindow } from "../model/useAgentWindow";
 import { IconChevron, IconPlus, IconSend } from "./icons";
@@ -9,6 +10,7 @@ declare global {
 }
 
 export function CenterPromptBar() {
+  const { t } = useTranslation();
   const { setInteracted } = useAgentWindow();
   const [input, setInput] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -42,23 +44,23 @@ export function CenterPromptBar() {
         />
         <div className="agw-center-toolbar">
           <div className="agw-center-toolbar-left">
-            <button type="button" className="agw-toolbar-btn" aria-label="추가"><IconPlus /></button>
-            <button type="button" className="agw-toolbar-model" aria-label="앱">
+            <button type="button" className="agw-toolbar-btn" aria-label={t("ide.agent.add")}><IconPlus /></button>
+            <button type="button" className="agw-toolbar-model" aria-label={t("ide.agent.app")}>
               <IconGrid2x2 size={11} strokeWidth={1.8} />
               App
             </button>
-            <button type="button" className="agw-toolbar-model" aria-label="웹">
+            <button type="button" className="agw-toolbar-model" aria-label={t("ide.agent.web")}>
               <IconGlobe size={11} strokeWidth={1.8} />
               Web
             </button>
           </div>
           <div className="agw-center-toolbar-right">
-            <button type="button" className="agw-toolbar-model" aria-label="모델">
+            <button type="button" className="agw-toolbar-model" aria-label={t("ide.agent.model")}>
               <IconBolt size={10} strokeWidth={2.2} />
               3.0 Flash
               <IconChevron />
             </button>
-            <button type="button" className="agw-toolbar-settings" aria-label="설정">
+            <button type="button" className="agw-toolbar-settings" aria-label={t("ide.agent.settings")}>
               <IconSettings size={12} strokeWidth={1.8} />
             </button>
             <button
@@ -66,7 +68,7 @@ export function CenterPromptBar() {
               className="agw-send-btn"
               onClick={handleSubmit}
               disabled={!input.trim()}
-              aria-label="전송"
+              aria-label={t("ide.agent.send")}
             >
               <IconSend />
             </button>

@@ -248,7 +248,7 @@ html[data-aurora="teal"] {
   z-index: var(--z-popover);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-4);
   padding: 6px 10px 6px 8px;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,.2);
@@ -288,7 +288,7 @@ html[data-aurora="teal"] {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 12px;
+  padding: var(--space-5);
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,.18);
   background: rgba(14, 12, 28, 0.94);
@@ -318,7 +318,7 @@ html[data-aurora="teal"] {
 .aurora-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  gap: var(--space-3);
   overflow-y: auto;
   padding: 2px;
   scrollbar-width: thin;
@@ -326,7 +326,7 @@ html[data-aurora="teal"] {
 .aurora-option {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-4);
   padding: 8px 10px;
   border: none;
   border-radius: 12px;

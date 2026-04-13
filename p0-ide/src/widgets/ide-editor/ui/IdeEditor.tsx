@@ -15,6 +15,65 @@ export type LineHint =
   | { type: "warn-badge"; label: string }
   | { type: "complexity"; value: number };
 
+/* ── Hint renderers (type → render fn) ─────────────────────────────── */
+
+// Each renderer returns JSX for a single hint chip. Keyed externally.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- union-discriminated dispatch
+const HINT_RENDERERS: Record<string, (h: any) => ReactNode> = {
+  author: (h: Extract<LineHint, { type: "author" }>) => (
+    <span className="ilh ilh-author">
+      <span className="ilh-at">@</span>{h.name.replace("@", "")}
+      <span className="ilh-sep">·</span>{h.when}
+    </span>
+  ),
+  coverage: (h: Extract<LineHint, { type: "coverage" }>) => {
+    const pct = h.total ? Math.round((h.passed / h.total) * 100) : 0;
+    const bad = pct === 0;
+    return (
+      <span className={`ilh ilh-cov${bad ? " is-bad" : ""}`}>
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        {h.passed}/{h.total}
+      </span>
+    );
+  },
+  "taint-flow": (h: Extract<LineHint, { type: "taint-flow" }>) => (
+    <span className="ilh ilh-taint-flow">
+      <span className="ilh-src">{h.from}</span>
+      <svg width="10" height="8" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="0" y1="8" x2="18" y2="8"/><polyline points="12 2 20 8 12 14"/></svg>
+      <span className="ilh-sink">{h.to}</span>
+    </span>
+  ),
+  callers: (h: Extract<LineHint, { type: "callers" }>) => (
+    <span className={`ilh ilh-callers${h.warn ? " is-warn" : ""}`}>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      {h.count}
+    </span>
+  ),
+  blast: (h: Extract<LineHint, { type: "blast" }>) => (
+    <span className="ilh ilh-blast">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      {h.files} files
+    </span>
+  ),
+  stale: (h: Extract<LineHint, { type: "stale" }>) => (
+    <span className="ilh ilh-stale">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      {h.age}
+    </span>
+  ),
+  "warn-badge": (h: Extract<LineHint, { type: "warn-badge" }>) => (
+    <span className="ilh ilh-warn-badge">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      {h.label}
+    </span>
+  ),
+  complexity: (h: Extract<LineHint, { type: "complexity" }>) => (
+    <span className={`ilh ilh-cpx${h.value >= 7 ? " is-high" : h.value >= 4 ? " is-mid" : ""}`}>
+      cpx {h.value.toFixed(1)}
+    </span>
+  ),
+};
+
 export interface CodeLine {
   no: number;
   risk?: 1 | 2 | 3 | 4;
@@ -137,61 +196,9 @@ export function IdeEditor({ tabs, lines, liveTypingLine, flowTraceBanner, impact
                   )}
                   {line.hints && line.hints.length > 0 && (
                     <span className="ide-line-hints">
-                    {line.hints.map((h, i) => {
-                      if (h.type === "author") {return (
-                        <span key={i} className="ilh ilh-author">
-                          <span className="ilh-at">@</span>{h.name.replace("@", "")}
-                          <span className="ilh-sep">·</span>{h.when}
-                        </span>
-                      );}
-                      if (h.type === "coverage") {
-                        const pct = h.total ? Math.round((h.passed / h.total) * 100) : 0;
-                        const bad = pct === 0;
-                        return (
-                          <span key={i} className={`ilh ilh-cov${bad ? " is-bad" : ""}`}>
-                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                            {h.passed}/{h.total}
-                          </span>
-                        );
-                      }
-                      if (h.type === "taint-flow") {return (
-                        <span key={i} className="ilh ilh-taint-flow">
-                          <span className="ilh-src">{h.from}</span>
-                          <svg width="10" height="8" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="0" y1="8" x2="18" y2="8"/><polyline points="12 2 20 8 12 14"/></svg>
-                          <span className="ilh-sink">{h.to}</span>
-                        </span>
-                      );}
-                      if (h.type === "callers") {return (
-                        <span key={i} className={`ilh ilh-callers${h.warn ? " is-warn" : ""}`}>
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                          {h.count}
-                        </span>
-                      );}
-                      if (h.type === "blast") {return (
-                        <span key={i} className="ilh ilh-blast">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                          {h.files} files
-                        </span>
-                      );}
-                      if (h.type === "stale") {return (
-                        <span key={i} className="ilh ilh-stale">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                          {h.age}
-                        </span>
-                      );}
-                      if (h.type === "warn-badge") {return (
-                        <span key={i} className="ilh ilh-warn-badge">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                          {h.label}
-                        </span>
-                      );}
-                      // h.type === "complexity" (exhaustive)
-                      return (
-                        <span key={i} className={`ilh ilh-cpx${h.value >= 7 ? " is-high" : h.value >= 4 ? " is-mid" : ""}`}>
-                          cpx {h.value.toFixed(1)}
-                        </span>
-                      );
-                    })}
+                    {line.hints.map((h, i) => (
+                      <span key={i}>{HINT_RENDERERS[h.type](h)}</span>
+                    ))}
                     </span>
                   )}
                 </span>

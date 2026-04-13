@@ -1,5 +1,10 @@
+import { ErrorBoundary } from "@/shared/ui/error-boundary";
 import { IdePage } from "./ide";
 
 export function App() {
-  return <IdePage />;
+  return (
+    <ErrorBoundary>
+      <IdePage />
+    </ErrorBoundary>
+  );
 }

@@ -58,12 +58,12 @@
   user-select: none;
 }
 .sim-diff .add {
-  background: color-mix(in srgb, #34d399 10%, transparent);
-  color: #d1fae5;
+  background: color-mix(in srgb, var(--color-feedback-success-fg) 10%, transparent);
+  color: var(--color-feedback-success-bg);
 }
 .sim-diff .del {
-  background: color-mix(in srgb, #f87171 10%, transparent);
-  color: #fecaca;
+  background: color-mix(in srgb, var(--color-feedback-danger-fg) 10%, transparent);
+  color: var(--color-feedback-danger-bg);
   text-decoration: line-through;
   text-decoration-color: rgba(248, 113, 113, 0.4);
 }
@@ -169,8 +169,8 @@
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 .sim-test .status.pass {
-  color: #86efac;
-  background: rgba(134, 239, 172, 0.1);
+  color: color-mix(in srgb, var(--color-feedback-success-fg) 60%, var(--paper));
+  background: color-mix(in srgb, var(--color-feedback-success-fg) 10%, transparent);
 }
 .sim-meta {
   background: var(--paper);

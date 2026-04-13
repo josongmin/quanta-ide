@@ -1,73 +1,121 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MOCK_WATCHER_SNAPSHOT,
   selectSnapshot,
   useWatcherStore,
   type NowWatchingItem,
+  type RollbackCheckpoint,
 } from "@/entities/watcher";
-import { WatcherVitals } from "./WatcherVitals";
-import { WatcherSparkline } from "./WatcherSparkline";
-import { WatcherNowWatching } from "./WatcherNowWatching";
+import { WatcherHeatmap } from "./WatcherHeatmap";
+import { WatcherRollback } from "./WatcherRollback";
 
 interface WatcherTabProps {
-  /** Now watching item 클릭 시 부모가 처리할 navigation. */
   onNavigate?: (item: NowWatchingItem) => void;
+  onRollback?: (checkpoint: RollbackCheckpoint) => void;
 }
 
-/**
- * Watcher 탭 (Tier 0 Persistent).
- *
- * 책임:
- *  - watcher store 구독
- *  - 3-column(Vitals / Sparkline / NowWatching) 조립
- *
- * Phase 1.5에선 store가 빈 스냅샷이면 mock seed로 채운다.
- * Phase 2 이후 stability tracker가 setSnapshot으로 주입하기 시작하면
- * 이 seed 코드를 제거한다.
- */
-export function WatcherTab({ onNavigate }: WatcherTabProps) {
+type HeatFilter = "active" | "clean" | "warn" | "block";
+
+export function WatcherTab({ onNavigate: _onNavigate, onRollback }: WatcherTabProps) {
   const snapshot = useWatcherStore(selectSnapshot);
   const setSnapshot = useWatcherStore((s) => s.setSnapshot);
 
+  const initialized = useRef(false);
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     if (snapshot.impactedFiles === 0 && snapshot.series.length === 0) {
       setSnapshot(MOCK_WATCHER_SNAPSHOT);
     }
-    // 1회만 시드. 이후 외부 계산기가 갱신.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [snapshot, setSnapshot]);
 
-  const startLabel =
-    snapshot.series.length > 0 ? String(snapshot.series[0]) : undefined;
-  const endLabel = String(snapshot.impactedFiles);
+  const [filters, setFilters] = useState<Record<HeatFilter, boolean>>({
+    active: true, clean: true, warn: true, block: true,
+  });
+
+  const toggle = (key: HeatFilter) =>
+    setFilters(prev => ({ ...prev, [key]: !prev[key] }));
+
+  const { guard, testPulse } = snapshot;
+  const activeCount = snapshot.heatmap.filter(c => c.editing).length;
+  const cleanCount = snapshot.heatmap.filter(c => c.heat === "clean").length;
+  const warnCount = guard.warnings;
+  const blockCount = guard.blocked;
+  const testPass = testPulse.filter(t => t.status === "pass").length;
+  const testFail = testPulse.filter(t => t.status === "fail").length;
+  const testRun = testPulse.filter(t => t.status === "running").length;
+
+  // Filter heatmap cells
+  const visibleCells = snapshot.heatmap.filter(c => {
+    if (c.heat === "idle") return false;
+    if (c.editing && !filters.active) return false;
+    if (c.heat === "clean" && !filters.clean) return false;
+    if (c.heat === "warn" && !filters.warn) return false;
+    if (c.heat === "block" && !filters.block) return false;
+    return true;
+  });
 
   return (
     <div className="wt-root">
       <div className="wt-header">
         <span className="bp-panel-title">Watcher</span>
+
+        {/* Checkbox filters — same pattern as Problems panel */}
+        <div className="wt-header-filters">
+          <label className={`wt-filter${filters.active ? " is-active" : ""}`}>
+            <input
+              type="checkbox"
+              className="wt-filter-input"
+              checked={filters.active}
+              onChange={() => toggle("active")}
+            />
+            <span>{activeCount} editing</span>
+          </label>
+
+          <label className={`wt-filter${filters.clean ? " is-active" : ""}`}>
+            <input
+              type="checkbox"
+              className="wt-filter-input"
+              checked={filters.clean}
+              onChange={() => toggle("clean")}
+            />
+            <span>{cleanCount} clean</span>
+          </label>
+
+          <label className={`wt-filter${filters.warn ? " is-active" : ""}`}>
+            <input
+              type="checkbox"
+              className="wt-filter-input"
+              checked={filters.warn}
+              onChange={() => toggle("warn")}
+            />
+            <span>{warnCount} warnings</span>
+          </label>
+
+          <label className={`wt-filter${filters.block ? " is-active" : ""}`}>
+            <input
+              type="checkbox"
+              className="wt-filter-input"
+              checked={filters.block}
+              onChange={() => toggle("block")}
+            />
+            <span>{blockCount} blocked</span>
+          </label>
+
+          {testFail > 0 && <span className="wt-filter-info">{testFail} fail</span>}
+          {testRun > 0 && <span className="wt-filter-info">{testRun} running</span>}
+          {testPass > 0 && <span className="wt-filter-info">{testPass} pass</span>}
+        </div>
+
+        {/* Rollback shortcuts */}
+        {snapshot.rollbackStack.length > 0 && (
+          <div className="wt-header-rollback">
+            <WatcherRollback stack={snapshot.rollbackStack} onRollback={onRollback} />
+          </div>
+        )}
       </div>
-      <div className="wt-row">
-        <div className="wt-col wt-col-vitals">
-          <WatcherVitals
-            impactedFiles={snapshot.impactedFiles}
-            status={snapshot.status}
-            trend={snapshot.trend}
-            peak={snapshot.peak}
-          />
-        </div>
-        <div className="wt-col wt-col-spark">
-          <WatcherSparkline
-            series={snapshot.series}
-            startLabel={startLabel}
-            endLabel={endLabel}
-            inFlux={snapshot.status === "in-flux"}
-            peak={snapshot.peak}
-          />
-        </div>
-        <div className="wt-col wt-col-now">
-          <WatcherNowWatching items={snapshot.nowWatching} onItemClick={onNavigate} />
-        </div>
-      </div>
+
+      <WatcherHeatmap cells={visibleCells} />
     </div>
   );
 }

@@ -97,11 +97,99 @@ export default defineConfig([
       "import-x/no-useless-path-segments": "error",
       "import-x/no-cycle": ["error", { maxDepth: 12 }],
 
+
       // --- General quality ---
       "no-console": "error",
       eqeqeq: ["error", "always"],
       "no-implicit-coercion": "error",
       curly: ["error", "multi-line"],
+    },
+  },
+  // --- FSD Layer boundaries ---
+  {
+    files: ["src/features/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/*"],
+              message:
+                "Features must not import from other features. Move shared logic to @/shared/ or @/entities/.",
+            },
+            {
+              group: ["@/widgets/*"],
+              message:
+                "Features must not import from widgets. Use @/shared/ or @/entities/ instead.",
+            },
+            {
+              group: ["@/app/*"],
+              message:
+                "Features must not import from app layer.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/shared/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/*"],
+              message:
+                "Shared layer must not import from features.",
+            },
+            {
+              group: ["@/widgets/*"],
+              message:
+                "Shared layer must not import from widgets.",
+            },
+            {
+              group: ["@/entities/*"],
+              message:
+                "Shared layer must not import from entities.",
+            },
+            {
+              group: ["@/app/*"],
+              message:
+                "Shared layer must not import from app layer.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/entities/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/*"],
+              message:
+                "Entities must not import from features.",
+            },
+            {
+              group: ["@/widgets/*"],
+              message:
+                "Entities must not import from widgets.",
+            },
+            {
+              group: ["@/app/*"],
+              message:
+                "Entities must not import from app layer.",
+            },
+          ],
+        },
+      ],
     },
   },
   {

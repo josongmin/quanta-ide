@@ -65,7 +65,6 @@
   --tracking-widest:  0.1em;
 
   /* ── Scale: Duration ───────────────────────────────────────────────────── */
-  --duration-1:  60ms;
   --duration-2:  120ms;
   --duration-3:  180ms;
   --duration-4:  240ms;
@@ -76,7 +75,6 @@
   --ease-linear:   linear;
   --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
   --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in:       cubic-bezier(0.4, 0, 1, 1);
   --ease-spring:   cubic-bezier(0.22, 1, 0.36, 1);
 
   /* ── Scale: Shadow (rgba alpha tiers) ──────────────────────────────────── */

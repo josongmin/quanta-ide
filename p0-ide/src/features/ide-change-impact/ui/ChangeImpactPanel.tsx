@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+// eslint-disable-next-line no-restricted-imports -- composition: impact panel reads inspector context
 import { useInspectorContext } from "@/features/ide-inspector-context";
 import { useChangeImpact } from "../model/useChangeImpact";
 import type { ImpactedFile, PropagationStep } from "../model/useChangeImpact";

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { PrDraft } from "@/app/ide/mock-pr";
-import { useToast } from "@/features/ide-toast";
+import { useToast } from "@/shared/hooks";
 import { Panel, PanelHeader, PanelBody, PanelFooter, Button, TextInput } from "@/shared/ui";
 import { useSemanticPr } from "../model/useSemanticPr";
 

@@ -1,5 +1,11 @@
 export type {
   NowWatchingItem,
+  LiveDiffEntry,
+  GuardStatus,
+  GuardRuleHit,
+  TestPulseEntry,
+  RollbackCheckpoint,
+  HeatmapCell,
   WatcherSnapshot,
   WatcherStatus,
   WatcherTrend,

@@ -28,9 +28,9 @@ export const useTerminalStore = create<TerminalState>()((set) => ({
     set((state) => {
       const sessions = state.snapshot.sessions.map((s): TerminalSession => {
         if (s.id !== sessionId) return s;
-        const lines = [...s.lines, line];
+        let lines = [...s.lines, line];
         if (lines.length > MAX_LINES_PER_SESSION) {
-          lines.splice(0, lines.length - MAX_LINES_PER_SESSION);
+          lines = lines.slice(-MAX_LINES_PER_SESSION);
         }
         return { ...s, lines };
       });

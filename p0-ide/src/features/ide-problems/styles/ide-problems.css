@@ -67,7 +67,7 @@
   border: none;
   color: var(--color-fg-faint);
   font-family: var(--font-ui);
-  font-size: var(--font-size-3);
+  font-size: var(--font-size-2);
   line-height: var(--bp-toolbar-h);
   cursor: pointer;
   transition: color var(--transition);
@@ -121,7 +121,7 @@
 
 .pb-chip-count {
   font-family: var(--font-mono);
-  font-size: var(--font-size-3);
+  font-size: var(--font-size-2);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   min-width: 12px;
@@ -131,7 +131,7 @@
 .pb-chip.is-active .pb-chip-count { opacity: 1; }
 
 .pb-chip-label {
-  font-size: var(--font-size-3);
+  font-size: var(--font-size-2);
   letter-spacing: 0.02em;
 }
 
@@ -157,7 +157,7 @@
   text-align: center;
   color: var(--color-fg-faint);
   font-family: var(--font-mono);
-  font-size: var(--font-size-1);
+  font-size: var(--font-size-2);
 }
 
 /* ── Group header ─────────────────────────────────────────────────────────── */
@@ -222,7 +222,7 @@
 
 .pb-group-count {
   font-family: var(--font-mono);
-  font-size: var(--font-size-1);
+  font-size: var(--font-size-2);
   font-weight: var(--font-weight-semibold);
   color: var(--color-fg-faint);
   background: var(--color-bg-emphasis);
@@ -256,7 +256,7 @@
   text-align: left;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: var(--font-size-3);
+  font-size: var(--font-size-2);
   color: var(--color-fg-muted);
   transition:
     background var(--transition),
@@ -301,7 +301,7 @@
 
 .pb-src {
   font-family: var(--font-mono);
-  font-size: var(--font-size-1);
+  font-size: var(--font-size-2);
   color: var(--color-fg-faint);
   white-space: nowrap;
   padding: 0 var(--space-2);

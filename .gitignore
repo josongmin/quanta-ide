@@ -1,20 +1,39 @@
 # =============================================================================
-# quanta-landing — root .gitignore
+# quanta-ide — root .gitignore
 # =============================================================================
 
 # --- Dependencies ---
 node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
 
-# --- Build & bundles ---
+# --- JS/TS / Vite build & bundles ---
 dist/
 dist-ssr/
 build/
 out/
 .output/
+.next/
+.nuxt/
+.svelte-kit/
+storybook-static/
 *.tsbuildinfo
-
-# Vite (pre-bundle cache when not under node_modules)
 .vite/
+vite.config.*.timestamp-*
+
+# --- Rust / Cargo (Tauri lives under p0-ide/src-tauri/) ---
+**/target/
+**/*.rs.bk
+**/*.rlib
+*.profraw
+*.profdata
+
+# --- Tauri codegen (re-generated on build) ---
+p0-ide/src-tauri/gen/
 
 # --- Environment & secrets (never commit) ---
 .env
@@ -46,6 +65,7 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
+**/__snapshots__/__diff_output__/
 
 # --- Caches & tool output ---
 .cache/
@@ -54,8 +74,24 @@ playwright/.cache/
 .stylelintcache
 .prettiercache
 .turbo/
+.swc/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+.tox/
+.pytest_cache/
 *.tmp
 *.temp
+
+# --- Python (demo-corpus / scripts) ---
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+env/
+ENV/
 
 # --- OS junk ---
 .DS_Store
@@ -65,6 +101,7 @@ playwright/.cache/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
 
 # --- Editors & IDEs ---
 # Track only recommended extensions; keep personal settings local.

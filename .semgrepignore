@@ -1,12 +1,23 @@
 # Dependencies & build output
-p0-ide/node_modules/
-p0-ide/dist/
-p0-ide/coverage/
 **/node_modules/
+**/dist/
+**/dist-ssr/
+**/build/
+**/out/
+**/.vite/
+**/coverage/
 
-# Rust build artifacts
-p0-ide/src-tauri/target/
+# Rust / Tauri
+**/target/
 p0-ide/src-tauri/gen/
+
+# Caches & generated bundles
+**/.cache/
+**/.turbo/
+**/.parcel-cache/
+**/.swc/
+**/*.tsbuildinfo
+vite.config.*.timestamp-*
 
 # Lockfiles (noisy, not app logic)
 pnpm-lock.yaml
@@ -17,3 +28,8 @@ Cargo.lock
 # Generated / binary
 **/*.min.js
 **/*.min.css
+
+# Test artifacts
+**/test-results/
+**/playwright-report/
+**/blob-report/

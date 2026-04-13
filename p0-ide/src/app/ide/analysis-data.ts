@@ -129,7 +129,7 @@ export function getChurnFromDB(fileName: string) {
     authors: c.authors_30d,
     churnLines: c.lines_changed,
     riskTrend: c.trend,
-    spark: JSON.parse(c.spark_7d) as number[],
+    spark: (() => { try { return JSON.parse(c.spark_7d) as number[]; } catch { return []; } })(),
   }));
 
   // Put the active file first

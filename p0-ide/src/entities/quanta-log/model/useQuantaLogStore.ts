@@ -23,8 +23,8 @@ export const useQuantaLogStore = create<QuantaLogState>()((set) => ({
   setSnapshot: (next) => { set({ snapshot: next }); },
   append: (event) => {
     set((state) => {
-      const next = [event, ...state.snapshot.events];
-      if (next.length > MAX_EVENTS) next.length = MAX_EVENTS;
+      let next = [event, ...state.snapshot.events];
+      if (next.length > MAX_EVENTS) next = next.slice(0, MAX_EVENTS);
       return { snapshot: { events: next } };
     });
   },

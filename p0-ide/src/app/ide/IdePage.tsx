@@ -1,48 +1,45 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
+import { useGnbStore, selectActiveTab } from "@/entities/gnb";
+
+const ReviewPage = lazy(() => import("@/features/ide-gnb-pages/ui/ReviewPage").then(m => ({ default: m.ReviewPage })));
+const AgentPage = lazy(() => import("@/features/ide-gnb-pages/ui/AgentPage").then(m => ({ default: m.AgentPage })));
+const QualityPage = lazy(() => import("@/features/ide-gnb-pages/ui/QualityPage").then(m => ({ default: m.QualityPage })));
+const SecurityPage = lazy(() => import("@/features/ide-gnb-pages/ui/SecurityPage").then(m => ({ default: m.SecurityPage })));
+const PolicyPage = lazy(() => import("@/features/ide-gnb-pages/ui/PolicyPage").then(m => ({ default: m.PolicyPage })));
+import "@/features/ide-gnb-pages/styles/gnb-pages.css";
 import { IdeTopBar } from "@/widgets/ide-topbar";
 import { IdeFiles } from "@/widgets/ide-files";
 import type { CodeLine } from "@/widgets/ide-editor";
 import { EditableEditor } from "@/features/ide-editable-editor";
-import { IdeInspector, InspectorSection } from "@/widgets/ide-inspector";
+import { IdeInspector } from "@/widgets/ide-inspector";
 import { IdeStatusBar } from "@/widgets/ide-statusbar";
 import { IdeBottomPanel } from "@/widgets/ide-bottom-panel";
-import { IdeCallGraph, type CallNode } from "@/features/ide-call-graph";
-import { IdeDataFlow, type FlowStep } from "@/features/ide-data-flow";
-import { IdeSuggestedFix } from "@/features/ide-suggested-fix";
-import { CommandPalette, useCommandPalette, dispatchCommand, setSuggestedProposalResolver, registerCommand, unregisterCommand } from "@/features/ide-command-palette";
+import { type CallNode } from "@/features/ide-call-graph";
+import { type FlowStep } from "@/features/ide-data-flow";
+import { CommandPalette } from "@/features/ide-command-palette";
 import { SymbolTooltip } from "@/features/ide-editor-hover";
-import { BlastRadiusViz } from "@/features/ide-blast-radius-viz";
-import { SimulatePanel, useSimulateChange } from "@/features/ide-simulate-change";
-import { TimeTravelStrip, TimeTravelCompare, useTimeTravel } from "@/features/ide-time-travel";
+import { SimulatePanel } from "@/features/ide-simulate-change";
+import { TimeTravelStrip } from "@/features/ide-time-travel";
 import { WelcomeTour } from "@/features/ide-welcome-tour";
 import { ContextMenu, useContextMenu } from "@/features/ide-context-menu";
 import { useLiveTyping } from "@/features/ide-live-typing";
-import { FlowTraceOverlay, useFlowTrace, MOCK_TRACE } from "@/features/ide-flow-trace";
+import { FlowTraceOverlay } from "@/features/ide-flow-trace";
 import { Toast, useToast } from "@/features/ide-toast";
 import { FileTooltip, useFileTooltip } from "@/features/ide-file-tooltip";
-import { ChangeCard, useChangeCard } from "@/features/ide-change-card";
-import { SemanticPrPanel, useSemanticPr } from "@/features/ide-semantic-pr";
-import { PrDisasterPanel, usePrDisaster } from "@/features/ide-pr-disaster";
+import { ChangeCard } from "@/features/ide-change-card";
+import { SemanticPrPanel } from "@/features/ide-semantic-pr";
+import { PrDisasterPanel } from "@/features/ide-pr-disaster";
 import { IncidentAlert, useIncidentAlert, SAMPLE_MATCH } from "@/features/ide-incident-alert";
-import { OwnershipOverlay, useOwnershipMap } from "@/features/ide-ownership-map";
-import { GuardPill, useGuardPill } from "@/features/ide-guard-pill";
-import { DeadCodePanel } from "@/features/ide-dead-code";
-import { CoverageGapPanel } from "@/features/ide-coverage-gap";
-import { ChurnHotspotPanel } from "@/features/ide-churn-hotspot";
-import { RootCausePanel } from "@/features/ide-root-cause";
-import { EvidenceReplayPanel } from "@/features/ide-evidence-replay";
-import { CrossServicePanel } from "@/features/ide-cross-service";
-import { ComplianceAuditPanel } from "@/features/ide-compliance-audit";
-import { IncrementalPanel } from "@/features/ide-incremental-analysis";
-import { AgentWindow, useAgentWindow } from "@/features/ide-agent-window";
-import { ChangeImpactPanel, ImpactBanner, useChangeImpact, SAMPLE_IMPACT } from "@/features/ide-change-impact";
+import { OwnershipOverlay } from "@/features/ide-ownership-map";
+import { GuardPill } from "@/features/ide-guard-pill";
+import { AgentWindow } from "@/features/ide-agent-window";
+import { ImpactBanner, SAMPLE_IMPACT } from "@/features/ide-change-impact";
 import { useIdeTheme } from "@/features/ide-theme";
-import { useThemeStore } from "@/entities/theme";
-import { useInspectorContext, FileInspector, SymbolInspector, RepoInspector } from "@/features/ide-inspector-context";
-import { useRepoIcon } from "@/entities/repo";
+import { useRepoIcon, useRepoStore } from "@/entities/repo";
+import { InspectorContent } from "./InspectorContent";
 import { FILE_INSPECTOR } from "./mock-file-inspector";
-import { useActiveFile, type FileName } from "./model/useActiveFile";
+import type { FileName } from "./model/useActiveFile";
 import { MOCK_FILES, MOCK_CALL_GRAPH, MOCK_DATA_FLOW } from "./mock";
 import { CHARGE_LINES, CHARGE_CALL_GRAPH, CHARGE_DATA_FLOW } from "./mock-charge";
 import { LEDGER_LINES, LEDGER_CALL_GRAPH, LEDGER_DATA_FLOW } from "./mock-ledger";
@@ -50,6 +47,10 @@ import { REFUND_LINES } from "./mock-refund-lines";
 import { FILE_FIXES } from "./mock-fixes";
 import { FILE_PR } from "./mock-pr";
 import { FILE_SOURCE, FILE_LINE_META, SYMBOL_IMPACTS } from "./mock-source";
+import { useIdeFileNavigation } from "./useIdeFileNavigation";
+import { useIdeInspector } from "./useIdeInspector";
+import { useIdeCommands } from "./useIdeCommands";
+import { useIdeKeyboard } from "./useIdeKeyboard";
 
 /* ── Per-file data registry ── */
 interface FileData {
@@ -119,61 +120,44 @@ const FILE_DATA: Record<FileName, FileData> = {
 /* ── Page ── */
 export function IdePage() {
   const { t } = useTranslation();
-  const { toggle: toggleAgent } = useAgentWindow();
-  const { toggle: toggleCmdK, open: openCmdK } = useCommandPalette();
-  const { toggle: toggleSim, open: openSim } = useSimulateChange();
-  const { toggle: toggleTime } = useTimeTravel();
-  const { open: openCtx } = useContextMenu();
-  const { toggle: toggleTrace } = useFlowTrace();
-  const { active, tabs, setActive, openTab, closeTab } = useActiveFile();
-  const { blastDelta, isEditing } = useLiveTyping();
-  const { show: showToast } = useToast();
-  const { show: showFileTip, hide: hideFileTip } = useFileTooltip();
-  const { open: openChangeCard } = useChangeCard();
-  const { toggle: togglePr, open: openPr } = useSemanticPr();
-  const { toggle: togglePrd, open: openPrd } = usePrDisaster();
-  const { show: _showGuard } = useGuardPill();
-  const { show: showIncident } = useIncidentAlert();
-  const { toggle: toggleOwnership } = useOwnershipMap();
-  const { show: showImpact } = useChangeImpact();
-  const { theme } = useIdeTheme();
+  const activeTab = useGnbStore(selectActiveTab);
+  const openCtx = useContextMenu((s) => s.open);
+  const blastDelta = useLiveTyping((s) => s.blastDelta);
+  const isEditing = useLiveTyping((s) => s.isEditing);
+  const showToast = useToast((s) => s.show);
+  const showFileTip = useFileTooltip((s) => s.show);
+  const hideFileTip = useFileTooltip((s) => s.hide);
+  const showIncident = useIncidentAlert((s) => s.show);
+  const theme = useIdeTheme((s) => s.theme);
   const { icon: repoIcon } = useRepoIcon();
-  const { aurora } = useThemeStore();
-  const { context: inspCtx, setFileContext, setRepoContext, setImpactContext } = useInspectorContext();
-  useEffect(() => {
-    document.documentElement.setAttribute("data-aurora", aurora);
-  }, [aurora]);
+  const repoName = useRepoStore((s) => s.current);
 
-  // sync inspector to active file on tab switch
-  useEffect(() => {
-    if (inspCtx.mode === "file" || (inspCtx.mode === "symbol" && inspCtx.fileName !== active)) {
-      setFileContext(active);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  // ── extracted hooks ──
+  const { inspCtx, setFileContext, setRepoContext, setImpactContext } = useIdeInspector();
+  const { active, tabs, setActive, closeTab, navigateToFile, FILE_NAMES } = useIdeFileNavigation(setFileContext);
 
-  const ALL_FILES: FileName[] = ["orchestrator.py", "routing_policy.py", "security.py", "audit_store.py"];
-
-  const navigateToFile = (name: string) => {
-    const match = ALL_FILES.find((f) => f === name || name.endsWith(f));
-    if (match) {
-      openTab(match);
-      setFileContext(match);
-    }
-  };
-
-  // file data for active tab
   const fd = FILE_DATA[active];
   const fix = FILE_FIXES[active];
   const prDraft = FILE_PR[active];
   const activeSource = FILE_SOURCE[active] ?? "";
+
+  const {
+    openCmdK, toggleTime, openSim, openChangeCard, showImpact,
+    toggleAgent, toggleCmdK, toggleSim, toggleTrace, togglePr,
+    togglePrd, openPrd, toggleOwnership,
+  } = useIdeCommands({ inspCtx, active, setFileContext, setImpactContext, fix });
+
+  useIdeKeyboard({
+    toggleCmdK, toggleSim, toggleTime, toggleTrace,
+    togglePr, togglePrd, toggleOwnership, toggleAgent,
+    showImpact, setImpactContext, inspCtx, active, setFileContext,
+  });
 
   // on code edit → detect impacted symbol → trigger impact panel
   const handleCodeChange = useCallback((code: string, changedLine: number) => {
     const lines = code.split("\n");
     const editedLine = lines[changedLine - 1] ?? "";
 
-    // find matching symbol impact
     for (const mapping of SYMBOL_IMPACTS) {
       if (mapping.linePattern.test(editedLine)) {
         showImpact({
@@ -195,76 +179,25 @@ export function IdePage() {
     }
   }, [showImpact, setImpactContext]);
 
-  // expose active file's fix proposal to dispatcher (used by ⌘F / context menu)
-  useEffect(() => {
-    setSuggestedProposalResolver(() => fix.proposal);
-    registerCommand("fix", () => { openChangeCard(fix.proposal); });
-    return () => { unregisterCommand("fix"); };
-  }, [fix, openChangeCard]);
-
-
   // live typing → trigger Incident DNA match when behavior change detected
   useEffect(() => {
     if (isEditing && blastDelta > 0) {
-      const t = setTimeout(() => { showIncident(SAMPLE_MATCH); }, 600);
-      return () => { clearTimeout(t); };
+      const timer = setTimeout(() => { showIncident(SAMPLE_MATCH); }, 600);
+      return () => { clearTimeout(timer); };
     }
   }, [isEditing, blastDelta, showIncident]);
-
-  // register command handlers into dispatcher registry
-  useEffect(() => {
-    registerCommand("simulate", () => { openSim(); });
-    registerCommand("history", () => { toggleTime(); });
-    registerCommand("dataflow", () => { toggleTrace(MOCK_TRACE); });
-    registerCommand("ask", () => { openCmdK(); });
-    registerCommand("pr", () => { openPr(); });
-    registerCommand("preflight", () => { openPrd(); });
-    registerCommand("ownership", () => { toggleOwnership(); });
-    registerCommand("impact", () => {
-      if (inspCtx.mode === "impact") { setFileContext(active); }
-      else { showImpact(SAMPLE_IMPACT); setImpactContext(); }
-    });
-    return () => {
-      for (const id of ["simulate", "history", "dataflow", "ask", "pr", "preflight", "ownership", "impact"]) {
-        unregisterCommand(id);
-      }
-    };
-  }, [openSim, toggleTime, toggleTrace, openCmdK, openPr, openPrd, toggleOwnership, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
-
-  // keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const isMod = e.metaKey || e.ctrlKey;
-      if (!isMod) return;
-      const key = e.key.toLowerCase();
-      if (key === "k") { e.preventDefault(); toggleCmdK(); return; }
-      if (key === "s" && e.shiftKey) { e.preventDefault(); toggleSim(); return; }
-      if (key === "t" || key === "h") { e.preventDefault(); toggleTime(); return; }
-      if (key === ".") { e.preventDefault(); toggleTrace(MOCK_TRACE); return; }
-      if (key === "g") { e.preventDefault(); dispatchCommand("callgraph"); return; }
-      if (key === "b") { e.preventDefault(); dispatchCommand("blast"); return; }
-      if (key === "f") { e.preventDefault(); dispatchCommand("fix"); return; }
-      if (key === "e") { e.preventDefault(); dispatchCommand("extract"); return; }
-      if (key === "p" && e.shiftKey) { e.preventDefault(); togglePr(); return; }
-      if (key === "d" && e.shiftKey) { e.preventDefault(); togglePrd(); return; }
-      if (key === "o" && e.shiftKey) { e.preventDefault(); toggleOwnership(); return; }
-      if (key === "a" && e.shiftKey) { e.preventDefault(); toggleAgent(); }
-      if (key === "i" && e.shiftKey) {
-        e.preventDefault();
-        if (inspCtx.mode === "impact") { setFileContext(active); }
-        else { showImpact(SAMPLE_IMPACT); setImpactContext(); }
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => { window.removeEventListener("keydown", handler); };
-  }, [toggleCmdK, toggleSim, toggleTime, toggleTrace, togglePr, togglePrd, toggleOwnership, toggleAgent, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
 
   const handleEditorContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     openCtx(e.clientX, e.clientY);
   };
 
-  const editorTabs = tabs.map((t) => ({ name: t, active: t === active }));
+  const handleEditorDeselect = useCallback(() => {
+    if (inspCtx.mode === "symbol" || inspCtx.mode === "repo") setFileContext(active);
+  }, [inspCtx.mode, setFileContext, active]);
+
+  const editorTabs = useMemo(() => tabs.map((tab) => ({ name: tab, active: tab === active })), [tabs, active]);
+  const fileNodes = useMemo(() => MOCK_FILES.map((n) => ({ ...n, active: n.name === active })), [active]);
 
   return (
     <div className="ide" data-theme={theme}>
@@ -272,28 +205,37 @@ export function IdePage() {
         onAsk={openCmdK}
         onTimeTravel={toggleTime}
       />
-      <TimeTravelStrip />
-      <IdeFiles
-        nodes={MOCK_FILES.map((n) => ({ ...n, active: n.name === active }))}
-        repoName="payments-api"
+      {activeTab === "ide" && <TimeTravelStrip />}
+      {activeTab === "ide" && <IdeFiles
+        nodes={fileNodes}
+        repoName={repoName}
         repoIcon={repoIcon}
         onNodeSelect={(name, type) => {
           if (type === "file") {
-            const match = ALL_FILES.find((f) => f === name);
+            const match = FILE_NAMES.find((f) => f === name);
             if (match) setFileContext(match);
           } else {
-            setRepoContext("payments-api");
+            setRepoContext(repoName);
           }
         }}
         onFileClick={navigateToFile}
-        onRepoClick={() => { setRepoContext("payments-api"); }}
+        onRepoClick={() => { setRepoContext(repoName); }}
         onHover={showFileTip}
         onHoverEnd={hideFileTip}
-      />
+      />}
+
+      {/* ── GNB Tab Pages (full-bleed, replaces sidebar+editor+inspector+bottom) ── */}
+      <Suspense fallback={null}>
+        {activeTab === "review" && <ReviewPage />}
+        {activeTab === "agent" && <AgentPage />}
+        {activeTab === "quality" && <QualityPage />}
+        {activeTab === "security" && <SecurityPage />}
+        {activeTab === "policy" && <PolicyPage />}
+      </Suspense>
+
+      {/* ── Code Tab (default) ── */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- right-click + click to deselect symbol */}
-      <div style={{ display: "contents" }} onContextMenu={handleEditorContextMenu} onClick={() => {
-        if (inspCtx.mode === "symbol" || inspCtx.mode === "repo") setFileContext(active);
-      }}>
+      {activeTab === "ide" && <div style={{ display: "contents" }} onContextMenu={handleEditorContextMenu} onClick={handleEditorDeselect}>
         <EditableEditor
           tabs={editorTabs}
           source={activeSource}
@@ -304,75 +246,32 @@ export function IdePage() {
           flowTraceBanner={<FlowTraceOverlay />}
           impactBanner={<ImpactBanner />}
         />
-      </div>
-      <IdeInspector
+      </div>}
+      {activeTab === "ide" && <IdeInspector
         tierKey={inspCtx.mode === "impact" ? "impact" : inspCtx.mode === "symbol" ? "symbol" : inspCtx.mode === "repo" ? "repo" : "file"}
         title={inspCtx.mode === "impact" ? t("ide.changeImpact.title") : inspCtx.mode === "symbol" ? inspCtx.name : inspCtx.mode === "repo" ? inspCtx.repoName : "Inspector"}
         subtitle={inspCtx.mode === "impact" ? t("ide.changeImpact.pgLabel") : inspCtx.mode === "symbol" ? active : undefined}
       >
-        {inspCtx.mode === "impact" ? (
-          /* ── Tier: Impact ── */
-          <ChangeImpactPanel>
-            <BlastRadiusViz centerLabel={fd.funcName} fileName={active} onNodeClick={navigateToFile} />
-            <CrossServicePanel />
-            <RootCausePanel />
-            <EvidenceReplayPanel externalEvidence={fix.proposal.evidence} />
-            <ComplianceAuditPanel />
-            <IncrementalPanel />
-          </ChangeImpactPanel>
-        ) : inspCtx.mode === "repo" ? (
-          /* ── Tier 0: Repo ── */
-          <RepoInspector />
-        ) : inspCtx.mode === "file" ? (
-          /* ── Tier 1: File ── */
-          <FileInspector data={FILE_INSPECTOR[inspCtx.fileName] ?? FILE_INSPECTOR[active]} onNavigate={navigateToFile}>
-            <BlastRadiusViz centerLabel={fd.funcName} fileName={active} onNodeClick={navigateToFile} />
-            <CoverageGapPanel fileName={active} />
-            <DeadCodePanel fileName={active} />
-            <ChurnHotspotPanel fileName={active} />
-          </FileInspector>
-        ) : inspCtx.mode === "symbol" ? (
-          /* ── Tier 2: Symbol ── */
-          <SymbolInspector ctx={inspCtx}>
-            <BlastRadiusViz centerLabel={inspCtx.name} fileName={active} onNodeClick={navigateToFile} />
-            <InspectorSection label={t("ide.inspector.callGraph")}>
-              <IdeCallGraph nodes={fd.callGraph} onNodeClick={navigateToFile} />
-            </InspectorSection>
-            <InspectorSection label={t("ide.inspector.dataFlow")}>
-              <IdeDataFlow steps={fd.dataFlow} />
-            </InspectorSection>
-            <InspectorSection label={t("ide.inspector.suggestedFix")}>
-              <button
-                type="button"
-                className="ide-btn"
-                onClick={openSim}
-                style={{ alignSelf: "flex-start", marginBottom: 4 }}
-              >
-                {t("ide.inspector.simulateChange")}<span className="ide-btn-key">⌘⇧S</span>
-              </button>
-              <IdeSuggestedFix
-                title={t(fix.titleKey)}
-                code={fix.code}
-                meta={fix.meta.map((m) => ({ k: t(`ide.fixMeta.${m.kKey}`), v: m.v }))}
-                onApply={() => { openChangeCard(fix.proposal); }}
-                onDismiss={() => { showToast(t("ide.toast.dismissed", { title: t(fix.titleKey) })); }}
-              />
-            </InspectorSection>
-            <TimeTravelCompare />
-            <CoverageGapPanel fileName={active} />
-            <DeadCodePanel fileName={active} />
-            <ChurnHotspotPanel fileName={active} />
-            <RootCausePanel />
-            <EvidenceReplayPanel externalEvidence={fix.proposal.evidence} />
-          </SymbolInspector>
-        ) : null}
-      </IdeInspector>
-      <IdeBottomPanel />
-      <IdeStatusBar
+        <InspectorContent
+          inspCtx={inspCtx}
+          active={active}
+          funcName={fd.funcName}
+          callGraph={fd.callGraph}
+          dataFlow={fd.dataFlow}
+          fileInspectorData={FILE_INSPECTOR[inspCtx.mode === "file" ? inspCtx.fileName : active] ?? FILE_INSPECTOR[active]}
+          fix={fix}
+          navigateToFile={navigateToFile}
+          openSim={openSim}
+          openChangeCard={openChangeCard}
+          showToast={(msg: string) => { showToast(msg); }}
+        />
+      </IdeInspector>}
+      {activeTab === "ide" && <IdeBottomPanel />}
+      {activeTab === "ide" && <IdeStatusBar
         issues={isEditing && blastDelta > 0 ? 3 : 2}
         buildState="passed"
         branch="main"
-      />
+      />}
       <CommandPalette />
       <SymbolTooltip />
       <SimulatePanel />

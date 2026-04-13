@@ -73,7 +73,7 @@
 }
 
 .tm-strip-label {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-1);
 }
 
@@ -130,7 +130,7 @@
   overflow: auto;
   padding: var(--space-3) var(--space-5);
   background: var(--color-bg-base);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-3);
   line-height: var(--line-height-snug);
   color: var(--color-fg-muted);
@@ -193,12 +193,15 @@
   background: transparent;
   border: none;
   outline: none;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-2);
   line-height: var(--line-height-snug);
   color: var(--color-fg-default);
   caret-color: var(--color-accent-fg);
   padding: 0;
+}
+.tm-input:focus-visible {
+  box-shadow: inset 0 0 0 1px var(--color-accent-fg);
 }
 
 .tm-empty {
@@ -207,6 +210,6 @@
   align-items: center;
   justify-content: center;
   color: var(--color-fg-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-1);
 }

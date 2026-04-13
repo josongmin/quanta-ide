@@ -28,6 +28,7 @@ export function GuardPill() {
 
   const summary = summarize(GUARD_ENTRIES);
   const top = [...GUARD_ENTRIES].sort((a, b) => STATE_RANK[b.state] - STATE_RANK[a.state])[0];
+  if (!top) return null;
   const topState: GuardState = summary.blocked > 0 ? "blocked" : summary.warn > 0 ? "warn" : "safe";
 
 

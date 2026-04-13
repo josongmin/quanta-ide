@@ -73,5 +73,5 @@ export const useChangeCard = create<ChangeCardState>()((set) => ({
   proposal: null,
   isOpen: false,
   open: (proposal) => { set({ proposal, isOpen: true }); },
-  close: () => { set({ isOpen: false }); },
+  close: () => { set({ isOpen: false, proposal: null }); },
 }));

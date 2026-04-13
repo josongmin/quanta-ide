@@ -70,6 +70,7 @@
 }
 .ar-btn.is-active:focus-visible {
   outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent-fg, var(--accent));
 }
 
 .ar-icon {

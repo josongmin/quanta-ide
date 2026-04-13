@@ -51,7 +51,7 @@
   border: 1px solid var(--line-2);
   background: var(--paper-2);
 }
-.ialert-conf[data-conf="high"] { color: #86efac; border-color: rgba(134,239,172,0.3); }
+.ialert-conf[data-conf="high"] { color: color-mix(in srgb, var(--color-feedback-success-fg) 60%, var(--paper)); border-color: color-mix(in srgb, var(--color-feedback-success-fg) 30%, transparent); }
 .ialert-conf[data-conf="medium"] { color: var(--clr-3d); }
 .ialert-conf[data-conf="low"] { color: var(--ink-3); }
 .ialert-body {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
+import type { FileName } from "./fileRegistry";
 
-export type FileName = "orchestrator.py" | "routing_policy.py" | "security.py" | "audit_store.py";
+export type { FileName } from "./fileRegistry";
 
 interface ActiveFileState {
   active: FileName;

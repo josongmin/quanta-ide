@@ -1,0 +1,57 @@
+# Cursor indexing — keep in sync with .codexignore (heavy / generated paths).
+# Git already ignores most of this; this file reduces AI context noise.
+
+# Dependencies
+**/node_modules/
+
+# JS/TS / Vite
+**/dist/
+**/dist-ssr/
+**/build/
+**/out/
+**/.output/
+**/.next/
+**/.nuxt/
+**/.svelte-kit/
+**/storybook-static/
+**/.vite/
+**/*.tsbuildinfo
+vite.config.*.timestamp-*
+
+# Rust / Tauri
+**/target/
+p0-ide/src-tauri/gen/
+**/*.rs.bk
+**/*.rlib
+
+# Tests & coverage
+**/coverage/
+**/.nyc_output/
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/
+
+# Caches
+**/.cache/
+**/.turbo/
+**/.parcel-cache/
+**/.swc/
+**/.eslintcache
+**/.stylelintcache
+**/.prettiercache
+**/.ruff_cache/
+**/.mypy_cache/
+
+# Logs
+**/*.log
+**/logs/
+
+# Python venvs
+**/.venv/
+**/venv/
+**/__pycache__/
+
+# OS / editor noise
+**/.DS_Store
+**/.idea/

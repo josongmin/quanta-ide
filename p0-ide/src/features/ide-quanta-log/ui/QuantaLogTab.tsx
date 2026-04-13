@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ALL_QUANTA_KINDS,
   MOCK_QUANTA_LOG,
@@ -25,13 +25,14 @@ export function QuantaLogTab({ onEventActivate }: QuantaLogTabProps) {
   const setSnapshot = useQuantaLogStore((s) => s.setSnapshot);
   const clear = useQuantaLogStore((s) => s.clear);
 
+  const initialized = useRef(false);
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     if (events.length === 0) {
       setSnapshot(MOCK_QUANTA_LOG);
     }
-    // seed once.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [events, setSnapshot]);
 
   const [active, setActive] = useState<ReadonlySet<QuantaEventKind>>(
     () => new Set(ALL_QUANTA_KINDS),

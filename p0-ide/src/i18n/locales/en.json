@@ -574,6 +574,25 @@
     "symbolInspector": {
       "hint": "⌘. trace flow  ·  ⌘F suggest fix  ·  ⌘G call graph"
     },
+    "agent": {
+      "pinFloat": "Unpin floating",
+      "pinFloatFixed": "Pin floating",
+      "pinTitle": {
+        "pinned": "Pinned — stays open on outside click",
+        "unpinned": "Unpinned — minimizes on outside click"
+      },
+      "close": "Close",
+      "add": "Add",
+      "selectModel": "Select model",
+      "analysisDepth": "Analysis depth",
+      "closeSession": "Close session",
+      "app": "App",
+      "web": "Web",
+      "model": "Model",
+      "settings": "Settings",
+      "send": "Send",
+      "openAgent": "Open agent"
+    },
     "changeImpact": {
       "pgLabel": "PG CONTROL PANEL",
       "title": "Change impact",

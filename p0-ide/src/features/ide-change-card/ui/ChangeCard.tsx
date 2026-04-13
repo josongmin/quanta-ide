@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useToast } from "@/features/ide-toast";
+import { useToast } from "@/shared/hooks";
 import { Panel, PanelHeader, PanelBody, PanelFooter, Button, Badge, type BadgeVariant } from "@/shared/ui";
 import { useChangeCard } from "../model/useChangeCard";
 

@@ -1,0 +1,167 @@
+/* =============================================================================
+   ide-layout.css — IDE 레이아웃, 그리드, 리사이저, 스크롤바
+   ============================================================================= */
+
+/* ── Tokens (랜딩의 paper/ink 시스템 재활용) ──
+   테마 블록은 이 스케일만 재정의하고, 컴포넌트 오버라이드는 원칙적으로
+   var(--paper*)/var(--ink*)/var(--line*)/var(--accent*)/var(--token-*)와
+   필요 시 color-mix(in srgb, …)만 사용한다. */
+.ide {
+  --accent: var(--blob1-a, #fce7f3);
+  --accent-2: var(--blob2-a, #cffafe);
+
+  /* syntax tokens — all 4 blob colors used */
+  --token-kw:    var(--blob1-b, #f472b6);  /* keyword: blob1 pink */
+  --token-fn:    var(--blob2-a, #22d3ee);  /* function: blob2 cyan */
+  --token-str:   var(--blob3-b, #fbbf24);  /* string: blob3 amber */
+  --token-num:   var(--blob4-b, #a78bfa);  /* number: blob4 violet */
+  --token-ok:    #86efac;
+  --token-err:   #f87171;
+
+  /* semantic palette — 4 blobs distributed */
+  --clr-1: var(--blob1-a, #fce7f3);  /* pink light */
+  --clr-1d: var(--blob1-b, #f472b6); /* pink */
+  --clr-2: var(--blob2-a, #cffafe);  /* cyan light */
+  --clr-2d: var(--blob2-b, #22d3ee); /* cyan */
+  --clr-3: var(--blob3-a, #fef3c7);  /* amber light */
+  --clr-3d: var(--blob3-b, #fbbf24); /* amber */
+  --clr-4: var(--blob4-a, #ddd6fe);  /* violet light */
+  --clr-4d: var(--blob4-b, #a78bfa); /* violet */
+
+  --ink:    #e4e4e7;
+  --ink-2:  #a1a1aa;
+  --ink-3:  #71717a;
+  --ink-4:  #52525b;
+
+  --paper:   #111116;
+  --paper-1: #18181f;
+  --paper-2: #202029;
+  --paper-3: #2b2b37;
+  --paper-4: #363644;
+
+  --line:   rgba(255, 255, 255, 0.07);
+  --line-2: rgba(255, 255, 255, 0.12);
+  --line-3: rgba(255, 255, 255, 0.18);
+
+  --risk-1: color-mix(in srgb, var(--accent) 8%,  transparent);
+  --risk-2: color-mix(in srgb, var(--accent) 16%, transparent);
+  --risk-3: color-mix(in srgb, var(--accent) 28%, transparent);
+  --risk-4: color-mix(in srgb, var(--accent) 42%, transparent);
+
+  --transition: 0.18s ease-out;
+
+  /* ── Font tokens ──────────────────────────────────────────────────
+     전체 UI 폰트 변경 → --font-ui 한 줄만 수정.
+     코드 에디터·터미널 전용 → --font-code 수정.
+     UI 소형 텍스트 (배지·라벨 등) → --font-mono (= --font-ui 와 동일).
+     ──────────────────────────────────────────────────────────────── */
+  --font-ui:   'Satoshi', 'Inter', system-ui, sans-serif;
+  --font-num:  'Satoshi', 'Outfit', system-ui, sans-serif;
+  --font-code: 'JetBrains Mono', 'Roboto Mono', Menlo, Monaco, 'Courier New', monospace;
+  --font-mono: var(--font-ui);
+
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-app);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  --files-w: 240px;
+  --inspector-w: 360px;
+  --rail-w: 40px;
+  --bottom-h: 340px;
+  display: grid;
+  grid-template-rows: 47px 1fr var(--bottom-h) 28px;
+  grid-template-columns: var(--rail-w) calc(var(--files-w) - var(--rail-w)) 1fr var(--inspector-w);
+  /* Inspector는 editor + bottom 행을 모두 세로로 점유 — 하단 패널보다 상위
+     레이어에 위치해 오른쪽 패널이 항상 bottom 을 덮는다. */
+  grid-template-areas:
+    "topbar topbar  topbar topbar"
+    "files  files   editor    inspector"
+    "rail   bottom  bottom    inspector"
+    "status status  status    status";
+  overflow: hidden;
+}
+
+/* Panel resize handles */
+.ide-resizer {
+  position: absolute;
+  z-index: var(--z-raised);
+  background: transparent;
+  transition: background 0.15s;
+}
+.ide-resizer:hover,
+.ide-resizer.is-dragging {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+/* Vertical handles (left/right edges of horizontal panels) */
+.ide-resizer-left,
+.ide-resizer-right {
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+}
+.ide-resizer-right { right: 0; }
+.ide-resizer-left  { left: 0; }
+.ide-resizer-left::before,
+.ide-resizer-right::before {
+  content: "";
+  position: absolute;
+  inset: 0 -4px;
+}
+
+/* Horizontal handles (top/bottom edges of vertical panels) */
+.ide-resizer-top,
+.ide-resizer-bottom {
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: row-resize;
+}
+.ide-resizer-top    { top: 0; }
+.ide-resizer-bottom { bottom: 0; }
+.ide-resizer-top::before,
+.ide-resizer-bottom::before {
+  content: "";
+  position: absolute;
+  inset: -4px 0;
+}
+
+/* ── Section Label ── */
+.ide-label {
+  font-size: 0.64rem;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: color var(--transition);
+}
+
+/* ── Scrollbars (모든 IDE 패널 공통) ────────────────────────────────── */
+.ide * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+.ide *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.ide *::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ide *::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 4px;
+}
+.ide *::-webkit-scrollbar-thumb:hover {
+  background: var(--line-3);
+}

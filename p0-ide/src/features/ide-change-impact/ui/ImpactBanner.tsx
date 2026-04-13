@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
+// eslint-disable-next-line no-restricted-imports -- composition: impact banner toggles agent window
 import { useAgentWindow } from "@/features/ide-agent-window";
+// eslint-disable-next-line no-restricted-imports -- composition: impact banner reads inspector context
 import { useInspectorContext } from "@/features/ide-inspector-context";
 import { useChangeImpact } from "../model/useChangeImpact";
 

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { AgentSession } from "../model/useAgentWindow";
 import { IconClose, IconPlus } from "./icons";
 
@@ -10,6 +11,7 @@ interface SessionTabsProps {
 }
 
 export function SessionTabs({ sessions, activeId, onSwitch, onClose, onNew }: SessionTabsProps) {
+  const { t } = useTranslation();
   return (
     <div className="agw-session-tabs">
       <div className="agw-session-tab-list">
@@ -29,7 +31,7 @@ export function SessionTabs({ sessions, activeId, onSwitch, onClose, onNew }: Se
                 className="agw-session-tab-close"
                 role="button"
                 tabIndex={0}
-                aria-label="세션 닫기"
+                aria-label={t("ide.agent.closeSession")}
                 onClick={(e) => { e.stopPropagation(); onClose(s.id); }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onClose(s.id); }

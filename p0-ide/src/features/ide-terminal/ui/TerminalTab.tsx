@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   MOCK_TERMINAL,
   selectActiveSessionId,
@@ -23,13 +23,14 @@ export function TerminalTab() {
   const setActiveSession = useTerminalStore((s) => s.setActiveSession);
   const clearActive = useTerminalStore((s) => s.clearActive);
 
+  const initialized = useRef(false);
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
     if (sessions.length === 0) {
       setSnapshot(MOCK_TERMINAL);
     }
-    // 최초 시드만.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessions, setSnapshot]);
 
   const active: TerminalSession | undefined = useMemo(() => {
     if (sessions.length === 0) return undefined;

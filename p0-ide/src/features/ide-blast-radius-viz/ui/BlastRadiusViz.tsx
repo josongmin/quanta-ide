@@ -31,9 +31,11 @@ export function BlastRadiusViz({ centerLabel, fileName = "orchestrator.py", onNo
   );
 
   const total = sorted.length;
-  const direct = sorted.filter((n) => n.hop === 1).length;
-  const hot = sorted.filter((n) => n.hot === true).length;
-  const totalSymbols = sorted.reduce((sum, n) => sum + n.symbols.length, 0);
+  const { direct, hot, totalSymbols } = useMemo(() => ({
+    direct: sorted.filter((n) => n.hop === 1).length,
+    hot: sorted.filter((n) => n.hot === true).length,
+    totalSymbols: sorted.reduce((sum, n) => sum + n.symbols.length, 0),
+  }), [sorted]);
 
   const visible = listExpanded ? sorted : sorted.slice(0, COLLAPSED_LIMIT);
   const remaining = total - COLLAPSED_LIMIT;

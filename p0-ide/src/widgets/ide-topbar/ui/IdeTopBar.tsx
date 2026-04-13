@@ -1,10 +1,11 @@
 import { useState } from "react";
 import {
   IconChevronDown,
-  IconGitCommit,
   IconInbox,
   IconSearch,
 } from "@/shared/ui/icons/icons";
+import { useGnbStore, type AppType } from "@/entities/gnb";
+import { FontSwitcher } from "./FontSwitcher";
 import { IdeSettingsMenu } from "./IdeSettingsMenu";
 import { UserMenu } from "./UserMenu";
 
@@ -13,130 +14,114 @@ interface IdeTopBarProps {
   onTimeTravel: () => void;
 }
 
-type GnbTab = "code" | "review" | "agent" | "quality" | "security" | "policy";
+const isTauri = "__TAURI_INTERNALS__" in window;
+
+/* ── App catalog for the [+] picker ── */
+/* Home icon — separate since it's icon-only */
+const HOME_ICON = <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>;
+
+const APP_CATALOG: { app: AppType; label: string; icon: JSX.Element }[] = [
+  { app: "ide",      label: "IDE",      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" /></svg> },
+  { app: "review",   label: "Review",   icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z" /><polyline points="14 3 14 8 21 8" /><path d="M9 15l2 2 4-4" /></svg> },
+  { app: "agent",    label: "Agent",    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /><circle cx="9" cy="16" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="16" r="1" fill="currentColor" stroke="none" /></svg> },
+  { app: "quality",  label: "Quality",  icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg> },
+  { app: "security", label: "Security", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg> },
+  { app: "policy",   label: "Policy",   icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7V4a2 2 0 0 1 2-2h8.5L20 7.5V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3" /><polyline points="14 2 14 8 20 8" /><path d="M2 15h10" /><path d="M9 12l3 3-3 3" /></svg> },
+];
 
 export function IdeTopBar({ onAsk, onTimeTravel: _onTimeTravel }: IdeTopBarProps) {
-  const [activeTab, setActiveTab] = useState<GnbTab>("code");
+  const { tabs, activeTabId, addTab, closeTab, setActiveTab } = useGnbStore();
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   return (
-    <div className="ide-topbar" data-tauri-drag-region>
-      <div className="ide-topbar-brand">p0</div>
+    <div className="ide-topbar" {...(isTauri ? { "data-tauri-drag-region": true } : {})}>
 
-      {/* Org switcher */}
-      <button type="button" className="ide-topbar-org">
-        <span className="ide-topbar-org-sep" aria-hidden>/</span>
-        <svg className="ide-topbar-org-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-          <circle cx="12" cy="5" r="3" /><circle cx="5" cy="19" r="3" /><circle cx="19" cy="19" r="3" />
-          <path d="M12 8v4M8.5 16.5 12 12M15.5 16.5 12 12" />
-        </svg>
-        <span className="ide-topbar-org-name">josongmin&apos;s Org</span>
-        <span className="ide-topbar-org-badge">Free</span>
-        <IconChevronDown size={11} className="ide-topbar-org-caret" />
-      </button>
+      {/* ── Tab bar ── */}
+      <div className="ide-tab-bar">
+        {tabs.map((tab) => {
+          const isHome = tab.app === "home";
+          const isActive = tab.id === activeTabId;
+          const icon = isHome ? HOME_ICON : APP_CATALOG.find(a => a.app === tab.app)?.icon;
 
-      {/* ── GNB Center Tabs ── */}
-      <nav className="ide-gnb-tabs" aria-label="Main navigation">
-        <button
-          type="button"
-          className={`ide-gnb-tab${activeTab === "code" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("code")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <polyline points="16 18 22 12 16 6" />
-            <polyline points="8 6 2 12 8 18" />
-          </svg>
-          <span>Code</span>
-        </button>
-        <button
-          type="button"
-          className={`ide-gnb-tab${activeTab === "review" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("review")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 3 14 8 21 8" />
-            <path d="M9 15l2 2 4-4" />
-          </svg>
-          <span>Review</span>
-        </button>
-        <button
-          type="button"
-          className={`ide-gnb-tab${activeTab === "agent" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("agent")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <rect x="3" y="11" width="18" height="10" rx="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            <circle cx="9" cy="16" r="1" fill="currentColor" stroke="none" />
-            <circle cx="15" cy="16" r="1" fill="currentColor" stroke="none" />
-          </svg>
-          <span>Agent</span>
-        </button>
-        <button
-          type="button"
-          className={`ide-gnb-tab${activeTab === "quality" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("quality")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-          <span>Quality</span>
-        </button>
-        <button
-          type="button"
-          className={`ide-gnb-tab${activeTab === "security" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("security")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-          <span>Security</span>
-        </button>
-        <button
-          type="button"
-          className={`ide-gnb-tab${activeTab === "policy" ? " is-active" : ""}`}
-          onClick={() => setActiveTab("policy")}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M4 7V4a2 2 0 0 1 2-2h8.5L20 7.5V20a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-3" />
-            <polyline points="14 2 14 8 20 8" />
-            <path d="M2 15h10" />
-            <path d="M9 12l3 3-3 3" />
-          </svg>
-          <span>Policy</span>
-        </button>
-      </nav>
+          const isShort = tab.label.length <= 10;
 
-      <div className="ide-topbar-right">
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              className={`ide-tab${isActive ? " is-active" : ""}${isHome ? " ide-tab-home" : ""}`}
+              onClick={() => setActiveTab(tab.id)}
+              title={tab.label}
+            >
+              <span className="ide-tab-icon">{icon}</span>
+              {!isHome && <span className="ide-tab-label">{tab.label}</span>}
+              {!isHome && (
+                <span
+                  className={`ide-tab-close${isShort ? " is-visible" : ""}`}
+                  role="button"
+                  tabIndex={-1}
+                  onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                  aria-label="Close tab"
+                >
+                  ×
+                </span>
+              )}
+            </button>
+          );
+        })}
 
-        {/* Commit + diff stat (merged) */}
-        <div className="ide-topbar-group">
-          <button type="button" className="ide-topbar-commit">
-            <IconGitCommit size={14} />
-            <span>Commit</span>
-            <IconChevronDown size={11} className="ide-topbar-commit-caret" />
+        {/* [+] Add tab */}
+        <div className="ide-tab-add-wrap">
+          <button
+            type="button"
+            className="ide-tab-add"
+            onClick={() => setPickerOpen(!pickerOpen)}
+            aria-label="New tab"
+          >
+            +
           </button>
+
+          {/* App picker dropdown */}
+          {pickerOpen && (
+            <div className="ide-app-picker">
+              {APP_CATALOG.map((entry) => (
+                <button
+                  key={entry.app}
+                  type="button"
+                  className="ide-app-picker-item"
+                  onClick={() => {
+                    addTab(entry.app);
+                    setPickerOpen(false);
+                  }}
+                >
+                  <span className="ide-app-picker-icon">{entry.icon}</span>
+                  <span className="ide-app-picker-label">{entry.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* ── Right actions ── */}
+      <div className="ide-topbar-right">
+        <FontSwitcher />
 
         <span className="ide-topbar-sep" aria-hidden />
 
-        {/* Search */}
         <button type="button" className="ide-topbar-icon-btn" title="Search (⌘K)" onClick={onAsk}>
           <IconSearch size={15} />
         </button>
 
-        {/* Notifications (inbox) */}
         <button type="button" className="ide-topbar-icon-btn" title="Notifications">
           <IconInbox size={15} />
           <span className="ide-topbar-badge ide-topbar-badge--alert">2</span>
         </button>
 
-        {/* Settings */}
         <IdeSettingsMenu />
 
         <span className="ide-topbar-sep" aria-hidden />
 
-        {/* User profile */}
         <UserMenu />
       </div>
     </div>

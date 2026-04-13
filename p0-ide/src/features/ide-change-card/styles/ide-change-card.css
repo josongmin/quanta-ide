@@ -80,9 +80,9 @@
 }
 .ccard-diff-no { color: var(--ink-4); text-align: right; padding-right: var(--space-3); user-select: none; }
 .ccard-diff-mark { text-align: center; font-weight: var(--font-weight-semibold); }
-.ccard-diff-add { background: color-mix(in srgb, #34d399 10%, transparent); color: #d1fae5; }
+.ccard-diff-add { background: color-mix(in srgb, var(--color-feedback-success-fg) 10%, transparent); color: var(--color-feedback-success-bg); }
 .ccard-diff-add .ccard-diff-mark { color: var(--color-feedback-success-fg); }
-.ccard-diff-del { background: color-mix(in srgb, #f87171 10%, transparent); color: #fecaca; }
+.ccard-diff-del { background: color-mix(in srgb, var(--color-feedback-danger-fg) 10%, transparent); color: var(--color-feedback-danger-bg); }
 .ccard-diff-del .ccard-diff-mark { color: var(--color-feedback-danger-fg); }
 .ccard-impact {
   display: flex;

@@ -574,6 +574,25 @@
     "symbolInspector": {
       "hint": "⌘. 흐름 추적  ·  ⌘F 수정 제안  ·  ⌘G 호출 그래프"
     },
+    "agent": {
+      "pinFloat": "플로팅 고정 해제",
+      "pinFloatFixed": "플로팅 고정",
+      "pinTitle": {
+        "pinned": "고정 중 — 외부 클릭해도 유지됨",
+        "unpinned": "고정 해제 — 외부 클릭 시 최소화"
+      },
+      "close": "닫기",
+      "add": "추가",
+      "selectModel": "모델 선택",
+      "analysisDepth": "분석 깊이",
+      "closeSession": "세션 닫기",
+      "app": "앱",
+      "web": "웹",
+      "model": "모델",
+      "settings": "설정",
+      "send": "전송",
+      "openAgent": "에이전트 열기"
+    },
     "changeImpact": {
       "pgLabel": "PG 컨트롤 패널",
       "title": "변경 영향 분석",

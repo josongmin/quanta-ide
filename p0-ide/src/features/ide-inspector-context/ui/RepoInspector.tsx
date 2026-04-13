@@ -1,5 +1,6 @@
 /* ── Repo Inspector — repository-level static analysis insights ── */
 
+// eslint-disable-next-line no-restricted-imports -- composition: inspector embeds trend panel
 import { PrLocTrendsPanel } from "@/features/ide-pr-loc-trends";
 
 interface RiskFile { name: string; risk: number; issues: number; path: string; }
@@ -43,7 +44,7 @@ const REPO_DATA = {
 function riskBarStyle(score: number): React.CSSProperties {
   // single accent color, opacity scales with risk — stays coherent across all themes
   const opacity = 0.35 + (score / 100) * 0.65;
-  return { width: `${score}%`, background: "var(--accent)", opacity };
+  return { width: `${score}%`, opacity };
 }
 
 const SEV_CLASS: Record<1 | 2 | 3, string> = { 3: "is-crit", 2: "is-warn", 1: "is-info" };

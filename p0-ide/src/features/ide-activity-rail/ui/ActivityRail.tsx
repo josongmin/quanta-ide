@@ -1,3 +1,4 @@
+// eslint-disable-next-line no-restricted-imports -- composition: rail toggles bottom panel tabs
 import { useBottomPanel, type BottomPanelTab } from "@/features/ide-bottom-panel";
 
 interface ActivityRailProps {

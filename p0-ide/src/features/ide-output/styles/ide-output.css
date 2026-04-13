@@ -80,7 +80,7 @@
   color: var(--color-fg-default);
 }
 .op-channel-opt-count {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-0);
   color: var(--color-fg-faint);
   font-variant-numeric: tabular-nums;
@@ -102,7 +102,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-3);
   line-height: var(--line-height-snug);
   color: var(--color-fg-muted);
@@ -131,7 +131,7 @@
 }
 
 .op-line-level {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-0);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -163,7 +163,7 @@
   justify-content: center;
   padding: var(--space-9) var(--space-6);
   color: var(--color-fg-faint);
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: var(--font-size-1);
   letter-spacing: 0.02em;
 }

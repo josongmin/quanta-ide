@@ -72,6 +72,7 @@ const THEME_AURORA: Partial<Record<IdeTheme, string>> = {
   "dusk-gradient":  "midnight",
   "mojave":         "tangerine",
   "p0-light":    "cobalt",
+  "p0-v1":       "midnight",
 };
 
 export function IdeSettingsMenu() {
@@ -182,6 +183,7 @@ export function IdeSettingsMenu() {
               <button type="button" className={`ide-settings-opt${theme === "arctic-prism" ? " is-active" : ""}`} onClick={() => { handleTheme("arctic-prism"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 L12 22 M2 12 L22 12 M5 5 L19 19 M19 5 L5 19"/></svg>Arctic</button>
               <button type="button" className={`ide-settings-opt${theme === "mojave" ? " is-active" : ""}`} onClick={() => { handleTheme("mojave"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 20 Q6 14 10 18 Q14 22 18 16 Q20 13 22 14"/><circle cx="18" cy="5" r="3"/><path d="M15 5 L3 5"/></svg>Mojave</button>
               <button type="button" className={`ide-settings-opt${theme === "p0-light" ? " is-active" : ""}`} onClick={() => { handleTheme("p0-light"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 22 20 2 20"/></svg>p0 Light</button>
+              <button type="button" className={`ide-settings-opt${theme === "p0-v1" ? " is-active" : ""}`} onClick={() => { handleTheme("p0-v1"); }}><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 22 20 2 20"/><circle cx="12" cy="14" r="3"/></svg>p0 v1</button>
             </div>
           </div>
 

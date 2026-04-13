@@ -23,6 +23,11 @@ const INITIAL_SNAPSHOT: WatcherSnapshot = {
   series: [],
   peak: 0,
   nowWatching: [],
+  liveDiff: [],
+  guard: { passed: 0, warnings: 0, blocked: 0, rules: [] },
+  testPulse: [],
+  rollbackStack: [],
+  heatmap: [],
 };
 
 interface WatcherState {
