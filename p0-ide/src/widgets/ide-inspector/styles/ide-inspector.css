@@ -14,12 +14,12 @@
 /* ── Panel header bar ── */
 .ide-inspector-bar {
   flex: 0 0 auto;
-  height: 32px;
+  height: 33px;
   display: flex;
   align-items: center;
   padding: 0 var(--space-5) 0 var(--space-6);
-  border-bottom: 1px solid var(--line-2);
-  background: var(--paper-2);
+  border-bottom: 1px solid var(--line);
+  background: var(--paper-1);
   gap: var(--space-3);
   flex-shrink: 0;
 }

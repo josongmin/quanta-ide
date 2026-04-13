@@ -5,31 +5,49 @@ interface WatcherNowWatchingProps {
   onItemClick?: (item: NowWatchingItem) => void;
 }
 
+const KIND_ICON: Record<NowWatchingItem["kind"], string> = {
+  file: "◉",
+  "api-path": "⬡",
+  symbol: "◆",
+};
+
 /**
- * Column 3 — Now watching
- * 엔진이 현재 주시 중인 대상 목록(0~3개).
- * 클릭 시 부모가 결정한 navigation 핸들러 호출.
+ * Column 3 — Now Watching (redesigned)
+ * 카드 형태 아이템 + severity 인디케이터.
  */
 export function WatcherNowWatching({ items, onItemClick }: WatcherNowWatchingProps) {
   return (
     <div className="wt-now" aria-label="Now watching">
-      <div className="wt-now-title">Now watching</div>
+      <div className="wt-now-header">
+        <span className="wt-now-title">Now Watching</span>
+        {items.length > 0 && (
+          <span className="wt-now-count">{items.length}</span>
+        )}
+      </div>
       {items.length === 0 ? (
-        <div className="wt-now-empty">— quiet —</div>
+        <div className="wt-now-empty">
+          <span className="wt-now-empty-icon" aria-hidden>○</span>
+          <span>all quiet</span>
+        </div>
       ) : (
         <ul className="wt-now-list">
           {items.map((item) => (
             <li key={item.id} className="wt-now-item">
               <button
                 type="button"
-                className="wt-now-btn"
+                className={`wt-now-card wt-now-card-${item.kind}`}
                 onClick={() => { onItemClick?.(item); }}
               >
-                <span className="wt-now-arrow" aria-hidden>→</span>
-                <span className="wt-now-label">{item.label}</span>
-                {item.reason !== undefined && item.reason !== "" ? (
-                  <span className="wt-now-reason">({item.reason})</span>
-                ) : null}
+                <span className="wt-now-icon" aria-hidden>
+                  {KIND_ICON[item.kind]}
+                </span>
+                <span className="wt-now-content">
+                  <span className="wt-now-label">{item.label}</span>
+                  {item.reason !== undefined && item.reason !== "" && (
+                    <span className="wt-now-reason">{item.reason}</span>
+                  )}
+                </span>
+                <span className="wt-now-chevron" aria-hidden>›</span>
               </button>
             </li>
           ))}

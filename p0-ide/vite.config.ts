@@ -1,10 +1,10 @@
 import path from "path";
-import type { Connect } from "vite";
+import type { Connect, ViteDevServer } from "vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // Tauri sets TAURI_ENV_PLATFORM at dev/build time.
-const isTauri = !!process.env.TAURI_ENV_PLATFORM;
+const isTauri = Boolean(process.env.TAURI_ENV_PLATFORM);
 
 /** `/ide` without trailing slash 404s; send clients to `/ide/` (query preserved). */
 function ideTrailingSlashRedirect(): Connect.NextHandleFunction {
@@ -36,10 +36,10 @@ export default defineConfig({
       ? [
           {
             name: "ide-trailing-slash-redirect",
-            configureServer(server: Parameters<NonNullable<import("vite").Plugin["configureServer"]>>[0]) {
+            configureServer(server: ViteDevServer) {
               server.middlewares.use(ideTrailingSlashRedirect());
             },
-            configurePreviewServer(server: Parameters<NonNullable<import("vite").Plugin["configurePreviewServer"]>>[0]) {
+            configurePreviewServer(server: { middlewares: Connect.Server }) {
               server.middlewares.use(ideTrailingSlashRedirect());
             },
           },

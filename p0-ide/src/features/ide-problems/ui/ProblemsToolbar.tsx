@@ -63,18 +63,42 @@ interface FilterChipProps {
   onClick: () => void;
 }
 
+const SEV_ICON: Record<ProblemSeverity, React.ReactNode> = {
+  error: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M6 6l4 4M10 6l-4 4" />
+    </svg>
+  ),
+  warn: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8 2.5L1.5 13.5h13L8 2.5z" />
+      <path d="M8 7v3M8 11.5v.5" />
+    </svg>
+  ),
+  info: (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="8" r="6.5" />
+      <path d="M8 7v4M8 5v.5" />
+    </svg>
+  ),
+};
+
 function FilterChip({ sev, label, count, active, onClick }: FilterChipProps) {
   return (
-    <button
-      type="button"
+    <label
       className={`pb-chip pb-chip-${sev}${active ? " is-active" : ""}`}
-      onClick={onClick}
-      aria-pressed={active}
       title={`${label}: ${count}`}
     >
-      <span className={`pb-chip-dot pb-chip-dot-${sev}`} aria-hidden />
+      <input
+        type="checkbox"
+        className="pb-chip-input"
+        checked={active}
+        onChange={onClick}
+      />
+      <span className={`pb-chip-sev-icon pb-sev-${sev}`} aria-hidden>{SEV_ICON[sev]}</span>
       <span className="pb-chip-count">{count}</span>
       <span className="pb-chip-label">{label}</span>
-    </button>
+    </label>
   );
 }

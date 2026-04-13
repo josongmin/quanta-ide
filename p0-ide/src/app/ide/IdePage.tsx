@@ -15,7 +15,6 @@ import { SymbolTooltip } from "@/features/ide-editor-hover";
 import { BlastRadiusViz } from "@/features/ide-blast-radius-viz";
 import { SimulatePanel, useSimulateChange } from "@/features/ide-simulate-change";
 import { TimeTravelStrip, TimeTravelCompare, useTimeTravel } from "@/features/ide-time-travel";
-import { RiskDrawer, useRiskDrawer } from "@/features/ide-risk-drawer";
 import { WelcomeTour } from "@/features/ide-welcome-tour";
 import { ContextMenu, useContextMenu } from "@/features/ide-context-menu";
 import { useLiveTyping } from "@/features/ide-live-typing";
@@ -118,17 +117,12 @@ const FILE_DATA: Record<FileName, FileData> = {
 };
 
 /* ── Page ── */
-interface IdePageProps {
-  onExit: () => void;
-}
-
-export function IdePage({ onExit }: IdePageProps) {
+export function IdePage() {
   const { t } = useTranslation();
   const { toggle: toggleAgent } = useAgentWindow();
   const { toggle: toggleCmdK, open: openCmdK } = useCommandPalette();
   const { toggle: toggleSim, open: openSim } = useSimulateChange();
   const { toggle: toggleTime } = useTimeTravel();
-  const { toggle: toggleRisk } = useRiskDrawer();
   const { open: openCtx } = useContextMenu();
   const { toggle: toggleTrace } = useFlowTrace();
   const { active, tabs, setActive, openTab, closeTab } = useActiveFile();
@@ -223,7 +217,6 @@ export function IdePage({ onExit }: IdePageProps) {
     registerCommand("history", () => { toggleTime(); });
     registerCommand("dataflow", () => { toggleTrace(MOCK_TRACE); });
     registerCommand("ask", () => { openCmdK(); });
-    registerCommand("dead", () => { toggleRisk(); });
     registerCommand("pr", () => { openPr(); });
     registerCommand("preflight", () => { openPrd(); });
     registerCommand("ownership", () => { toggleOwnership(); });
@@ -232,11 +225,11 @@ export function IdePage({ onExit }: IdePageProps) {
       else { showImpact(SAMPLE_IMPACT); setImpactContext(); }
     });
     return () => {
-      for (const id of ["simulate", "history", "dataflow", "ask", "dead", "pr", "preflight", "ownership", "impact"]) {
+      for (const id of ["simulate", "history", "dataflow", "ask", "pr", "preflight", "ownership", "impact"]) {
         unregisterCommand(id);
       }
     };
-  }, [openSim, toggleTime, toggleTrace, openCmdK, toggleRisk, openPr, openPrd, toggleOwnership, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
+  }, [openSim, toggleTime, toggleTrace, openCmdK, openPr, openPrd, toggleOwnership, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
 
   // keyboard shortcuts
   useEffect(() => {
@@ -247,7 +240,6 @@ export function IdePage({ onExit }: IdePageProps) {
       if (key === "k") { e.preventDefault(); toggleCmdK(); return; }
       if (key === "s" && e.shiftKey) { e.preventDefault(); toggleSim(); return; }
       if (key === "t" || key === "h") { e.preventDefault(); toggleTime(); return; }
-      if (key === "r" && e.shiftKey) { e.preventDefault(); toggleRisk(); return; }
       if (key === ".") { e.preventDefault(); toggleTrace(MOCK_TRACE); return; }
       if (key === "g") { e.preventDefault(); dispatchCommand("callgraph"); return; }
       if (key === "b") { e.preventDefault(); dispatchCommand("blast"); return; }
@@ -265,7 +257,7 @@ export function IdePage({ onExit }: IdePageProps) {
     };
     window.addEventListener("keydown", handler);
     return () => { window.removeEventListener("keydown", handler); };
-  }, [toggleCmdK, toggleSim, toggleTime, toggleRisk, toggleTrace, togglePr, togglePrd, toggleOwnership, toggleAgent, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
+  }, [toggleCmdK, toggleSim, toggleTime, toggleTrace, togglePr, togglePrd, toggleOwnership, toggleAgent, showImpact, setImpactContext, inspCtx.mode, active, setFileContext]);
 
   const handleEditorContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -277,8 +269,6 @@ export function IdePage({ onExit }: IdePageProps) {
   return (
     <div className="ide" data-theme={theme}>
       <IdeTopBar
-        path={["codegraph-agent", "codegraph_agent", active === "orchestrator.py" ? "orchestrator" : active === "security.py" ? "tools/plan_orchestration/tools" : "infrastructure/audit", active]}
-        onExit={onExit}
         onAsk={openCmdK}
         onTimeTravel={toggleTime}
       />
@@ -317,7 +307,7 @@ export function IdePage({ onExit }: IdePageProps) {
       </div>
       <IdeInspector
         tierKey={inspCtx.mode === "impact" ? "impact" : inspCtx.mode === "symbol" ? "symbol" : inspCtx.mode === "repo" ? "repo" : "file"}
-        title={inspCtx.mode === "impact" ? t("ide.changeImpact.title") : inspCtx.mode === "symbol" ? inspCtx.name : inspCtx.mode === "repo" ? inspCtx.repoName : active}
+        title={inspCtx.mode === "impact" ? t("ide.changeImpact.title") : inspCtx.mode === "symbol" ? inspCtx.name : inspCtx.mode === "repo" ? inspCtx.repoName : "Inspector"}
         subtitle={inspCtx.mode === "impact" ? t("ide.changeImpact.pgLabel") : inspCtx.mode === "symbol" ? active : undefined}
       >
         {inspCtx.mode === "impact" ? (
@@ -386,7 +376,6 @@ export function IdePage({ onExit }: IdePageProps) {
       <CommandPalette />
       <SymbolTooltip />
       <SimulatePanel />
-      <RiskDrawer />
       <ContextMenu />
       <WelcomeTour />
       <FileTooltip />

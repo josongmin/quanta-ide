@@ -35,16 +35,16 @@
   --radius-full: 9999px;
 
   /* ── Scale: Font size (rem based on 13px root) ─────────────────────────── */
-  --font-size-0:  0.58rem;  /*  ~7.5px  caption/label */
-  --font-size-1:  0.66rem;  /*  ~8.6px  micro */
-  --font-size-2:  0.72rem;  /*  ~9.4px  small */
-  --font-size-3:  0.78rem;  /* ~10.1px  body-sm */
-  --font-size-4:  0.86rem;  /* ~11.2px  body */
-  --font-size-5:  0.92rem;  /*   ~12px  body-lg */
-  --font-size-6:  1.00rem;  /*   13px   ui-base */
-  --font-size-7:  1.15rem;  /*   15px   title-sm */
-  --font-size-8:  1.35rem;  /* ~17.5px  title */
-  --font-size-9:  1.70rem;  /*   22px   display */
+  --font-size-0:  0.66rem;  /*  ~8.6px  caption/label */
+  --font-size-1:  0.72rem;  /*  ~9.4px  micro */
+  --font-size-2:  0.78rem;  /* ~10.1px  small */
+  --font-size-3:  0.86rem;  /* ~11.2px  body-sm */
+  --font-size-4:  0.92rem;  /*   ~12px  body */
+  --font-size-5:  1.00rem;  /*   13px   body-lg */
+  --font-size-6:  1.08rem;  /*   ~14px  ui-base */
+  --font-size-7:  1.23rem;  /*   ~16px  title-sm */
+  --font-size-8:  1.46rem;  /*   ~19px  title */
+  --font-size-9:  1.85rem;  /*   ~24px  display */
 
   /* ── Scale: Line-height ────────────────────────────────────────────────── */
   --line-height-tight:   1.2;

@@ -473,6 +473,17 @@
   from { opacity: 0; transform: scale(0.5); }
   to   { opacity: 1; transform: scale(1); }
 }
+/* 버블 클릭 → 채팅창 열릴 때: 슉 사라지는 효과 */
+@keyframes agw-bubble-vanish {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.3); }
+}
+.agw-bubble-wrap.is-vanishing {
+  pointer-events: none;
+}
+.agw-bubble-wrap.is-vanishing .agw-bubble {
+  animation: agw-bubble-vanish 0.2s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
 /* position wrapper — translate만, 애니메이션 없음 */
 .agw-bubble-wrap {
   position: fixed;

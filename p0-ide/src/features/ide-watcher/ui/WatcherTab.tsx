@@ -52,6 +52,7 @@ export function WatcherTab({ onNavigate }: WatcherTabProps) {
             impactedFiles={snapshot.impactedFiles}
             status={snapshot.status}
             trend={snapshot.trend}
+            peak={snapshot.peak}
           />
         </div>
         <div className="wt-col wt-col-spark">
@@ -60,6 +61,7 @@ export function WatcherTab({ onNavigate }: WatcherTabProps) {
             startLabel={startLabel}
             endLabel={endLabel}
             inFlux={snapshot.status === "in-flux"}
+            peak={snapshot.peak}
           />
         </div>
         <div className="wt-col wt-col-now">

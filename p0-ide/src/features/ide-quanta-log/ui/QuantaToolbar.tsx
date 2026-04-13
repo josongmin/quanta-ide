@@ -36,17 +36,20 @@ export function QuantaToolbar({
       </div>
       <div className="ql-toolbar-filters" role="group" aria-label="Kind filters">
         {kinds.map((k) => (
-          <button
+          <label
             key={k}
-            type="button"
             className={`ql-chip ql-chip-${k}${active.has(k) ? " is-active" : ""}`}
-            onClick={() => { onToggle(k); }}
-            aria-pressed={active.has(k)}
             title={`${KIND_LABEL[k]}: ${String(counts[k])}`}
           >
+            <input
+              type="checkbox"
+              className="ql-chip-input"
+              checked={active.has(k)}
+              onChange={() => { onToggle(k); }}
+            />
             <span className="ql-chip-label">{KIND_LABEL[k]}</span>
             <span className="ql-chip-count">{counts[k]}</span>
-          </button>
+          </label>
         ))}
       </div>
       <div className="ql-toolbar-spacer" />

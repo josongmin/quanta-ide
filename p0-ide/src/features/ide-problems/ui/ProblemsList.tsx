@@ -100,21 +100,26 @@ export function ProblemsList({ groups, activeSeverities, onItemActivate }: Probl
 function SeverityGlyph({ severity }: { severity: ProblemSeverity }) {
   if (severity === "error") {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-        <circle cx="7" cy="7" r="5.25" fill="currentColor" />
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+        <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+        <path d="M5.5 5.5 L10.5 10.5 M10.5 5.5 L5.5 10.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     );
   }
   if (severity === "warn") {
     return (
-      <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-        <path d="M7 1.5 L12.5 12 L1.5 12 Z" fill="currentColor" />
+      <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+        <path d="M8 1.5 L14.5 13.5 L1.5 13.5 Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+        <path d="M8 6.5 L8 9.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        <circle cx="8" cy="11.5" r="0.7" fill="currentColor" />
       </svg>
     );
   }
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden>
-      <rect x="1.75" y="1.75" width="10.5" height="10.5" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 5 L8 5.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M8 7.5 L8 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
 }

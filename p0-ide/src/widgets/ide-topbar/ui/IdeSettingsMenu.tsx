@@ -105,7 +105,7 @@ export function IdeSettingsMenu() {
         aria-label={t("ide.settings.title")}
         title={t("ide.settings.title")}
       >
-        <IconSettings size={16} strokeWidth={1.5} />
+        <IconSettings size={15} />
       </button>
 
       {open && (

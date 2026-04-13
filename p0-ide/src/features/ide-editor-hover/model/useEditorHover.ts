@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { SymbolInfo } from "./symbols";
 import type { AnchorRect } from "@/shared/ui/tooltip/smartPos";
+import type { SymbolInfo } from "./symbols";
 
 export type { SymbolInfo } from "./symbols";
 
@@ -47,7 +47,7 @@ export const useEditorHover = create<EditorHoverState>()((set, get) => ({
     clearDismiss();
     if (!s) { set({ hoveredSymbol: null }); return; }
     const cur = get().hoveredSymbol;
-    if (cur && s.info.name === cur.info.name && s.info.kind === cur.info.kind) {
+    if (cur !== null && cur.info.name === s.info.name && cur.info.kind === s.info.kind) {
       // Same symbol — just cancel any pending dismiss, keep tooltip alive
       return;
     }

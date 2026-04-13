@@ -1,6 +1,6 @@
 /* =============================================================================
-   Watcher Tab — Tier 0 Persistent Surface
-   Vitals + Sparkline + NowWatching의 가로 3-column 레이아웃.
+   Watcher Tab — Tier 0 Persistent Surface (redesigned)
+   Vitals (ring gauge) + Sparkline (area chart) + NowWatching (cards)
    ============================================================================= */
 
 .wt-root {
@@ -9,8 +9,6 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  /* BottomPanel 셸은 padding을 주지 않는다. Watcher는 자기 여백을 직접 책임.
-     단, 상단 .wt-header 는 flush 로 그리기 위해 root padding 을 top 만 0 으로. */
   padding: 0 var(--space-5) var(--space-4);
   overflow: auto;
   color: var(--color-fg-default);
@@ -21,7 +19,6 @@
 .wt-header {
   display: flex;
   align-items: center;
-  /* root 의 좌우 padding 을 상쇄해 full-bleed 로 border 를 그린다. */
   margin: 0 calc(var(--space-5) * -1) var(--space-4);
   height: var(--bp-toolbar-h);
   padding: 0 var(--space-5);
@@ -31,9 +28,11 @@
 
 .wt-row {
   display: grid;
-  grid-template-columns: 200px 1fr 240px;
-  gap: var(--space-5);
+  grid-template-columns: 180px 1fr 280px;
+  gap: var(--space-6);
   align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .wt-col {
@@ -42,58 +41,125 @@
   min-width: 0;
 }
 
-/* ── Column 1 — Vitals ───────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Column 1 — Vitals (ring gauge + meta)
+   ══════════════════════════════════════════════════════════════════════════════ */
 
 .wt-vitals {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  gap: var(--space-5);
 }
 
-.wt-vitals-num {
+/* Ring gauge container */
+.wt-vitals-ring-wrap {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.wt-vitals-ring {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.wt-ring-track {
+  stroke: var(--color-border-subtle);
+  opacity: 0.4;
+}
+
+.wt-ring-fill {
+  transition: stroke-dashoffset 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.wt-ring-stable   { stroke: var(--color-signal-stable-fg); }
+.wt-ring-in-flux  { stroke: var(--color-signal-flux-fg); }
+.wt-ring-critical { stroke: var(--color-signal-critical-fg); }
+
+/* Number centered inside ring */
+.wt-vitals-num-over-ring {
+  position: absolute;
+  inset: 0;
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-family: var(--font-num);
-  line-height: 1;
+  align-items: center;
+  justify-content: center;
 }
 
 .wt-vitals-num-value {
-  font-size: var(--font-size-9);
+  font-family: var(--font-num);
+  font-size: var(--font-size-7);
   font-weight: var(--font-weight-semibold);
   color: var(--color-fg-default);
-  letter-spacing: -0.02em;
-  transition: color var(--transition);
+  letter-spacing: -0.03em;
+  line-height: 1;
 }
 
-.wt-vitals-num-unit {
-  font-size: var(--font-size-2);
+/* Meta column (right of ring) */
+.wt-vitals-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wt-vitals-unit {
+  font-size: var(--font-size-1);
   color: var(--color-fg-default);
-  opacity: 0.6;
-  font-family: var(--font-ui);
+  opacity: 0.5;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: var(--font-weight-medium);
 }
 
 .wt-vitals-trend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--font-size-2);
-  color: var(--color-fg-default);
-  opacity: 0.7;
+  font-weight: var(--font-weight-medium);
   letter-spacing: -0.005em;
 }
 
-.wt-vitals-status {
+.wt-trend-glyph {
+  font-size: var(--font-size-3);
+  line-height: 1;
+}
+
+.wt-trend-converging { color: var(--color-signal-stable-fg); }
+.wt-trend-diverging  { color: var(--color-signal-critical-fg); }
+.wt-trend-steady     { color: var(--color-fg-default); opacity: 0.6; }
+
+/* Status badge */
+.wt-vitals-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: var(--font-size-1);
-  color: var(--color-fg-default);
-  opacity: 0.6;
-  text-transform: lowercase;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  width: fit-content;
+}
+.wt-badge-stable {
+  background: color-mix(in srgb, var(--color-signal-stable-fg) 12%, transparent);
+  color: var(--color-signal-stable-fg);
+}
+.wt-badge-in-flux {
+  background: color-mix(in srgb, var(--color-signal-flux-fg) 12%, transparent);
+  color: var(--color-signal-flux-fg);
+}
+.wt-badge-critical {
+  background: color-mix(in srgb, var(--color-signal-critical-fg) 12%, transparent);
+  color: var(--color-signal-critical-fg);
 }
 
 .wt-status-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: var(--radius-full);
+  flex-shrink: 0;
 }
 .wt-status-dot-stable   { background: var(--color-signal-stable-fg); }
 .wt-status-dot-in-flux  { background: var(--color-signal-flux-fg); }
@@ -102,84 +168,165 @@
   box-shadow: 0 0 0 2px var(--color-signal-critical-ring);
 }
 
-/* ── Column 2 — Sparkline ────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Column 2 — Sparkline (area chart)
+   ══════════════════════════════════════════════════════════════════════════════ */
 
 .wt-spark {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
+  flex: 1;
+
+  /* gradient fill tokens */
+  --wt-spark-fill-a: color-mix(in srgb, var(--color-signal-stable-fg) 22%, transparent);
+  --wt-spark-fill-b: transparent;
+}
+
+.wt-spark-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.wt-spark-title {
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-fg-default);
+  opacity: 0.45;
+}
+
+.wt-spark-peak {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-0);
+  color: var(--color-fg-default);
+  opacity: 0.35;
+  letter-spacing: 0.02em;
 }
 
 .wt-spark-svg {
   width: 100%;
-  height: 40px;
+  height: 56px;
   display: block;
 }
 
-.wt-spark-line {
-  stroke: var(--color-fg-default);
+.wt-spark-area {
   opacity: 0.6;
+}
+
+.wt-spark-grid {
+  stroke: var(--color-border-subtle);
+  stroke-width: 0.5;
+  opacity: 0.3;
+  vector-effect: non-scaling-stroke;
+}
+
+.wt-spark-line {
+  stroke: var(--color-signal-stable-fg);
+  opacity: 0.8;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: stroke var(--transition);
 }
 
 .wt-spark-line.is-in-flux {
-  opacity: 0.4;
-  stroke-dasharray: 2 3;
+  stroke: var(--color-signal-flux-fg);
+  opacity: 0.5;
+  stroke-dasharray: 4 4;
+}
+
+.wt-spark-dot {
+  fill: var(--color-signal-stable-fg);
+  opacity: 0.5;
+}
+
+.wt-spark-dot-mid {
+  opacity: 0.3;
 }
 
 .wt-spark-end {
-  fill: var(--color-fg-default);
-  opacity: 0.7;
+  fill: var(--color-signal-stable-fg);
+  opacity: 0.9;
+  filter: drop-shadow(0 0 3px var(--color-signal-stable-fg));
 }
 
 .wt-spark-labels {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--font-size-1);
-  color: var(--color-fg-default);
-  opacity: 0.6;
   font-family: var(--font-mono);
+  font-size: var(--font-size-0);
+  color: var(--color-fg-default);
+  opacity: 0.5;
   letter-spacing: -0.005em;
 }
 
-.wt-spark-arrow {
-  opacity: 0.5;
+.wt-spark-label-start,
+.wt-spark-label-mid,
+.wt-spark-label-end {
+  min-width: 0;
 }
 
-.wt-spark-end-label {
-  opacity: 0.85;
+.wt-spark-label-mid {
+  opacity: 0.6;
+}
+
+.wt-spark-label-end {
+  font-weight: var(--font-weight-semibold);
+  opacity: 1;
+  color: var(--color-signal-stable-fg);
 }
 
 .wt-spark-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 40px;
+  height: 56px;
   font-size: var(--font-size-1);
   color: var(--color-fg-default);
   opacity: 0.4;
   font-family: var(--font-mono);
 }
 
-/* ── Column 3 — Now watching ─────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   Column 3 — Now Watching (cards)
+   ══════════════════════════════════════════════════════════════════════════════ */
 
 .wt-now {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
   min-width: 0;
 }
 
+.wt-now-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
 .wt-now-title {
-  font-size: var(--font-size-1);
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-fg-default);
-  opacity: 0.5;
+  opacity: 0.45;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
+}
+
+.wt-now-count {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-0);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-signal-stable-fg);
+  background: color-mix(in srgb, var(--color-signal-stable-fg) 12%, transparent);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  line-height: 1.6;
 }
 
 .wt-now-list {
@@ -188,62 +335,109 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
 }
 
 .wt-now-empty {
-  font-size: var(--font-size-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--font-size-2);
   color: var(--color-fg-default);
-  opacity: 0.4;
+  opacity: 0.35;
   font-family: var(--font-mono);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-3);
 }
 
-.wt-now-btn {
+.wt-now-empty-icon {
+  font-size: var(--font-size-4);
+  opacity: 0.6;
+}
+
+/* Card item */
+.wt-now-card {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-2);
-  padding: var(--space-1) var(--space-2);
+  gap: var(--space-3);
+  background: var(--color-bg-muted);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-3);
+  padding: var(--space-3) var(--space-4);
   text-align: left;
   color: var(--color-fg-default);
-  opacity: 0.75;
   font-family: var(--font-ui);
   font-size: var(--font-size-2);
   cursor: pointer;
   transition:
     background var(--transition),
-    opacity var(--transition),
-    border-color var(--transition);
+    border-color var(--transition),
+    box-shadow var(--transition);
 }
 
-.wt-now-btn:hover {
-  background: var(--color-bg-muted);
-  opacity: 1;
+.wt-now-card:hover {
+  background: color-mix(in srgb, var(--color-signal-stable-fg) 6%, var(--color-bg-muted));
+  border-color: color-mix(in srgb, var(--color-signal-stable-fg) 20%, var(--color-border-subtle));
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--color-signal-stable-fg) 8%, transparent);
 }
 
-.wt-now-btn:focus-visible {
+.wt-now-card:focus-visible {
   outline: none;
   border-color: var(--color-border-accent);
+  box-shadow: 0 0 0 2px var(--color-signal-stable-ring);
 }
 
-.wt-now-arrow {
-  opacity: 0.5;
+/* Kind icon */
+.wt-now-icon {
+  font-size: var(--font-size-3);
+  opacity: 0.55;
   flex-shrink: 0;
+  width: 18px;
+  text-align: center;
+}
+.wt-now-card-file .wt-now-icon    { color: var(--color-signal-flux-fg); }
+.wt-now-card-api-path .wt-now-icon { color: var(--color-signal-critical-fg); }
+.wt-now-card-symbol .wt-now-icon   { color: var(--color-signal-stable-fg); }
+
+/* Content */
+.wt-now-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
 }
 
 .wt-now-label {
   font-family: var(--font-mono);
-  letter-spacing: -0.005em;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .wt-now-reason {
-  opacity: 0.6;
-  font-size: var(--font-size-1);
+  font-size: var(--font-size-0);
+  color: var(--color-fg-default);
+  opacity: 0.5;
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wt-now-chevron {
+  font-size: var(--font-size-5);
+  opacity: 0.25;
   flex-shrink: 0;
+  transition: opacity var(--transition), transform var(--transition);
+  font-weight: var(--font-weight-light);
+}
+
+.wt-now-card:hover .wt-now-chevron {
+  opacity: 0.6;
+  transform: translateX(2px);
 }

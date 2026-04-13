@@ -25,7 +25,7 @@
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-4);
   width: 100%;
   align-items: center;
 }
@@ -45,8 +45,8 @@
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
-  /* 비활성: 엷은 회색 (fg-faint) */
-  color: var(--color-fg-faint);
+  /* 비활성: 중간 회색 (fg-subtle) */
+  color: var(--color-fg-subtle);
   cursor: pointer;
   transition:
     background var(--transition),
@@ -76,8 +76,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 19px;
+  height: 19px;
   line-height: 1;
 }
 
@@ -88,7 +88,7 @@
 .ar-icon svg {
   width: 100%;
   height: 100%;
-  stroke-width: 2.4;
+  stroke-width: 1.9;
 }
 
 /* Status dot — 우측 하단 코너에 작게.

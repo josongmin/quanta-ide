@@ -12,16 +12,22 @@
 }
 
 /* ── Tauri 네이티브 — 타이틀바 드래그 ──────────────────────────────
-   Tauri v2는 `-webkit-app-region: drag`가 아니라
-   `data-tauri-drag-region` 속성으로 드래그를 처리한다.
-   이 속성은 IdeTopBar.tsx의 루트 div에 부착되어 있다.
-   is-tauri 클래스 또는 data-tauri-drag-region 속성이 있으면
-   좌측 macOS 신호등 공간(78px)을 확보한다.
+   두 가지 드래그 메커니즘을 모두 적용:
+   1. data-tauri-drag-region (Tauri v2 WRY — IPC 기반)
+   2. -webkit-app-region: drag (WKWebView 네이티브 — 폴백)
+   capabilities/default.json에 core:window:allow-start-dragging 필요.
    ──────────────────────────────────────────────────────────────── */
-.ide-topbar[data-tauri-drag-region] {
-  /* 좌측 78px = macOS 신호등 영역 (●●● 12px×3 + 간격 + 여백) */
-  padding-left: 78px;
-  cursor: default;
+:root.is-tauri .ide-topbar {
+  /* 좌측 = macOS 신호등 영역 (●●● 12px×3 + 간격 + 여백) */
+  padding-left: 88px;
+  -webkit-app-region: drag;
+}
+:root.is-tauri .ide-topbar button,
+:root.is-tauri .ide-topbar input,
+:root.is-tauri .ide-topbar a,
+:root.is-tauri .ide-topbar [role="button"],
+:root.is-tauri .ide-topbar .ide-topbar-ask {
+  -webkit-app-region: no-drag;
 }
 .ide-topbar-brand {
   font-family: var(--font-mono);
@@ -29,12 +35,133 @@
   font-weight: var(--font-weight-bold);
   color: var(--ink);
   letter-spacing: -0.03em;
+  flex-shrink: 0;
 }
+
+/* ── Org switcher ── */
+.ide-topbar-org {
+  appearance: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-3);
+  color: var(--ink-2);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  transition: background var(--transition), color var(--transition);
+  flex-shrink: 0;
+}
+.ide-topbar-org:hover {
+  background: var(--paper-2);
+  color: var(--ink);
+}
+.ide-topbar-org-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-feedback-success-fg, #22c55e);
+  flex-shrink: 0;
+}
+.ide-topbar-org-sep {
+  color: var(--ink-4);
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-light);
+}
+.ide-topbar-org-icon {
+  color: var(--ink-3);
+  flex-shrink: 0;
+}
+.ide-topbar-org-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.ide-topbar-org-badge {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--line-2);
+  color: var(--ink-3);
+  line-height: 1.4;
+}
+.ide-topbar-org-caret {
+  color: var(--ink-4);
+  flex-shrink: 0;
+}
+/* ── GNB Center Tabs ─────────────────────────────────────────────── */
+.ide-gnb-tabs {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-row);
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+.ide-gnb-tab {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border-radius: calc(var(--radius-row) - 1px);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ink-3);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  transition: background var(--transition), color var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+.ide-gnb-tab:hover {
+  color: var(--ink-2);
+  background: var(--paper-3);
+}
+.ide-gnb-tab.is-active {
+  background: var(--paper-1);
+  border-color: var(--line);
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.ide-gnb-tab svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity var(--transition);
+}
+.ide-gnb-tab:hover svg {
+  opacity: 0.8;
+}
+.ide-gnb-tab.is-active svg {
+  opacity: 1;
+  color: var(--accent);
+}
+
+/* Tauri: 탭도 드래그 제외 */
+:root.is-tauri .ide-gnb-tab {
+  -webkit-app-region: no-drag;
+}
+
 .ide-topbar-right {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: var(--space-4);
+  flex-shrink: 0;
 }
 .ide-topbar-group {
   display: flex;
@@ -49,54 +176,23 @@
 }
 .ide-topbar-path {
   flex: 0 1 auto;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: var(--space-3);
   font-family: var(--font-mono);
   font-size: var(--font-size-3);
   color: var(--ink-3);
+  overflow: hidden;
+}
+.ide-topbar-path-seg {
+  white-space: nowrap;
 }
 .ide-topbar-path .crumb-sep {
   color: var(--ink-4);
 }
 .ide-topbar-path .crumb-leaf {
   color: var(--ink);
-}
-.ide-topbar-ask {
-  appearance: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-5);
-  padding: var(--space-2) var(--space-5) var(--space-2) var(--space-5);
-  border-radius: var(--radius-row);
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  color: var(--ink-3);
-  font-family: var(--font-ui);
-  font-size: var(--font-size-2);
-  font-weight: var(--font-weight-regular);
-  min-width: 340px;
-  transition: background var(--transition), border-color var(--transition), color var(--transition);
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
-.ide-topbar-ask:hover {
-  background: var(--paper-3);
-  border-color: var(--line-2);
-  color: var(--ink-2);
-}
-.ide-topbar-ask svg { color: var(--ink-4); flex-shrink: 0; }
-.ide-topbar-ask span:nth-of-type(1) { flex: 1; text-align: left; }
-.ide-topbar-ask-kbd {
-  font-family: var(--font-mono);
-  font-size: var(--font-size-0);
-  color: var(--ink-3);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-kbd);
-  border: 1px solid var(--line-2);
-  background: var(--paper-1);
 }
 .ide-topbar-time {
   appearance: none;
@@ -249,31 +345,8 @@
 .ide-topbar-commit svg { color: var(--ink-3); }
 .ide-topbar-commit:hover svg { color: var(--accent); }
 
-/* ── Diff stat (mono text, same border/bg as time button) ────────── */
-.ide-topbar-diff {
-  appearance: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-row);
-  background: var(--paper-2);
-  border: 1px solid var(--line);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-2);
-  font-weight: var(--font-weight-medium);
-  transition: background var(--transition), border-color var(--transition);
-}
-.ide-topbar-diff:hover {
-  background: var(--paper-3);
-  border-color: var(--line-2);
-}
-.ide-topbar-diff svg { color: var(--ink-4); }
-.ide-topbar-diff-add { color: var(--color-feedback-success-fg); }
-.ide-topbar-diff-del { color: var(--color-feedback-danger-fg); }
 
-/* ── Icon-only buttons — review & bell ─────────────────────────────── */
+/* ── Icon-only buttons ────────────────────────────────────────────── */
 .ide-topbar-icon-btn {
   appearance: none;
   cursor: pointer;
@@ -281,196 +354,61 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border-radius: var(--radius-sm);
   background: transparent;
   border: none;
-  color: var(--color-fg-faint);
+  color: var(--ink-3);
   transition: background var(--transition), color var(--transition);
 }
 .ide-topbar-icon-btn svg {
-  stroke-width: 1.5;
+  width: 15px;
+  height: 15px;
+  stroke-width: 2;
 }
 .ide-topbar-icon-btn:hover {
-  background: var(--color-bg-muted);
-  color: var(--color-fg-default);
+  background: var(--paper-2);
+  color: var(--ink);
 }
 .ide-topbar-badge {
   position: absolute;
-  top: -3px;
-  right: -3px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 var(--space-1);
+  top: -4px;
+  right: -4px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
   border-radius: var(--radius-full);
   background: var(--ink-3);
   color: var(--paper-1);
   font-family: var(--font-num);
-  font-size: 10px;
-  font-weight: var(--font-weight-regular);
+  font-size: 9px;
+  font-weight: var(--font-weight-medium);
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
-  border: 2px solid var(--paper-1);
+  border: 1.5px solid var(--paper-1);
 }
 .ide-topbar-badge--alert {
   background: var(--color-feedback-danger-fg);
   color: #fff;
 }
 
-/* ── User Menu ───────────────────────────────────────────────────── */
-.usermenu { position: relative; }
 
+/* ── User display (avatar + name, no popup) ────────────────────── */
+.usermenu { display: flex; align-items: center; }
 .usermenu-trigger {
-  appearance: none;
-  cursor: pointer;
-  padding: 0 var(--space-2) 0 0;
-  border: none;
-  background: none;
   display: flex;
   align-items: center;
   gap: var(--space-3);
 }
 .usermenu-trigger-name {
   font-family: var(--font-ui);
-  font-size: var(--font-size-3);
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
-  color: var(--ink-2);
-  transition: color var(--transition);
-}
-.usermenu-trigger:hover .usermenu-trigger-name,
-.usermenu-trigger[aria-expanded="true"] .usermenu-trigger-name {
-  color: var(--ink);
-}
-.usermenu-avatar {
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  border: none;
-  color: var(--color-fg-on-accent);
-  font-size: var(--font-size-0);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.04em;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  user-select: none;
-  flex-shrink: 0;
-}
-.usermenu-trigger:hover .usermenu-avatar,
-.usermenu-trigger[aria-expanded="true"] .usermenu-avatar {
-  opacity: 0.85;
-}
-
-/* Popup shell */
-.usermenu-popup {
-  position: absolute;
-  top: calc(100% + 7px);
-  right: 0;
-  z-index: var(--z-popover);
-  width: 280px;
-  background: var(--paper-1);
-  border: 1px solid var(--line-2);
-  border-radius: var(--overlay-radius-dialog);
-  box-shadow:
-    0 0 0 1px rgba(0,0,0,0.06),
-    0 4px 16px rgba(0,0,0,0.28),
-    0 16px 40px rgba(0,0,0,0.22);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  animation: usermenu-in 0.14s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes usermenu-in {
-  from { opacity: 0; transform: translateY(-5px) scale(0.975); }
-  to   { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Search bar */
-.usermenu-search-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-5) var(--space-4);
-  border-bottom: 1px solid var(--line);
-}
-.usermenu-search-icon { color: var(--ink-4); flex-shrink: 0; }
-.usermenu-search {
-  flex: 1;
-  border: none;
-  background: none;
-  outline: none;
-  font-family: var(--font-ui);
-  font-size: var(--font-size-3);
-  color: var(--ink);
-  caret-color: var(--accent);
-}
-.usermenu-search::placeholder { color: var(--ink-4); }
-
-/* Scrollable body */
-.usermenu-scroll {
-  overflow-y: auto;
-  max-height: 480px;
-  padding: var(--space-3) 0;
-}
-.usermenu-section { padding: 0 var(--space-3); }
-
-/* Divider migrated to shared MenuSeparator */
-
-/* Row chrome migrated to shared Menu/MenuItem (see @/shared/ui/menu).
-   Feature-only overrides: paper-2 hover (instead of bg-muted) and sized icon/badge slots. */
-.usermenu-popup .menu__item.usermenu-item:hover {
-  background: var(--paper-2);
-  color: var(--ink);
-}
-.usermenu-popup .menu__item.usermenu-item .menu__icon {
-  width: var(--space-7);
-  height: var(--space-7);
   color: var(--ink-3);
-  transition: color var(--duration-2);
-}
-.usermenu-popup .menu__item.usermenu-item:hover .menu__icon { color: var(--ink-2); }
-.usermenu-item-badge {
-  font-size: var(--font-size-1);
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.usermenu-item-chev { color: var(--ink-4); flex-shrink: 0; }
-
-/* Danger row override */
-.usermenu-popup .menu__item--danger.usermenu-item:hover {
-  background: color-mix(in srgb, var(--color-feedback-danger-fg) 7%, var(--paper-2));
-}
-
-/* Empty state */
-.usermenu-empty {
-  padding: var(--space-5) var(--space-4);
-  font-size: var(--font-size-2);
-  color: var(--ink-4);
-  text-align: center;
-}
-
-/* Footer meta */
-.usermenu-footer {
-  padding: var(--space-4) var(--space-6) var(--space-5);
-}
-.usermenu-footer-user {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.usermenu-footer-name {
-  font-size: var(--font-size-1);
-  color: var(--ink-4);
-}
-.usermenu-footer-date {
-  font-size: var(--font-size-1);
-  color: var(--ink-4);
-  opacity: 0.7;
 }
 
 /* ── IDE Settings Menu ───────────────────────────────────────────── */
@@ -511,14 +449,15 @@
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 60px);
   overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--space-5);
-  background: var(--paper-1);
-  border: 1px solid var(--line-2);
-  border-radius: var(--overlay-radius-dialog);
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.4),
-    0 0 24px color-mix(in srgb, var(--accent) 8%, transparent);
-  animation: ctxmenu-in 0.14s ease-out;
+  background: var(--overlay-bg-popover);
+  border: var(--overlay-border);
+  border-radius: var(--overlay-radius-popover);
+  box-shadow: var(--overlay-shadow-popover);
+  backdrop-filter: var(--overlay-blur-popover);
+  -webkit-backdrop-filter: var(--overlay-blur-popover);
+  animation: overlay-popover-in var(--overlay-duration-in) var(--overlay-ease-out) both;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -538,7 +477,7 @@
 }
 .ide-settings-row {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-2);
 }
 .ide-settings-opt {
@@ -734,13 +673,13 @@
   z-index: var(--z-popover);
   width: 224px;
   padding: var(--space-4);
-  background: var(--paper-1);
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-6);
-  box-shadow:
-    0 20px 50px rgba(0, 0, 0, 0.4),
-    0 0 24px color-mix(in srgb, var(--accent) 8%, transparent);
-  animation: ctxmenu-in 0.14s ease-out;
+  background: var(--overlay-bg-popover);
+  border: var(--overlay-border);
+  border-radius: var(--overlay-radius-popover);
+  box-shadow: var(--overlay-shadow-popover);
+  backdrop-filter: var(--overlay-blur-popover);
+  -webkit-backdrop-filter: var(--overlay-blur-popover);
+  animation: overlay-popover-in var(--overlay-duration-in) var(--overlay-ease-out) both;
 }
 .ide-aurora-grid {
   display: grid;

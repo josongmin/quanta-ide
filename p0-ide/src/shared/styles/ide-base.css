@@ -53,7 +53,7 @@
 
   --font-ui:   'Inter', system-ui, sans-serif;
   --font-num:  'Outfit', system-ui, sans-serif;
-  --font-mono: Menlo, Monaco, 'Courier New', monospace;
+  --font-mono: 'JetBrains Mono', 'Roboto Mono', Menlo, Monaco, 'Courier New', monospace;
 
   position: fixed;
   inset: 0;
@@ -245,17 +245,17 @@
   --overlay-bg-sheet:      #f9f9fb;
   --overlay-bg-popover:    #ffffff;
   --overlay-shadow-dialog:
-    0 8px 40px rgba(0, 0, 0, 0.14),
-    0 2px 10px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(0, 0, 0, 0.07);
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.10),
+    0 2px 6px rgba(0, 0, 0, 0.05);
   --overlay-shadow-popover:
-    0 4px 20px rgba(0, 0, 0, 0.12),
-    0 1px 4px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.07);
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
   --overlay-shadow-ephemeral:
-    0 8px 28px rgba(0, 0, 0, 0.12),
-    0 2px 6px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(0, 0, 0, 0.07);
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    0 1px 4px rgba(0, 0, 0, 0.04);
   --overlay-inset-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -312,10 +312,7 @@
 .ide[data-theme="light"] .ide-toast,
 .ide[data-theme="light"] .tour-card,
 .ide[data-theme="light"] .own-overlay {
-  box-shadow:
-    0 8px 40px rgba(0, 0, 0, 0.14),
-    0 2px 8px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="light"] .own-overlay {
   background: color-mix(in srgb, #ffffff 92%, transparent);
@@ -489,10 +486,7 @@
 .ide[data-theme="cool-gray"] .ide-toast,
 .ide[data-theme="cool-gray"] .tour-card,
 .ide[data-theme="cool-gray"] .own-overlay {
-  box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(99, 102, 241, 0.15),
-    0 0 40px color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="cool-gray"] .own-overlay {
   background: color-mix(in srgb, #1e293b 94%, transparent);
@@ -596,9 +590,7 @@
 .ide[data-theme="cool-light"] .ide-toast,
 .ide[data-theme="cool-light"] .tour-card,
 .ide[data-theme="cool-light"] .own-overlay {
-  box-shadow:
-    0 16px 40px rgba(15, 23, 42, 0.1),
-    0 0 0 1px rgba(79, 70, 229, 0.12);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="cool-light"] .own-overlay {
   background: color-mix(in srgb, #ffffff 94%, transparent);
@@ -1976,7 +1968,7 @@
 .ide[data-theme="latte"] .ide-toast,
 .ide[data-theme="latte"] .tour-card,
 .ide[data-theme="latte"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(80,50,10,0.10), 0 0 0 1px rgba(180,83,9,0.10);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="latte"] .own-overlay { background: color-mix(in srgb, #fdf8f0 93%, transparent); }
 
@@ -2405,6 +2397,25 @@
   --color-signal-critical-fg:   #dc2626;
   --color-signal-critical-bg:   color-mix(in srgb, #dc2626 10%, transparent);
   --color-signal-critical-ring: color-mix(in srgb, #dc2626 28%, transparent);
+
+  /* Overlay — Notion 스타일: 그림자 최소, 보더로 구분 */
+  --overlay-scrim-dialog:  rgba(0, 0, 0, 0.08);
+  --overlay-scrim-sheet:   rgba(0, 0, 0, 0.04);
+  --overlay-bg-dialog:     #ffffff;
+  --overlay-bg-sheet:      #ffffff;
+  --overlay-bg-popover:    #ffffff;
+  --overlay-shadow-dialog:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 3px 8px rgba(0, 0, 0, 0.04);
+  --overlay-shadow-popover:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.03);
+  --overlay-shadow-ephemeral:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 2px 6px rgba(0, 0, 0, 0.03);
+  --overlay-shadow-sheet:
+    0 0 0 1px rgba(0, 0, 0, 0.06);
+  --overlay-inset-highlight: none;
 }
 .ide[data-theme="vercel-dash"] .ide-editor-code .kw    { color: var(--token-kw); }
 .ide[data-theme="vercel-dash"] .ide-editor-code .fn    { color: var(--token-fn); }
@@ -2428,7 +2439,7 @@
 .ide[data-theme="vercel-dash"] .ide-toast,
 .ide[data-theme="vercel-dash"] .tour-card,
 .ide[data-theme="vercel-dash"] .own-overlay {
-  box-shadow: 0 0 0 1px var(--line), 0 16px 40px color-mix(in srgb, var(--ink) 10%, transparent);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="vercel-dash"] .own-overlay { background: color-mix(in srgb, var(--paper) 94%, transparent); }
 /* ── Vercel-dash: Topbar — Risk solid black, PR black outline ── */
@@ -2786,7 +2797,7 @@
 .ide[data-theme="vercel-light"] .ide-toast,
 .ide[data-theme="vercel-light"] .tour-card,
 .ide[data-theme="vercel-light"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.06);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="vercel-light"] .own-overlay { background: color-mix(in srgb, #ffffff 93%, transparent); }
 
@@ -2844,7 +2855,7 @@
 .ide[data-theme="linear-light"] .ide-toast,
 .ide[data-theme="linear-light"] .tour-card,
 .ide[data-theme="linear-light"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(26,26,46,0.10), 0 0 0 1px rgba(94,106,210,0.12);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="linear-light"] .own-overlay { background: color-mix(in srgb, #f8f8fc 93%, transparent); }
 
@@ -2902,7 +2913,7 @@
 .ide[data-theme="supabase-light"] .ide-toast,
 .ide[data-theme="supabase-light"] .tour-card,
 .ide[data-theme="supabase-light"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(5,46,22,0.09), 0 0 0 1px rgba(22,163,74,0.12);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="supabase-light"] .own-overlay { background: color-mix(in srgb, #f0fbf2 93%, transparent); }
 
@@ -2960,7 +2971,7 @@
 .ide[data-theme="stripe-light"] .ide-toast,
 .ide[data-theme="stripe-light"] .tour-card,
 .ide[data-theme="stripe-light"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(10,10,35,0.10), 0 0 0 1px rgba(99,91,255,0.12);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="stripe-light"] .own-overlay { background: color-mix(in srgb, #f6f9fc 93%, transparent); }
 
@@ -3224,7 +3235,7 @@
 .ide[data-theme="sakura-ink"] .ide-toast,
 .ide[data-theme="sakura-ink"] .tour-card,
 .ide[data-theme="sakura-ink"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(190,24,93,0.10), 0 0 0 1px rgba(225,29,72,0.10);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="sakura-ink"] .own-overlay { background: color-mix(in srgb, #fef0f4 93%, transparent); }
 
@@ -3282,7 +3293,7 @@
 .ide[data-theme="arctic-prism"] .ide-toast,
 .ide[data-theme="arctic-prism"] .tour-card,
 .ide[data-theme="arctic-prism"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(12,24,33,0.10), 0 0 0 1px rgba(2,132,199,0.12);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="arctic-prism"] .own-overlay { background: color-mix(in srgb, #e0f2fe 93%, transparent); }
 
@@ -3420,7 +3431,7 @@
 .ide[data-theme="mojave"] .ide-toast,
 .ide[data-theme="mojave"] .tour-card,
 .ide[data-theme="mojave"] .own-overlay {
-  box-shadow: 0 16px 40px rgba(28,10,0,0.10), 0 0 0 1px rgba(194,65,12,0.10);
+  box-shadow: var(--overlay-shadow-popover);
 }
 .ide[data-theme="mojave"] .own-overlay { background: color-mix(in srgb, #fef3e2 93%, transparent); }
 

@@ -1,66 +1,68 @@
 import { useId, useMemo } from "react";
 
 interface WatcherSparklineProps {
-  /** 시계열 정수. 비어 있으면 placeholder. */
   series: readonly number[];
-  /** sparkline 우측 라벨용 시작값. */
   startLabel?: string;
-  /** sparkline 우측 라벨용 종료값. */
   endLabel?: string;
-  /** in-flux 표시. true면 끝부분 점선. */
   inFlux?: boolean;
+  peak?: number;
 }
 
-const VIEWBOX_W = 200;
-const VIEWBOX_H = 40;
-const PADDING_Y = 4;
+const VW = 240;
+const VH = 56;
+const PY = 6;
+const PX = 2;
 
-interface PolylineData {
-  path: string;
-  lastPoint: { x: number; y: number } | null;
+interface SparkData {
+  linePath: string;
+  areaPath: string;
+  lastPt: { x: number; y: number } | null;
+  points: { x: number; y: number }[];
 }
 
-function buildPolyline(series: readonly number[]): PolylineData {
-  if (series.length === 0) return { path: "", lastPoint: null };
+function build(series: readonly number[]): SparkData {
+  if (series.length === 0) {
+    return { linePath: "", areaPath: "", lastPt: null, points: [] };
+  }
+
   if (series.length === 1) {
-    const y = VIEWBOX_H / 2;
-    return { path: `M 0 ${String(y)} L ${String(VIEWBOX_W)} ${String(y)}`, lastPoint: { x: VIEWBOX_W, y } };
+    const y = VH / 2;
+    return {
+      linePath: `M ${PX} ${y} L ${VW - PX} ${y}`,
+      areaPath: `M ${PX} ${y} L ${VW - PX} ${y} L ${VW - PX} ${VH} L ${PX} ${VH} Z`,
+      lastPt: { x: VW - PX, y },
+      points: [{ x: PX, y }, { x: VW - PX, y }],
+    };
   }
 
   const min = Math.min(...series);
   const max = Math.max(...series);
   const range = max - min || 1;
-  const stepX = VIEWBOX_W / (series.length - 1);
-  const usableH = VIEWBOX_H - PADDING_Y * 2;
+  const usableW = VW - PX * 2;
+  const usableH = VH - PY * 2;
+  const step = usableW / (series.length - 1);
 
-  const points = series.map((v, i) => {
-    const x = i * stepX;
-    const norm = (v - min) / range;
-    // 큰 값이 위로 가도록 반전
-    const y = PADDING_Y + (1 - norm) * usableH;
-    return { x, y };
-  });
+  const pts = series.map((v, i) => ({
+    x: PX + i * step,
+    y: PY + (1 - (v - min) / range) * usableH,
+  }));
 
-  const path = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
-    .join(" ");
+  const linePath = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L ${pts[pts.length - 1].x.toFixed(1)} ${VH} L ${pts[0].x.toFixed(1)} ${VH} Z`;
 
-  return { path, lastPoint: points[points.length - 1] ?? null };
+  return { linePath, areaPath, lastPt: pts[pts.length - 1], points: pts };
 }
 
-/**
- * Column 2 — Sparkline
- * blast radius 시계열을 SVG polyline으로 렌더.
- * in-flux 시 끝부분이 점선(stroke-dasharray)으로 마지막 신뢰 구간만 강조.
- */
 export function WatcherSparkline({
   series,
   startLabel,
   endLabel,
   inFlux = false,
+  peak,
 }: WatcherSparklineProps) {
+  const gradId = useId();
   const titleId = useId();
-  const { path, lastPoint } = useMemo(() => buildPolyline(series), [series]);
+  const { linePath, areaPath, lastPt, points } = useMemo(() => build(series), [series]);
 
   if (series.length === 0) {
     return (
@@ -70,37 +72,78 @@ export function WatcherSparkline({
     );
   }
 
+  /* mid-point label */
+  const midIdx = Math.floor(series.length / 2);
+  const midVal = series[midIdx];
+  const midPt = points[midIdx];
+
   return (
     <div className="wt-spark">
+      <div className="wt-spark-head">
+        <span className="wt-spark-title">Blast Radius Trend</span>
+        {peak !== undefined && (
+          <span className="wt-spark-peak">peak {peak}</span>
+        )}
+      </div>
+
       <svg
         className="wt-spark-svg"
-        viewBox={`0 0 ${String(VIEWBOX_W)} ${String(VIEWBOX_H)}`}
+        viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="none"
         role="img"
         aria-labelledby={titleId}
       >
         <title id={titleId}>Blast radius trend</title>
+
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="var(--wt-spark-fill-a)" />
+            <stop offset="100%" stopColor="var(--wt-spark-fill-b)" />
+          </linearGradient>
+        </defs>
+
+        {/* area fill */}
+        <path
+          className="wt-spark-area"
+          d={areaPath}
+          fill={`url(#${gradId})`}
+        />
+
+        {/* grid hints — horizontal */}
+        <line className="wt-spark-grid" x1={PX} y1={PY} x2={VW - PX} y2={PY} />
+        <line className="wt-spark-grid" x1={PX} y1={VH / 2} x2={VW - PX} y2={VH / 2} />
+        <line className="wt-spark-grid" x1={PX} y1={VH - PY} x2={VW - PX} y2={VH - PY} />
+
+        {/* line */}
         <path
           className={`wt-spark-line${inFlux ? " is-in-flux" : ""}`}
-          d={path}
+          d={linePath}
           fill="none"
-          strokeWidth={1.5}
+          strokeWidth={2}
           vectorEffect="non-scaling-stroke"
         />
-        {lastPoint !== null ? (
-          <circle
-            className="wt-spark-end"
-            cx={lastPoint.x}
-            cy={lastPoint.y}
-            r={2}
-            vectorEffect="non-scaling-stroke"
-          />
-        ) : null}
+
+        {/* dot markers at start, mid, end */}
+        {points.length > 0 && (
+          <circle className="wt-spark-dot" cx={points[0].x} cy={points[0].y} r={2.5}
+            vectorEffect="non-scaling-stroke" />
+        )}
+        <circle className="wt-spark-dot wt-spark-dot-mid" cx={midPt.x} cy={midPt.y} r={2}
+          vectorEffect="non-scaling-stroke" />
+        {lastPt && (
+          <circle className="wt-spark-end" cx={lastPt.x} cy={lastPt.y} r={3}
+            vectorEffect="non-scaling-stroke" />
+        )}
       </svg>
+
       <div className="wt-spark-labels">
-        {startLabel !== undefined ? <span>{startLabel}</span> : <span />}
-        <span className="wt-spark-arrow" aria-hidden>→</span>
-        {endLabel !== undefined ? <span className="wt-spark-end-label">{endLabel}</span> : <span />}
+        {startLabel !== undefined ? (
+          <span className="wt-spark-label-start">{startLabel}</span>
+        ) : <span />}
+        <span className="wt-spark-label-mid">{midVal}</span>
+        {endLabel !== undefined ? (
+          <span className="wt-spark-label-end">{endLabel}</span>
+        ) : <span />}
       </div>
     </div>
   );

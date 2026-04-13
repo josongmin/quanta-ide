@@ -29,8 +29,6 @@ export function ProblemsTab({ onNavigate }: ProblemsTabProps) {
   const setSnapshot = useProblemsStore((s) => s.setSnapshot);
   const clear = useProblemsStore((s) => s.clear);
 
-  /* 파생 counts는 컴포넌트 측에서 메모. store selector 가 매번 새 객체를
-     반환하면 useSyncExternalStore 무한 루프. */
   const counts = useMemo(() => computeProblemCounts(snapshot), [snapshot]);
 
   useEffect(() => {
