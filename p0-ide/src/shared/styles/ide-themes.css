@@ -2511,8 +2511,8 @@
 /* ── Vercel-dash: Topbar ── */
 .ide[data-theme="p0-light"] .ide-topbar {
   background: var(--paper);
-  border-bottom: 1px solid var(--paper-3);
 }
+.ide[data-theme="p0-light"] .ide-tab.is-active { background: var(--paper); }
 .ide[data-theme="p0-light"] .ide-topbar-breadcrumb,
 .ide[data-theme="p0-light"] .ide-topbar-breadcrumb a,
 .ide[data-theme="p0-light"] .ide-topbar-breadcrumb span { color: var(--ink-3); }

@@ -1,0 +1,24 @@
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+.rail__item {
+  width: 24px; height: 24px;
+  border-radius: var(--radius-md);
+  display: grid;
+  place-items: center;
+  color: var(--fg-muted);
+}
+.rail__item:hover { background: var(--bg-hover); color: var(--fg); }
+.rail__item--active { background: var(--bg-selected); color: var(--fg); }
+
+.rail__glyph {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}

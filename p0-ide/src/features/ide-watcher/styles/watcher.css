@@ -203,12 +203,7 @@
   padding-left: var(--space-3);
   height: 24px;
   min-width: 60px;
-  border-left: 2px solid transparent;
 }
-.wt-hm-heat-clean  { border-left-color: var(--color-feedback-success-fg); }
-.wt-hm-heat-warn   { border-left-color: var(--color-feedback-warn-fg); }
-.wt-hm-heat-block  { border-left-color: var(--color-feedback-danger-fg); }
-.wt-hm-heat-active { border-left-color: var(--color-feedback-info-fg); }
 
 .wt-hm-heat-clean {
   background: var(--paper-2);

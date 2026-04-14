@@ -153,6 +153,7 @@
   flex: 1;
   min-width: 40px;
   height: 100%;
+  position: relative;
   -webkit-app-region: drag;
 }
 
@@ -167,6 +168,7 @@
   overflow-y: hidden;
   scrollbar-width: none;
   height: 100%;
+  position: relative;
   -webkit-app-region: no-drag;
 }
 .ide-tab-bar::-webkit-scrollbar { display: none; }
@@ -181,6 +183,8 @@
   padding: 0 var(--space-5);
   min-width: 140px;
   max-width: 240px;
+  height: 100%;
+  align-self: stretch;
   border: none;
   border-radius: 0;
   background: transparent;
@@ -198,6 +202,7 @@
 }
 .ide-tab.is-active {
   color: var(--ink);
+  background: var(--paper-1);
 }
 
 /* Home tab — icon only, narrow */
@@ -212,8 +217,8 @@
   content: "";
   position: absolute;
   right: 0;
-  top: 20%;
-  height: 60%;
+  top: 0;
+  height: 100%;
   width: 1px;
   background: var(--line);
 }
@@ -275,6 +280,8 @@
   align-items: center;
   justify-content: center;
   width: 32px;
+  height: 100%;
+  align-self: stretch;
   border: none;
   border-radius: var(--radius-2);
   background: transparent;
@@ -372,6 +379,7 @@
   gap: var(--space-4);
   -webkit-app-region: no-drag;
   flex-shrink: 0;
+  position: relative;
 }
 .ide-topbar-group {
   display: flex;

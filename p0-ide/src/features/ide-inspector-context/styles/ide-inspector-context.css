@@ -606,13 +606,9 @@
   grid-template-rows: auto auto;
   column-gap: var(--space-3);
   padding: var(--space-3) 0.875rem;
-  border-left: 2px solid transparent;
   transition: background var(--transition);
 }
 .fii-signal:hover { background: color-mix(in srgb, var(--accent) 4%, transparent); }
-.fii-signal.is-crit { border-color: var(--line-3); }
-.fii-signal.is-warn { border-color: var(--line-2); }
-.fii-signal.is-info { border-color: transparent; }
 .fii-signal-icon {
   grid-row: 1;
   grid-column: 1;

@@ -135,13 +135,67 @@
   letter-spacing: 0.02em;
 }
 
+/* ── Tool (lint source) filter chips ──────────────────────────────────────── */
+
+.pb-toolbar-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.pb-tool-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-3);
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-fg-faint);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2);
+  line-height: 1.4;
+  cursor: pointer;
+  transition:
+    color var(--transition),
+    background var(--transition),
+    border-color var(--transition);
+}
+.pb-tool-chip:hover {
+  color: var(--color-fg-muted);
+  border-color: color-mix(in srgb, var(--color-border-subtle) 140%, transparent);
+}
+.pb-tool-chip.is-active {
+  color: var(--color-fg-default);
+  background: var(--color-bg-emphasis);
+  border-color: color-mix(in srgb, var(--color-border-subtle) 180%, transparent);
+}
+
+.pb-tool-chip-name {
+  letter-spacing: 0.01em;
+}
+
+.pb-tool-chip-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  opacity: 0.6;
+  min-width: 10px;
+  text-align: right;
+}
+.pb-tool-chip.is-active .pb-tool-chip-count {
+  opacity: 1;
+}
+
 /* ── Body ─────────────────────────────────────────────────────────────────── */
 
 .pb-body {
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding-bottom: var(--space-5);
+  padding: var(--space-3) 0 var(--space-5);
 }
 
 .pb-list {
@@ -172,8 +226,9 @@
   display: grid;
   grid-template-columns: 16px 1fr auto;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-5);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  margin-top: var(--space-2);
   background: transparent;
   border: none;
   border-top: 1px solid color-mix(in srgb, var(--color-border-subtle) 50%, transparent);
@@ -187,6 +242,7 @@
 }
 .pb-group:first-child .pb-group-header {
   border-top: none;
+  margin-top: 0;
 }
 .pb-group-header:hover {
   background: color-mix(in srgb, var(--color-accent-fg) 5%, transparent);
@@ -249,7 +305,7 @@
   grid-template-columns: 14px 52px 1fr auto;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-2) var(--space-5) var(--space-2) calc(var(--space-5) + 20px);
+  padding: var(--space-3) var(--space-5) var(--space-3) calc(var(--space-5) + 20px);
   background: transparent;
   border: none;
   border-left: 2px solid transparent;
@@ -257,6 +313,7 @@
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: var(--font-size-2);
+  line-height: var(--line-height-snug);
   color: var(--color-fg-muted);
   transition:
     background var(--transition),
@@ -302,9 +359,10 @@
 .pb-src {
   font-family: var(--font-mono);
   font-size: var(--font-size-2);
+  line-height: 1.4;
   color: var(--color-fg-faint);
   white-space: nowrap;
-  padding: 0 var(--space-2);
+  padding: 1px var(--space-2);
   border-radius: var(--radius-xs);
   background: var(--color-bg-muted);
   border: 1px solid var(--color-border-subtle);

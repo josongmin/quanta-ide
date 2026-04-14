@@ -36,3 +36,10 @@ export interface ProblemCounts {
   info: number;
   total: number;
 }
+
+/** 툴(linter/LSP) 단위 집계. Toolbar 의 툴 필터 칩 렌더용. */
+export interface ProblemToolCount {
+  /** e.g. "pyright", "ruff", "eslint". source 의 `(`앞 부분. */
+  name: string;
+  count: number;
+}

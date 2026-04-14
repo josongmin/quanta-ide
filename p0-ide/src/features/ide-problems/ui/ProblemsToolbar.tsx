@@ -1,9 +1,16 @@
-import type { ProblemSeverity, ProblemCounts } from "@/entities/problems";
+import type {
+  ProblemSeverity,
+  ProblemCounts,
+  ProblemToolCount,
+} from "@/entities/problems";
 
 interface ProblemsToolbarProps {
   counts: ProblemCounts;
   active: ReadonlySet<ProblemSeverity>;
   onToggle: (sev: ProblemSeverity) => void;
+  tools: readonly ProblemToolCount[];
+  excludedTools: ReadonlySet<string>;
+  onToggleTool: (name: string) => void;
   onClear: () => void;
 }
 
@@ -13,7 +20,15 @@ interface ProblemsToolbarProps {
  * SRP: UI 프레젠테이션만. 카운트 계산/필터링 로직 없음.
  * 부모가 active set을 제어 — 필터 상태가 탭 전환 사이 유지되도록.
  */
-export function ProblemsToolbar({ counts, active, onToggle, onClear }: ProblemsToolbarProps) {
+export function ProblemsToolbar({
+  counts,
+  active,
+  onToggle,
+  tools,
+  excludedTools,
+  onToggleTool,
+  onClear,
+}: ProblemsToolbarProps) {
   return (
     <div className="pb-toolbar">
       <span className="bp-panel-title">Problems</span>
@@ -41,6 +56,26 @@ export function ProblemsToolbar({ counts, active, onToggle, onClear }: ProblemsT
           onClick={() => { onToggle("info"); }}
         />
       </div>
+      {tools.length > 0 ? (
+        <>
+          <span className="bp-toolbar-sep" aria-hidden />
+          <div
+            className="pb-toolbar-tools"
+            role="group"
+            aria-label="Lint source filters"
+          >
+            {tools.map((t) => (
+              <ToolChip
+                key={t.name}
+                name={t.name}
+                count={t.count}
+                active={!excludedTools.has(t.name)}
+                onClick={() => { onToggleTool(t.name); }}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
       <div className="pb-toolbar-spacer" />
       <button
         type="button"
@@ -99,5 +134,27 @@ function FilterChip({ sev, label, count, active, onClick }: FilterChipProps) {
       <span className="pb-chip-count">{count}</span>
       <span className="pb-chip-label">{label}</span>
     </label>
+  );
+}
+
+interface ToolChipProps {
+  name: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}
+
+function ToolChip({ name, count, active, onClick }: ToolChipProps) {
+  return (
+    <button
+      type="button"
+      className={`pb-tool-chip${active ? " is-active" : ""}`}
+      aria-pressed={active}
+      title={`${name}: ${count}`}
+      onClick={onClick}
+    >
+      <span className="pb-tool-chip-name">{name}</span>
+      <span className="pb-tool-chip-count">{count}</span>
+    </button>
   );
 }

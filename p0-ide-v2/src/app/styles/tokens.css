@@ -25,16 +25,48 @@
   --warn: #e09321;
   --danger: #e5484d;
 
+  /* Severity — subtle fills (chip/tag backgrounds) */
+  --bg-danger-subtle: #fdf1f2;
+  --bg-warn-subtle: #fdf8ee;
+  --bg-accent-subtle: #eef7ff;
+  --bg-success-subtle: #f2faf5;
+
+  /* Severity — subtle borders */
+  --border-danger-subtle: #f2bfc2;
+  --border-warn-subtle: #f2d9a8;
+  --border-accent-subtle: #b8dfff;
+  --border-success-subtle: #c6ead5;
+
+  /* Neutral / event colors */
+  --fg-dead: #8a8a93;
+  --fg-testbroke: #ea7a3b;
+  --accent-purple: #7e4ed6;
+  --accent-purple-soft: #a476f0;
+
+  /* Topbar chrome (warm-stone, intentionally distinct from --bg) */
+  --topbar-bg: #f5f5f4;
+  --topbar-border: #e6e5e3;
+  --topbar-divider: #e0dfdc;
+
   /* Typography — system defaults */
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
 
   /* Scale */
+  --fs-10: 10px;
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-md: 13px;
   --fs-lg: 14px;
   --fs-xl: 16px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
 
   /* Layout */
   --topbar-h: 40px;
@@ -67,4 +99,27 @@
 
   --accent: #4dafff;
   --accent-fg: #0b0b0b;
+
+  /* Severity — subtle fills (dark: tinted darks blended against bg-muted) */
+  --bg-danger-subtle: #3a1f20;
+  --bg-warn-subtle: #3a2e1c;
+  --bg-accent-subtle: #1c2b3a;
+  --bg-success-subtle: #1c3328;
+
+  /* Severity — subtle borders (dark: darker saturated tints) */
+  --border-danger-subtle: #5a2d2f;
+  --border-warn-subtle: #5a4624;
+  --border-accent-subtle: #2a486b;
+  --border-success-subtle: #2a5a40;
+
+  /* Neutral / event colors (dark-compatible) */
+  --fg-dead: #7a7a82;
+  --fg-testbroke: #f08a4a;
+  --accent-purple: #9a6ee8;
+  --accent-purple-soft: #b897f3;
+
+  /* Topbar chrome (dark warm-stone) */
+  --topbar-bg: #222222;
+  --topbar-border: #2d2d2d;
+  --topbar-divider: #333333;
 }

@@ -1,5 +1,11 @@
 *, *::before, *::after { box-sizing: border-box; }
-html, body, #root { height: 100%; margin: 0; }
+/* Tauri / WKWebView: 내부 스크롤의 rubber-band가 body로 전파되면 탑바까지 밀린 것처럼 보임 */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 body {
   font-family: var(--font-sans);
   font-size: var(--fs-md);

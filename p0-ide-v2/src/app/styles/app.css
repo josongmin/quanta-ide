@@ -1,14 +1,26 @@
 .app-shell {
   display: grid;
   grid-template-rows: var(--topbar-h) 1fr;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .app-main {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+.app-main > * { flex: 1 1 auto; min-width: 0; min-height: 0; }
+
+.ide-page {
   display: grid;
   grid-template-columns: 1fr auto var(--inspector-w);
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
+  flex: 1 1 auto;
 }
 
 .app-left {
@@ -27,13 +39,13 @@
   overflow: hidden;
 }
 
-.app-main > *,
+.ide-page > *,
 .app-left > *,
 .app-top-row > * { min-width: 0; min-height: 0; }
 
 .resize-handle {
   width: 1px;
-  background: var(--border);
+  background: var(--border-strong);
   cursor: col-resize;
   position: relative;
   flex-shrink: 0;

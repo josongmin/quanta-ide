@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ProblemCounts, ProblemsSnapshot } from "./types";
+import type { ProblemCounts, ProblemsSnapshot, ProblemToolCount } from "./types";
 
 /**
  * Problems store
@@ -54,4 +54,31 @@ export function computeProblemCounts(snapshot: ProblemsSnapshot): ProblemCounts 
     }
   }
   return { error, warn, info, total: error + warn + info };
+}
+
+/**
+ * Source tag 앞부분(툴 이름)만 추출. e.g. "ruff(F401)" → "ruff",
+ * "pyright(reportArgumentType)" → "pyright", "eslint" → "eslint".
+ */
+export function extractProblemTool(source: string): string {
+  const i = source.indexOf("(");
+  const name = i === -1 ? source : source.slice(0, i);
+  return name.trim();
+}
+
+/**
+ * Snapshot 안에 등장하는 툴별 카운트. 건수 내림차순, 동률이면 이름 오름차순.
+ * Toolbar 에서 툴 필터 칩 렌더용. useMemo 로 캐싱해서 쓴다.
+ */
+export function computeProblemTools(snapshot: ProblemsSnapshot): readonly ProblemToolCount[] {
+  const map = new Map<string, number>();
+  for (const g of snapshot.groups) {
+    for (const it of g.items) {
+      const name = extractProblemTool(it.source);
+      map.set(name, (map.get(name) ?? 0) + 1);
+    }
+  }
+  return Array.from(map, ([name, count]) => ({ name, count })).sort(
+    (a, b) => b.count - a.count || a.name.localeCompare(b.name),
+  );
 }

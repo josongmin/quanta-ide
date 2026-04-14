@@ -1,14 +1,16 @@
 import { useMemo, useState } from "react";
-import type {
-  ProblemFileGroup,
-  ProblemItem,
-  ProblemSeverity,
+import {
+  extractProblemTool,
+  type ProblemFileGroup,
+  type ProblemItem,
+  type ProblemSeverity,
 } from "@/entities/problems";
 import { IconChevronDown } from "@/shared/ui";
 
 interface ProblemsListProps {
   groups: readonly ProblemFileGroup[];
   activeSeverities: ReadonlySet<ProblemSeverity>;
+  excludedTools: ReadonlySet<string>;
   onItemActivate?: (group: ProblemFileGroup, item: ProblemItem) => void;
 }
 
@@ -19,7 +21,12 @@ interface ProblemsListProps {
  * 필터링은 부모에서 오는 activeSeverities로 각 그룹의 items를 즉석 필터링.
  * 필터링 후 items가 비면 그룹 자체를 숨김.
  */
-export function ProblemsList({ groups, activeSeverities, onItemActivate }: ProblemsListProps) {
+export function ProblemsList({
+  groups,
+  activeSeverities,
+  excludedTools,
+  onItemActivate,
+}: ProblemsListProps) {
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
 
   const toggleCollapse = (path: string) => {
@@ -34,9 +41,13 @@ export function ProblemsList({ groups, activeSeverities, onItemActivate }: Probl
   const visibleGroups = useMemo(() => groups
     .map((g) => ({
       group: g,
-      items: g.items.filter((it) => activeSeverities.has(it.severity)),
+      items: g.items.filter(
+        (it) =>
+          activeSeverities.has(it.severity)
+          && !excludedTools.has(extractProblemTool(it.source)),
+      ),
     }))
-    .filter((g) => g.items.length > 0), [groups, activeSeverities]);
+    .filter((g) => g.items.length > 0), [groups, activeSeverities, excludedTools]);
 
   if (visibleGroups.length === 0) {
     return (

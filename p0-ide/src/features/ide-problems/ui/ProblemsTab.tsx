@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MOCK_PROBLEMS,
   computeProblemCounts,
+  computeProblemTools,
   selectProblemsSnapshot,
   useProblemsStore,
   type ProblemFileGroup,
@@ -30,6 +31,7 @@ export function ProblemsTab({ onNavigate }: ProblemsTabProps) {
   const clear = useProblemsStore((s) => s.clear);
 
   const counts = useMemo(() => computeProblemCounts(snapshot), [snapshot]);
+  const tools = useMemo(() => computeProblemTools(snapshot), [snapshot]);
 
   const initialized = useRef(false);
   useEffect(() => {
@@ -44,11 +46,26 @@ export function ProblemsTab({ onNavigate }: ProblemsTabProps) {
     () => new Set<ProblemSeverity>(["error", "warn", "info"]),
   );
 
+  /** 제외된 툴 집합 — 빈 집합 = 전체 표시. 스냅샷에 새 툴이 들어와도
+   * 자동으로 기본 "보임"이 되도록 "exclude" 의미로 관리한다. */
+  const [excludedTools, setExcludedTools] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+
   const toggle = (sev: ProblemSeverity) => {
     setActive((prev) => {
       const next = new Set(prev);
       if (next.has(sev)) next.delete(sev);
       else next.add(sev);
+      return next;
+    });
+  };
+
+  const toggleTool = (name: string) => {
+    setExcludedTools((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
       return next;
     });
   };
@@ -59,12 +76,16 @@ export function ProblemsTab({ onNavigate }: ProblemsTabProps) {
         counts={counts}
         active={active}
         onToggle={toggle}
+        tools={tools}
+        excludedTools={excludedTools}
+        onToggleTool={toggleTool}
         onClear={clear}
       />
       <div className="pb-body">
         <ProblemsList
           groups={snapshot.groups}
           activeSeverities={active}
+          excludedTools={excludedTools}
           onItemActivate={onNavigate}
         />
       </div>
