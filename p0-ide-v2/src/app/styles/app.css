@@ -1,0 +1,53 @@
+.app-shell {
+  display: grid;
+  grid-template-rows: var(--topbar-h) 1fr;
+  height: 100vh;
+}
+
+.app-main {
+  display: grid;
+  grid-template-columns: 1fr auto var(--inspector-w);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-left {
+  display: grid;
+  grid-template-rows: 1fr 260px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-top-row {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) auto 1fr;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-main > *,
+.app-left > *,
+.app-top-row > * { min-width: 0; min-height: 0; }
+
+.resize-handle {
+  width: 1px;
+  background: var(--border);
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.12s ease;
+}
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -3px;
+  right: -3px;
+}
+.resize-handle:hover,
+.resize-handle:active {
+  background: var(--accent);
+}

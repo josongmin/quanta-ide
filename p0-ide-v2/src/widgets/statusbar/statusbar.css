@@ -1,0 +1,19 @@
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  height: var(--statusbar-h);
+}
+.statusbar__left, .statusbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sep { color: var(--fg-subtle); }
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.dot--ok { background: var(--success); }
