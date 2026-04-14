@@ -51,3 +51,247 @@
 .resize-handle:active {
   background: var(--accent);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Overlay modals (Simulate + Context Inject)
+   ══════════════════════════════════════════════════════════════ */
+
+.sim-overlay,
+.ctx-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  pointer-events: none;
+}
+.sim-overlay__scrim,
+.ctx-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--fg) 25%, transparent);
+  pointer-events: auto;
+}
+.sim-overlay__panel,
+.ctx-overlay__panel {
+  position: relative;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  width: 640px;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+}
+
+.sim-overlay__head,
+.ctx-overlay__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.sim-overlay__kicker,
+.ctx-overlay__kicker {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-subtle);
+}
+.sim-overlay__title {
+  font-size: var(--fs-md);
+  color: var(--fg);
+  margin-left: 8px;
+}
+.sim-overlay__title code {
+  font-family: var(--font-mono);
+  background: var(--bg-muted);
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+}
+.sim-overlay__close,
+.ctx-overlay__close {
+  margin-left: auto;
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--fg-subtle);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.sim-overlay__close:hover,
+.ctx-overlay__close:hover { color: var(--fg); }
+
+/* ── Simulate body ── */
+.sim-overlay__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  overflow-y: auto;
+}
+.sim-panel {
+  background: var(--bg);
+  padding: 16px 18px;
+}
+.sim-panel__h {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-subtle);
+  margin-bottom: 10px;
+}
+
+.sim-mut { display: flex; flex-direction: column; gap: 10px; }
+.sim-mut__row {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-sm);
+}
+.sim-mut__k { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.sim-mut__v {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+}
+
+.sim-eff { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.sim-eff__row {
+  display: grid;
+  grid-template-columns: 10px 80px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-sm);
+}
+.sim-eff__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--fg-subtle); }
+.sim-eff__row--bad .sim-eff__dot { background: var(--danger); }
+.sim-eff__row--warn .sim-eff__dot { background: var(--fg-muted); }
+.sim-eff__row--ok .sim-eff__dot { background: var(--fg-muted); }
+.sim-eff__k { color: var(--fg-subtle); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+.sim-eff__v { font-family: var(--font-mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+.sim-eff__v em { font-style: normal; color: var(--fg-muted); font-size: 11px; margin-left: 4px; }
+.sim-eff__row--bad .sim-eff__v em { color: var(--danger); }
+.sim-eff__row--warn .sim-eff__v em { color: var(--fg-muted); }
+
+/* ── Context inject body ── */
+.ctx-overlay__card {
+  margin: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.ctx-card__h {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-subtle);
+  padding: 10px 12px 6px;
+}
+.ctx-card__list {
+  list-style: none;
+  padding: 0 12px 12px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  font-size: var(--fs-sm);
+}
+.ctx-card__list li { display: flex; flex-direction: column; gap: 2px; }
+.ctx-card__k { font-size: 10px; color: var(--fg-subtle); text-transform: uppercase; letter-spacing: 0.04em; }
+.ctx-card__v { color: var(--fg); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.ctx-card__v code {
+  font-family: var(--font-mono);
+  background: var(--bg-muted);
+  padding: 0 3px;
+  border-radius: 2px;
+}
+
+.ctx-overlay__prompt { padding: 0 18px 12px; }
+.ctx-overlay__prompt textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  resize: vertical;
+  min-height: 72px;
+}
+.ctx-overlay__prompt textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ── Footers shared by both overlays ── */
+.sim-overlay__foot,
+.ctx-overlay__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.sim-overlay__hint,
+.ctx-overlay__hint {
+  display: inline-flex;
+  gap: 10px;
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  align-items: center;
+}
+.sim-overlay__actions,
+.ctx-overlay__actions { display: flex; gap: 8px; }
+
+/* Reusable btn — scoped so it doesn't conflict with existing .btn rules */
+.sim-overlay .btn,
+.ctx-overlay .btn {
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+.sim-overlay .btn--primary,
+.ctx-overlay .btn--primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.sim-overlay .btn--primary:disabled,
+.ctx-overlay .btn--primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.sim-overlay .btn--ghost,
+.ctx-overlay .btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-muted);
+}
+.sim-overlay .btn--ghost:hover,
+.ctx-overlay .btn--ghost:hover { background: var(--bg-hover); color: var(--fg); }

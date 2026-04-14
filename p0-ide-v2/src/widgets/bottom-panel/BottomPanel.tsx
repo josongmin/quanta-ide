@@ -110,39 +110,221 @@ function OutputIcon() {
   );
 }
 
+type TodayEvent = "break" | "drift" | "dead" | "testbroke" | "fix";
+interface TodayBucket { turns: number; locAdd: number; locDel: number; events: TodayEvent[]; }
+interface DayBucket   { turns: number; netLoc: number; }
+
+const TODAY: TodayBucket[] = [
+  { turns: 2,  locAdd: 14, locDel:  4, events: [] },
+  { turns: 5,  locAdd: 32, locDel:  8, events: [] },
+  { turns: 8,  locAdd: 52, locDel: 14, events: ["drift"] },
+  { turns: 11, locAdd: 68, locDel: 22, events: [] },
+  { turns: 7,  locAdd: 38, locDel: 28, events: ["break"] },
+  { turns: 9,  locAdd: 48, locDel: 18, events: [] },
+  { turns: 12, locAdd: 72, locDel: 14, events: ["fix"] },
+  { turns: 14, locAdd: 84, locDel: 20, events: ["dead"] },
+  { turns: 6,  locAdd: 22, locDel: 54, events: ["testbroke"] },
+  { turns: 3,  locAdd: 10, locDel: 38, events: [] },
+  { turns: 7,  locAdd: 28, locDel: 46, events: ["fix"] },
+  { turns: 10, locAdd: 52, locDel: 24, events: [] },
+  { turns: 13, locAdd: 76, locDel: 18, events: ["drift", "break"] },
+  { turns: 9,  locAdd: 48, locDel: 32, events: [] },
+  { turns: 5,  locAdd: 22, locDel: 12, events: [] },
+  { turns: 4,  locAdd: 18, locDel:  8, events: [] },
+];
+
+const MONTH: DayBucket[] = [
+  { turns: 12, netLoc:  -20 }, { turns: 28, netLoc:   68 }, { turns: 45, netLoc:  110 },
+  { turns: 32, netLoc:   86 }, { turns: 54, netLoc:  142 }, { turns: 48, netLoc:  168 },
+  { turns: 38, netLoc:   92 }, { turns: 22, netLoc:   18 }, { turns: 31, netLoc:   54 },
+  { turns: 19, netLoc:   -8 }, { turns: 28, netLoc:   22 }, { turns: 42, netLoc:   72 },
+  { turns: 36, netLoc:   48 }, { turns: 51, netLoc:  -68 }, { turns: 44, netLoc: -120 },
+  { turns: 39, netLoc:  -38 }, { turns: 52, netLoc: -142 }, { turns: 28, netLoc:  -52 },
+  { turns: 48, netLoc:  -88 }, { turns: 34, netLoc:   12 }, { turns: 56, netLoc:  -42 },
+  { turns: 62, netLoc: -112 }, { turns: 38, netLoc:  -38 }, { turns: 44, netLoc:  -72 },
+  { turns: 58, netLoc:   28 }, { turns: 48, netLoc:  -94 }, { turns: 52, netLoc:  -18 },
+  { turns: 66, netLoc:   48 }, { turns: 72, netLoc:  -28 }, { turns: 84, netLoc:  -62 },
+];
+
+function eventLabel(e: TodayEvent): string {
+  if (e === "break") return "contract break";
+  if (e === "drift") return "shape drift";
+  if (e === "dead") return "dead symbol born";
+  if (e === "testbroke") return "test broken";
+  return "fix landed";
+}
+
+const RANGES = ["24h", "7d", "30d", "90d"] as const;
+type Range = (typeof RANGES)[number];
+
 function WatcherPane() {
-  const chips = [
-    { label: "editing", n: 3, kind: "accent" },
-    { label: "clean", n: 48, kind: "ok" },
-    { label: "warnings", n: 5, kind: "warn" },
-    { label: "blocked", n: 2, kind: "danger" },
-  ];
-  // simple 8×6 heat grid (48 cells) with varied states
-  const grid = Array.from({ length: 48 }, (_, i) => {
-    const mod = i % 11;
-    if (mod === 0) return "editing";
-    if (mod === 3) return "warn";
-    if (mod === 7) return "block";
-    if (mod === 9) return "idle";
-    return "clean";
-  });
+  const [range, setRange] = useState<Range>("30d");
+
+  const todayTurnsMax = Math.max(...TODAY.map((b) => b.turns));
+  const todayLocMax   = Math.max(...TODAY.flatMap((b) => [b.locAdd, b.locDel]));
+  const monthTurnsMax = Math.max(...MONTH.map((b) => b.turns));
+  const monthLocMax   = Math.max(...MONTH.map((b) => Math.abs(b.netLoc)));
+
   return (
     <div className="pane pane--watcher">
       <div className="toolbar">
-        {chips.map((c) => (
-          <span key={c.label} className={`chip chip--${c.kind}`}>
-            <span className="chip__n">{c.n}</span>
-            <span className="chip__l">{c.label}</span>
-          </span>
-        ))}
+        <button
+          type="button"
+          className="wt-pill"
+          aria-label="Time range"
+          title="Time range"
+          onClick={() => {
+            const i = RANGES.indexOf(range);
+            setRange(RANGES[(i + 1) % RANGES.length]);
+          }}
+        >
+          <span>{range}</span>
+          <ChevronDownTiny />
+        </button>
+        <button type="button" className="wt-pill" aria-label="Pick end date" title="End date">
+          <CalendarIcon />
+          <span>Apr 14</span>
+          <ChevronDownTiny />
+        </button>
+        <button type="button" className="wt-pill" aria-label="Filter by agent" title="Agent filter">
+          <span className="wt-filter-dot" aria-hidden /> all agents
+          <ChevronDownTiny />
+        </button>
         <div className="toolbar__spacer" />
-        <span className="toolbar__muted">2 fail · 1 running · 48 pass</span>
+        <span className="toolbar__muted">
+          session <b className="wt-mono">3h 12m</b> · claude 4.6 · accept rate <b className="wt-mono">84%</b>
+        </span>
       </div>
-      <div className="heatgrid">
-        {grid.map((s, i) => <div key={i} className={`cell cell--${s}`} />)}
+
+      <div className="wt-grid">
+        {/* ── Section 1: Today (hourly detail) ────────────────────── */}
+        <section className="wt-section wt-section--today" aria-label="Today — LLM activity by 30-minute bucket">
+          <header className="wt-head">
+            <div className="wt-title">
+              <span className="wt-kicker">Today</span>
+              <span className="wt-sub">12:00 – 20:00 · 30m buckets</span>
+            </div>
+            <div className="wt-head-stat">
+              <span className="wt-hn">+126</span>
+              <span className="wt-hl">net LOC</span>
+            </div>
+          </header>
+
+          <div className="wt-row">
+            <span className="wt-row-label">turns</span>
+            <div className="wt-bars wt-bars--solid">
+              {TODAY.map((b, i) => (
+                <div key={i} className="wt-cell" title={`${bucketTime(i)} · ${b.turns} turns`}>
+                  <div className="wt-bar wt-bar--turns" style={{ height: `${(b.turns / todayTurnsMax) * 100}%` }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="wt-row">
+            <span className="wt-row-label">Δ LOC</span>
+            <div className="wt-bars wt-bars--div">
+              <span className="wt-baseline" aria-hidden />
+              {TODAY.map((b, i) => (
+                <div key={i} className="wt-cell wt-cell--div" title={`${bucketTime(i)} · +${b.locAdd} / −${b.locDel}`}>
+                  <div className="wt-half wt-half--top">
+                    <div className="wt-bar wt-bar--pos" style={{ height: `${(b.locAdd / todayLocMax) * 100}%` }} />
+                  </div>
+                  <div className="wt-half wt-half--bot">
+                    <div className="wt-bar wt-bar--neg" style={{ height: `${(b.locDel / todayLocMax) * 100}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="wt-row">
+            <span className="wt-row-label">events</span>
+            <div className="wt-events">
+              {TODAY.map((b, i) => (
+                <div key={i} className="wt-evt-cell" title={b.events.length ? `${bucketTime(i)} · ${b.events.map(eventLabel).join(", ")}` : bucketTime(i)}>
+                  {b.events.map((e, j) => (
+                    <span key={j} className={`wt-evt wt-evt--${e}`} aria-label={eventLabel(e)} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="wt-axis">
+            <span>12:00</span><span>16:00</span><span>20:00</span>
+          </div>
+        </section>
+
+        {/* ── Section 2: Last 30 days (daily overview) ────────────── */}
+        <section className="wt-section wt-section--month" aria-label="Last 30 days — LLM activity by day">
+          <header className="wt-head">
+            <div className="wt-title">
+              <span className="wt-kicker">30 days</span>
+              <span className="wt-sub">turns · net Δ LOC per day</span>
+            </div>
+            <div className="wt-head-stat">
+              <span className="wt-hn">−264</span>
+              <span className="wt-hl">30d net LOC</span>
+            </div>
+          </header>
+
+          <div className="wt-row">
+            <span className="wt-row-label">turns</span>
+            <div className="wt-bars wt-bars--solid">
+              {MONTH.map((b, i) => (
+                <div key={i} className="wt-cell" title={`day ${i + 1} · ${b.turns} turns`}>
+                  <div className="wt-bar wt-bar--turns" style={{ height: `${(b.turns / monthTurnsMax) * 100}%` }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="wt-row">
+            <span className="wt-row-label">Δ LOC</span>
+            <div className="wt-bars wt-bars--div">
+              <span className="wt-baseline" aria-hidden />
+              {MONTH.map((b, i) => {
+                const h = (Math.abs(b.netLoc) / monthLocMax) * 100;
+                return (
+                  <div key={i} className="wt-cell wt-cell--div" title={`day ${i + 1} · ${b.netLoc >= 0 ? "+" : ""}${b.netLoc} LOC`}>
+                    <div className="wt-half wt-half--top">
+                      {b.netLoc >= 0 && <div className="wt-bar wt-bar--pos" style={{ height: `${h}%` }} />}
+                    </div>
+                    <div className="wt-half wt-half--bot">
+                      {b.netLoc < 0 && <div className="wt-bar wt-bar--neg" style={{ height: `${h}%` }} />}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="wt-axis">
+            <span>3/14</span><span>30d</span><span>4/12</span>
+          </div>
+        </section>
       </div>
     </div>
   );
+}
+
+function CalendarIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="2.5" y="3.5" width="11" height="10" rx="1.5" />
+      <line x1="2.5" y1="6.5" x2="13.5" y2="6.5" />
+      <line x1="5.5" y1="2" x2="5.5" y2="5" />
+      <line x1="10.5" y1="2" x2="10.5" y2="5" />
+    </svg>
+  );
+}
+
+function bucketTime(i: number): string {
+  const minutes = 12 * 60 + i * 30;
+  const hh = Math.floor(minutes / 60);
+  const mm = minutes % 60;
+  return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
 type Severity = "error" | "warn" | "info";

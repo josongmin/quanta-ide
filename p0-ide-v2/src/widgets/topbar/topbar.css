@@ -10,10 +10,27 @@
   user-select: none;
   font-family: var(--font-sans);
   color: var(--fg-muted);
+  -webkit-app-region: drag;
+}
+.topbar__tabs,
+.topbar__drag,
+.topbar__right {
+  -webkit-app-region: drag;
+}
+.topbar button,
+.topbar a,
+.topbar input,
+.topbar [role="tab"],
+.topbar [role="button"] {
+  -webkit-app-region: no-drag;
+}
+.is-tauri .topbar {
+  padding-left: 78px;
 }
 
 /* ── Home (leftmost, icon only) ───────────────────────────────────── */
 .topbar__home {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
@@ -74,18 +91,18 @@
 }
 
 /* separator between tabs */
-.topbar__tab::before {
+.topbar__tab::before,
+.topbar__tab::after {
   content: "";
   position: absolute;
-  right: 0;
   top: 22%;
   bottom: 22%;
   width: 1px;
   background: #e0dfdc;
 }
-.topbar__tab:last-of-type::before,
-.topbar__tab.is-active::before,
-.topbar__tab.is-active + .topbar__tab::before { background: transparent; }
+.topbar__tab::before { right: 0; }
+.topbar__tab::after { left: 0; display: none; }
+.topbar__tab:first-of-type::after { display: block; }
 
 .topbar__tab-icon {
   display: inline-flex;
@@ -125,12 +142,13 @@
 
 /* [+] add tab */
 .topbar__tab-add {
+  position: relative;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  margin: 6px 4px;
+  width: 44px;
+  margin: 6px 8px;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -230,14 +248,13 @@
 .topbar__profile:hover { background: rgba(0, 0, 0, 0.05); }
 
 .topbar__avatar {
-  width: 24px;
-  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 30% 30%, #f0a5d8 0%, transparent 35%),
-    radial-gradient(circle at 70% 40%, #7fb3f0 0%, transparent 40%),
-    radial-gradient(circle at 50% 70%, #88e0b5 0%, transparent 40%),
-    linear-gradient(135deg, #5c7ff0, #9e5bd8);
+  overflow: hidden;
   flex-shrink: 0;
 }
 

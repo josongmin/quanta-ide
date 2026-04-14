@@ -110,7 +110,19 @@ Violations are **blocked by Semgrep** (`.semgrep/rust-architecture.yml`):
 
 ## Product note
 
-`IdePage` and related modules use **mock data** for the IDE demo. Treat security/lint findings in `mock-*` files as demo fixtures unless the user asks to harden them.
+**This is a real product — a Software Intelligence Platform ("코드를 이해하는 인프라").**
+The IDE is the delivery surface for the engine's signals (taint flow, blast radius, behavior diff, typestate, incident DNA, ownership, cost, dead code, arch rules).
+
+Current `mock-engine.ts` and `mock-*.ts` files hold **stand-in data wired to real UI contracts** — the shapes represent what the engine will emit. Treat the types as the contract: when backend endpoints come online, swap the mock module for a live source without touching UI code. Don't soften lint/security findings in mock files unless asked.
+
+### v2 IDE — overlay layers (p0-ide-v2)
+
+- **L1 passive** — gutter glyphs, function-header line widget, tab banner, right-margin risk minimap
+- **L2 hover** — symbol popup (with flow preview), call-site popup (taint path + effects)
+- **L3 inspector modes** — Overview / Flow / Blast / Incidents / Behavior / Ownership, driven by `focus-store`
+- **L4 active** — `⌘⇧S` simulate change, `⌘E` ask agent with auto-injected context, `⌘1–6` switch inspector mode
+
+Engine data flows through `src/entities/engine/` (types + mock source + focus store). Widgets read from the entity layer; never hard-code facts inside widgets.
 
 ## AI agent — things you must NOT do
 

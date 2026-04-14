@@ -53,6 +53,7 @@ interface SidebarProps {
   repoName?: string;
   /** optional emoji icon — overrides one auto-parsed from repoName */
   repoIcon?: string | null;
+  onSelect?: (kind: "file" | "folder" | "repo", name: string) => void;
 }
 
 /** "🛵 payments-api" → ["🛵", "payments-api"] */
@@ -62,7 +63,7 @@ function splitRepoEmoji(name: string): [string | null, string] {
   return [null, name];
 }
 
-export function Sidebar({ nodes = defaultNodes, repoName = "🛵 payments-api", repoIcon }: SidebarProps) {
+export function Sidebar({ nodes = defaultNodes, repoName = "🛵 payments-api", repoIcon, onSelect }: SidebarProps) {
   const [openState, setOpenState] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -97,7 +98,7 @@ export function Sidebar({ nodes = defaultNodes, repoName = "🛵 payments-api", 
 
   return (
     <aside className="ide-files" aria-label="Explorer">
-      <button type="button" className="ide-files-repo-btn" title="레포 인사이트 보기">
+      <button type="button" className="ide-files-repo-btn" title="레포 인사이트 보기" onClick={() => { setSelected(null); onSelect?.("repo", repoName); }}>
         {(() => {
           const [autoEmoji, cleanName] = splitRepoEmoji(repoName);
           const emoji = repoIcon ?? autoEmoji;
@@ -157,6 +158,7 @@ export function Sidebar({ nodes = defaultNodes, repoName = "🛵 payments-api", 
               onClick={() => {
                 setSelected(node.name);
                 if (isFolder) toggleFolder(node.name, node.depth);
+                onSelect?.(isFolder ? "folder" : "file", node.name);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {

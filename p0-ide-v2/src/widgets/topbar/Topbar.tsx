@@ -1,39 +1,30 @@
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import BoringAvatar from "boring-avatars";
 import "./topbar.css";
 
-type AppKind = "home" | "ide";
-interface Tab { id: string; app: AppKind; label: string; }
+export type AppKind = "home" | "ide";
+export interface Tab { id: string; app: AppKind; label: string; }
 
-const initialTabs: Tab[] = [
-  { id: "t1", app: "ide", label: "order-service" },
-  { id: "t2", app: "ide", label: "payment-service" },
-];
+interface TopbarProps {
+  tabs: Tab[];
+  activeId: string;
+  onSelect: (id: string) => void;
+  onClose: (id: string) => void;
+  onAdd: () => void;
+}
 
-export function Topbar() {
-  const [tabs, setTabs] = useState<Tab[]>(initialTabs);
-  const [activeId, setActiveId] = useState<string>("t2");
-
-  const addTab = () => {
-    const id = `t${Date.now()}`;
-    setTabs((prev) => [...prev, { id, app: "ide", label: "new-service" }]);
-    setActiveId(id);
-  };
-
-  const closeTab = (id: string) => {
-    setTabs((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      if (id === activeId && next.length > 0) setActiveId(next[next.length - 1].id);
-      return next;
-    });
-  };
+export function Topbar({ tabs, activeId, onSelect, onClose, onAdd }: TopbarProps) {
+  const setActiveId = onSelect;
+  const addTab = onAdd;
+  const closeTab = onClose;
 
   return (
-    <header className="topbar">
+    <header className="topbar" data-tauri-drag-region>
       <button type="button" className="topbar__home" title="Home" aria-label="Home">
         <HomeIcon />
       </button>
 
-      <div className="topbar__tabs" role="tablist">
+      <div className="topbar__tabs" role="tablist" data-tauri-drag-region>
         {tabs.map((t) => {
           const isActive = t.id === activeId;
           return (
@@ -46,7 +37,9 @@ export function Topbar() {
               onClick={() => setActiveId(t.id)}
               title={t.label}
             >
-              <span className="topbar__tab-icon" aria-hidden><CodeIcon /></span>
+              <span className="topbar__tab-icon" aria-hidden>
+                {t.app === "home" ? <HomeTabIcon /> : <CodeIcon />}
+              </span>
               <span className="topbar__tab-label">{t.label}</span>
               <span
                 className="topbar__tab-close"
@@ -65,9 +58,9 @@ export function Topbar() {
         </button>
       </div>
 
-      <div className="topbar__drag" />
+      <div className="topbar__drag" data-tauri-drag-region />
 
-      <div className="topbar__right">
+      <div className="topbar__right" data-tauri-drag-region>
         <IconButton title="Font"><span className="topbar__T">T</span></IconButton>
         <span className="topbar__sep" />
         <IconButton title="Search (⌘K)"><SearchIcon /></IconButton>
@@ -78,7 +71,14 @@ export function Topbar() {
         <IconButton title="Settings"><SettingsIcon /></IconButton>
         <span className="topbar__sep" />
         <button type="button" className="topbar__profile" title="Song Min" aria-label="Profile">
-          <span className="topbar__avatar" aria-hidden />
+          <span className="topbar__avatar" aria-hidden>
+            <BoringAvatar
+              size={20}
+              name="Song Min"
+              variant="pixel"
+              colors={["#6366f1", "#8b5cf6", "#06b6d4", "#f59e0b", "#10b981"]}
+            />
+          </span>
           <span className="topbar__profile-name">Song Min</span>
         </button>
       </div>
@@ -96,8 +96,8 @@ function IconButton({ title, children }: { title: string; children: ReactNode })
 
 /* ── icons ─────────────────────────────────────────────────────── */
 const SVG = {
-  width: 15,
-  height: 15,
+  width: 17,
+  height: 17,
   viewBox: "0 0 24 24",
   fill: "none" as const,
   stroke: "currentColor" as const,
@@ -119,6 +119,13 @@ function CodeIcon() {
     <svg {...SVG} width="13" height="13">
       <polyline points="16 18 22 12 16 6" />
       <polyline points="8 6 2 12 8 18" />
+    </svg>
+  );
+}
+function HomeTabIcon() {
+  return (
+    <svg {...SVG} width="13" height="13">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
     </svg>
   );
 }

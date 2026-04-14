@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.quanta.ide",
   "build": {
-    "frontendDist": "../dist",
-    "devUrl": "http://localhost:5173/ide/",
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "frontendDist": "../../p0-ide-v2/dist",
+    "devUrl": "http://localhost:5174/ide/",
+    "beforeDevCommand": "pnpm --dir ../p0-ide-v2 dev",
+    "beforeBuildCommand": "pnpm --dir ../p0-ide-v2 build"
   },
   "app": {
     "windows": [
@@ -22,7 +22,7 @@
         "decorations": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
-        "trafficLightPosition": { "x": 20, "y": 22 }
+        "trafficLightPosition": { "x": 14, "y": 14 }
       }
     ],
     "security": {

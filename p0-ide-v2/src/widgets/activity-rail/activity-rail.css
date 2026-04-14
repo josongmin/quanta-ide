@@ -9,7 +9,7 @@
 }
 
 .rail__item {
-  width: 32px; height: 32px;
+  width: 26px; height: 26px;
   border-radius: var(--radius-md);
   display: grid;
   place-items: center;
