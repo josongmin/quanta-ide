@@ -14,6 +14,17 @@
   align-items: center;
   gap: 8px;
 }
+.statusbar__branch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-muted);
+}
+.statusbar__branch svg {
+  flex-shrink: 0;
+  opacity: 0.88;
+  color: var(--fg-subtle);
+}
 .sep { color: var(--fg-subtle); }
 .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
 .dot--ok { background: var(--success); }
