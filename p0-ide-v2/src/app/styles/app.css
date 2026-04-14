@@ -25,7 +25,7 @@
 
 .app-left {
   display: grid;
-  grid-template-rows: 1fr 260px var(--statusbar-h);
+  grid-template-rows: 1fr 260px;
   min-height: 0;
   min-width: 0;
   overflow: hidden;

@@ -16,6 +16,22 @@ export interface GitCommitRow {
   lane: number;
 }
 
+/** Graphite-style stacked branch / PR row (mock). */
+export interface StackedBranch {
+  id: string;
+  /** Rows with the same group share one vertical spine. */
+  stackGroup: string;
+  /** 0 = base of stack, increments toward tip. */
+  depth: number;
+  name: string;
+  relativeTime: string;
+  hasOpenPr: boolean;
+  prNumber?: number;
+  pushedToRemote: boolean;
+  /** Files changed on this branch (mock). */
+  touchedFiles: string[];
+}
+
 export type GitRemoteBusy = "idle" | "fetch" | "pull" | "push";
 
 export interface GitWorkspaceState {
@@ -25,6 +41,9 @@ export interface GitWorkspaceState {
   ahead: number;
   behind: number;
   recentCommits: GitCommitRow[];
+  /** Stacked PRs / branches (Graphite-style mock). */
+  stackBranches: StackedBranch[];
+  selectedStackBranchId: string | null;
   busy: GitRemoteBusy;
   toast: string | null;
   agentReviewOpen: boolean;
@@ -57,6 +76,74 @@ function initialState(): GitWorkspaceState {
       { hash: "d8031f4", subject: "fix: routing retry backoff", graphColor: "b", lane: 1 },
       { hash: "c110e02", subject: "Merge branch 'redesign/ide-shell'", graphColor: "c", lane: 0 },
     ],
+    stackBranches: [
+      {
+        id: "stk-sync-1",
+        stackGroup: "pp-12-12",
+        depth: 0,
+        name: "pp-12-12-route-guard",
+        relativeTime: "3m",
+        hasOpenPr: true,
+        prNumber: 2404,
+        pushedToRemote: true,
+        touchedFiles: ["apps/api/src/middleware.ts"],
+      },
+      {
+        id: "stk-sync-2",
+        stackGroup: "pp-12-12",
+        depth: 1,
+        name: "pp-12-12-auth-hook",
+        relativeTime: "3m",
+        hasOpenPr: true,
+        prNumber: 2405,
+        pushedToRemote: true,
+        touchedFiles: ["apps/api/src/auth.ts"],
+      },
+      {
+        id: "stk-core-a",
+        stackGroup: "pp-01-03",
+        depth: 0,
+        name: "pp-01-03-A",
+        relativeTime: "2w",
+        hasOpenPr: true,
+        prNumber: 118,
+        pushedToRemote: true,
+        touchedFiles: ["libs/core/a.py"],
+      },
+      {
+        id: "stk-core-b",
+        stackGroup: "pp-01-03",
+        depth: 1,
+        name: "pp-01-03-B",
+        relativeTime: "2w",
+        hasOpenPr: true,
+        prNumber: 119,
+        pushedToRemote: true,
+        touchedFiles: ["libs/core/b.py"],
+      },
+      {
+        id: "stk-core-c",
+        stackGroup: "pp-01-03",
+        depth: 2,
+        name: "pp-01-03-C",
+        relativeTime: "3m",
+        hasOpenPr: true,
+        prNumber: 2410,
+        pushedToRemote: true,
+        touchedFiles: ["apps/public/splash-page/src/css/global.scss"],
+      },
+      {
+        id: "stk-solo",
+        stackGroup: "solo",
+        depth: 0,
+        name: "pp-12-14-new_branch",
+        relativeTime: "1h",
+        hasOpenPr: false,
+        pushedToRemote: false,
+        touchedFiles: ["README.md"],
+      },
+    ],
+    selectedStackBranchId: "stk-core-c",
     busy: "idle",
     toast: null,
     agentReviewOpen: false,
@@ -104,6 +191,11 @@ export const gitWorkspaceStore = {
   },
   getState: (): GitWorkspaceState => state,
 
+  /** Ephemeral toast from UI actions (mock). */
+  notify: (message: string, ms = 2000) => {
+    showToast(message, ms);
+  },
+
   createAndCheckout: (raw: string): { ok: true; name: string } | { ok: false; reason: "empty" | "invalid" } => {
     const name = sanitizeBranchName(raw);
     if (!name) return { ok: false, reason: "empty" };
@@ -148,6 +240,13 @@ export const gitWorkspaceStore = {
     state = { ...state, files: state.files.filter((f) => f.id !== id) };
     emit();
     showToast("Discarded local changes", 1600);
+  },
+
+  discardAll: () => {
+    if (state.files.length === 0) return;
+    state = { ...state, files: [] };
+    emit();
+    showToast("Discarded all changes", 2000);
   },
 
   refresh: () => {
@@ -214,7 +313,7 @@ export const gitWorkspaceStore = {
       commitMessage: "",
       ahead: state.ahead + 1,
       recentCommits: [
-        { hash: h, subject: msg.length > 80 ? `${msg.slice(0, 77)}…` : msg, graphColor: "a", lane: 0 },
+        { hash: h, subject: msg.length > 80 ? `${msg.slice(0, 77)}…` : msg, graphColor: "a" as const, lane: 0 },
         ...state.recentCommits,
       ].slice(0, 24),
     };
@@ -232,6 +331,26 @@ export const gitWorkspaceStore = {
     }
     return { ok: true };
   },
+
+  selectStackBranch: (id: string | null) => {
+    state = { ...state, selectedStackBranchId: id };
+    emit();
+  },
+
+  checkoutStackBranch: (id: string) => {
+    const row = state.stackBranches.find((b) => b.id === id);
+    if (!row) return;
+    state = { ...state, branch: row.name, selectedStackBranchId: id };
+    emit();
+    showToast(`Checked out ${row.name}`, 2000);
+  },
+
+  /** Mock: submit / restack current stack segment. */
+  submitStackBranch: (id: string) => {
+    const row = state.stackBranches.find((b) => b.id === id);
+    if (!row) return;
+    showToast(`Submitted stack for ${row.name} (mock)`, 2400);
+  },
 };
 
 export function useGitWorkspace(): GitWorkspaceState {
@@ -243,12 +362,26 @@ export function useGitWorkspace(): GitWorkspaceState {
 }
 
 export function useGitWorkspaceBranch(): string {
-  return useGitWorkspace().branch;
+  return useSyncExternalStore(
+    gitWorkspaceStore.subscribe,
+    () => gitWorkspaceStore.getState().branch,
+    () => gitWorkspaceStore.getState().branch,
+  );
+}
+
+function syncSnapshotKey(): string {
+  const { ahead, behind, busy } = gitWorkspaceStore.getState();
+  return `${ahead}|${behind}|${busy}`;
 }
 
 export function useGitWorkspaceSync(): Pick<GitWorkspaceState, "ahead" | "behind" | "busy"> {
-  const s = useGitWorkspace();
-  return { ahead: s.ahead, behind: s.behind, busy: s.busy };
+  const key = useSyncExternalStore(
+    gitWorkspaceStore.subscribe,
+    syncSnapshotKey,
+    syncSnapshotKey,
+  );
+  const [a, b, busy] = key.split("|");
+  return { ahead: Number(a), behind: Number(b), busy: busy as GitRemoteBusy };
 }
 
 /** Tab badge: rerenders only when dirty file count changes. */

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { ChevronIcon, useActivePack } from "@/shared/ui/icons";
-import { gitWorkspaceStore, useGitWorkspaceBranch } from "@/shared/model/git-workspace";
+import { useGitWorkspaceChangeCount } from "@/shared/model/git-workspace";
+import { GitPanel } from "@/features/git-panel";
 import { resolveIconColor, useIconColor } from "@/shared/model/icon-pack-store";
 import { IconPackPicker } from "./IconPackPicker";
 import "./sidebar.css";
@@ -66,11 +67,7 @@ interface SidebarProps {
 
 export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
   const [explorerTab, setExplorerTab] = useState<ExplorerTab>("project");
-  const currentBranch = useGitWorkspaceBranch();
-  const [branchFormOpen, setBranchFormOpen] = useState(false);
-  const [newBranchName, setNewBranchName] = useState("");
-  const [branchFormError, setBranchFormError] = useState<string | null>(null);
-  const branchInputRef = useRef<HTMLInputElement>(null);
+  const gitChangeCount = useGitWorkspaceChangeCount();
   const [openState, setOpenState] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -111,12 +108,6 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
 
   const fileCount = useMemo(() => nodes.filter((n) => n.type === "file").length, [nodes]);
 
-  const gitChangedFiles = useMemo(
-    () => nodes.filter((n): n is FileLeaf => n.type === "file" && !!n.git),
-    [nodes],
-  );
-  const gitChangeCount = gitChangedFiles.length;
-
   return (
     <aside
       className="ide-files"
@@ -141,9 +132,7 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
           onClick={() => { setPickerOpen(false); setExplorerTab("git"); }}
         >
           <span>Git</span>
-          {gitChangeCount > 0 && (
-            <span className="ide-files-mode-count">{gitChangeCount}</span>
-          )}
+          {gitChangeCount > 0 ? <span className="ide-files-mode-count">{gitChangeCount}</span> : null}
         </button>
       </nav>
 
@@ -262,114 +251,12 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
 
       {explorerTab === "git" && (
         <div className="ide-files-git-pane" role="tabpanel" aria-label="Git">
-          <div className="ide-files-git-pane-inner">
-            <div className="ide-files-git-main">
-              <div className="ide-files-git-branch">
-                <span className="ide-files-git-branch-label" title="Current branch">
-                  <GitBranchIcon />
-                  <span className="ide-files-git-branch-name">{currentBranch}</span>
-                </span>
-                <button
-                  type="button"
-                  className={`ide-files-git-branch-action${branchFormOpen ? " is-active" : ""}`}
-                  aria-expanded={branchFormOpen}
-                  onClick={() => {
-                    setBranchFormError(null);
-                    setBranchFormOpen((wasOpen) => {
-                      const opening = !wasOpen;
-                      if (opening) {
-                        setNewBranchName("feature/");
-                        queueMicrotask(() => branchInputRef.current?.focus());
-                      }
-                      return opening;
-                    });
-                  }}
-                >
-                  New branch
-                </button>
-              </div>
-
-              {branchFormOpen && (
-                <form
-                  className="ide-files-git-new-branch"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const result = gitWorkspaceStore.createAndCheckout(newBranchName);
-                    if (!result.ok) {
-                      setBranchFormError(
-                        result.reason === "empty" ? "Enter a branch name" : "Invalid name (use letters, numbers, /, _, -, .)",
-                      );
-                      return;
-                    }
-                    setBranchFormOpen(false);
-                    setNewBranchName("");
-                    setBranchFormError(null);
-                  }}
-                >
-                  <input
-                    ref={branchInputRef}
-                    type="text"
-                    className="ide-files-git-new-branch-input"
-                    value={newBranchName}
-                    onChange={(ev) => {
-                      setNewBranchName(ev.target.value);
-                      setBranchFormError(null);
-                    }}
-                    placeholder="feature/name"
-                    spellCheck={false}
-                    autoComplete="off"
-                    aria-invalid={branchFormError != null}
-                  />
-                  <button type="submit" className="ide-files-git-new-branch-submit">
-                    Create
-                  </button>
-                  {branchFormError && <p className="ide-files-git-new-branch-error">{branchFormError}</p>}
-                </form>
-              )}
-
-              <div className="ide-files-git-section">
-                <span className="ide-files-git-section-label">Changes</span>
-                {gitChangeCount > 0 && (
-                  <span className="ide-files-git-section-count">{gitChangeCount}</span>
-                )}
-              </div>
-
-              {gitChangedFiles.length === 0 ? (
-                <p className="ide-files-git-empty">No local changes</p>
-              ) : (
-                <ul className="ide-files-git-list">
-                  {gitChangedFiles.map((f) => (
-                    <li key={f.name}>
-                      <button
-                        type="button"
-                        className={`ide-files-git-row${selected === f.name ? " is-selected" : ""}`}
-                        onClick={() => {
-                          setSelected(f.name);
-                          onSelect?.("file", f.name);
-                        }}
-                      >
-                        <span className={`ide-files-git ide-files-git-${f.git!.toLowerCase()}`}>{f.git}</span>
-                        <span className="ide-files-git-name">{f.name}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="ide-files-git-rail" aria-label="Quick actions">
-              <button type="button" className="ide-files-git-rail-btn" title="Refresh" aria-label="Refresh">
-                <GitRailBoltIcon />
-              </button>
-              <button type="button" className="ide-files-git-rail-btn" title="Sync" aria-label="Sync">
-                <GitRailBoltIcon />
-              </button>
-              <div className="ide-files-git-rail-spacer" />
-              <button type="button" className="ide-files-git-rail-btn" title="Discard all" aria-label="Discard all">
-                <GitRailStopIcon />
-              </button>
-            </div>
-          </div>
+          <GitPanel
+            onOpenFile={(name) => {
+              setSelected(name);
+              onSelect?.("file", name);
+            }}
+          />
         </div>
       )}
     </aside>
@@ -377,35 +264,6 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
 }
 
 /* ── Inline icons ─────────────────────────────────────────────────── */
-
-function GitBranchIcon() {
-  return (
-    <svg className="ide-files-git-branch-icon" width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="4" cy="3" r="1.4" />
-      <circle cx="4" cy="13" r="1.4" />
-      <circle cx="12" cy="6" r="1.4" />
-      <path d="M4 4.4v7" />
-      <path d="M12 7.4v.5a3 3 0 0 1-3 3H6" />
-    </svg>
-  );
-}
-
-function GitRailBoltIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M9 2L4 9h4l-1 5 6-8H9V2z" />
-    </svg>
-  );
-}
-
-function GitRailStopIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="8" cy="8" r="5.5" />
-      <line x1="5" y1="5" x2="11" y2="11" />
-    </svg>
-  );
-}
 
 function ExpandAllIcon() {
   return (

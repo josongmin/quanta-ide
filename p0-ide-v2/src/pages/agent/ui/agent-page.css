@@ -77,7 +77,7 @@
   flex-direction: column;
   gap: 10px;
 }
-.agent-page__sessions::-webkit-scrollbar { width: 8px; }
+.agent-page__sessions::-webkit-scrollbar { width: var(--scrollbar-w); }
 .agent-page__sessions::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg-subtle) 30%, transparent);
   border-radius: 4px;

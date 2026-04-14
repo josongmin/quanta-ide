@@ -38,7 +38,7 @@
   user-select: none;
 }
 .tab:hover { background: var(--bg-hover); color: var(--fg); }
-.tab--active { color: var(--fg); background: var(--bg-hover); font-weight: 500; }
+.tab--active { color: var(--fg); background: var(--bg-tab-active); font-weight: 500; }
 .tab__name { white-space: nowrap; }
 .tab__dirty {
   color: var(--warn);

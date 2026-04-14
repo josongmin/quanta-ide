@@ -1,4 +1,4 @@
-import { useGitWorkspaceBranch } from "@/shared/model/git-workspace";
+import { useGitWorkspaceBranch, useGitWorkspaceSync } from "@/shared/model/git-workspace";
 import "./statusbar.css";
 
 function BranchGlyph({ size = 10 }: { size?: number }) {
@@ -15,14 +15,21 @@ function BranchGlyph({ size = 10 }: { size?: number }) {
 
 export function Statusbar() {
   const branch = useGitWorkspaceBranch();
+  const { ahead, behind, busy } = useGitWorkspaceSync();
   return (
     <footer className="statusbar" role="status">
       <div className="statusbar__left">
-        <span className="dot dot--ok" />
+        <span className={`dot${busy !== "idle" ? " dot--pulse" : " dot--ok"}`} title={busy !== "idle" ? busy : "Ready"} />
         <span className="statusbar__branch" title="Current branch">
           <BranchGlyph />
           <span>{branch}</span>
         </span>
+        {(behind > 0 || ahead > 0) && (
+          <span className="statusbar__sync" title="Ahead / behind origin">
+            {behind > 0 && <span className="statusbar__pill statusbar__pill--behind">↓{behind}</span>}
+            {ahead > 0 && <span className="statusbar__pill statusbar__pill--ahead">↑{ahead}</span>}
+          </span>
+        )}
         <span className="sep">·</span>
         <span>Python 3.12</span>
       </div>

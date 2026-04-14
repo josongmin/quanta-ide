@@ -12,4 +12,5 @@ export type {
   GitLetter,
   GitRemoteBusy,
   GitWorkspaceState,
+  StackedBranch,
 } from "./git-workspace-store";

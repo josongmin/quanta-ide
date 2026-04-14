@@ -905,7 +905,7 @@ kbd {
   white-space: nowrap;
 }
 .insp__mode:hover { background: var(--bg-hover); color: var(--fg); }
-.insp__mode.is-active { color: var(--fg); background: var(--bg-hover); font-weight: 500; }
+.insp__mode.is-active { color: var(--fg); background: var(--bg-tab-active); font-weight: 500; }
 .insp__mode-count {
   font-family: var(--font-mono);
   font-size: 10px;

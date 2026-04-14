@@ -3,7 +3,6 @@ import { Sidebar } from "@/widgets/sidebar";
 import { Editor } from "@/widgets/editor";
 import { Inspector, type InspectorSelection } from "@/widgets/inspector";
 import { BottomPanel } from "@/widgets/bottom-panel";
-import { Statusbar } from "@/widgets/statusbar";
 import { ResizeHandle } from "@/shared/ui/resize-handle";
 
 interface IdePageProps {
@@ -23,7 +22,6 @@ export function IdePage({ onResizeSidebar, onResizeInspector }: IdePageProps) {
           <Editor />
         </div>
         <BottomPanel />
-        <Statusbar />
       </div>
       <ResizeHandle ariaLabel="Resize inspector" onResize={onResizeInspector} />
       <Inspector selection={selection} />

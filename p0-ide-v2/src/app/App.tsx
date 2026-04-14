@@ -68,15 +68,16 @@ export function App() {
   };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={layoutStyle}>
       <Topbar
         tabs={tabs}
         activeId={activeId}
         onSelect={setActiveId}
         onClose={closeTab}
         onAdd={addTab}
+        ideChrome={activeTab?.app === "ide"}
       />
-      <div className="app-main" style={layoutStyle}>
+      <div className="app-main">
         {activeTab && pageRegistry[activeTab.app]()}
       </div>
       <SimulateOverlay />

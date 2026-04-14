@@ -26,5 +26,35 @@
   color: var(--fg-subtle);
 }
 .sep { color: var(--fg-subtle); }
-.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
 .dot--ok { background: var(--success); }
+.dot--pulse {
+  background: var(--accent);
+  animation: statusbar-dot-pulse 0.9s ease-in-out infinite;
+}
+@keyframes statusbar-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(0.92); }
+}
+.statusbar__sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+}
+.statusbar__pill {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 4px;
+  line-height: 1.2;
+}
+.statusbar__pill--behind {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, var(--bg-muted));
+}
+.statusbar__pill--ahead {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-muted));
+}

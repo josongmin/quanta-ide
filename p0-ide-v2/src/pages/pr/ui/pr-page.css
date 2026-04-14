@@ -133,7 +133,7 @@
   gap: 4px;
 }
 .pr-page__queue::-webkit-scrollbar,
-.pr-page__files::-webkit-scrollbar { width: 8px; }
+.pr-page__files::-webkit-scrollbar { width: var(--scrollbar-w); }
 .pr-page__queue::-webkit-scrollbar-thumb,
 .pr-page__files::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg-subtle) 30%, transparent);
@@ -1043,7 +1043,7 @@
   gap: 2px;
   min-width: 0;
 }
-.pr-page__right::-webkit-scrollbar { width: 8px; }
+.pr-page__right::-webkit-scrollbar { width: var(--scrollbar-w); }
 .pr-page__right::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--fg-subtle) 30%, transparent);
   border-radius: 4px;
