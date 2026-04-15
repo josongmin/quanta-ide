@@ -1,0 +1,40 @@
+.ide-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  background: var(--bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.ide-modal {
+  background: var(--bg-surface, #fff);
+  color: var(--fg-default, inherit);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  outline: none;
+}
+
+.ide-modal--sm {
+  width: 100%;
+  max-width: 360px;
+}
+
+.ide-modal--md {
+  width: 100%;
+  max-width: 520px;
+}
+
+.ide-modal--lg {
+  width: 100%;
+  max-width: 800px;
+}
+
+.ide-modal--fit {
+  width: auto;
+  max-width: calc(100vw - 48px);
+}

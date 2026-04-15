@@ -205,6 +205,106 @@ export function isValidBranchName(name: string): boolean {
   return /^[a-zA-Z0-9/_.-]+$/.test(name);
 }
 
+const staging = {
+  stageFile: (id: string) => {
+    state = { ...state, files: state.files.map((f) => (f.id === id ? { ...f, staged: true } : f)) };
+    emit();
+  },
+  unstageFile: (id: string) => {
+    state = { ...state, files: state.files.map((f) => (f.id === id ? { ...f, staged: false } : f)) };
+    emit();
+  },
+  stageAll: () => {
+    state = { ...state, files: state.files.map((f) => ({ ...f, staged: true })) };
+    emit();
+  },
+  unstageAll: () => {
+    state = { ...state, files: state.files.map((f) => ({ ...f, staged: false })) };
+    emit();
+  },
+  discardFile: (id: string) => {
+    state = { ...state, files: state.files.filter((f) => f.id !== id) };
+    emit();
+    showToast("Discarded local changes", 1600);
+  },
+  discardAll: () => {
+    if (state.files.length === 0) return;
+    state = { ...state, files: [] };
+    emit();
+    showToast("Discarded all changes", 2000);
+  },
+};
+
+const branchOps = {
+  createAndCheckout: (raw: string): { ok: true; name: string } | { ok: false; reason: "empty" | "invalid" } => {
+    const name = sanitizeBranchName(raw);
+    if (!name) return { ok: false, reason: "empty" };
+    if (!isValidBranchName(name)) return { ok: false, reason: "invalid" };
+    state = { ...state, branch: name };
+    emit();
+    showToast(`Switched to branch ${name}`, 1800);
+    return { ok: true, name };
+  },
+};
+
+function performCommit(
+  andPush: boolean,
+): { ok: true } | { ok: false; reason: "empty_message" | "nothing_staged" } {
+  const msg = state.commitMessage.trim();
+  const staged = state.files.filter((f) => f.staged);
+  if (!msg) {
+    showToast("Add a commit message", 2400);
+    return { ok: false, reason: "empty_message" };
+  }
+  if (staged.length === 0) {
+    showToast("Stage changes before committing", 2400);
+    return { ok: false, reason: "nothing_staged" };
+  }
+  const h = shortHash();
+  state = {
+    ...state,
+    files: state.files.filter((f) => !f.staged),
+    commitMessage: "",
+    ahead: state.ahead + 1,
+    recentCommits: [
+      { hash: h, subject: msg.length > 80 ? `${msg.slice(0, 77)}…` : msg, graphColor: "a" as const, lane: 0 },
+      ...state.recentCommits,
+    ].slice(0, 24),
+  };
+  emit();
+  if (andPush) {
+    state = { ...state, busy: "push" };
+    emit();
+    setTimeout(() => {
+      state = { ...state, busy: "idle", ahead: 0 };
+      emit();
+      showToast("Committed and pushed", 2000);
+    }, 500);
+  } else {
+    showToast(`Created commit ${h}`, 2200);
+  }
+  return { ok: true };
+}
+
+// The commit namespace is a callable: `gitWorkspaceStore.commit(andPush)`
+// preserves the legacy flat API, while `gitWorkspaceStore.commit.setCommitMessage(...)`
+// exposes the ISP-grouped surface.
+type CommitNamespace = {
+  (andPush: boolean): { ok: true } | { ok: false; reason: "empty_message" | "nothing_staged" };
+  setCommitMessage(message: string): void;
+  toggleAgentReview(): void;
+};
+
+const commitNamespace = ((andPush: boolean) => performCommit(andPush)) as CommitNamespace;
+commitNamespace.setCommitMessage = (commitMessage: string) => {
+  state = { ...state, commitMessage };
+  emit();
+};
+commitNamespace.toggleAgentReview = () => {
+  state = { ...state, agentReviewOpen: !state.agentReviewOpen };
+  emit();
+};
+
 export const gitWorkspaceStore = {
   subscribe: (listener: () => void) => {
     listeners.add(listener);
@@ -219,58 +319,24 @@ export const gitWorkspaceStore = {
     showToast(message, ms);
   },
 
-  createAndCheckout: (raw: string): { ok: true; name: string } | { ok: false; reason: "empty" | "invalid" } => {
-    const name = sanitizeBranchName(raw);
-    if (!name) return { ok: false, reason: "empty" };
-    if (!isValidBranchName(name)) return { ok: false, reason: "invalid" };
-    state = { ...state, branch: name };
-    emit();
-    showToast(`Switched to branch ${name}`, 1800);
-    return { ok: true, name };
-  },
+  // Grouped namespaces (ISP).
+  staging,
+  branch: branchOps,
+  commit: commitNamespace,
 
-  setCommitMessage: (commitMessage: string) => {
-    state = { ...state, commitMessage };
-    emit();
-  },
-
-  toggleAgentReview: () => {
-    state = { ...state, agentReviewOpen: !state.agentReviewOpen };
-    emit();
-  },
-
-  stageFile: (id: string) => {
-    state = { ...state, files: state.files.map((f) => (f.id === id ? { ...f, staged: true } : f)) };
-    emit();
-  },
-
-  unstageFile: (id: string) => {
-    state = { ...state, files: state.files.map((f) => (f.id === id ? { ...f, staged: false } : f)) };
-    emit();
-  },
-
-  stageAll: () => {
-    state = { ...state, files: state.files.map((f) => ({ ...f, staged: true })) };
-    emit();
-  },
-
-  unstageAll: () => {
-    state = { ...state, files: state.files.map((f) => ({ ...f, staged: false })) };
-    emit();
-  },
-
-  discardFile: (id: string) => {
-    state = { ...state, files: state.files.filter((f) => f.id !== id) };
-    emit();
-    showToast("Discarded local changes", 1600);
-  },
-
-  discardAll: () => {
-    if (state.files.length === 0) return;
-    state = { ...state, files: [] };
-    emit();
-    showToast("Discarded all changes", 2000);
-  },
+  // TODO(deprecated): flat aliases kept for backward compatibility with existing callers.
+  createAndCheckout: branchOps.createAndCheckout,
+  // TODO(deprecated): use gitWorkspaceStore.commit.setCommitMessage instead.
+  setCommitMessage: commitNamespace.setCommitMessage,
+  // TODO(deprecated): use gitWorkspaceStore.commit.toggleAgentReview instead.
+  toggleAgentReview: commitNamespace.toggleAgentReview,
+  // TODO(deprecated): use gitWorkspaceStore.staging.* instead.
+  stageFile: staging.stageFile,
+  unstageFile: staging.unstageFile,
+  stageAll: staging.stageAll,
+  unstageAll: staging.unstageAll,
+  discardFile: staging.discardFile,
+  discardAll: staging.discardAll,
 
   refresh: () => {
     showToast("Working tree refreshed");
@@ -316,43 +382,6 @@ export const gitWorkspaceStore = {
       emit();
       showToast("Pushed to origin", 2000);
     }, 650);
-  },
-
-  commit: (andPush: boolean): { ok: true } | { ok: false; reason: "empty_message" | "nothing_staged" } => {
-    const msg = state.commitMessage.trim();
-    const staged = state.files.filter((f) => f.staged);
-    if (!msg) {
-      showToast("Add a commit message", 2400);
-      return { ok: false, reason: "empty_message" };
-    }
-    if (staged.length === 0) {
-      showToast("Stage changes before committing", 2400);
-      return { ok: false, reason: "nothing_staged" };
-    }
-    const h = shortHash();
-    state = {
-      ...state,
-      files: state.files.filter((f) => !f.staged),
-      commitMessage: "",
-      ahead: state.ahead + 1,
-      recentCommits: [
-        { hash: h, subject: msg.length > 80 ? `${msg.slice(0, 77)}…` : msg, graphColor: "a" as const, lane: 0 },
-        ...state.recentCommits,
-      ].slice(0, 24),
-    };
-    emit();
-    if (andPush) {
-      state = { ...state, busy: "push" };
-      emit();
-      setTimeout(() => {
-        state = { ...state, busy: "idle", ahead: 0 };
-        emit();
-        showToast("Committed and pushed", 2000);
-      }, 500);
-    } else {
-      showToast(`Created commit ${h}`, 2200);
-    }
-    return { ok: true };
   },
 
   selectStackBranch: (id: string | null) => {

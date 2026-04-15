@@ -43,6 +43,18 @@ function stateGlyph(s: FeatureState): string {
   return "⚠";
 }
 
+function eventFeatureId(e: RegistryEvent): string | undefined {
+  return "featureId" in e ? e.featureId : undefined;
+}
+
+function eventCommandId(e: RegistryEvent): string | undefined {
+  return "commandId" in e ? e.commandId : undefined;
+}
+
+function eventMessage(e: RegistryEvent): string | undefined {
+  return "message" in e ? e.message : undefined;
+}
+
 export function DevConsoleHost() {
   const open = useUiBus((s) => s.devConsoleOpen);
   if (!open) return null;
@@ -108,9 +120,9 @@ function DevConsole() {
     if (!q) return events;
     return events.filter(
       (e) =>
-        (e.featureId ?? "").toLowerCase().includes(q) ||
-        (e.commandId ?? "").toLowerCase().includes(q) ||
-        (e.message ?? "").toLowerCase().includes(q) ||
+        (eventFeatureId(e) ?? "").toLowerCase().includes(q) ||
+        (eventCommandId(e) ?? "").toLowerCase().includes(q) ||
+        (eventMessage(e) ?? "").toLowerCase().includes(q) ||
         e.kind.includes(q),
     );
   }, [events, filter]);
@@ -390,9 +402,9 @@ function EventsTab({ events }: EventsTabProps) {
               <span className={`devc__event-kind devc__event-kind--${e.kind}`}>
                 {e.kind}
               </span>
-              <span className="devc__event-feat">{e.featureId ?? ""}</span>
+              <span className="devc__event-feat">{eventFeatureId(e) ?? ""}</span>
               <span className="devc__event-msg">
-                {e.commandId ?? e.message ?? ""}
+                {eventCommandId(e) ?? eventMessage(e) ?? ""}
               </span>
             </div>
           ))

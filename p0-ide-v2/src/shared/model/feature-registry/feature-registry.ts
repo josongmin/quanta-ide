@@ -13,13 +13,32 @@ interface RegistryState {
   events: readonly RegistryEvent[];
 }
 
-export interface RegistryEvent {
+export type RegistryEventKind =
+  | "register"
+  | "unregister"
+  | "enable"
+  | "disable"
+  | "error"
+  | "command"
+  | "shortcut";
+
+interface RegistryEventBase {
   t: number;
-  kind: "register" | "unregister" | "enable" | "disable" | "error" | "command" | "shortcut";
-  featureId?: string;
-  commandId?: string;
-  message?: string;
 }
+
+export type RegistryEvent =
+  | (RegistryEventBase & { kind: "register"; featureId: string })
+  | (RegistryEventBase & { kind: "unregister"; featureId: string })
+  | (RegistryEventBase & { kind: "enable"; featureId: string; message?: string })
+  | (RegistryEventBase & { kind: "disable"; featureId: string; message?: string })
+  | (RegistryEventBase & {
+      kind: "error";
+      featureId: string;
+      commandId?: string;
+      message: string;
+    })
+  | (RegistryEventBase & { kind: "command"; featureId: string; commandId: string })
+  | (RegistryEventBase & { kind: "shortcut"; featureId: string; commandId: string });
 
 const MAX_EVENTS = 200;
 
@@ -34,8 +53,12 @@ function emit() {
   for (const l of listeners) l();
 }
 
-function pushEvent(ev: Omit<RegistryEvent, "t">) {
-  const next = [{ ...ev, t: Date.now() }, ...state.events].slice(0, MAX_EVENTS);
+type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never;
+type RegistryEventInput = DistributiveOmit<RegistryEvent, "t">;
+
+function pushEvent(ev: RegistryEventInput) {
+  const stamped = { ...ev, t: Date.now() } as RegistryEvent;
+  const next = [stamped, ...state.events].slice(0, MAX_EVENTS);
   state = { ...state, events: next };
 }
 
@@ -84,11 +107,13 @@ export const featureRegistry = {
   setState(id: string, nextState: FeatureState, errorMessage?: string): void {
     const ok = withFeature(id, (r) => ({ ...r, state: nextState, errorMessage }));
     if (!ok) return;
-    pushEvent({
-      kind: nextState === "disabled" ? "disable" : nextState === "error" ? "error" : "enable",
-      featureId: id,
-      message: errorMessage,
-    });
+    if (nextState === "error") {
+      pushEvent({ kind: "error", featureId: id, message: errorMessage ?? "unknown error" });
+    } else if (nextState === "disabled") {
+      pushEvent({ kind: "disable", featureId: id, message: errorMessage });
+    } else {
+      pushEvent({ kind: "enable", featureId: id, message: errorMessage });
+    }
     emit();
   },
 

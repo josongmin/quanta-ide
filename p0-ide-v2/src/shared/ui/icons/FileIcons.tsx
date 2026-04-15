@@ -1,3 +1,5 @@
+import { detectFileType } from "./file-type";
+
 export function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
@@ -121,16 +123,20 @@ function FileIconGeneric() {
 
 export function pickFileIcon(name: string) {
   const lower = name.toLowerCase();
+  // Filename-level specials must win over the extension-based classifier.
   if (lower === "package.json" || lower === "package-lock.json") return <FileIconNpm />;
   if (lower === "tsconfig.json" || lower.startsWith("tsconfig.")) return <FileIconJSON color="#3178c6" />;
-  if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".cfg")) return <FileIconToml />;
-  if (lower.endsWith(".py")) return <FileIconPy />;
-  if (lower.endsWith(".tsx")) return <FileIconTSX />;
-  if (lower.endsWith(".ts")) return <FileIconTS />;
-  if (lower.endsWith(".jsx")) return <FileIconTSX />;
-  if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) return <FileIconTS />;
-  if (lower.endsWith(".json")) return <FileIconJSON />;
-  if (lower.endsWith(".css") || lower.endsWith(".scss")) return <FileIconCss />;
-  if (lower.endsWith(".md") || lower.endsWith(".mdx")) return <FileIconMd />;
-  return <FileIconGeneric />;
+  const kind = detectFileType(name);
+  switch (kind) {
+    case "ini": return <FileIconToml />;
+    case "py": return <FileIconPy />;
+    case "tsx":
+    case "jsx": return <FileIconTSX />;
+    case "ts":
+    case "js": return <FileIconTS />;
+    case "json": return <FileIconJSON />;
+    case "css": return <FileIconCss />;
+    case "md": return <FileIconMd />;
+    default: return <FileIconGeneric />;
+  }
 }
