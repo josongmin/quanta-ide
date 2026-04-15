@@ -65,6 +65,23 @@ export function OutputIcon() {
   );
 }
 
+export function AgentIcon() {
+  return (
+    <svg {...ICON_PROPS}>
+      <rect x="6" y="6" width="12" height="12" rx="1.5" />
+      <rect x="10" y="10" width="4" height="4" />
+      <line x1="3" y1="10" x2="6" y2="10" />
+      <line x1="3" y1="14" x2="6" y2="14" />
+      <line x1="18" y1="10" x2="21" y2="10" />
+      <line x1="18" y1="14" x2="21" y2="14" />
+      <line x1="10" y1="3" x2="10" y2="6" />
+      <line x1="14" y1="3" x2="14" y2="6" />
+      <line x1="10" y1="18" x2="10" y2="21" />
+      <line x1="14" y1="18" x2="14" y2="21" />
+    </svg>
+  );
+}
+
 export function CalendarIcon() {
   return (
     <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>

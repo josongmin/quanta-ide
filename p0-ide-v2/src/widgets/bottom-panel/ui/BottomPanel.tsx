@@ -4,16 +4,18 @@ import {
   WatcherIcon,
   ProblemsIcon,
   QuantaIcon,
+  AgentIcon,
   TerminalIcon,
   OutputIcon,
 } from "../lib/icons";
 import { WatcherPane } from "./panes/WatcherPane";
 import { ProblemsPane } from "./panes/ProblemsPane";
 import { QuantaPane } from "./panes/QuantaPane";
+import { AgentPane } from "./panes/AgentPane";
 import { TerminalPane } from "./panes/TerminalPane";
 import { OutputPane } from "./panes/OutputPane";
 
-type TabId = "watcher" | "problems" | "quanta" | "terminal" | "output";
+type TabId = "watcher" | "problems" | "agent" | "quanta" | "terminal" | "output";
 
 interface PaneDef {
   id: TabId;
@@ -26,13 +28,14 @@ interface PaneDef {
 const PANES: readonly PaneDef[] = [
   { id: "watcher",  label: "Watcher",  ariaLabel: "Watcher — live blast radius",         icon: <WatcherIcon />,  Component: WatcherPane  },
   { id: "problems", label: "Problems", ariaLabel: "Problems — LSP & linter diagnostics", icon: <ProblemsIcon />, Component: ProblemsPane },
+  { id: "agent",    label: "Agent",    ariaLabel: "Agent — analysis actions",            icon: <AgentIcon />,    Component: AgentPane    },
   { id: "quanta",   label: "Quanta",   ariaLabel: "Quanta engine log",                   icon: <QuantaIcon />,   Component: QuantaPane   },
   { id: "terminal", label: "Terminal", ariaLabel: "Terminal — shell session",            icon: <TerminalIcon />, Component: TerminalPane },
   { id: "output",   label: "Output",   ariaLabel: "Output — external tool logs",         icon: <OutputIcon />,   Component: OutputPane   },
 ];
 
 export function BottomPanel() {
-  const [active, setActive] = useState<TabId>("problems");
+  const [active, setActive] = useState<TabId>("agent");
   const ActivePane = (PANES.find((p) => p.id === active) ?? PANES[0]).Component;
 
   return (

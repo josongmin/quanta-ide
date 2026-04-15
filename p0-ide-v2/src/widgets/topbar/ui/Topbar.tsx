@@ -1,6 +1,5 @@
 import { type ReactNode } from "react";
 import BoringAvatar from "boring-avatars";
-import { TopbarOrgPicker } from "./TopbarOrgPicker";
 import "./topbar.css";
 
 export type AppKind = "home" | "ide" | "agent" | "pr";
@@ -12,66 +11,54 @@ interface TopbarProps {
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onAdd: () => void;
-  /** When true, top row shows IDE leading (org + gutter); home stays in topbar flush right of that gutter. */
-  ideChrome?: boolean;
 }
 
-function HomeButton({ variant }: { variant?: "ide-edge" | "default" }) {
-  const cls =
-    variant === "ide-edge" ? "topbar__home topbar__home--ide-edge" : "topbar__home";
+function HomeButton() {
   return (
-    <button type="button" className={cls} title="Home" aria-label="Home">
+    <button type="button" className="topbar__home" title="Home" aria-label="Home">
       <HomeIcon />
     </button>
   );
 }
 
-export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, ideChrome }: TopbarProps) {
+export function Topbar({ tabs, activeId, onSelect, onClose, onAdd }: TopbarProps) {
   return (
     <header className="topbar" data-tauri-drag-region>
-      <div className="topbar__ide-leading" data-tauri-drag-region>
-        <div className="topbar__sidebar-strip" data-tauri-drag-region>
-          <div className="topbar__org-slot" data-tauri-drag-region>
-            <TopbarOrgPicker />
-          </div>
-          {ideChrome ? <div className="topbar__sidebar-strip-spacer" aria-hidden data-tauri-drag-region /> : null}
-        </div>
-        <div className="topbar__resize-gutter" aria-hidden data-tauri-drag-region />
-      </div>
-      <HomeButton variant={ideChrome ? "ide-edge" : "default"} />
-
-      <div className="topbar__tabs" role="tablist" data-tauri-drag-region>
-        {tabs.map((t) => {
-          const isActive = t.id === activeId;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              className={`topbar__tab${isActive ? " is-active" : ""}`}
-              onClick={() => onSelect(t.id)}
-              title={t.label}
-            >
-              <span className="topbar__tab-icon" aria-hidden>
-                {t.app === "home" ? <HomeTabIcon /> : t.app === "agent" ? <AgentIcon /> : t.app === "pr" ? <PrIcon /> : <CodeIcon />}
-              </span>
-              <span className="topbar__tab-label">{t.label}</span>
-              <span
-                className="topbar__tab-close"
-                role="button"
-                tabIndex={-1}
-                aria-label="Close tab"
-                onClick={(e) => { e.stopPropagation(); onClose(t.id); }}
+      <div className="topbar__left" data-tauri-drag-region>
+        <HomeButton />
+        <div className="topbar__tabs" role="tablist" data-tauri-drag-region>
+          {tabs.map((t) => {
+            const isActive = t.id === activeId;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`topbar__tab${isActive ? " is-active" : ""}`}
+                onClick={() => onSelect(t.id)}
+                title={t.label}
               >
-                <CloseIcon />
-              </span>
-            </button>
-          );
-        })}
-        <button type="button" className="topbar__tab-add" onClick={onAdd} aria-label="New tab" title="New tab">
-          <PlusIcon />
-        </button>
+                <span className="topbar__tab-icon" aria-hidden>
+                  {t.app === "home" ? <HomeTabIcon /> : t.app === "agent" ? <AgentIcon /> : t.app === "pr" ? <PrIcon /> : <CodeIcon />}
+                </span>
+                <span className="topbar__tab-label">{t.label}</span>
+                <span
+                  className="topbar__tab-close"
+                  role="button"
+                  tabIndex={-1}
+                  aria-label="Close tab"
+                  onClick={(e) => { e.stopPropagation(); onClose(t.id); }}
+                >
+                  <CloseIcon />
+                </span>
+              </button>
+            );
+          })}
+          <button type="button" className="topbar__tab-add" onClick={onAdd} aria-label="New tab" title="New tab">
+            <PlusIcon />
+          </button>
+        </div>
       </div>
 
       <div className="topbar__drag" data-tauri-drag-region />

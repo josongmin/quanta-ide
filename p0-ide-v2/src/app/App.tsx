@@ -19,6 +19,8 @@ const SIDEBAR_MIN = 180;
 const SIDEBAR_MAX = 480;
 const INSPECTOR_MIN = 260;
 const INSPECTOR_MAX = 640;
+const BOTTOM_MIN = 120;
+const BOTTOM_MAX = 720;
 
 const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -28,6 +30,7 @@ export function App() {
   const [activeId, setActiveId] = useState<string>("t2");
   const [sidebarW, setSidebarW] = useState(240);
   const [inspectorW, setInspectorW] = useState(360);
+  const [bottomH, setBottomH] = useState(260);
 
   const addTab = () => {
     const id = `t${Date.now()}`;
@@ -53,6 +56,7 @@ export function App() {
   const layoutStyle = {
     "--sidebar-w": `${sidebarW}px`,
     "--inspector-w": `${inspectorW}px`,
+    "--bottom-h": `${bottomH}px`,
   } as CSSProperties;
 
   const pageRegistry: Record<TabApp, () => ReactNode> = {
@@ -63,6 +67,7 @@ export function App() {
       <IdePage
         onResizeSidebar={(dx) => setSidebarW((w) => clamp(w + dx, SIDEBAR_MIN, SIDEBAR_MAX))}
         onResizeInspector={(dx) => setInspectorW((w) => clamp(w - dx, INSPECTOR_MIN, INSPECTOR_MAX))}
+        onResizeBottom={(dy) => setBottomH((h) => clamp(h - dy, BOTTOM_MIN, BOTTOM_MAX))}
       />
     ),
   };
@@ -75,7 +80,6 @@ export function App() {
         onSelect={setActiveId}
         onClose={closeTab}
         onAdd={addTab}
-        ideChrome={activeTab?.app === "ide"}
       />
       <div className="app-main">
         {activeTab && pageRegistry[activeTab.app]()}

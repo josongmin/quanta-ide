@@ -25,7 +25,7 @@
 
 .app-left {
   display: grid;
-  grid-template-rows: 1fr 260px;
+  grid-template-rows: 1fr auto var(--bottom-h, 260px);
   min-height: 0;
   min-width: 0;
   overflow: hidden;
@@ -44,20 +44,36 @@
 .app-top-row > * { min-width: 0; min-height: 0; }
 
 .resize-handle {
-  width: 1px;
-  background: var(--border-strong);
-  cursor: col-resize;
+  background: var(--border);
   position: relative;
   flex-shrink: 0;
   transition: background 0.12s ease;
 }
-.resize-handle::after {
+.resize-handle--vertical {
+  width: 1px;
+  cursor: col-resize;
+}
+.resize-handle--vertical::after {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: -3px;
   right: -3px;
+}
+.resize-handle--horizontal {
+  height: 1px;
+  cursor: row-resize;
+  width: 100%;
+  background: var(--border);
+}
+.resize-handle--horizontal::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -2px;
+  bottom: -2px;
 }
 .resize-handle:hover,
 .resize-handle:active {

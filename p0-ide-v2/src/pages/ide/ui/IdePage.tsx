@@ -8,9 +8,10 @@ import { ResizeHandle } from "@/shared/ui/resize-handle";
 interface IdePageProps {
   onResizeSidebar: (dx: number) => void;
   onResizeInspector: (dx: number) => void;
+  onResizeBottom: (dy: number) => void;
 }
 
-export function IdePage({ onResizeSidebar, onResizeInspector }: IdePageProps) {
+export function IdePage({ onResizeSidebar, onResizeInspector, onResizeBottom }: IdePageProps) {
   const [selection, setSelection] = useState<InspectorSelection>({ kind: "file", name: "orchestrator.py" });
 
   return (
@@ -21,6 +22,11 @@ export function IdePage({ onResizeSidebar, onResizeInspector }: IdePageProps) {
           <ResizeHandle ariaLabel="Resize sidebar" onResize={onResizeSidebar} />
           <Editor />
         </div>
+        <ResizeHandle
+          ariaLabel="Resize bottom panel"
+          orientation="horizontal"
+          onResize={onResizeBottom}
+        />
         <BottomPanel />
       </div>
       <ResizeHandle ariaLabel="Resize inspector" onResize={onResizeInspector} />

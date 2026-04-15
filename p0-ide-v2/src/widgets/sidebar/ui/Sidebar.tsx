@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronIcon, useActivePack } from "@/shared/ui/icons";
 import { useGitWorkspaceChangeCount } from "@/shared/model/git-workspace";
 import { GitPanel } from "@/features/git-panel";
@@ -24,8 +25,6 @@ export interface FileLeaf extends FileNodeBase {
   stale?: string;
 }
 export type FileNode = FolderNode | FileLeaf;
-
-type ExplorerTab = "project" | "git";
 
 const defaultNodes: FileNode[] = [
   { name: "codegraph_agent", type: "folder", depth: 0, open: true },
@@ -66,11 +65,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
-  const [explorerTab, setExplorerTab] = useState<ExplorerTab>("project");
   const gitChangeCount = useGitWorkspaceChangeCount();
   const [openState, setOpenState] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [gitOpen, setGitOpen] = useState(false);
   const pickerBtnRef = useRef<HTMLButtonElement>(null);
   const pack = useActivePack();
   const iconColorId = useIconColor();
@@ -107,6 +106,10 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
   );
 
   const fileCount = useMemo(() => nodes.filter((n) => n.type === "file").length, [nodes]);
+  const projectName = useMemo(() => {
+    const root = nodes.find((n) => n.depth === 0 && n.type === "folder");
+    return root?.name ?? "workspace";
+  }, [nodes]);
 
   return (
     <aside
@@ -114,30 +117,26 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
       aria-label="Explorer"
       style={iconColor ? ({ "--files-icon-color": iconColor } as React.CSSProperties) : undefined}
     >
-      <nav className="ide-files-modes" role="tablist" aria-label="Explorer">
+      <div className="ide-files-header">
+        <div className="ide-files-project" title={projectName}>
+          <span className="ide-files-project-emoji" aria-hidden="true">📦</span>
+          <span className="ide-files-project-name">{projectName}</span>
+        </div>
+        <div className="ide-files-header-sep" />
         <button
           type="button"
-          role="tab"
-          aria-selected={explorerTab === "project"}
-          className={`ide-files-mode${explorerTab === "project" ? " is-active" : ""}`}
-          onClick={() => setExplorerTab("project")}
+          className="ide-files-git-btn"
+          onClick={() => { setPickerOpen(false); setGitOpen(true); }}
+          aria-haspopup="dialog"
+          aria-expanded={gitOpen}
+          aria-label="Git changes"
+          title="Git changes"
         >
-          <span>Project</span>
+          <GitBranchIcon />
+          {gitChangeCount > 0 ? <span className="ide-files-git-btn-count">{gitChangeCount}</span> : null}
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={explorerTab === "git"}
-          className={`ide-files-mode${explorerTab === "git" ? " is-active" : ""}`}
-          onClick={() => { setPickerOpen(false); setExplorerTab("git"); }}
-        >
-          <span>Git</span>
-          {gitChangeCount > 0 ? <span className="ide-files-mode-count">{gitChangeCount}</span> : null}
-        </button>
-      </nav>
+      </div>
 
-      {explorerTab === "project" && (
-        <>
       <div className="ide-files-toolbar">
         <button type="button" className="ide-files-tool-btn" onClick={expandAll} title="Expand all" aria-label="Expand all">
           <ExpandAllIcon />
@@ -246,20 +245,49 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
           );
         })}
       </div>
-        </>
-      )}
 
-      {explorerTab === "git" && (
-        <div className="ide-files-git-pane" role="tabpanel" aria-label="Git">
+      {gitOpen && (
+        <GitModal onClose={() => setGitOpen(false)}>
           <GitPanel
             onOpenFile={(name) => {
               setSelected(name);
+              setGitOpen(false);
               onSelect?.("file", name);
             }}
           />
-        </div>
+        </GitModal>
       )}
     </aside>
+  );
+}
+
+interface GitModalProps {
+  children: React.ReactNode;
+  onClose: () => void;
+}
+
+function GitModal({ children, onClose }: GitModalProps) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div className="ide-git-modal-backdrop" role="dialog" aria-modal="true" aria-label="Git changes" onMouseDown={onClose}>
+      <div className="ide-git-modal" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="ide-git-modal__head">
+          <span className="ide-git-modal__title">Git</span>
+          <button type="button" className="ide-git-modal__close" onClick={onClose} aria-label="Close">
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="ide-git-modal__body">{children}</div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -307,6 +335,26 @@ function ChevronDownTiny() {
   return (
     <svg width="8" height="8" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="4 6 8 10 12 6" />
+    </svg>
+  );
+}
+
+function GitBranchIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="4" cy="3" r="1.6" />
+      <circle cx="4" cy="13" r="1.6" />
+      <circle cx="12" cy="6" r="1.6" />
+      <path d="M4 4.6v6.8" />
+      <path d="M12 7.6c0 2.4-2 3.4-4 3.4" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4l8 8M12 4l-8 8" />
     </svg>
   );
 }

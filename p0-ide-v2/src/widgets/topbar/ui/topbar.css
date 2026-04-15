@@ -12,7 +12,7 @@
   color: var(--fg-muted);
   -webkit-app-region: drag;
 }
-.topbar__tabs,
+.topbar__left,
 .topbar__drag,
 .topbar__right {
   -webkit-app-region: drag;
@@ -28,59 +28,15 @@
   padding-left: 78px;
 }
 
-/* IDE: sidebar-width org strip + 1px gutter lines up with app-top-row (sidebar | resize | editor) */
-.topbar__ide-leading {
-  display: none;
-  flex-direction: row;
-  flex-shrink: 0;
+/* Left cluster: home + workspace tabs */
+.topbar__left {
+  display: flex;
   align-items: stretch;
-  min-width: 0;
-  overflow: visible;
-  -webkit-app-region: drag;
-}
-.app-shell:has(.ide-page) .topbar__ide-leading {
-  display: flex;
-  flex: 0 0 calc(var(--sidebar-w) + 1px);
-  width: calc(var(--sidebar-w) + 1px);
-  max-width: calc(var(--sidebar-w) + 1px);
-}
-/* Matches first grid column of .app-top-row: [org][spacer→]. */
-.topbar__sidebar-strip {
-  display: none;
-  flex: 0 0 var(--sidebar-w);
-  width: var(--sidebar-w);
-  min-width: 0;
-  max-width: var(--sidebar-w);
-  flex-direction: row;
-  align-items: stretch;
-  box-sizing: border-box;
-}
-.app-shell:has(.ide-page) .topbar__sidebar-strip {
-  display: flex;
-}
-.topbar__org-slot {
-  flex: 0 0 auto;
-  max-width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0 2px 0 10px;
-  box-sizing: border-box;
-  overflow: visible;
-}
-.topbar__sidebar-strip-spacer {
   flex: 1 1 auto;
   min-width: 0;
-  -webkit-app-region: drag;
+  gap: 0;
 }
-.topbar__resize-gutter {
-  flex: 0 0 1px;
-  flex-shrink: 0;
-  width: 1px;
-  min-width: 1px;
-  align-self: stretch;
-  background: var(--border-strong);
-}
+
 /* ── Home (icon only) ─────────────────────────────────────────────── */
 .topbar__home {
   position: relative;
@@ -89,8 +45,9 @@
   align-items: center;
   justify-content: center;
   width: 32px;
-  margin: 6px 0;
+  margin: 6px 10px 6px 0;
   padding: 0;
+  align-self: center;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -102,20 +59,13 @@
   background: rgba(0, 0, 0, 0.05);
   color: var(--fg);
 }
-/* First row: immediately after sidebar | 1px gutter, before workspace tabs */
-.topbar__home--ide-edge {
-  align-self: center;
-  width: 28px;
-  height: 28px;
-  margin: 0 2px 0 0;
-}
 
 /* ── Tab bar ───────────────────────────────────────────────────────── */
 .topbar__tabs {
   display: flex;
   align-items: stretch;
   gap: 0;
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
@@ -164,6 +114,9 @@
 .topbar__tab::before { right: 0; }
 .topbar__tab::after { left: 0; display: none; }
 .topbar__tab:first-of-type::after { display: block; }
+.topbar__tab:first-of-type {
+  padding-left: 8px;
+}
 
 .topbar__tab-icon {
   display: inline-flex;
