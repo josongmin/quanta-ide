@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "@/shared/model/toast-store";
+import { focusStore } from "@/shared/model/focus-store";
 
 type CtxKind = "file" | "symbol" | "doc" | "tool";
 type MemType = "user" | "feedback" | "project" | "reference";
@@ -36,10 +38,7 @@ const contextItems: {
   { kind: "tool",   name: "taint-analyzer v2 schema",      tokens:  240, idleTurns: 4 },
   { kind: "file",   name: "strategy.py",                   tokens: 1920, idleTurns: 5 },
 ];
-const contextUsed = contextItems.reduce((a, i) => a + i.tokens, 0);
 const IDLE_THRESHOLD = 4;
-const idleItems = contextItems.filter((c) => !c.pinned && (c.idleTurns ?? 0) >= IDLE_THRESHOLD);
-const reclaimable = idleItems.reduce((a, c) => a + c.tokens, 0);
 
 // ── Economy: what the engine is actually paying back ─────────────────
 // Each entry describes a class of engine query that substituted for a raw
@@ -62,6 +61,27 @@ const costAttribution: { signal: string; pct: number; tok: number; color: string
   { signal: "ownership", pct:  9, tok:  16_600, color: "var(--accent-purple)" },
   { signal: "typestate", pct:  7, tok:  12_900, color: "var(--warn)" },
   { signal: "other",     pct:  5, tok:   9_220, color: "var(--fg-subtle)" },
+];
+
+// ── Topic ⑤-c · Session timescrubber: turn-by-turn state snapshots ────
+interface TurnSnapshot {
+  turn: number;
+  t: string;
+  label: string;
+  inputTok: number;
+  outputTok: number;
+  contextTok: number;
+  events: string[];
+  cost: number;
+}
+
+const turnSnapshots: TurnSnapshot[] = [
+  { turn: 1, t: "00:00", label: "initial prompt",     inputTok:    380, outputTok:    920, contextTok:    380, cost: 0.015, events: ["session start"] },
+  { turn: 2, t: "01:28", label: "read orchestrator",  inputTok: 12_040, outputTok:  5_130, contextTok: 12_420, cost: 0.214, events: ["read orchestrator.py", "taint v2 fired"] },
+  { turn: 3, t: "03:02", label: "inspect taint path", inputTok: 82_700, outputTok:  7_770, contextTok: 22_280, cost: 0.637, events: ["fetch ADR-14", "incident DNA match 91%"] },
+  { turn: 4, t: "04:05", label: "propose patch",      inputTok: 94_200, outputTok:  9_680, contextTok: 23_340, cost: 1.022, events: ["simulate change", "verification checklist"] },
+  { turn: 5, t: "05:22", label: "generate tests",     inputTok: 96_920, outputTok: 11_770, contextTok: 25_420, cost: 1.467, events: ["read strategy.py", "pin ExperienceStore.save"] },
+  { turn: 6, t: "06:40", label: "current",            inputTok:184_220, outputTok: 12_480, contextTok: 16_150, cost: 2.470, events: ["streaming"] },
 ];
 
 // ── Budget forecast: at current burn, when we hit the cap ────────────
@@ -260,6 +280,8 @@ export function AgentPane() {
           list. Inspect and prune; the analysis lives in the right-side inspector.
         </span>
       </div>
+
+      <Timescrubber />
 
       <EnginePaybackCard />
 
@@ -464,7 +486,21 @@ function BlindSpotCard({ highRisk }: { highRisk: number }) {
             <span className="agst-blind__name" title={b.name}>{b.name}</span>
             <span className="agst-blind__layer">{b.layer}</span>
             <span className="agst-blind__why">{b.why}</span>
-            <button type="button" className="agst-blind__inject" title="Inject into ⌘E">inject →</button>
+            <button
+              type="button"
+              className="agst-blind__inject"
+              title="Inject into ⌘E"
+              onClick={() => {
+                toast.info(
+                  `Injected ${b.name} into ⌘E context`,
+                  `${b.why} · ${b.layer} layer — agent will have full source on next query`,
+                  "context inject",
+                );
+                focusStore.toggleContextInject(true);
+              }}
+            >
+              inject →
+            </button>
           </li>
         ))}
       </ul>
@@ -522,6 +558,84 @@ function StatTrio({ k, v, tone = "default" }: { k: string; v: string; tone?: "de
     <div className={`agst-st agst-st--${tone}`}>
       <span className="agst-st__v">{v}</span>
       <span className="agst-st__k">{k}</span>
+    </div>
+  );
+}
+
+function Timescrubber() {
+  const [turnIdx, setTurnIdx] = useState(turnSnapshots.length - 1);
+  const turn = turnSnapshots[turnIdx];
+  const isCurrent = turnIdx === turnSnapshots.length - 1;
+
+  return (
+    <div className="tscrub">
+      <div className="tscrub__head">
+        <span className="tscrub__label">Session timeline</span>
+        <span className="tscrub__sub">
+          {isCurrent ? "live" : `viewing snapshot · t${turn.turn}`}
+        </span>
+        {!isCurrent && (
+          <button
+            type="button"
+            className="tscrub__return"
+            onClick={() => setTurnIdx(turnSnapshots.length - 1)}
+          >
+            return to live →
+          </button>
+        )}
+      </div>
+
+      <div className="tscrub__track" role="group" aria-label="Turn scrubber">
+        <div className="tscrub__rail" aria-hidden />
+        {turnSnapshots.map((s, i) => {
+          const leftPct = (i / (turnSnapshots.length - 1)) * 100;
+          const isActive = i === turnIdx;
+          return (
+            <button
+              key={s.turn}
+              type="button"
+              className={`tscrub__marker${isActive ? " is-active" : ""}${i === turnSnapshots.length - 1 ? " is-live" : ""}`}
+              style={{ left: `${leftPct}%` }}
+              onClick={() => setTurnIdx(i)}
+              title={`t${s.turn} · ${s.t} · ${s.label}`}
+              aria-label={`Turn ${s.turn}: ${s.label}`}
+            >
+              <span className="tscrub__marker-dot" aria-hidden />
+              <span className="tscrub__marker-label">t{s.turn}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="tscrub__snap">
+        <div className="tscrub__snap-head">
+          <span className="tscrub__snap-turn">t{turn.turn}</span>
+          <span className="tscrub__snap-t">{turn.t}</span>
+          <span className="tscrub__snap-label">{turn.label}</span>
+        </div>
+        <div className="tscrub__snap-stats">
+          <SnapStat k="input"  v={fmt(turn.inputTok)} />
+          <SnapStat k="output" v={fmt(turn.outputTok)} />
+          <SnapStat k="ctx"    v={fmt(turn.contextTok)} />
+          <SnapStat k="cost"   v={`$${turn.cost.toFixed(2)}`} />
+        </div>
+        {turn.events.length > 0 && (
+          <div className="tscrub__snap-events">
+            {turn.events.map((e, i) => (
+              <span key={i} className="tscrub__snap-event">· {e}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SnapStat({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="tscrub__stat">
+      <span className="tscrub__stat-k">{k}</span>
+      <span className="tscrub__stat-v">{v}</span>
     </div>
   );
 }
@@ -594,26 +708,52 @@ function MeterRow({
 }
 
 function ContextPanel({ onOpenLog }: { onOpenLog: () => void }) {
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const visible = contextItems.filter((c) => !removed.has(c.name));
+  const visibleIdle = visible.filter((c) => !c.pinned && (c.idleTurns ?? 0) >= IDLE_THRESHOLD);
+  const visibleIdleTok = visibleIdle.reduce((a, c) => a + c.tokens, 0);
+  const visibleUsed = visible.reduce((a, c) => a + c.tokens, 0);
+
+  function reclaim() {
+    const reclaimedNames = visibleIdle.map((c) => c.name);
+    const totalReclaimed = visibleIdleTok;
+    setRemoved((prev) => {
+      const next = new Set(prev);
+      for (const n of reclaimedNames) next.add(n);
+      return next;
+    });
+    toast.success(
+      `Reclaimed ${fmt(totalReclaimed)} tokens`,
+      `${reclaimedNames.length} idle items unpinned · context window freed`,
+      "context",
+    );
+  }
+
   return (
     <section className="agst-col agst-col--ctx">
       <div className="agst-col__h">
         <span className="agst-col__label">Context</span>
-        <span className="agst-col__count">{contextItems.length}</span>
-        <span className="agst-col__right">{fmt(contextUsed)} tok</span>
+        <span className="agst-col__count">{visible.length}</span>
+        <span className="agst-col__right">{fmt(visibleUsed)} tok</span>
         <LogButton label="Context" onClick={onOpenLog} />
       </div>
-      {idleItems.length > 0 && (
-        <button type="button" className="agst-advisor" aria-label="Unpin idle items">
-          <span className="agst-advisor__badge">{idleItems.length} idle</span>
+      {visibleIdle.length > 0 && (
+        <button
+          type="button"
+          className="agst-advisor"
+          aria-label="Unpin idle items"
+          onClick={reclaim}
+        >
+          <span className="agst-advisor__badge">{visibleIdle.length} idle</span>
           <span className="agst-advisor__text">
             unpin to reclaim
           </span>
-          <span className="agst-advisor__val">{fmt(reclaimable)} tok</span>
+          <span className="agst-advisor__val">{fmt(visibleIdleTok)} tok</span>
           <span className="agst-advisor__arrow" aria-hidden>→</span>
         </button>
       )}
       <ul className="agst-ctx">
-        {contextItems.map((c) => {
+        {visible.map((c) => {
           const idle = (c.idleTurns ?? 0) >= IDLE_THRESHOLD && !c.pinned;
           return (
             <li key={c.name} className={`agst-ctx__row${idle ? " is-idle" : ""}`}>

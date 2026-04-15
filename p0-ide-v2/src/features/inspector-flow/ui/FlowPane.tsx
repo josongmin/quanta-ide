@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { FileFacts } from "@/entities/file";
 import type { TaintHop } from "@/entities/taint";
 import { focusStore, useFocusStore } from "@/shared/model/focus-store";
@@ -14,10 +15,44 @@ const HOP_COLOR: Record<TaintHop, string> = {
   sink: "var(--danger)",
 };
 
+// Typestate protocol mapping: hop kind → protocol state
+const TYPESTATE_STATE: Record<TaintHop, { state: string; tone: "safe" | "flagged" | "unsafe"; hint: string }> = {
+  source:    { state: "created",   tone: "flagged", hint: "trace comes in from external source · unvalidated" },
+  propagate: { state: "forwarded", tone: "flagged", hint: "state carried through without transformation" },
+  branch:    { state: "forwarded", tone: "flagged", hint: "branched without validate() call" },
+  sink:      { state: "persisted", tone: "unsafe",  hint: "written to store without validator — sink reached unsafe" },
+};
+
 export function FlowPane({ file }: Props) {
   const activeId = useFocusStore((s) => s.flowPathId);
   const active = file.taintPaths.find((p) => p.id === activeId) ?? file.taintPaths[0];
+  const [stepIndex, setStepIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const playRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setStepIndex(0);
+    setPlaying(false);
+  }, [active?.id]);
+
+  useEffect(() => {
+    if (!playing || !active) return;
+    if (stepIndex >= active.steps.length - 1) {
+      setPlaying(false);
+      return;
+    }
+    playRef.current = window.setTimeout(() => {
+      setStepIndex((i) => i + 1);
+    }, 900);
+    return () => {
+      if (playRef.current !== null) window.clearTimeout(playRef.current);
+    };
+  }, [playing, stepIndex, active]);
+
   if (!active) return <EmptyPane label="No taint paths detected" />;
+
+  const currentStep = active.steps[stepIndex];
+  const currentTypestate = currentStep ? TYPESTATE_STATE[currentStep.hop] : null;
 
   return (
     <div className="flow-pane">
@@ -52,7 +87,7 @@ export function FlowPane({ file }: Props) {
 
       <ol className="flow-steps">
         {active.steps.map((s, i) => (
-          <li key={i} className="flow-step">
+          <li key={i} className={`flow-step${i === stepIndex ? " is-current" : ""}`}>
             <div className="flow-step__rail">
               <span
                 className="flow-step__dot"
@@ -64,7 +99,10 @@ export function FlowPane({ file }: Props) {
             <button
               type="button"
               className="flow-step__body"
-              onClick={() => focusStore.jumpTo(s.line)}
+              onClick={() => {
+                setStepIndex(i);
+                focusStore.jumpTo(s.line);
+              }}
             >
               <div className="flow-step__head">
                 <span className={`flow-step__hop flow-step__hop--${s.hop}`}>{s.hop}</span>
@@ -77,6 +115,88 @@ export function FlowPane({ file }: Props) {
           </li>
         ))}
       </ol>
+
+      {/* ── Typestate trace ── */}
+      <div className="typestate">
+        <div className="typestate__head">
+          <span className="typestate__kicker">Typestate</span>
+          <span className="typestate__proto">TraceProtocol</span>
+          <span className="typestate__at">
+            step {stepIndex + 1} / {active.steps.length}
+          </span>
+        </div>
+
+        <div className="typestate__chain" aria-label="Protocol state chain">
+          {active.steps.map((s, i) => {
+            const ts = TYPESTATE_STATE[s.hop];
+            const isCurrent = i === stepIndex;
+            const isPast = i < stepIndex;
+            const cls = [
+              "typestate__node",
+              `typestate__node--${ts.tone}`,
+              isCurrent ? "is-current" : "",
+              isPast ? "is-past" : "",
+            ].filter(Boolean).join(" ");
+            return (
+              <div key={i} className="typestate__cell">
+                <button
+                  type="button"
+                  className={cls}
+                  onClick={() => setStepIndex(i)}
+                  title={`${ts.state} · ${ts.hint}`}
+                >
+                  <span className="typestate__node-label">{ts.state}</span>
+                  <span className="typestate__node-loc">L{s.line}</span>
+                </button>
+                {i < active.steps.length - 1 && (
+                  <span className="typestate__edge" aria-hidden>
+                    <span className={`typestate__edge-line${isPast ? " is-past" : ""}`} />
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {currentTypestate && (
+          <div className={`typestate__hint typestate__hint--${currentTypestate.tone}`}>
+            <span className="typestate__hint-label">{currentTypestate.state}</span>
+            <span className="typestate__hint-text">{currentTypestate.hint}</span>
+          </div>
+        )}
+
+        <div className="typestate__controls">
+          <button
+            type="button"
+            className="typestate__btn"
+            onClick={() => setStepIndex((i) => Math.max(0, i - 1))}
+            disabled={stepIndex <= 0}
+            aria-label="Previous step"
+          >
+            ◂ prev
+          </button>
+          <button
+            type="button"
+            className="typestate__btn typestate__btn--play"
+            onClick={() => {
+              if (stepIndex >= active.steps.length - 1) setStepIndex(0);
+              setPlaying((p) => !p);
+            }}
+            aria-label={playing ? "Pause" : "Play"}
+          >
+            {playing ? "❙❙ pause" : "▶ play"}
+          </button>
+          <button
+            type="button"
+            className="typestate__btn"
+            onClick={() => setStepIndex((i) => Math.min(active.steps.length - 1, i + 1))}
+            disabled={stepIndex >= active.steps.length - 1}
+            aria-label="Next step"
+          >
+            next ▸
+          </button>
+        </div>
+      </div>
 
       {active.sanitizerHints && active.sanitizerHints.length > 0 && (
         <div className="flow-pane__sanitize">

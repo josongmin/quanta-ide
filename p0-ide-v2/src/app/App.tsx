@@ -9,6 +9,7 @@ type TabApp = Tab["app"];
 import { useGlobalShortcuts } from "@/features/global-shortcuts";
 import { SimulateOverlay } from "@/features/simulate-change";
 import { ContextInjectOverlay } from "@/features/context-inject";
+import { ToastHost } from "@/shared/ui/toast";
 
 const initialTabs: Tab[] = [
   { id: "t1", app: "ide", label: "order-service" },
@@ -86,6 +87,7 @@ export function App() {
       </div>
       <SimulateOverlay />
       <ContextInjectOverlay />
+      <ToastHost />
     </div>
   );
 }

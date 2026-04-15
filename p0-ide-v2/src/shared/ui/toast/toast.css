@@ -1,0 +1,102 @@
+.toast-host {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  max-width: calc(100vw - 36px);
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: 18px 1fr 20px;
+  align-items: start;
+  gap: 10px;
+  min-width: 280px;
+  max-width: 400px;
+  padding: 10px 10px 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  animation: toast-in 0.18s ease-out;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.toast__glyph {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 1px;
+}
+.toast__glyph--info    { background: var(--accent); }
+.toast__glyph--success { background: var(--success); }
+.toast__glyph--warn    { background: var(--warn); }
+.toast__glyph--danger  { background: var(--danger); }
+
+.toast__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.toast__title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.toast__engine {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: 1px 5px;
+  background: var(--bg-accent-subtle);
+  border-radius: 3px;
+}
+.toast__detail {
+  font-size: 11px;
+  color: var(--fg-muted);
+  line-height: 1.45;
+}
+
+.toast__close {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--fg-subtle);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  margin-top: 2px;
+  transition: color 0.12s ease;
+}
+.toast__close:hover { color: var(--fg); }
+
+/* Tint borders per kind */
+.toast--success { border-color: var(--border-success-subtle); }
+.toast--info    { border-color: var(--border-accent-subtle); }
+.toast--warn    { border-color: var(--border-warn-subtle); }
+.toast--danger  { border-color: var(--border-danger-subtle); }

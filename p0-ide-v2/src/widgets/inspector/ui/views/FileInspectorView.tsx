@@ -21,6 +21,7 @@ import { IncidentsPane } from "@/features/inspector-incidents";
 import { BehaviorPane } from "@/features/inspector-behavior";
 import { OwnershipPane } from "@/features/inspector-ownership";
 import { SuggestionOverlay, type SuggestionData } from "./SuggestionOverlay";
+import { toast } from "@/shared/model/toast-store";
 
 const signals = [
   { kind: "danger", Icon: IconTaint, label: "Taint sink", detail: "experience_store.save — unguarded" },
@@ -28,6 +29,55 @@ const signals = [
   { kind: "warn", Icon: IconComplexity, label: "High complexity", detail: "CPX 9 (threshold 8)" },
   { kind: "muted", Icon: IconDead, label: "Dead code", detail: "_select_strategy — unreferenced" },
 ];
+
+// ── Topic ⑤-a · Spec mining: implicit rules discovered across codebase ─
+const specRules: {
+  id: string;
+  rule: string;
+  confidence: number;
+  instances: number;
+  violation?: { symbol: string; loc: string; reason: string };
+}[] = [
+  {
+    id: "sr-01",
+    rule: "*Orchestrator.execute() must call validate_trace() before _store.save()",
+    confidence: 0.94,
+    instances: 12,
+    violation: { symbol: "DeepReasoningOrchestrator.execute", loc: "orchestrator.py:16", reason: "save reached without validator on path" },
+  },
+  {
+    id: "sr-02",
+    rule: "Taint-source parameters carry Tainted[T] annotation",
+    confidence: 0.88,
+    instances: 18,
+  },
+  {
+    id: "sr-03",
+    rule: "ExperienceStore writes emit audit.emit() within same frame",
+    confidence: 0.82,
+    instances: 7,
+  },
+];
+
+// ── Topic ⑤-b · AI contribution heatmap ────────────────────────────────
+const aiContribution = {
+  aiRatio: 0.73,
+  reviewedRatio: 0.12,
+  aiLines: 147,
+  reviewedLines: 18,
+  humanLines: 54,
+  authors: [
+    { name: "quanta-agent", lines: 98, ratio: 0.49, kind: "ai"    as const },
+    { name: "copilot",      lines: 49, ratio: 0.24, kind: "ai"    as const },
+    { name: "@songmin",     lines: 54, ratio: 0.27, kind: "human" as const },
+  ],
+  bands: [
+    { start: 1,   end: 47,  aiRatio: 0.92, reviewed: 0.05 },
+    { start: 48,  end: 102, aiRatio: 0.58, reviewed: 0.30 },
+    { start: 103, end: 148, aiRatio: 0.71, reviewed: 0.08 },
+    { start: 149, end: 200, aiRatio: 0.41, reviewed: 0.55 },
+  ],
+};
 
 const coverage = { pct: 0, uncovered: 8, files: 1 };
 const coverageRows: { file: string; covered: number; total: number; delta: number }[] = [
@@ -73,6 +123,30 @@ const suggestion: SuggestionData = {
     { state: "info", label: "Affects 5 call sites",             value: "5",       engine: "call graph" },
   ],
   confidence: 0.92,
+  counterfactual: {
+    riskWithout: 78,
+    costDays: 3.5,
+    items: [
+      { state: "danger", label: "2 taint paths remain open",            engine: "taint v2",     detail: "request.ctx → step.run → trace → save (unvalidated)" },
+      { state: "danger", label: "2 external sources stay exposed",      engine: "source-map",   detail: "webhook.receive · http_controller.handle" },
+      { state: "warn",   label: "INC-412 likely within ~2 weeks",       engine: "incident DNA", detail: "91% shape match · past median time-to-fire 11d" },
+      { state: "warn",   label: "17 downstream symbols inherit risk",   engine: "blast",        detail: "3 on critical reasoning path" },
+    ],
+  },
+  proofReplay: {
+    status: "pending",
+    checks: [
+      { label: "Behavior diff against 12 sampled inputs",        pass: true,  engine: "behavior diff", sample: "12 samples" },
+      { label: "Blast radius recompute post-apply",              pass: true,  engine: "blast" },
+      { label: "Type-check affected files",                       pass: true,  engine: "type check",     sample: "47 files" },
+      { label: "Arch-rule scan on infra → domain boundary",      pass: true,  engine: "arch rules" },
+    ],
+  },
+  patchTrail: [
+    { id: "p-14", when: "2h",   action: "applied",   title: "Reduce _select_strategy complexity",       riskBefore: 24, riskAfter: 14, author: "quanta-agent" },
+    { id: "p-09", when: "1d",   action: "dismissed", title: "Add retry-on-429 to fetch_trace",          riskBefore: 31, riskAfter: 18, reason: "behavior diff detected subtle timeout drift" },
+    { id: "p-03", when: "3d",   action: "applied",   title: "Extract validate_trace helper",            riskBefore: 42, riskAfter: 24, author: "quanta-agent" },
+  ],
 };
 
 function trendIcon(t: ChurnTrend) {
@@ -313,6 +387,127 @@ export function FileInspectorView({ name }: { name: string }) {
                 <button type="button" className="btn btn--primary">Apply <kbd>Enter</kbd></button>
               </div>
             </div>
+          </Section>
+
+          <Section label="Discovered rules" count={specRules.length}>
+            <div className="substats substats--2">
+              <Sub k="Rules mined" v={String(specRules.length)} />
+              <Sub
+                k="Violations"
+                v={String(specRules.filter((r) => r.violation).length)}
+                tone={specRules.some((r) => r.violation) ? "danger" : "default"}
+              />
+            </div>
+            <ul className="spec">
+              {specRules.map((r) => (
+                <li key={r.id} className={`spec__row${r.violation ? " has-violation" : ""}`}>
+                  <div className="spec__head">
+                    <span className={`spec__glyph${r.violation ? " is-violation" : ""}`} aria-hidden>
+                      {r.violation ? "!" : "◆"}
+                    </span>
+                    <span className="spec__rule">{r.rule}</span>
+                    <span className="spec__conf" title="Mining confidence">
+                      {r.confidence.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="spec__meta">
+                    <span className="spec__inst">{r.instances} instances</span>
+                    {r.violation && (
+                      <>
+                        <span className="spec__sep">·</span>
+                        <span className="spec__vio-label">VIOLATED</span>
+                        <span className="spec__vio-sym">{r.violation.symbol}</span>
+                        <span className="spec__vio-loc">{r.violation.loc}</span>
+                      </>
+                    )}
+                  </div>
+                  {r.violation && (
+                    <div className="spec__foot">
+                      <span className="spec__reason">{r.violation.reason}</span>
+                      <button
+                        type="button"
+                        className="spec__promote"
+                        onClick={() => {
+                          toast.success(
+                            "Promoted to arch rule",
+                            `"${r.rule}" now enforced across codebase (confidence ${r.confidence.toFixed(2)})`,
+                            "arch rules",
+                          );
+                        }}
+                      >
+                        Promote to arch rule →
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Section>
+
+          <Section label="AI contribution">
+            <div className="substats substats--3">
+              <Sub
+                k="AI ratio"
+                v={`${Math.round(aiContribution.aiRatio * 100)}%`}
+                tone={aiContribution.aiRatio > 0.6 ? "warn" : "default"}
+              />
+              <Sub
+                k="Reviewed"
+                v={`${Math.round(aiContribution.reviewedRatio * 100)}%`}
+                tone={aiContribution.reviewedRatio < 0.2 ? "danger" : "default"}
+              />
+              <Sub k="AI lines" v={String(aiContribution.aiLines)} />
+            </div>
+
+            <div className="aic-strip" aria-label="AI density by line range">
+              <span className="aic-strip__label">lines</span>
+              <div className="aic-strip__track">
+                {aiContribution.bands.map((b) => {
+                  const start = b.start;
+                  const span = b.end - b.start;
+                  const total = aiContribution.bands[aiContribution.bands.length - 1].end;
+                  const leftPct = (start / total) * 100;
+                  const widthPct = (span / total) * 100;
+                  // Four discrete density tiers for visual coherence w/ cov/churn bars
+                  const tier =
+                    b.aiRatio >= 0.85 ? "vhi" :
+                    b.aiRatio >= 0.65 ? "hi" :
+                    b.aiRatio >= 0.45 ? "med" :
+                    "lo";
+                  return (
+                    <div
+                      key={b.start}
+                      className={`aic-strip__band aic-strip__band--${tier}`}
+                      style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                      title={`L${b.start}–${b.end} · AI ${Math.round(b.aiRatio * 100)}% · reviewed ${Math.round(b.reviewed * 100)}%`}
+                    >
+                      <span className="aic-strip__band-val">{Math.round(b.aiRatio * 100)}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="aic-strip__total">200</span>
+            </div>
+
+            <ul className="aic-auth">
+              {aiContribution.authors.map((a) => (
+                <li key={a.name} className={`aic-auth__row aic-auth__row--${a.kind}`}>
+                  <span className={`aic-auth__dot aic-auth__dot--${a.kind}`} aria-hidden />
+                  <span className="aic-auth__name">{a.name}</span>
+                  <div className="aic-auth__bar">
+                    <span className="aic-auth__fill" style={{ width: `${Math.round(a.ratio * 100)}%` }} />
+                  </div>
+                  <span className="aic-auth__val">{a.lines}</span>
+                </li>
+              ))}
+            </ul>
+
+            {aiContribution.reviewedRatio < 0.2 && (
+              <div className="aic-warn">
+                Only {Math.round(aiContribution.reviewedRatio * 100)}% of AI-generated lines have human review —
+                consider a guarded-review pass before merging.
+              </div>
+            )}
           </Section>
 
           {suggestionOpen && (
