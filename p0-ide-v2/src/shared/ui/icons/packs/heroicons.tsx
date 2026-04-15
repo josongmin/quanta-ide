@@ -17,6 +17,7 @@ import {
   Cog8ToothIcon as HiSolidCog,
 } from "@heroicons/react/24/solid";
 import type { IconPack } from "./types";
+import { detectFileType } from "../file-type";
 
 const SIZE = 14;
 
@@ -36,6 +37,7 @@ function buildPack(variant: HeroVariant): IconPack {
     id: variant === "outline" ? "heroicons-outline" : "heroicons-solid",
     label: variant === "outline" ? "Heroicons Outline" : "Heroicons Solid",
     hint: variant === "outline" ? "Tailwind outline" : "Tailwind solid",
+    supportsColor: false,
     Folder: ({ open }) =>
       open ? (
         <FolderOpen className="ide-files-icon is-folder" width={SIZE} height={SIZE} />
@@ -43,22 +45,20 @@ function buildPack(variant: HeroVariant): IconPack {
         <Folder className="ide-files-icon is-folder" width={SIZE} height={SIZE} />
       ),
     pickFile: (name) => {
-      const lower = name.toLowerCase();
-      if (lower.endsWith(".py")) return <CodeBracket {...common} style={{ color: "#4b8bbe" }} />;
-      if (lower.endsWith(".tsx") || lower.endsWith(".ts"))
-        return <CodeSquare {...common} style={{ color: "#3178c6" }} />;
-      if (lower.endsWith(".jsx") || lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs"))
-        return <CodeSquare {...common} style={{ color: "#d9b02a" }} />;
-      if (lower.endsWith(".css") || lower.endsWith(".scss"))
-        return <CodeBracket {...common} style={{ color: "#264de4" }} />;
-      if (lower.endsWith(".html") || lower.endsWith(".htm"))
-        return <CodeBracket {...common} style={{ color: "#e34c26" }} />;
-      if (lower.endsWith(".json")) return <CodeBracket {...common} style={{ color: "#d9a21a" }} />;
-      if (lower.endsWith(".md") || lower.endsWith(".mdx"))
-        return <DocumentText {...common} style={{ color: "#8e8e93" }} />;
-      if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".cfg"))
-        return <Cog {...common} style={{ color: "#9b5de5" }} />;
-      return <Document {...common} />;
+      const kind = detectFileType(name);
+      switch (kind) {
+        case "py": return <CodeBracket {...common} style={{ color: "#4b8bbe" }} />;
+        case "tsx":
+        case "ts": return <CodeSquare {...common} style={{ color: "#3178c6" }} />;
+        case "jsx":
+        case "js": return <CodeSquare {...common} style={{ color: "#d9b02a" }} />;
+        case "css": return <CodeBracket {...common} style={{ color: "#264de4" }} />;
+        case "html": return <CodeBracket {...common} style={{ color: "#e34c26" }} />;
+        case "json": return <CodeBracket {...common} style={{ color: "#d9a21a" }} />;
+        case "md": return <DocumentText {...common} style={{ color: "#8e8e93" }} />;
+        case "ini": return <Cog {...common} style={{ color: "#9b5de5" }} />;
+        default: return <Document {...common} />;
+      }
     },
   };
 }

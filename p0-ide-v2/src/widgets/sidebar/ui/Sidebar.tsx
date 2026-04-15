@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronIcon, useActivePack } from "@/shared/ui/icons";
 import { useGitWorkspaceChangeCount } from "@/shared/model/git-workspace";
@@ -70,7 +70,6 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
   const [selected, setSelected] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
-  const pickerBtnRef = useRef<HTMLButtonElement>(null);
   const pack = useActivePack();
   const iconColorId = useIconColor();
   const iconColor = resolveIconColor(iconColorId);
@@ -147,10 +146,9 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
         <div className="ide-files-tool-sep" />
         <span className="ide-files-count">{fileCount} files</span>
         <button
-          ref={pickerBtnRef}
           type="button"
           className={`ide-files-iconpack-btn${pickerOpen ? " is-open" : ""}`}
-          onClick={() => setPickerOpen((v) => !v)}
+          onClick={() => setPickerOpen(true)}
           title={`Icon pack: ${pack.label}`}
           aria-haspopup="dialog"
           aria-expanded={pickerOpen}
@@ -158,9 +156,7 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
           <PaletteIcon />
           <ChevronDownTiny />
         </button>
-        {pickerOpen && (
-          <IconPackPicker anchorRef={pickerBtnRef} onClose={() => setPickerOpen(false)} />
-        )}
+        {pickerOpen && <IconPackPicker onClose={() => setPickerOpen(false)} />}
       </div>
 
       <div className="ide-files-tree" role="tree">

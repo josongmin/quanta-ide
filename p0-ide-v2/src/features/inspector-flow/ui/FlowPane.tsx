@@ -72,58 +72,64 @@ export function FlowPane({ file }: Props) {
         ))}
       </div>
 
-      <div className="flow-pane__summary">
-        <div className="flow-pane__summary-row">
-          <span className="flow-pane__k">from</span>
-          <span className="flow-pane__v flow-pane__v--source">{active.steps[0]?.symbol}</span>
-          <span className="flow-pane__arrow">→</span>
-          <span className="flow-pane__k">to</span>
-          <span className="flow-pane__v flow-pane__v--sink">{active.steps[active.steps.length - 1]?.symbol}</span>
+      <header className="fp-head">
+        <h2 className="fp-head__title">Taint flow</h2>
+        <p className="fp-head__desc">
+          Untrusted input reaches a sink without passing a sanitizer.
+          {active.owasp && <> Mapped to OWASP <strong>{active.owasp}</strong>.</>}
+        </p>
+        <div className="fp-head__path">
+          <span className="fp-head__path-label">source</span>
+          <span className="fp-head__path-sym fp-head__path-sym--source">{active.steps[0]?.symbol}</span>
+          <span className="fp-head__path-arrow">→</span>
+          <span className="fp-head__path-label">sink</span>
+          <span className="fp-head__path-sym fp-head__path-sym--sink">{active.steps[active.steps.length - 1]?.symbol}</span>
         </div>
-        {active.owasp && (
-          <div className="flow-pane__owasp">OWASP · {active.owasp}</div>
-        )}
-      </div>
+      </header>
 
-      <ol className="flow-steps">
-        {active.steps.map((s, i) => (
-          <li key={i} className={`flow-step${i === stepIndex ? " is-current" : ""}`}>
-            <div className="flow-step__rail">
-              <span
-                className="flow-step__dot"
-                style={{ background: HOP_COLOR[s.hop] }}
-                aria-hidden
-              />
-              {i < active.steps.length - 1 && <span className="flow-step__line" aria-hidden />}
-            </div>
-            <button
-              type="button"
-              className="flow-step__body"
-              onClick={() => {
-                setStepIndex(i);
-                focusStore.jumpTo(s.line);
-              }}
-            >
-              <div className="flow-step__head">
-                <span className={`flow-step__hop flow-step__hop--${s.hop}`}>{s.hop}</span>
-                <span className="flow-step__line-no">L{s.line}</span>
-                <span className="flow-step__sym">{s.symbol}</span>
+      <section className="fp-block">
+        <div className="fp-block__h">
+          <h3 className="fp-block__title">Trace</h3>
+          <p className="fp-block__desc">{active.steps.length} hops from source to sink.</p>
+        </div>
+        <ol className="flow-steps">
+          {active.steps.map((s, i) => (
+            <li key={i} className={`flow-step${i === stepIndex ? " is-current" : ""}`}>
+              <div className="flow-step__rail">
+                <span
+                  className="flow-step__dot"
+                  style={{ background: HOP_COLOR[s.hop] }}
+                  aria-hidden
+                />
+                {i < active.steps.length - 1 && <span className="flow-step__line" aria-hidden />}
               </div>
-              <div className="flow-step__detail">{s.detail}</div>
-              {s.file && <div className="flow-step__file">{s.file}</div>}
-            </button>
-          </li>
-        ))}
-      </ol>
+              <button
+                type="button"
+                className="flow-step__body"
+                onClick={() => {
+                  setStepIndex(i);
+                  focusStore.jumpTo(s.line);
+                }}
+              >
+                <div className="flow-step__head">
+                  <span className={`flow-step__hop flow-step__hop--${s.hop}`}>{s.hop}</span>
+                  <span className="flow-step__line-no">L{s.line}</span>
+                  <span className="flow-step__sym">{s.symbol}</span>
+                </div>
+                <div className="flow-step__detail">{s.detail}</div>
+                {s.file && <div className="flow-step__file">{s.file}</div>}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </section>
 
-      {/* ── Typestate trace ── */}
-      <div className="typestate">
-        <div className="typestate__head">
-          <span className="typestate__kicker">Typestate</span>
-          <span className="typestate__proto">TraceProtocol</span>
-          <span className="typestate__at">
-            step {stepIndex + 1} / {active.steps.length}
-          </span>
+      <section className="fp-block">
+        <div className="fp-block__h">
+          <h3 className="fp-block__title">Typestate</h3>
+          <p className="fp-block__desc">
+            Protocol state at each hop · <code>TraceProtocol</code> · step {stepIndex + 1} / {active.steps.length}.
+          </p>
         </div>
 
         <div className="typestate__chain" aria-label="Protocol state chain">
@@ -173,7 +179,7 @@ export function FlowPane({ file }: Props) {
             disabled={stepIndex <= 0}
             aria-label="Previous step"
           >
-            ◂ prev
+            Prev
           </button>
           <button
             type="button"
@@ -184,7 +190,7 @@ export function FlowPane({ file }: Props) {
             }}
             aria-label={playing ? "Pause" : "Play"}
           >
-            {playing ? "❙❙ pause" : "▶ play"}
+            {playing ? "Pause" : "Play"}
           </button>
           <button
             type="button"
@@ -193,20 +199,23 @@ export function FlowPane({ file }: Props) {
             disabled={stepIndex >= active.steps.length - 1}
             aria-label="Next step"
           >
-            next ▸
+            Next
           </button>
         </div>
-      </div>
+      </section>
 
       {active.sanitizerHints && active.sanitizerHints.length > 0 && (
-        <div className="flow-pane__sanitize">
-          <div className="flow-pane__sanitize-head">sanitizer options</div>
-          <ul>
+        <section className="fp-block">
+          <div className="fp-block__h">
+            <h3 className="fp-block__title">Sanitizer options</h3>
+            <p className="fp-block__desc">Recommended fixes to break this taint path.</p>
+          </div>
+          <ul className="fp-sanitize">
             {active.sanitizerHints.map((h, i) => (
-              <li key={i} className="flow-pane__sanitize-item">{h}</li>
+              <li key={i} className="fp-sanitize__item">{h}</li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
     </div>
   );

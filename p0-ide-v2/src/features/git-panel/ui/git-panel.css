@@ -519,7 +519,7 @@
   font-weight: 600;
   color: var(--fg-subtle);
   padding: 0 5px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-muted);
   text-transform: none;
   letter-spacing: 0;

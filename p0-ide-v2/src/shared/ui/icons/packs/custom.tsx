@@ -5,6 +5,7 @@ export const customPack: IconPack = {
   id: "custom",
   label: "Custom",
   hint: "Custom color icons",
+  supportsColor: false,
   Folder: ({ open }) => <CustomFolderIcon open={open} />,
   pickFile: (name) => customPickFileIcon(name),
 };

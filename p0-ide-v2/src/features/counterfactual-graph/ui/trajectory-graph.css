@@ -1,0 +1,76 @@
+.cfgraph {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-sans);
+}
+
+.cfgraph__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.cfgraph__xtick {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.5;
+}
+
+.cfgraph__ylabel,
+.cfgraph__xlabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.cfgraph__unit {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  fill: var(--fg-subtle);
+  text-anchor: start;
+}
+
+.cfgraph__band {
+  stroke: none;
+}
+.cfgraph__band--apply   { fill: var(--success); opacity: 0.12; }
+.cfgraph__band--dismiss { fill: var(--danger);  opacity: 0.10; }
+
+.cfgraph__line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cfgraph__line--apply   { stroke: var(--success); }
+.cfgraph__line--dismiss { stroke: var(--danger); }
+
+.cfgraph__dot {
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+.cfgraph__dot--apply   { fill: var(--success); }
+.cfgraph__dot--dismiss { fill: var(--danger); }
+
+.cfgraph__endlabel {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.cfgraph__endlabel--apply   { fill: var(--success); }
+.cfgraph__endlabel--dismiss { fill: var(--danger); }
+
+.cfgraph__now {
+  stroke: var(--fg-subtle);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.6;
+}
+
+.cfgraph.is-compact .cfgraph__ylabel,
+.cfgraph.is-compact .cfgraph__xlabel,
+.cfgraph.is-compact .cfgraph__endlabel {
+  font-size: 8px;
+}

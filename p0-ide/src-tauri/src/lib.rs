@@ -2,33 +2,24 @@
 //!
 //! # Architecture (Hexagonal / Ports & Adapters)
 //!
+//! The target layering is:
+//!
 //! ```text
-//!  ┌─────────────────────────────────────────────┐
-//!  │  adapter::tauri_cmd   (driving / inbound)    │
-//!  │  adapter::event                              │
-//!  ├─────────────────────────────────────────────┤
-//!  │  application::service  (use-cases)           │
-//!  │  application::dto      (boundary objects)    │
-//!  ├─────────────────────────────────────────────┤
-//!  │  domain::model         (entities, VOs)       │
-//!  │  domain::port          (trait interfaces)    │
-//!  │  domain::error         (domain errors)       │
-//!  ├─────────────────────────────────────────────┤
-//!  │  infrastructure::fs         (driven / out)   │
-//!  │  infrastructure::process                     │
-//!  │  infrastructure::persistence                 │
-//!  └─────────────────────────────────────────────┘
+//!  adapter         (driving / inbound — Tauri cmds, events)
+//!  application     (use-case orchestration)
+//!  domain          (entities, VOs, ports, errors)
+//!  infrastructure  (driven / outbound — fs, process, persistence)
 //! ```
 //!
 //! **Dependency rule:** arrows point inward. Outer layers depend on inner
 //! layers, never the reverse. Infrastructure implements domain ports;
 //! adapters call application services.
+//!
+//! Only `domain::error` is materialised today. Additional layers will be
+//! added as concrete use-cases demand them — not before (YAGNI).
 
 // ── Layer modules ───────────────────────────────────────────────────
-pub mod adapter;
-pub mod application;
 pub mod domain;
-pub mod infrastructure;
 
 use log::info;
 

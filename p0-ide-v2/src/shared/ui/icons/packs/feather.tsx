@@ -1,4 +1,5 @@
 import type { IconPack } from "./types";
+import { detectFileType } from "../file-type";
 
 function FeatherFolder({ open }: { open: boolean }) {
   return (
@@ -58,19 +59,22 @@ export const featherPack: IconPack = {
   id: "feather",
   label: "Feather",
   hint: "Airy outline",
+  supportsColor: true,
   Folder: ({ open }) => <FeatherFolder open={open} />,
   pickFile: (name) => {
-    const lower = name.toLowerCase();
-    if (lower.endsWith(".py")) return <FeatherFile tag="py" />;
-    if (lower.endsWith(".tsx")) return <FeatherFile tag="tsx" />;
-    if (lower.endsWith(".ts")) return <FeatherFile tag="ts" />;
-    if (lower.endsWith(".jsx")) return <FeatherFile tag="jsx" />;
-    if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) return <FeatherFile tag="js" />;
-    if (lower.endsWith(".css") || lower.endsWith(".scss")) return <FeatherFile tag="css" />;
-    if (lower.endsWith(".html") || lower.endsWith(".htm")) return <FeatherFile tag="html" />;
-    if (lower.endsWith(".json")) return <FeatherFile tag="{}" />;
-    if (lower.endsWith(".md") || lower.endsWith(".mdx")) return <FeatherFile tag="md" />;
-    if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".cfg")) return <FeatherFile tag="ini" />;
-    return <FeatherFile />;
+    const kind = detectFileType(name);
+    switch (kind) {
+      case "py": return <FeatherFile tag="py" />;
+      case "tsx": return <FeatherFile tag="tsx" />;
+      case "ts": return <FeatherFile tag="ts" />;
+      case "jsx": return <FeatherFile tag="jsx" />;
+      case "js": return <FeatherFile tag="js" />;
+      case "css": return <FeatherFile tag="css" />;
+      case "html": return <FeatherFile tag="html" />;
+      case "json": return <FeatherFile tag="{}" />;
+      case "md": return <FeatherFile tag="md" />;
+      case "ini": return <FeatherFile tag="ini" />;
+      default: return <FeatherFile />;
+    }
   },
 };

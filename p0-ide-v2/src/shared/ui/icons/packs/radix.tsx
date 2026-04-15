@@ -1,4 +1,5 @@
 import type { IconPack } from "./types";
+import { detectFileType } from "../file-type";
 
 function RadixFolder({ open }: { open: boolean }) {
   return (
@@ -59,19 +60,22 @@ export const radixPack: IconPack = {
   id: "radix",
   label: "Radix",
   hint: "Compact grid",
+  supportsColor: true,
   Folder: ({ open }) => <RadixFolder open={open} />,
   pickFile: (name) => {
-    const lower = name.toLowerCase();
-    if (lower.endsWith(".py")) return <RadixFile tag="py" />;
-    if (lower.endsWith(".tsx")) return <RadixFile tag="tsx" />;
-    if (lower.endsWith(".ts")) return <RadixFile tag="ts" />;
-    if (lower.endsWith(".jsx")) return <RadixFile tag="jsx" />;
-    if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) return <RadixFile tag="js" />;
-    if (lower.endsWith(".css") || lower.endsWith(".scss")) return <RadixFile tag="css" />;
-    if (lower.endsWith(".html") || lower.endsWith(".htm")) return <RadixFile tag="html" />;
-    if (lower.endsWith(".json")) return <RadixFile tag="{}" />;
-    if (lower.endsWith(".md") || lower.endsWith(".mdx")) return <RadixFile tag="md" />;
-    if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".cfg")) return <RadixFile tag="ini" />;
-    return <RadixFile />;
+    const kind = detectFileType(name);
+    switch (kind) {
+      case "py": return <RadixFile tag="py" />;
+      case "tsx": return <RadixFile tag="tsx" />;
+      case "ts": return <RadixFile tag="ts" />;
+      case "jsx": return <RadixFile tag="jsx" />;
+      case "js": return <RadixFile tag="js" />;
+      case "css": return <RadixFile tag="css" />;
+      case "html": return <RadixFile tag="html" />;
+      case "json": return <RadixFile tag="{}" />;
+      case "md": return <RadixFile tag="md" />;
+      case "ini": return <RadixFile tag="ini" />;
+      default: return <RadixFile />;
+    }
   },
 };

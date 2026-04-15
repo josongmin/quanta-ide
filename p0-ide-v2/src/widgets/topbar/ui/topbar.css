@@ -1,5 +1,8 @@
 /* ── Top bar (GNB — tab-based chrome) ─────────────────────────────── */
 .topbar {
+  /* Tab flex shrink/expand duration — JS (`use-workspace-tab-strip`) reads this for settle timing */
+  --topbar-tab-flex-ms: 200;
+  --topbar-tab-max: 200px;
   display: flex;
   align-items: stretch;
   gap: 0;
@@ -11,9 +14,11 @@
   font-family: var(--font-sans);
   color: var(--fg-muted);
   -webkit-app-region: drag;
+  overflow: hidden;
+  min-width: 0;
 }
 .topbar__left,
-.topbar__drag,
+.topbar__tabs-drag,
 .topbar__right {
   -webkit-app-region: drag;
 }
@@ -32,7 +37,7 @@
 .topbar__left {
   display: flex;
   align-items: stretch;
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-width: 0;
   gap: 0;
 }
@@ -40,49 +45,93 @@
 /* ── Home (icon only) ─────────────────────────────────────────────── */
 .topbar__home {
   position: relative;
+  z-index: 2;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
+  box-sizing: border-box;
+  min-width: 36px;
+  width: auto;
   margin: 6px 10px 6px 0;
-  padding: 0;
-  align-self: center;
+  padding: 0 4px;
+  align-self: stretch;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.18s ease, color 0.18s ease, width 0.18s ease, margin 0.18s ease, border-radius 0.18s ease;
 }
+.topbar__home::before,
+.topbar__home::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--topbar-divider);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.topbar__home::before { left: 0; }
+.topbar__home::after { right: 0; }
 .topbar__home:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--fg);
 }
+.topbar__home.is-active {
+  color: var(--fg);
+  background: var(--bg);
+  border-radius: 0;
+  margin: 0;
+  min-width: 48px;
+  width: 48px;
+  padding: 0;
+}
+.topbar__home.is-active:hover {
+  background: var(--bg);
+}
+.topbar__home.is-active::before {
+  opacity: 1;
+}
+.topbar__home.is-active::after {
+  opacity: 0;
+}
+.topbar__logo {
+  font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: #000000;
+}
 
-/* ── Tab bar ───────────────────────────────────────────────────────── */
+[data-theme="dark"] .topbar__logo {
+  color: #f5f5f5;
+}
+
+/* ── Tab bar (Chrome-style: grow to max, shrink proportionally when crowded) ── */
 .topbar__tabs {
   display: flex;
   align-items: stretch;
   gap: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0%;
   min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
+  overflow: hidden;
   height: 100%;
 }
-.topbar__tabs::-webkit-scrollbar { display: none; }
 
 .topbar__tab {
+  /* Critical: default flex min-width:auto uses content intrinsic width and blocks shrinking → overflow */
+  min-width: 0;
   appearance: none;
   cursor: pointer;
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 14px 0 12px;
-  min-width: 140px;
-  max-width: 240px;
+  align-items: stretch;
+  padding: 0;
+  overflow: hidden;
   border: none;
   border-radius: 0;
   background: transparent;
@@ -92,13 +141,48 @@
   font-weight: 500;
   white-space: nowrap;
   position: relative;
+  /* Do NOT transition flex/min/max on normal tabs — any re-render or subpixel
+     flex reflow animates and reads as “shrink then grow” on hover-out. */
   transition: color 0.12s ease, background 0.12s ease;
-  flex-shrink: 0;
 }
-.topbar__tab:hover { color: var(--fg); }
+
+/* Equal flex for all tabs — avoids the first/active tab eating extra width when few are open */
+.topbar__tab:not(.is-active) {
+  flex: 1 1 0%;
+  max-width: var(--topbar-tab-max, 200px);
+}
+
 .topbar__tab.is-active {
+  flex: 1 1 0%;
+  max-width: var(--topbar-tab-max, 200px);
   background: var(--bg);
   color: var(--fg);
+}
+
+/* Width transitions only while a tab is animating closed (inline flex on that button) */
+.topbar__tab.is-tab-exiting {
+  transition: color 0.12s ease, background 0.12s ease,
+    flex-basis calc(var(--topbar-tab-flex-ms) * 1ms) ease,
+    min-width calc(var(--topbar-tab-flex-ms) * 1ms) ease,
+    max-width calc(var(--topbar-tab-flex-ms) * 1ms) ease;
+}
+
+/* Avoid flex “catch-up” transitions while widths are held for close / strip leave */
+.topbar__tab.is-width-frozen {
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.topbar__tab:hover { color: var(--fg); }
+.topbar__tab-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  /* a touch more space before the icon (divider → glyph) */
+  padding: 0 8px 0 11px;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: opacity 0.18s ease;
 }
 
 /* separator between tabs */
@@ -114,9 +198,6 @@
 .topbar__tab::before { right: 0; }
 .topbar__tab::after { left: 0; display: none; }
 .topbar__tab:first-of-type::after { display: block; }
-.topbar__tab:first-of-type {
-  padding-left: 8px;
-}
 
 .topbar__tab-icon {
   display: inline-flex;
@@ -128,11 +209,23 @@
 
 .topbar__tab-label {
   overflow: hidden;
-  text-overflow: ellipsis;
+  text-align: left;
   flex: 1;
+  min-width: 0;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+          mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
+}
+.topbar__tab:hover .topbar__tab-label,
+.topbar__tab.is-active .topbar__tab-label {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+          mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
 }
 
 .topbar__tab-close {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -147,22 +240,26 @@
   transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
 .topbar__tab:hover .topbar__tab-close,
-.topbar__tab.is-active .topbar__tab-close { opacity: 0.7; }
+.topbar__tab.is-active .topbar__tab-close { opacity: 0.8; }
 .topbar__tab-close:hover {
   opacity: 1;
   color: var(--fg);
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* [+] add tab */
+/* [+] add tab — keep narrow so tab row keeps more space */
 .topbar__tab-add {
   position: relative;
   flex-shrink: 0;
+  align-self: stretch;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  margin: 6px 8px;
+  box-sizing: border-box;
+  width: 28px;
+  min-width: 28px;
+  margin: 0 4px 0 6px;
+  padding: 0;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -175,19 +272,55 @@
   color: var(--fg);
 }
 
-/* drag spacer */
-.topbar__drag {
+/* In-tab-strip drag tail: tab container extends to the left edge of utilities */
+.topbar__tabs-drag {
   flex: 1 1 auto;
-  min-width: 24px;
+  min-width: 0;
+  align-self: stretch;
+  -webkit-app-region: drag;
 }
 
-/* ── Right cluster ────────────────────────────────────────────────── */
+/* Crowded-tab title (fixed below tab; portal from Topbar.tsx) */
+.topbar-tab-tooltip {
+  position: fixed;
+  z-index: 100000;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-md, 6px);
+  font-size: var(--fs-sm, 12px);
+  font-weight: 500;
+  line-height: 1.35;
+  max-width: min(320px, calc(100vw - 24px));
+  text-align: center;
+  word-break: break-word;
+  pointer-events: none;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
+  background: rgba(28, 28, 28, 0.94);
+  color: #fafafa;
+}
+[data-theme="dark"] .topbar-tab-tooltip {
+  background: rgba(250, 250, 250, 0.95);
+  color: #141414;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+
+/* ── Right cluster (profile) + fixed utilities ───────────────────── */
 .topbar__right {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
+  gap: 8px;
   flex-shrink: 0;
   padding-right: 4px;
+}
+
+/* Search · inbox · settings — logical group; fills topbar height */
+.topbar__utilities {
+  display: inline-flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .topbar__icon-btn {
@@ -195,26 +328,48 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  align-self: stretch;
   width: 28px;
-  height: 28px;
+  margin: 0;
+  padding: 0;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
+  transition: background 0.18s ease, color 0.18s ease, width 0.18s ease, border-radius 0.18s ease;
 }
+.topbar__icon-btn::before,
+.topbar__icon-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--topbar-divider);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.topbar__icon-btn::before { left: 0; }
+.topbar__icon-btn::after { right: 0; }
 .topbar__icon-btn:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--fg);
 }
-
-.topbar__T {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 600;
-  font-style: italic;
-  line-height: 1;
+.topbar__icon-btn.is-active {
+  color: var(--fg);
+  background: var(--bg);
+  border-radius: 0;
+  margin: 0;
+  width: 40px;
+}
+.topbar__icon-btn.is-active:hover {
+  background: var(--bg);
+}
+.topbar__icon-btn.is-active::before,
+.topbar__icon-btn.is-active::after {
+  opacity: 1;
 }
 
 .topbar__sep {
@@ -224,6 +379,12 @@
   margin: 0 4px;
   align-self: center;
   flex-shrink: 0;
+  transition: opacity 0.18s ease, width 0.18s ease, margin 0.18s ease;
+}
+.topbar__utilities:has(.topbar__icon-btn.is-active) + .topbar__sep {
+  opacity: 0;
+  width: 0;
+  margin: 0;
 }
 
 .topbar__badge {
@@ -233,9 +394,9 @@
   min-width: 14px;
   height: 14px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--danger);
-  color: #fff;
+  color: var(--text-inverse);
   font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 700;
@@ -245,6 +406,7 @@
 
 /* ── Profile ───────────────────────────────────────────────────────── */
 .topbar__profile {
+  align-self: center;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -252,7 +414,7 @@
   margin-left: 4px;
   background: transparent;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--fg);
   cursor: pointer;
   font-size: var(--fs-sm);

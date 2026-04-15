@@ -14,7 +14,8 @@ import {
 import { Section, Sub } from "@/shared/ui/section";
 import { riskColor } from "@/shared/lib/risk";
 import { FILES } from "@/entities/file";
-import { focusStore, useFocusStore, type InspectorMode } from "@/shared/model/focus-store";
+import { focusStore, useFocusStore } from "@/shared/model/focus-store";
+import { INSPECTOR_MODES } from "@/entities/inspector";
 import { FlowPane } from "@/features/inspector-flow";
 import { BlastPane } from "@/features/inspector-blast";
 import { IncidentsPane } from "@/features/inspector-incidents";
@@ -161,14 +162,7 @@ function symbolGlyph(kind: "fn" | "class" | "const") {
   return <IconFunction size={13} />;
 }
 
-const MODES: { id: InspectorMode; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "flow", label: "Flow" },
-  { id: "blast", label: "Blast" },
-  { id: "incidents", label: "Incidents" },
-  { id: "behavior", label: "Behavior" },
-  { id: "ownership", label: "Ownership" },
-];
+const MODES = INSPECTOR_MODES;
 
 export function FileInspectorView({ name }: { name: string }) {
   const mode = useFocusStore((s) => s.mode);

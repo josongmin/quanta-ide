@@ -931,7 +931,7 @@ button.tab-banner__chip:hover .tab-banner__glyph { color: var(--fg-muted); }
   position: relative;
   flex: 1;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-muted);
   overflow: hidden;
 }
@@ -939,14 +939,14 @@ button.tab-banner__chip:hover .tab-banner__glyph { color: var(--fg-muted); }
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   transition: width 180ms ease;
 }
 .symtip__impact-crit-fill {
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--danger);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .symtip__shape-bar {
@@ -975,7 +975,7 @@ button.tab-banner__chip:hover .tab-banner__glyph { color: var(--fg-muted); }
 }
 .symtip__shape-fill {
   height: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--border-strong);
 }
 .symtip__shape-fill--in { background: var(--accent-purple-soft); }

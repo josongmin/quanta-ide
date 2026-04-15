@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { toastStore } from "@/shared/model/toast-store";
 
 export type GitLetter = "M" | "A" | "D" | "?";
 
@@ -152,24 +153,46 @@ function initialState(): GitWorkspaceState {
 
 let state: GitWorkspaceState = initialState();
 
-let toastTimer: ReturnType<typeof setTimeout> | null = null;
+/** Id of the active git-workspace toast, so we can clear the local mirror when the global store dismisses it. */
+let activeToastId: string | null = null;
 
+toastStore.subscribe(() => {
+  if (!activeToastId) return;
+  const live = toastStore.get().toasts.some((t) => t.id === activeToastId);
+  if (!live) {
+    activeToastId = null;
+    if (state.toast !== null) {
+      state = { ...state, toast: null };
+      emit();
+    }
+  }
+});
+
+/**
+ * Route git-workspace toasts through the central toast store. A
+ * thin mirror in `state.toast` keeps the in-panel sticky banner
+ * working without duplicating timer logic.
+ */
 function showToast(message: string | null, ms = 2200) {
-  if (toastTimer) {
-    clearTimeout(toastTimer);
-    toastTimer = null;
+  if (activeToastId) {
+    toastStore.dismiss(activeToastId);
+    activeToastId = null;
+  }
+  if (!message) {
+    if (state.toast !== null) {
+      state = { ...state, toast: null };
+      emit();
+    }
+    return;
   }
   state = { ...state, toast: message };
   emit();
-  if (message && ms > 0) {
-    toastTimer = setTimeout(() => {
-      toastTimer = null;
-      if (state.toast === message) {
-        state = { ...state, toast: null };
-        emit();
-      }
-    }, ms);
-  }
+  activeToastId = toastStore.push({
+    kind: "info",
+    title: message,
+    engine: "git-workspace",
+    ttlMs: ms,
+  });
 }
 
 function sanitizeBranchName(raw: string): string {

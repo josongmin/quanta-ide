@@ -10,13 +10,13 @@
   --bg-selected: #ebebeb;
 
   /* Border */
-  --border: #ececec;
-  --border-strong: #dcdcdc;
+  --border: #e4e4e4;
+  --border-strong: #cdcdcd;
 
-  /* Text */
-  --fg: #111111;
-  --fg-muted: #6b6b6b;
-  --fg-subtle: #9a9a9a;
+  /* Text — pushed toward black for stronger hierarchy */
+  --fg: #0a0a0a;
+  --fg-muted: #3d3d3d;
+  --fg-subtle: #757575;
 
   /* Accent (Figma blue-ish, used sparingly) */
   --accent: #0d99ff;
@@ -40,7 +40,7 @@
   --border-success-subtle: #c6ead5;
 
   /* Neutral / event colors */
-  --fg-dead: #8a8a93;
+  --fg-dead: #6a6a72;
   --fg-testbroke: #ea7a3b;
   --accent-purple: #7e4ed6;
   --accent-purple-soft: #a476f0;
@@ -72,16 +72,31 @@
 
   /* Layout */
   --topbar-h: 40px;
-  --rail-w: 44px;
+  --rail-w: 52px;
   --sidebar-w: 240px;
   --inspector-w: 320px;
 
   /* Radius / shadow */
+  --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+  --radius-pill: 999px;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  /* Semantic on-color text (text that sits on accent/danger/success fills) */
+  --text-inverse: #ffffff;
+
+  /* Backdrops — modal/sheet scrims */
+  --bg-overlay: color-mix(in srgb, #000 45%, transparent);
+
+  /* Z-index scale — ordered globally */
+  --z-dropdown: 1400;
+  --z-overlay: 1500;
+  --z-modal: 1700;
+  --z-toast: 2000;
 
   /* Scrollbars — used by global reset + scoped overrides */
   --scrollbar-w: 5px;
@@ -127,4 +142,13 @@
   --topbar-bg: #222222;
   --topbar-border: #2d2d2d;
   --topbar-divider: #333333;
+
+  /* Shadows — softer on dark */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+
+  /* On dark backgrounds, on-color text stays white but can soften slightly */
+  --text-inverse: #ffffff;
+
+  /* Scrim slightly darker on dark to preserve contrast */
+  --bg-overlay: color-mix(in srgb, #000 60%, transparent);
 }

@@ -1,4 +1,5 @@
 import type { IconPack } from "./types";
+import { detectFileType } from "../file-type";
 
 function IconoirFolder({ open }: { open: boolean }) {
   return (
@@ -58,19 +59,22 @@ export const iconoirPack: IconPack = {
   id: "iconoir",
   label: "Iconoir",
   hint: "Hairline minimal",
+  supportsColor: true,
   Folder: ({ open }) => <IconoirFolder open={open} />,
   pickFile: (name) => {
-    const lower = name.toLowerCase();
-    if (lower.endsWith(".py")) return <IconoirFile tag="py" />;
-    if (lower.endsWith(".tsx")) return <IconoirFile tag="tsx" />;
-    if (lower.endsWith(".ts")) return <IconoirFile tag="ts" />;
-    if (lower.endsWith(".jsx")) return <IconoirFile tag="jsx" />;
-    if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) return <IconoirFile tag="js" />;
-    if (lower.endsWith(".css") || lower.endsWith(".scss")) return <IconoirFile tag="css" />;
-    if (lower.endsWith(".html") || lower.endsWith(".htm")) return <IconoirFile tag="html" />;
-    if (lower.endsWith(".json")) return <IconoirFile tag="{}" />;
-    if (lower.endsWith(".md") || lower.endsWith(".mdx")) return <IconoirFile tag="md" />;
-    if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".cfg")) return <IconoirFile tag="ini" />;
-    return <IconoirFile />;
+    const kind = detectFileType(name);
+    switch (kind) {
+      case "py": return <IconoirFile tag="py" />;
+      case "tsx": return <IconoirFile tag="tsx" />;
+      case "ts": return <IconoirFile tag="ts" />;
+      case "jsx": return <IconoirFile tag="jsx" />;
+      case "js": return <IconoirFile tag="js" />;
+      case "css": return <IconoirFile tag="css" />;
+      case "html": return <IconoirFile tag="html" />;
+      case "json": return <IconoirFile tag="{}" />;
+      case "md": return <IconoirFile tag="md" />;
+      case "ini": return <IconoirFile tag="ini" />;
+      default: return <IconoirFile />;
+    }
   },
 };

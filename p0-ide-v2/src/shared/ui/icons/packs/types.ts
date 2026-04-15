@@ -5,6 +5,7 @@ export interface IconPack {
   id: IconPackId;
   label: string;
   hint: string;
+  supportsColor: boolean;
   Folder: (props: { open: boolean }) => ReactElement;
   pickFile: (name: string) => ReactElement;
 }

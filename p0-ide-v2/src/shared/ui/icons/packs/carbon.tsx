@@ -1,4 +1,5 @@
 import type { IconPack } from "./types";
+import { detectFileType } from "../file-type";
 
 /**
  * Carbon — inspired by IBM Carbon Design System icons.
@@ -68,21 +69,22 @@ export const carbonPack: IconPack = {
   id: "carbon",
   label: "Carbon",
   hint: "IBM geometric lines",
+  supportsColor: true,
   Folder: ({ open }) => <CarbonFolder open={open} />,
   pickFile: (name) => {
-    const lower = name.toLowerCase();
-    if (lower.endsWith(".py")) return <CarbonFile tag="py" accent="#4b8bbe" />;
-    if (lower.endsWith(".tsx")) return <CarbonFile tag="tsx" accent="#3178c6" />;
-    if (lower.endsWith(".ts")) return <CarbonFile tag="ts" accent="#3178c6" />;
-    if (lower.endsWith(".jsx")) return <CarbonFile tag="jsx" accent="#f0db4f" />;
-    if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs"))
-      return <CarbonFile tag="js" accent="#f0db4f" />;
-    if (lower.endsWith(".css") || lower.endsWith(".scss")) return <CarbonFile tag="css" accent="#264de4" />;
-    if (lower.endsWith(".html") || lower.endsWith(".htm")) return <CarbonFile tag="html" accent="#e34c26" />;
-    if (lower.endsWith(".json")) return <CarbonFile tag="{}" accent="#fbbf24" />;
-    if (lower.endsWith(".md") || lower.endsWith(".mdx")) return <CarbonFile tag="md" accent="#8e8e93" />;
-    if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".cfg"))
-      return <CarbonFile tag="ini" accent="#9b5de5" />;
-    return <CarbonFile />;
+    const kind = detectFileType(name);
+    switch (kind) {
+      case "py": return <CarbonFile tag="py" accent="#4b8bbe" />;
+      case "tsx": return <CarbonFile tag="tsx" accent="#3178c6" />;
+      case "ts": return <CarbonFile tag="ts" accent="#3178c6" />;
+      case "jsx": return <CarbonFile tag="jsx" accent="#f0db4f" />;
+      case "js": return <CarbonFile tag="js" accent="#f0db4f" />;
+      case "css": return <CarbonFile tag="css" accent="#264de4" />;
+      case "html": return <CarbonFile tag="html" accent="#e34c26" />;
+      case "json": return <CarbonFile tag="{}" accent="#fbbf24" />;
+      case "md": return <CarbonFile tag="md" accent="#8e8e93" />;
+      case "ini": return <CarbonFile tag="ini" accent="#9b5de5" />;
+      default: return <CarbonFile />;
+    }
   },
 };

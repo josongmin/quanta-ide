@@ -1,4 +1,5 @@
 import type { IconPack } from "./types";
+import { detectFileType } from "../file-type";
 
 function MonoFolder({ open }: { open: boolean }) {
   return (
@@ -55,18 +56,21 @@ export const monoPack: IconPack = {
   id: "mono",
   label: "Mono",
   hint: "Monochrome lines",
+  supportsColor: true,
   Folder: ({ open }) => <MonoFolder open={open} />,
   pickFile: (name) => {
-    const lower = name.toLowerCase();
-    if (lower.endsWith(".py")) return <MonoFile tag="py" />;
-    if (lower.endsWith(".tsx")) return <MonoFile tag="tsx" />;
-    if (lower.endsWith(".ts")) return <MonoFile tag="ts" />;
-    if (lower.endsWith(".jsx")) return <MonoFile tag="jsx" />;
-    if (lower.endsWith(".js") || lower.endsWith(".mjs") || lower.endsWith(".cjs")) return <MonoFile tag="js" />;
-    if (lower.endsWith(".json")) return <MonoFile tag="{}" />;
-    if (lower.endsWith(".css") || lower.endsWith(".scss")) return <MonoFile tag="css" />;
-    if (lower.endsWith(".md") || lower.endsWith(".mdx")) return <MonoFile tag="md" />;
-    if (lower.endsWith(".toml") || lower.endsWith(".ini") || lower.endsWith(".cfg")) return <MonoFile tag="ini" />;
-    return <MonoFile />;
+    const kind = detectFileType(name);
+    switch (kind) {
+      case "py": return <MonoFile tag="py" />;
+      case "tsx": return <MonoFile tag="tsx" />;
+      case "ts": return <MonoFile tag="ts" />;
+      case "jsx": return <MonoFile tag="jsx" />;
+      case "js": return <MonoFile tag="js" />;
+      case "json": return <MonoFile tag="{}" />;
+      case "css": return <MonoFile tag="css" />;
+      case "md": return <MonoFile tag="md" />;
+      case "ini": return <MonoFile tag="ini" />;
+      default: return <MonoFile />;
+    }
   },
 };

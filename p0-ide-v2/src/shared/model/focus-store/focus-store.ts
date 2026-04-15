@@ -8,12 +8,14 @@ export interface FocusState {
   scrollToLine?: number;
   simulateOpen: boolean;
   contextInjectOpen: boolean;
+  firewallOpen: boolean;
 }
 
 let state: FocusState = {
   mode: "overview",
   simulateOpen: false,
   contextInjectOpen: false,
+  firewallOpen: false,
 };
 
 const listeners = new Set<() => void>();
@@ -52,6 +54,10 @@ export const focusStore = {
   },
   toggleContextInject: (open?: boolean) => {
     state = { ...state, contextInjectOpen: open ?? !state.contextInjectOpen };
+    emit();
+  },
+  toggleFirewall: (open?: boolean) => {
+    state = { ...state, firewallOpen: open ?? !state.firewallOpen };
     emit();
   },
 };

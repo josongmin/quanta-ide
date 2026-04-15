@@ -1,56 +1,83 @@
+import { useMemo, useState, type ReactNode } from "react";
+import {
+  featureRegistry,
+  useFeatureRegistry,
+  type FeatureCategory,
+  type FeatureRecord,
+  type FeatureState,
+} from "@/shared/model/feature-registry";
 import "./home-picker.css";
 
 type Choice = "repo" | "agent" | "pr";
 
 interface HomePickerProps {
-  onPick: (choice: Choice, label: string) => void;
+  onPick?: (choice: Choice, label: string) => void;
 }
 
-const cards: {
-  id: Choice;
-  label: string;
-  sub: string;
-  hint: string;
-  icon: React.ReactNode;
-}[] = [
-  {
-    id: "repo",
-    label: "Open Repo",
-    sub: "Browse and load a repository",
-    hint: "⌘ O",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" />
-      </svg>
-    ),
-  },
-  {
-    id: "agent",
-    label: "AI Coding Agent",
-    sub: "Start a new coding session",
-    hint: "⌘ J",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="6" width="16" height="13" rx="2" />
-        <path d="M9 3v3M15 3v3M9 13h.01M15 13h.01M9 17h6" />
-      </svg>
-    ),
-  },
-  {
-    id: "pr",
-    label: "PR Review",
-    sub: "Review pull requests with auto-fix",
-    hint: "⌘ R",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="6" cy="6" r="2.2" />
-        <circle cx="6" cy="18" r="2.2" />
-        <circle cx="18" cy="18" r="2.2" />
-        <path d="M6 8.2v7.6M18 15.8V11a4 4 0 0 0-4-4h-2.5l2 2m0-4l-2 2" />
-      </svg>
-    ),
-  },
+const CATEGORIES: { id: FeatureCategory; label: string }[] = [
+  { id: "intelligence", label: "Intelligence" },
+  { id: "editing", label: "Editing" },
+  { id: "rules", label: "Rules" },
+  { id: "integration", label: "Integration" },
+  { id: "workflow", label: "Workflow" },
 ];
+
+function CategoryIcon({ category }: { category: FeatureCategory }): ReactNode {
+  const common = {
+    width: 20,
+    height: 20,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.6,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (category) {
+    case "workflow":
+      return (
+        <svg {...common}>
+          <path d="M2 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z" />
+        </svg>
+      );
+    case "intelligence":
+      return (
+        <svg {...common}>
+          <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z" />
+        </svg>
+      );
+    case "editing":
+      return (
+        <svg {...common}>
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+        </svg>
+      );
+    case "integration":
+      return (
+        <svg {...common}>
+          <path d="M9 2v6" />
+          <path d="M15 2v6" />
+          <path d="M7 8h10v4a5 5 0 0 1-10 0z" />
+          <path d="M12 17v5" />
+        </svg>
+      );
+    case "rules":
+      return (
+        <svg {...common}>
+          <path d="M12 3v18" />
+          <path d="M5 8h14" />
+          <path d="M5 8 2 14a4 4 0 0 0 6 0z" />
+          <path d="M19 8l-3 6a4 4 0 0 0 6 0z" />
+          <path d="M8 21h8" />
+        </svg>
+      );
+  }
+}
+
+function stateLabel(s: FeatureRecord["state"]): string {
+  return s;
+}
 
 type RecentStatus = "clean" | "changes" | "review";
 
@@ -69,18 +96,28 @@ interface Insight {
   tags: InsightTag[];
 }
 
+interface SparkDay {
+  add: number;
+  del: number;
+}
+
 const recents: {
   name: string;
   branch: string;
   changes: number;
   status: RecentStatus;
   time: string;
-  spark: number[];
+  spark: SparkDay[];
   insight: Insight;
 }[] = [
   {
     name: "payments-api", branch: "main", changes: 3, status: "changes", time: "1h ago",
-    spark: [1, 0, 3, 2, 0, 4, 1, 2, 0, 3, 5, 2, 1, 3],
+    spark: [
+      { add: 12, del: 4 }, { add: 0, del: 0 }, { add: 28, del: 9 }, { add: 18, del: 6 },
+      { add: 0, del: 0 }, { add: 36, del: 14 }, { add: 9, del: 3 }, { add: 22, del: 8 },
+      { add: 0, del: 0 }, { add: 31, del: 11 }, { add: 48, del: 18 }, { add: 20, del: 7 },
+      { add: 11, del: 4 }, { add: 30, del: 10 },
+    ],
     insight: {
       additions: 240, deletions: 87,
       authors: ["R", "D"],
@@ -89,7 +126,12 @@ const recents: {
   },
   {
     name: "order-service", branch: "feat/checkout", changes: 0, status: "clean", time: "3h ago",
-    spark: [2, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    spark: [
+      { add: 18, del: 22 }, { add: 8, del: 14 }, { add: 0, del: 0 }, { add: 0, del: 0 },
+      { add: 6, del: 9 }, { add: 0, del: 0 }, { add: 0, del: 0 }, { add: 0, del: 0 },
+      { add: 0, del: 0 }, { add: 0, del: 0 }, { add: 0, del: 0 }, { add: 0, del: 0 },
+      { add: 0, del: 0 }, { add: 0, del: 0 },
+    ],
     insight: {
       additions: 0, deletions: 0,
       authors: [],
@@ -98,7 +140,12 @@ const recents: {
   },
   {
     name: "ledger-core", branch: "main", changes: 12, status: "review", time: "yesterday",
-    spark: [0, 1, 2, 0, 4, 3, 2, 5, 8, 6, 4, 9, 7, 11],
+    spark: [
+      { add: 0, del: 0 }, { add: 14, del: 3 }, { add: 22, del: 5 }, { add: 0, del: 0 },
+      { add: 48, del: 12 }, { add: 33, del: 9 }, { add: 20, del: 6 }, { add: 62, del: 18 },
+      { add: 95, del: 28 }, { add: 74, del: 20 }, { add: 42, del: 11 }, { add: 110, del: 34 },
+      { add: 82, del: 24 }, { add: 130, del: 40 },
+    ],
     insight: {
       additions: 1240, deletions: 340,
       authors: ["M", "J", "R", "D"],
@@ -107,7 +154,12 @@ const recents: {
   },
   {
     name: "auth-gateway", branch: "release/0.4", changes: 1, status: "changes", time: "2d ago",
-    spark: [0, 0, 1, 0, 2, 3, 5, 4, 2, 1, 0, 0, 1, 0],
+    spark: [
+      { add: 0, del: 0 }, { add: 0, del: 0 }, { add: 9, del: 2 }, { add: 0, del: 0 },
+      { add: 16, del: 3 }, { add: 24, del: 5 }, { add: 40, del: 8 }, { add: 32, del: 6 },
+      { add: 18, del: 4 }, { add: 10, del: 2 }, { add: 0, del: 0 }, { add: 0, del: 0 },
+      { add: 8, del: 2 }, { add: 0, del: 0 },
+    ],
     insight: {
       additions: 45, deletions: 8,
       authors: ["M"],
@@ -116,7 +168,12 @@ const recents: {
   },
   {
     name: "search-index", branch: "main", changes: 0, status: "clean", time: "5d ago",
-    spark: [3, 2, 4, 1, 3, 2, 0, 1, 0, 0, 0, 0, 0, 0],
+    spark: [
+      { add: 28, del: 10 }, { add: 20, del: 7 }, { add: 36, del: 12 }, { add: 10, del: 4 },
+      { add: 26, del: 9 }, { add: 18, del: 6 }, { add: 0, del: 0 }, { add: 11, del: 4 },
+      { add: 0, del: 0 }, { add: 0, del: 0 }, { add: 0, del: 0 }, { add: 0, del: 0 },
+      { add: 0, del: 0 }, { add: 0, del: 0 },
+    ],
     insight: {
       additions: 180, deletions: 60,
       authors: ["D", "K"],
@@ -125,7 +182,48 @@ const recents: {
   },
 ];
 
-export function HomePicker({ onPick }: HomePickerProps) {
+export function HomePicker(_props: HomePickerProps) {
+  void _props;
+  const [showAll, setShowAll] = useState(false);
+  const featuresMap = useFeatureRegistry((s) => s.features);
+  const allFeatures = useMemo(() => {
+    const stateOrder: Record<FeatureState, number> = { error: 0, active: 1, disabled: 2 };
+    return [...featuresMap.values()]
+      .filter((f) => f.visibility === "user")
+      .sort((a, b) => {
+        const sd = stateOrder[a.state] - stateOrder[b.state];
+        return sd !== 0 ? sd : a.title.localeCompare(b.title);
+      });
+  }, [featuresMap]);
+
+  const primaryFeatures = useMemo(
+    () => allFeatures.filter((f) => f.primary).slice(0, 3),
+    [allFeatures],
+  );
+  const primaryIds = useMemo(
+    () => new Set(primaryFeatures.map((f) => f.id)),
+    [primaryFeatures],
+  );
+  const nonPrimary = useMemo(
+    () => allFeatures.filter((f) => !primaryIds.has(f.id)),
+    [allFeatures, primaryIds],
+  );
+  const nonPrimaryCompact = useMemo(() => nonPrimary.slice(0, 8), [nonPrimary]);
+
+  const runNonPrimary = (f: FeatureRecord): void => {
+    const first = f.commands?.[0];
+    if (first) featureRegistry.runCommand(first.id);
+  };
+
+  const runCapability = (f: FeatureRecord): void => {
+    if (f.primary) {
+      f.primary.tileRun();
+      return;
+    }
+    const first = f.commands?.[0];
+    if (first) featureRegistry.runCommand(first.id);
+  };
+
   return (
     <div className="hp">
       <div className="hp__inner">
@@ -137,71 +235,176 @@ export function HomePicker({ onPick }: HomePickerProps) {
         </header>
 
         <div className="hp__cards">
-          {cards.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className="hp__card"
-              onClick={() => onPick(c.id, c.label)}
-              title={c.label}
-            >
-              <span className="hp__card-icon" aria-hidden>
-                {c.icon}
-              </span>
-              <span className="hp__card-body">
-                <span className="hp__card-label">{c.label}</span>
-                <span className="hp__card-sub">{c.sub}</span>
-              </span>
-              <span className="hp__card-hint" aria-hidden>
-                {c.hint}
-              </span>
-            </button>
-          ))}
+          {primaryFeatures.map((f) => {
+            const p = f.primary;
+            if (!p) return null;
+            return (
+              <button
+                key={f.id}
+                type="button"
+                className="hp__card"
+                onClick={() => p.tileRun()}
+                title={p.tileLabel}
+              >
+                <span className="hp__card-icon" aria-hidden>
+                  {f.icon ?? <CategoryIcon category={f.category} />}
+                </span>
+                <span className="hp__card-body">
+                  <span className="hp__card-label">{p.tileLabel}</span>
+                  <span className="hp__card-sub">{f.description}</span>
+                </span>
+                {p.tileHint && (
+                  <span className="hp__card-hint" aria-hidden>
+                    {p.tileHint}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        <section className="hp__section">
-          <div className="hp__section-head">
-            <span className="hp__section-label">Recent</span>
-            <div className="hp__search">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="11" cy="11" r="7" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input type="text" placeholder="Search repositories" />
-              <kbd className="hp__search-kbd">⌘ K</kbd>
-            </div>
-          </div>
-
-          <ul className="hp__list">
-            {recents.map((r) => (
-              <li key={r.name} className="hp__row" tabIndex={0}>
-                <span className="hp__row-thumb" aria-hidden>
-                  {r.name.charAt(0).toUpperCase()}
-                </span>
-                <span className="hp__row-name">
-                  <span className="hp__row-name-text">{r.name}</span>
-                  <InsightViz insight={r.insight} />
-                </span>
-                <span className="hp__row-branch">
-                  <BranchIcon />
-                  {r.branch}
-                </span>
-                <Sparkbar values={r.spark} />
-                <span className={`hp__row-status hp__row-status--${r.status}`}>
-                  <span className="hp__row-status-dot" aria-hidden />
-                  {r.status === "clean"
-                    ? "clean"
-                    : r.status === "review"
-                      ? `${r.changes} in review`
-                      : `${r.changes} ${r.changes === 1 ? "change" : "changes"}`}
-                </span>
-                <span className="hp__row-time">{r.time}</span>
-              </li>
+        <div className="hp__more">
+          <div className="hp__more-label">more capabilities</div>
+          <div className="hp__more-list">
+            {nonPrimaryCompact.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className="hp__more-item"
+                onClick={() => runNonPrimary(f)}
+                title={f.description}
+              >
+                {f.title}
+              </button>
             ))}
-          </ul>
-        </section>
+          </div>
+          {!showAll && (
+            <button
+              type="button"
+              className="hp__more-browse"
+              onClick={() => setShowAll(true)}
+            >
+              browse all →
+            </button>
+          )}
+        </div>
+
+        {showAll ? (
+          <section className="hp__browse">
+            <header className="hp__browse-head">
+              <h3 className="hp__browse-title">All Capabilities</h3>
+              <button
+                type="button"
+                className="hp__browse-back"
+                onClick={() => setShowAll(false)}
+              >
+                ← back
+              </button>
+            </header>
+            <div className="hp__browse-cats">
+              {CATEGORIES.map((cat) => {
+                const items = allFeatures.filter((f) => f.category === cat.id);
+                if (items.length === 0) return null;
+                return (
+                  <div key={cat.id} className="hp__browse-cat">
+                    <h4 className="hp__browse-cat-label">{cat.label}</h4>
+                    <div className="hp__browse-grid">
+                      {items.map((f) => (
+                        <CapabilityCard
+                          key={f.id}
+                          feature={f}
+                          onRun={() => runCapability(f)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        ) : (
+          <section className="hp__section">
+            <div className="hp__section-head">
+              <span className="hp__section-label">Recent</span>
+              <div className="hp__search">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="11" cy="11" r="7" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input type="text" placeholder="Search repositories" />
+                <kbd className="hp__search-kbd">⌘ K</kbd>
+              </div>
+            </div>
+
+            <ul className="hp__list">
+              {recents.map((r) => (
+                <li key={r.name} className="hp__row" tabIndex={0}>
+                  <span className="hp__row-thumb" aria-hidden>
+                    {r.name.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="hp__row-name">
+                    <span className="hp__row-name-text">{r.name}</span>
+                    <InsightViz insight={r.insight} />
+                  </span>
+                  <span className="hp__row-branch">
+                    <BranchIcon />
+                    {r.branch}
+                  </span>
+                  <Sparkbar values={r.spark} />
+                  <span className={`hp__row-status hp__row-status--${r.status}`}>
+                    <span className="hp__row-status-dot" aria-hidden />
+                    {r.status === "clean"
+                      ? "clean"
+                      : r.status === "review"
+                        ? `${r.changes} in review`
+                        : `${r.changes} ${r.changes === 1 ? "change" : "changes"}`}
+                  </span>
+                  <span className="hp__row-time">{r.time}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Capability card — used by the expanded browse-all grid
+   ══════════════════════════════════════════════════════════════ */
+function CapabilityCard({
+  feature,
+  onRun,
+}: {
+  feature: FeatureRecord;
+  onRun: () => void;
+}) {
+  const kbd = feature.commands?.[0]?.keybinding;
+  const stateCls =
+    feature.state === "disabled"
+      ? " hp__cap-state--disabled"
+      : feature.state === "error"
+        ? " hp__cap-state--error"
+        : "";
+  const badge = feature.badge;
+  return (
+    <button type="button" className="hp__cap" onClick={onRun} title={feature.description}>
+      {badge && (
+        <span className={`hp__cap-badge hp__cap-badge--${badge}`} aria-hidden>
+          {badge}
+        </span>
+      )}
+      <h5 className="hp__cap-title">{feature.title}</h5>
+      <p className="hp__cap-desc">{feature.description}</p>
+      <span className="hp__cap-foot">
+        <span className={`hp__cap-state${stateCls}`}>
+          <span className="hp__cap-dot" aria-hidden />
+          {stateLabel(feature.state)}
+        </span>
+        {kbd && <span className="hp__cap-kbd">{kbd}</span>}
+      </span>
+    </button>
   );
 }
 
@@ -325,22 +528,28 @@ function compact(n: number): string {
   return String(n);
 }
 
-function Sparkbar({ values }: { values: number[] }) {
-  const max = Math.max(1, ...values);
-  const total = values.reduce((s, v) => s + v, 0);
+function Sparkbar({ values }: { values: SparkDay[] }) {
+  const max = Math.max(1, ...values.map((d) => Math.max(d.add, d.del)));
+  const totalAdd = values.reduce((s, d) => s + d.add, 0);
+  const totalDel = values.reduce((s, d) => s + d.del, 0);
   return (
     <span
       className="hp__sparkbar"
-      aria-label={`${total} commits over last ${values.length} days`}
-      title={`${total} commits · last ${values.length} days`}
+      aria-label={`+${totalAdd} / −${totalDel} over last ${values.length} days`}
+      title={`+${totalAdd} · −${totalDel} · last ${values.length} days`}
     >
-      {values.map((v, i) => (
-        <span
-          key={i}
-          className={`hp__sparkbar-bar${v === 0 ? " hp__sparkbar-bar--zero" : ""}${i === values.length - 1 ? " hp__sparkbar-bar--today" : ""}`}
-          style={{ height: `${Math.max(8, (v / max) * 100)}%` }}
-        />
-      ))}
+      {values.map((d, i) => {
+        const empty = d.add === 0 && d.del === 0;
+        const addH = empty ? 0 : Math.max(6, (d.add / max) * 100);
+        const delH = empty ? 0 : Math.max(6, (d.del / max) * 100);
+        return (
+          <span key={i} className="hp__sparkbar-day" aria-hidden>
+            <span className="hp__sparkbar-add" style={{ height: `${addH}%` }} />
+            <span className="hp__sparkbar-axis" />
+            <span className="hp__sparkbar-del" style={{ height: `${delH}%` }} />
+          </span>
+        );
+      })}
     </span>
   );
 }

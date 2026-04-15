@@ -250,45 +250,123 @@ registerFeature({
 
 ---
 
-## 관리 Surface (Feature Admin)
+## Capabilities Surface (Hub)
 
-Feature Registry는 런타임 객체로만 두면 디버깅이 불가능하다. 관리 면을 **2단 구조**로 쪼갠다: 사용자가 보는 얕은 면, 개발자만 열 수 있는 깊은 면.
+Feature Registry는 탐색 surface 없이는 사용자가 기능의 존재조차 모른다. 반대로 숨김 원칙에 과몰입하면 제품 자체가 invisible해진다. 해결책은 **이미 존재하는 New Tab 페이지를 Capabilities Hub로 승격**하는 것.
+
+Hub는 별도 소환 오버레이가 아니다. **탭이다.** `⌘T` / `+` / `⌘⇧H`로 열리는 New Tab 페이지가 곧 Hub. 이 선택은 IDE-native 멘탈 모델을 유지하고, takeover/dismiss 메커니즘을 구현하지 않게 해준다.
 
 ### 원칙
 
-- **사용자 제품 네비엔 절대 노출하지 않는다.** Feature 자체는 내부 scaffolding이다.
-- **진입점은 숨김 command 2개.** 메뉴 아이콘이나 상태바 항목을 만들지 않는다.
-- **읽기/디버깅이 기본, 편집은 최소.** 런타임 토글 외에는 수정 UI를 두지 않는다.
+- **탭이 곧 surface.** 별도 오버레이/모달/풀스크린 takeover 없음. New Tab = Hub.
+- **Settings ≠ Hub.** 상단 ⚙️ 아이콘은 순수 설정(theme, keybindings, account)만. feature 탐색과 섞지 않는다.
+- **숨김은 dev-only에만 적용.** `visibility: 'user'`는 전부 Hub에 노출한다. feature는 scaffolding이 아니라 제품이다.
+- **Top 3 + more.** 자주 쓰는 primary 3개는 크게, 나머지는 컴팩트 라인. 2026 SOTA: "discoverable but not sprawling".
 
-### Surface 1 — Features Panel (사용자향, 얕음)
-
-`Settings → Features` 한 섹션. 글로벌 설정화면 안에 한 항목만 추가한다. sprawl 방지를 위해 flat list 고정.
+### Layout
 
 ```
-┌─── Settings ▸ Features ─────────────────────────────────┐
-│                                                         │
-│  Agent Rules                                            │
-│    에이전트 룰 파일을 중립 소스에서 빌드                  │
-│    상태: ● active                          [ ⏻ on  ]    │
-│                                                         │
-│  Flow-Aware Analysis                                    │
-│    정적분석 결과를 안정된 상태에서만 노출                 │
-│    상태: ● active                          [ ⏻ on  ]    │
-│                                                         │
-│  Incident DNA Match                                     │
-│    과거 장애 패턴 매칭                                   │
-│    상태: ○ disabled                        [ ⏻ off ]    │
-│                                                         │
-│  ─────────────────────────────────────────────────────  │
-│  개발자 도구: Dev Console 열기                            │
-└─────────────────────────────────────────────────────────┘
+┌─ 🏠  order-service  payment-service  [New Tab ✕] +    🔍 🔔 ⚙️ 👤 ┐
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│              SOFTWARE INTELLIGENCE PLATFORM                        │
+│         Where would you like to start?                             │
+│                                                                    │
+│   ┌────────────┐  ┌────────────┐  ┌────────────┐                   │
+│   │ Open Repo  │  │ AI Agent   │  │ PR Review  │   ← primary tile   │
+│   │            │  │            │  │            │                   │
+│   │ Browse and │  │ Start a    │  │ Review PRs │                   │
+│   │ load a repo│  │ coding     │  │ with auto- │                   │
+│   │            │  │ session    │  │ fix        │                   │
+│   └────────────┘  └────────────┘  └────────────┘                   │
+│                                                                    │
+│   ── more capabilities ──                        [ browse all → ]  │
+│                                                                    │
+│   Flow Analysis · Blast Radius · Incident DNA · Agent Rules        │
+│   Simulate · Ownership · Behavior Diff · Dead Code                 │
+│                                                                    │
+│   RECENT                                                           │
+│   payments-api    +248 -87  +3 changes                  1h ago     │
+│   order-service   quiet      clean                      3h ago     │
+│   ledger-core     +1.2k -140 12 in review               yesterday  │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
-- 행은 **title + 1줄 설명 + 상태 dot + on/off toggle**. 좌측 border-stripe 없음 (컬러는 상태 dot으로만 전달).
-- 클릭해도 디테일로 안 들어간다. 디테일이 필요하면 하단 "Dev Console 열기" 링크로 빠진다.
-- 여기 있는 feature는 **사용자가 인지할 가치가 있는 것만**. 내부 유틸 feature는 숨긴다 (`visibility: 'dev-only'` 필드로 선언).
+### 인터랙션
 
-### Surface 2 — Dev Console (개발자향, 깊음)
+**3단 디스커버리 깊이**:
+
+1. **Glance** — 상단 3개 primary 타일. 가장 자주 쓰는 진입점. 고정(MVP) → MRU 학습(v0.2+).
+2. **Scan** — "more capabilities" 라인. capability 이름만 텍스트 링크로 나열. 호버 시 해당 위치에 1줄 설명 reveal, 클릭 시 바로 실행.
+3. **Browse** — 우측 "browse all →" 클릭 시 **같은 탭 안에서** full grid로 확장 (페이지 전환 아님, 인-뷰 토글). 카테고리(Intelligence / Editing / Rules / Integration / Workflow) + 상태 필터 + 검색.
+
+**Full grid 확장 상태**:
+
+```
+┌─ [New Tab ✕]                                                       ┐
+├────────────────────────────────────────────────────────────────────┤
+│  Capabilities                                      ← back  🔎 /    │
+│                                                                    │
+│  [ All ] [ Intelligence ] [ Editing ] [ Rules ] [ Integration ]    │
+│                                                                    │
+│  INTELLIGENCE                                                      │
+│  ┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐    │
+│  │ Flow Analysis    │ │ Blast Radius     │ │ Incident DNA     │    │
+│  │ taint → sink     │ │ change impact    │ │ pattern match    │    │
+│  │ ● active   ⌘1    │ │ ● active   ⌘3    │ │ ○ off     new    │    │
+│  └──────────────────┘ └──────────────────┘ └──────────────────┘    │
+│                                                                    │
+│  EDITING                                                           │
+│  ┌──────────────────┐ ┌──────────────────┐                         │
+│  │ Agent Rules      │ │ Simulate         │                         │
+│  │ neutral → any    │ │ predict diff     │                         │
+│  │ ● active  ⌘⇧R   │ │ ● active   ⌘⇧S  │                         │
+│  └──────────────────┘ └──────────────────┘                         │
+│                                                                    │
+│  ──  12 capabilities · 2 off · 1 beta                              │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**카드 인터랙션**:
+- Hover: `--surface-1` → `--surface-2` 배경만. scale/shadow 금지.
+- Enter/Click: capability 기본 액션 실행 (보통 workspace open). 카드 1회 펄스 후 탭이 해당 workspace로 전환.
+- `Space`: 우측 slide-in 상세 시트 (actions / settings / depends-on / state / disable).
+- `⌘.`: 컨텍스트 메뉴.
+
+### 시각 언어 (2026 SOTA × quanta)
+
+- **Type-led hierarchy**: 17px title (`letter-spacing: -0.01em`) / 13px subtext / 11px mono uppercase meta.
+- **색 절제**: 카드 색 없음. 상태 dot만 색 보유. `Beta`/`New` 뱃지는 텍스트 컬러만, 배경 없음.
+- **좌측 border-stripe 금지.** (기존 원칙 유지)
+- **Surface 3층**: `--surface-0` (탭 배경) / `--surface-1` (카드) / `--surface-2` (hover).
+- **여백**: 카드 간 24px, 섹션 간 56px. 카드 내부는 16px (사이 넓고 안은 타이트).
+- **모션**: 등장 120ms spring, 페이드 80ms, 실행 전환 180ms. stagger 금지.
+- **아이콘**: 주 카드엔 없음. 상세 시트 안에서만 작은 line-icon.
+
+### 진입 경로
+
+| 경로 | 결과 |
+|------|------|
+| `⌘T` / `+` 탭 버튼 | 새 New Tab = Hub |
+| `⌘⇧H` | 어디서든 → 새 Hub 탭 or 기존 New Tab으로 점프 |
+| Command Palette → `"capabilities"` / 개별 capability명 | 팔레트 유저 |
+| ⚙️ Settings → "Browse Capabilities →" 하단 링크 1개 | 최초 발견 (onboarding) |
+
+**사이드바 1급 아이콘 없음** — 상주 chrome 낭비. 탭 소환 모델로 충분.
+
+### Settings와의 역할 분리
+
+| | Capabilities Hub | Settings |
+|---|---|---|
+| 목적 | 탐색 | 값 조정 |
+| 진입 | `⌘T` / `⌘⇧H` | 상단 ⚙️ |
+| 내용 | feature 카탈로그, 실행 | theme, keybinding, account, sync, feature별 setting 집계 |
+| sprawl 방지 | Hub 하나로 수렴 | flat list 고정 |
+
+Settings 안에 feature 탐색 UI를 **두지 않는다**. 단, Settings 하단에 Hub 진입 링크 1개는 허용(발견성).
+
+### Dev Console (개발자향, 유지)
 
 커맨드 팔레트 `Quanta: Open Dev Console` 또는 `⌘⌥⇧D` (IDE에서 쓰지 않는 조합). 사용자에게는 존재가 드러나지 않는다.
 
@@ -341,14 +419,16 @@ Feature Registry는 런타임 객체로만 두면 디버깅이 불가능하다. 
 v0.1에 들어갈 최소 단위:
 
 - `visibility: 'user' | 'dev-only'` 필드를 feature manifest에 추가.
-- Features Panel (Settings 한 섹션) — on/off 토글만.
-- Dev Console — **Features 탭만** (Events / Registry Graph는 v0.2+).
+- `category: 'intelligence' | 'editing' | 'rules' | 'integration' | 'workflow'` 필드 추가.
+- **Capabilities Hub**: New Tab 페이지에 "more capabilities" 라인 + "browse all" 확장 그리드. Top 3 primary 타일은 하드코딩 기본값.
+- **Dev Console**: **Features 탭만** (Events / Registry Graph는 v0.2+).
+- Hub / Dev Console 모두 같은 Feature Registry 데이터를 읽는다.
 
 ---
 
 ## Discovery Surface (Command Palette)
 
-관리 면이 **scaffolding을 숨기는** 역할이면, Discovery 면은 **기능을 찾게 하는** 역할이다. 이 제품의 1급 디스커버리 진입점은 App Launcher가 아니라 **Command Palette**다.
+Hub가 **탐색 surface**라면, Command Palette는 **즉시 실행 surface**다. 두 면은 상호 보완: Hub는 "뭐가 있는지 모를 때", Palette는 "이름을 알고 바로 쓰고 싶을 때".
 
 ### 엔트리 포인트
 
@@ -413,14 +493,20 @@ v0.2+: settings 인덱싱, disabled 그룹, 컨텍스트 랭킹, MRU, `>dev` 프
 
 ## MVP 범위 (v0.1)
 
+**Agent Rules 본체**:
 1. 어댑터: **claude** + **cursor** 2개.
 2. 파일: `.agent/rules.md` 단일 소스 (모듈 분할은 v0.2).
 3. Build: 수동 커맨드 1개 (`rules.build`). watch는 v0.2.
 4. Rules Workspace: 좌/우 2-pane + 빌드 버튼 + 경고 리스트.
 5. Import 마법사: 기존 `CLAUDE.md` / `.cursorrules` → `rules.md` 역생성.
-6. Feature Registry 골격 (최소 동작, workspace 등록만 지원).
 
-v0.2+: watch/auto-sync, pre-commit hook, copilot/windsurf 어댑터, 모듈 분할, capability 경고 lint, 외부 편집 충돌 UI.
+**Feature Registry 기반 설비** (Agent Rules가 첫 사용자):
+6. Feature Registry 골격 — `registerFeature` + `visibility` + `category` 필드.
+7. **Capabilities Hub** — New Tab에 "more capabilities" 라인 + "browse all" 확장 그리드. Top 3 primary 타일은 하드코딩.
+8. **Command Palette** 자동 인덱싱 — commands + workspace, `visibility` 필터링, `⌘P` / `⌘⇧P` 엔트리.
+9. **Dev Console** — `⌘⌥⇧D`, Features 탭만 (Events / Graph는 v0.2+).
+
+v0.2+: watch/auto-sync, pre-commit hook, copilot/windsurf 어댑터, 모듈 분할, capability 경고 lint, 외부 편집 충돌 UI, Dev Console Events/Graph 탭, Hub MRU 학습, Command Palette settings 인덱싱.
 
 ---
 

@@ -1,9 +1,26 @@
-import { type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import BoringAvatar from "boring-avatars";
+import { uiBus, useUiBus } from "@/shared/model/ui-bus";
+import { useWorkspaceTabStrip } from "../model/use-workspace-tab-strip";
 import "./topbar.css";
 
-export type AppKind = "home" | "ide" | "agent" | "pr";
+/** Show floating title when tab is this narrow (px), or when the label is truncated. */
+const TAB_TITLE_TIP_NARROW_PX = 128;
+
+export type AppKind = "home" | "new-tab" | "ide" | "agent" | "pr" | "scenario" | "reviews" | "settings";
 export interface Tab { id: string; app: AppKind; label: string; }
+
+const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
+  home: HomeTabIcon,
+  "new-tab": HomeTabIcon,
+  ide: CodeIcon,
+  agent: AgentIcon,
+  pr: PrIcon,
+  scenario: CodeIcon,
+  reviews: CodeIcon,
+  settings: SettingsTabIcon,
+};
 
 interface TopbarProps {
   tabs: Tab[];
@@ -11,67 +28,139 @@ interface TopbarProps {
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onAdd: () => void;
+  homeOpen: boolean;
+  onToggleHome: () => void;
 }
 
-function HomeButton() {
+function HomeButton({ active, onClick }: { active: boolean; onClick: () => void }) {
   return (
-    <button type="button" className="topbar__home" title="Home" aria-label="Home">
-      <HomeIcon />
+    <button
+      type="button"
+      className={`topbar__home${active ? " is-active" : ""}`}
+      title="Home"
+      aria-label="Home"
+      aria-pressed={active}
+      onClick={onClick}
+    >
+      <span className="topbar__logo">p0</span>
     </button>
   );
 }
 
-export function Topbar({ tabs, activeId, onSelect, onClose, onAdd }: TopbarProps) {
+export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onToggleHome }: TopbarProps) {
+  const settingsOpen = useUiBus((s) => s.settingsOpen);
+  const homeActive = !settingsOpen && homeOpen;
+  const handleHomeClick = () => {
+    if (settingsOpen) uiBus.toggleSettings(false);
+    onToggleHome();
+  };
+  const { stripRef, onStripMouseLeave, beginCloseTab, tabChrome } = useWorkspaceTabStrip(onClose);
+
+  const [tabTitleTip, setTabTitleTip] = useState<{ label: string; x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const clear = () => setTabTitleTip(null);
+    window.addEventListener("resize", clear);
+    window.addEventListener("scroll", clear, true);
+    return () => {
+      window.removeEventListener("resize", clear);
+      window.removeEventListener("scroll", clear, true);
+    };
+  }, []);
+
+  const showTabTitleTip = (e: React.MouseEvent<HTMLButtonElement>, label: string) => {
+    const tab = e.currentTarget;
+    const r = tab.getBoundingClientRect();
+    const labelEl = tab.querySelector<HTMLElement>(".topbar__tab-label");
+    const truncated = labelEl != null && labelEl.scrollWidth > labelEl.clientWidth + 2;
+    const narrow = r.width < TAB_TITLE_TIP_NARROW_PX;
+    if (!narrow && !truncated) {
+      setTabTitleTip(null);
+      return;
+    }
+    setTabTitleTip({ label, x: r.left + r.width / 2, y: r.bottom + 6 });
+  };
+
+  const clearTabTitleTip = () => setTabTitleTip(null);
+
+  const handleTabsMouseLeave = () => {
+    clearTabTitleTip();
+    onStripMouseLeave();
+  };
+
   return (
     <header className="topbar" data-tauri-drag-region>
       <div className="topbar__left" data-tauri-drag-region>
-        <HomeButton />
-        <div className="topbar__tabs" role="tablist" data-tauri-drag-region>
+        <HomeButton active={homeActive} onClick={handleHomeClick} />
+        <div
+          className="topbar__tabs"
+          role="tablist"
+          data-tauri-drag-region
+          ref={stripRef}
+          onMouseLeave={handleTabsMouseLeave}
+        >
           {tabs.map((t) => {
-            const isActive = t.id === activeId;
+            const isActive = !settingsOpen && !homeOpen && t.id === activeId;
+            const { className, style, innerStyle } = tabChrome(t.id, isActive);
+            const Icon = TAB_ICON_REGISTRY[t.app] ?? CodeIcon;
             return (
               <button
                 key={t.id}
                 type="button"
                 role="tab"
+                data-tab-id={t.id}
                 aria-selected={isActive}
-                className={`topbar__tab${isActive ? " is-active" : ""}`}
-                onClick={() => onSelect(t.id)}
-                title={t.label}
+                className={className}
+                style={style}
+                aria-label={t.label}
+                onMouseEnter={(e) => showTabTitleTip(e, t.label)}
+                onMouseLeave={clearTabTitleTip}
+                onClick={() => {
+                  if (settingsOpen) uiBus.toggleSettings(false);
+                  onSelect(t.id);
+                }}
               >
-                <span className="topbar__tab-icon" aria-hidden>
-                  {t.app === "home" ? <HomeTabIcon /> : t.app === "agent" ? <AgentIcon /> : t.app === "pr" ? <PrIcon /> : <CodeIcon />}
-                </span>
-                <span className="topbar__tab-label">{t.label}</span>
-                <span
-                  className="topbar__tab-close"
-                  role="button"
-                  tabIndex={-1}
-                  aria-label="Close tab"
-                  onClick={(e) => { e.stopPropagation(); onClose(t.id); }}
-                >
-                  <CloseIcon />
+                <span className="topbar__tab-inner" style={innerStyle}>
+                  <span className="topbar__tab-icon" aria-hidden>
+                    <Icon />
+                  </span>
+                  <span className="topbar__tab-label">{t.label}</span>
+                  <span
+                    className="topbar__tab-close"
+                    role="button"
+                    tabIndex={-1}
+                    aria-label="Close tab"
+                    onClick={(e) => { e.stopPropagation(); beginCloseTab(t.id); }}
+                  >
+                    <CloseIcon />
+                  </span>
                 </span>
               </button>
             );
           })}
+          {/* [+] stays next to tabs; drag tail extends to the left edge of search / utilities */}
           <button type="button" className="topbar__tab-add" onClick={onAdd} aria-label="New tab" title="New tab">
             <PlusIcon />
           </button>
+          <div className="topbar__tabs-drag" data-tauri-drag-region aria-hidden />
         </div>
       </div>
 
-      <div className="topbar__drag" data-tauri-drag-region />
-
       <div className="topbar__right" data-tauri-drag-region>
-        <IconButton title="Font"><span className="topbar__T">T</span></IconButton>
-        <span className="topbar__sep" />
-        <IconButton title="Search (⌘K)"><SearchIcon /></IconButton>
-        <IconButton title="Notifications">
-          <InboxIcon />
-          <span className="topbar__badge">2</span>
-        </IconButton>
-        <IconButton title="Settings"><SettingsIcon /></IconButton>
+        <div className="topbar__utilities" role="toolbar" aria-label="Search and account actions">
+          <IconButton title="Search (⌘K)"><SearchIcon /></IconButton>
+          <IconButton title="Notifications">
+            <InboxIcon />
+            <span className="topbar__badge">2</span>
+          </IconButton>
+          <IconButton
+            title="Settings (⌘,)"
+            onClick={() => uiBus.toggleSettings()}
+            active={settingsOpen}
+          >
+            <SettingsIcon />
+          </IconButton>
+        </div>
         <span className="topbar__sep" />
         <button type="button" className="topbar__profile" title="Song Min" aria-label="Profile">
           <span className="topbar__avatar" aria-hidden>
@@ -85,13 +174,42 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd }: TopbarProps
           <span className="topbar__profile-name">Song Min</span>
         </button>
       </div>
+
+      {tabTitleTip != null &&
+        createPortal(
+          <div
+            className="topbar-tab-tooltip"
+            role="tooltip"
+            style={{ left: tabTitleTip.x, top: tabTitleTip.y }}
+          >
+            {tabTitleTip.label}
+          </div>,
+          document.body,
+        )}
     </header>
   );
 }
 
-function IconButton({ title, children }: { title: string; children: ReactNode }) {
+function IconButton({
+  title,
+  children,
+  onClick,
+  active,
+}: {
+  title: string;
+  children: ReactNode;
+  onClick?: () => void;
+  active?: boolean;
+}) {
   return (
-    <button type="button" className="topbar__icon-btn" title={title} aria-label={title}>
+    <button
+      type="button"
+      className={`topbar__icon-btn${active ? " is-active" : ""}`}
+      title={title}
+      aria-label={title}
+      aria-pressed={active}
+      onClick={onClick}
+    >
       {children}
     </button>
   );
@@ -108,14 +226,6 @@ const SVG = {
   strokeLinejoin: "round" as const,
   "aria-hidden": true,
 };
-function HomeIcon() {
-  return (
-    <svg {...SVG}>
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-  );
-}
 function CodeIcon() {
   return (
     <svg {...SVG} width="13" height="13">
@@ -178,6 +288,14 @@ function InboxIcon() {
     <svg {...SVG}>
       <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
       <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+    </svg>
+  );
+}
+function SettingsTabIcon() {
+  return (
+    <svg {...SVG} width="13" height="13">
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12" />
     </svg>
   );
 }

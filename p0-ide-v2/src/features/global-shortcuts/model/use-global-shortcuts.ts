@@ -1,56 +1,112 @@
 import { useEffect } from "react";
-import { focusStore, type InspectorMode } from "@/shared/model/focus-store";
+import { focusStore } from "@/shared/model/focus-store";
+import { uiBus } from "@/shared/model/ui-bus";
+import { tabBus } from "@/shared/model/tab-bus";
+import { shortcutRegistry } from "@/shared/model/shortcut-registry";
 
-const MODE_KEYS: readonly InspectorMode[] = [
-  "overview",
-  "flow",
-  "blast",
-  "incidents",
-  "behavior",
-  "ownership",
-];
+/**
+ * Register the "shell-level" shortcuts — palette, new tab, overview
+ * mode, and the escape cascade — that aren't owned by any single
+ * feature manifest. Feature-specific shortcuts (⌘⇧R, ⌘2-6, ⌘E,
+ * ⌘⇧S, ⌘⇧F, ⌘⌥⇧D, …) are registered declaratively in feature-seed.
+ */
+function registerShellShortcuts(): () => void {
+  const disposers: Array<() => void> = [];
 
-export function useGlobalShortcuts() {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      const meta = e.metaKey || e.ctrlKey;
-      if (!meta) return;
+  const openPalette = (e: KeyboardEvent) => {
+    e.preventDefault();
+    uiBus.togglePalette(true);
+  };
 
-      // ⌘⇧S — Simulate change
-      if (e.shiftKey && (e.key === "S" || e.key === "s")) {
+  disposers.push(
+    shortcutRegistry.register({
+      id: "palette.open.p",
+      keys: "mod+p",
+      label: "Command Palette",
+      run: openPalette,
+    }),
+    shortcutRegistry.register({
+      id: "palette.open.shiftP",
+      keys: "mod+shift+p",
+      label: "Command Palette",
+      run: openPalette,
+    }),
+    shortcutRegistry.register({
+      id: "palette.open.k",
+      keys: "mod+k",
+      label: "Command Palette",
+      run: openPalette,
+    }),
+    shortcutRegistry.register({
+      id: "palette.open.shiftK",
+      keys: "mod+shift+k",
+      label: "Command Palette",
+      run: openPalette,
+    }),
+    shortcutRegistry.register({
+      id: "tabs.newCapabilitiesHub",
+      keys: "mod+shift+h",
+      label: "New Capabilities Hub tab",
+      run: (e) => {
         e.preventDefault();
-        focusStore.toggleSimulate(true);
-        return;
-      }
-      // ⌘E — Ask agent / context inject
-      if (!e.shiftKey && (e.key === "E" || e.key === "e")) {
+        tabBus.open("new-tab", "New Tab");
+      },
+    }),
+    shortcutRegistry.register({
+      id: "inspector.mode.overview",
+      keys: "mod+1",
+      label: "Overview inspector",
+      run: (e) => {
         e.preventDefault();
-        focusStore.toggleContextInject(true);
-        return;
-      }
-      // ⌘1..6 — inspector modes
-      if (!e.shiftKey && e.key >= "1" && e.key <= "6") {
-        const idx = Number(e.key) - 1;
-        if (idx >= 0 && idx < MODE_KEYS.length) {
-          e.preventDefault();
-          focusStore.setMode(MODE_KEYS[idx]);
+        focusStore.setMode("overview");
+      },
+    }),
+    shortcutRegistry.register({
+      id: "escape.closeAll",
+      keys: "escape",
+      label: "Close overlays",
+      ignoreMods: true,
+      run: () => {
+        const ui = uiBus.get();
+        if (ui.paletteOpen) {
+          uiBus.togglePalette(false);
+          return;
         }
-      }
-    };
-
-    const escapeHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+        if (ui.devConsoleOpen) {
+          uiBus.toggleDevConsole(false);
+          return;
+        }
+        if (ui.rulesOpen) {
+          uiBus.toggleRules(false);
+          return;
+        }
+        if (ui.settingsOpen) {
+          uiBus.toggleSettings(false);
+          return;
+        }
         const s = focusStore.get();
         if (s.simulateOpen) focusStore.toggleSimulate(false);
         if (s.contextInjectOpen) focusStore.toggleContextInject(false);
-      }
-    };
+        if (s.firewallOpen) focusStore.toggleFirewall(false);
+      },
+    }),
+  );
 
-    window.addEventListener("keydown", handler);
-    window.addEventListener("keydown", escapeHandler);
+  return () => {
+    for (const d of disposers) d();
+  };
+}
+
+export function useGlobalShortcuts() {
+  useEffect(() => {
+    const disposeShell = registerShellShortcuts();
+    const onKey = (e: KeyboardEvent) => {
+      shortcutRegistry.dispatch(e);
+    };
+    window.addEventListener("keydown", onKey);
     return () => {
-      window.removeEventListener("keydown", handler);
-      window.removeEventListener("keydown", escapeHandler);
+      window.removeEventListener("keydown", onKey);
+      disposeShell();
     };
   }, []);
 }

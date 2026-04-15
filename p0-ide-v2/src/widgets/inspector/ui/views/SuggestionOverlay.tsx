@@ -1,8 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { riskColor } from "@/shared/lib/risk";
 import { toast } from "@/shared/model/toast-store";
 import { focusStore } from "@/shared/model/focus-store";
+import {
+  complianceStore,
+  useComplianceStore,
+  type ComplianceEvent,
+} from "@/entities/compliance";
+import {
+  counterfactualStore,
+  useCounterfactualStore,
+  METRIC_LABEL,
+  type HorizonDays,
+  type MetricId,
+} from "@/entities/counterfactual";
+import { TrajectoryGraph } from "@/features/counterfactual-graph";
+import { tabBus } from "@/shared/model/tab-bus";
 
 export type VerifyState = "pass" | "warn" | "info";
 export interface VerifyItem {
@@ -67,9 +81,16 @@ interface Props {
   onClose: () => void;
 }
 
+const CURRENT_CHANGE_ID = "cs-live";
+
 export function SuggestionOverlay({ data, onClose }: Props) {
   const [replay, setReplay] = useState<ProofReplayData>(data.proofReplay);
   const [applying, setApplying] = useState(false);
+  const allEvents = useComplianceStore((s) => s.events);
+  const complianceForChange = useMemo(
+    () => allEvents.filter((e) => e.changeSetId === CURRENT_CHANGE_ID),
+    [allEvents],
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -97,11 +118,32 @@ export function SuggestionOverlay({ data, onClose }: Props) {
         verifiedAt: "just now",
       }));
       setApplying(false);
+
+      // Run compliance verifiers against this change set
+      const events = complianceStore.submit({
+        id: CURRENT_CHANGE_ID,
+        label: data.title,
+        files: ["orchestrator.py"],
+        author: "agent",
+        agentId: "quanta-agent",
+        agentClaim: "no-api-break",
+        sessionId: "s-live",
+      });
+      const lies = events.filter((e) => e.isLie).length;
+      const pass = events.filter((e) => e.status === "pass").length;
+
       toast.success(
         "Patch verified",
-        `${data.verification.filter((v) => v.state === "pass").length} checks passed · risk ${data.riskBefore} → ${data.riskAfter}`,
+        `${pass}/${events.length} compliance rules passed · risk ${data.riskBefore} → ${data.riskAfter}`,
         "proof replay",
       );
+      if (lies > 0) {
+        toast.danger(
+          `Lie detected · ${lies} rule${lies > 1 ? "s" : ""}`,
+          "Agent claim did not match engine verdict",
+          "compliance",
+        );
+      }
     }, 1800);
   }
 
@@ -146,6 +188,10 @@ export function SuggestionOverlay({ data, onClose }: Props) {
             <pre className="fix__code">{data.diff}</pre>
 
             <VerificationList items={data.verification} />
+
+            <ComplianceCard events={complianceForChange} />
+
+            <CounterfactualProjection />
 
             <CounterfactualCard data={data.counterfactual} riskAfter={data.riskAfter} />
 
@@ -246,6 +292,193 @@ function VerificationList({ items }: { items: VerifyItem[] }) {
       ))}
     </ul>
   );
+}
+
+// ── RFC 2 · Compliance verifier card ─────────────────────────────────
+function ComplianceCard({ events }: { events: ComplianceEvent[] }) {
+  if (events.length === 0) {
+    return (
+      <section className="comply comply--empty">
+        <header className="comply__h">
+          <span className="comply__label">Compliance</span>
+          <span className="comply__sub">awaiting apply</span>
+        </header>
+        <p className="comply__hint">
+          On <kbd>Apply</kbd>, engine runs {5} rule verifiers against this change set and issues evidence tokens for each pass.
+        </p>
+      </section>
+    );
+  }
+
+  const pass = events.filter((e) => e.status === "pass").length;
+  const fail = events.filter((e) => e.status === "fail").length;
+  const unknown = events.filter((e) => e.status === "unknown").length;
+  const lies = events.filter((e) => e.isLie).length;
+
+  return (
+    <section className={`comply${lies > 0 ? " has-lie" : ""}`}>
+      <header className="comply__h">
+        <span className="comply__label">Compliance</span>
+        <span className="comply__sub">verifiers · this change</span>
+        <span className="comply__pills">
+          <span className="comply__pill comply__pill--pass">{pass} pass</span>
+          {fail > 0 && <span className="comply__pill comply__pill--fail">{fail} fail</span>}
+          {unknown > 0 && <span className="comply__pill comply__pill--unknown">{unknown} unk</span>}
+          {lies > 0 && <span className="comply__pill comply__pill--lie">{lies} LIE</span>}
+        </span>
+      </header>
+      <ul className="comply__list">
+        {events.map((e) => (
+          <li
+            key={e.id}
+            className={`comply__row comply__row--${e.status}${e.isLie ? " is-lie" : ""}`}
+          >
+            <span className={`comply__icon comply__icon--${e.status}`} aria-hidden>
+              {e.status === "pass" ? "✓" : e.status === "fail" ? "✗" : "?"}
+            </span>
+            <div className="comply__text">
+              <span className="comply__rule">{e.ruleLabel ?? e.verifierId}</span>
+              {e.agentClaim && (
+                <span className="comply__claim">
+                  agent: <em>{e.agentClaim}</em>
+                  {e.isLie && <span className="comply__mismatch"> ↯ mismatch</span>}
+                </span>
+              )}
+              {e.violations && e.violations.length > 0 && (
+                <span className="comply__violation">{e.violations[0].message}</span>
+              )}
+            </div>
+            <span className="comply__engine">{e.engineSource}</span>
+            {e.evidenceTokenId && (
+              <span className="comply__token" title={`evidence token ${e.evidenceTokenId}`}>
+                signed
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// ── RFC 4 · Counterfactual projection (trajectory graph) ─────────────
+const HORIZONS: HorizonDays[] = [7, 14, 30, 90];
+const METRICS: MetricId[] = ["risk", "blast", "cpx", "coverage", "incident"];
+
+function CounterfactualProjection() {
+  const projection = useCounterfactualStore((s) => s.projection);
+  const input = useCounterfactualStore((s) => s.input);
+  const horizon = input.horizonDays;
+  const metric = input.metric;
+
+  const apply = projection.trajectoriesByMetric[metric].apply;
+  const dismiss = projection.trajectoriesByMetric[metric].dismiss;
+  const applyEnd = apply.points[apply.points.length - 1];
+  const dismissEnd = dismiss.points[dismiss.points.length - 1];
+
+  return (
+    <section className="cfproj">
+      <header className="cfproj__h">
+        <span className="cfproj__label">Counterfactual projection</span>
+        <span className="cfproj__sub">engine-projected · {projection.input.targetSymbol}</span>
+        <button
+          type="button"
+          className="cfproj__open"
+          onClick={() => tabBus.open("scenario", "Scenario · execute()")}
+        >
+          Open scenario <kbd>⌘⇧C</kbd>
+        </button>
+      </header>
+
+      <div className="cfproj__controls">
+        <div className="cfproj__control-group" role="group" aria-label="Horizon">
+          <span className="cfproj__control-label">horizon</span>
+          {HORIZONS.map((h) => (
+            <button
+              key={h}
+              type="button"
+              className={`cfproj__btn${h === horizon ? " is-active" : ""}`}
+              onClick={() => counterfactualStore.setHorizon(h)}
+            >
+              {h}d
+            </button>
+          ))}
+        </div>
+        <div className="cfproj__control-group" role="group" aria-label="Metric">
+          <span className="cfproj__control-label">metric</span>
+          {METRICS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={`cfproj__btn${m === metric ? " is-active" : ""}`}
+              onClick={() => counterfactualStore.setMetric(m)}
+              title={METRIC_LABEL[m]}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="cfproj__graph">
+        <TrajectoryGraph projection={projection} metric={metric} horizon={horizon} />
+      </div>
+
+      <div className="cfproj__summary">
+        <div className="cfproj__stat cfproj__stat--apply">
+          <span className="cfproj__stat-k">apply</span>
+          <span className="cfproj__stat-v">{fmtMetricForDisplay(metric, applyEnd.median)}</span>
+          <span className="cfproj__stat-cost">
+            {projection.costs.apply.median.toFixed(1)} ed
+          </span>
+        </div>
+        <div className="cfproj__arrow" aria-hidden>vs</div>
+        <div className="cfproj__stat cfproj__stat--dismiss">
+          <span className="cfproj__stat-k">dismiss</span>
+          <span className="cfproj__stat-v">{fmtMetricForDisplay(metric, dismissEnd.median)}</span>
+          <span className="cfproj__stat-cost">
+            {projection.costs.dismiss.median.toFixed(1)} ed
+          </span>
+        </div>
+      </div>
+
+      {projection.predictedIncidents.length > 0 && (
+        <div className="cfproj__incidents">
+          <div className="cfproj__incidents-h">Predicted incidents (dismiss path)</div>
+          <ul className="cfproj__incidents-list">
+            {projection.predictedIncidents.map((p) => (
+              <li key={p.id} className="cfproj__incident">
+                <span className="cfproj__incident-icon" aria-hidden>⚠</span>
+                <span className="cfproj__incident-id">{p.shapeMatchId}-like</span>
+                <span className="cfproj__incident-sim">{Math.round(p.similarity * 100)}%</span>
+                <span className="cfproj__incident-when">~{p.likelyWithinDays}d</span>
+                <span className="cfproj__incident-reason">{p.reason}</span>
+                <span className="cfproj__incident-engine">{p.engineSource}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {projection.historicalAnalog && (
+        <p className="cfproj__analog">
+          <span className="cfproj__analog-k">historical analog</span>
+          {projection.historicalAnalog.when}, {projection.historicalAnalog.where}:
+          {" "}{projection.historicalAnalog.similar}. {projection.historicalAnalog.outcome}.
+        </p>
+      )}
+
+      <p className="cfproj__disclaimer">
+        Based on historical signal gradients + incident DNA — confidence bands shown. Not a forecast.
+      </p>
+    </section>
+  );
+}
+
+function fmtMetricForDisplay(metric: MetricId, value: number): string {
+  if (metric === "coverage") return `${Math.round(value)}%`;
+  if (metric === "incident") return value.toFixed(2);
+  return Math.round(value).toString();
 }
 
 // ── Topic ③ · Counterfactual damage ──────────────────────────────────

@@ -397,7 +397,7 @@
   width: 28px;
   height: 3px;
   background: color-mix(in srgb, var(--fg) 6%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
 }
 .pr-page__file-risk-bar { display: block; height: 100%; }
@@ -524,7 +524,7 @@
 .pr-page__btn--merge {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--text-inverse);
 }
 .pr-page__btn--merge:hover {
   background: color-mix(in srgb, var(--accent) 85%, var(--fg));
@@ -701,7 +701,7 @@
   bottom: 0;
   height: 2px;
   background: var(--fg);
-  border-radius: 2px 2px 0 0;
+  border-radius: var(--radius-xs) var(--radius-xs) 0 0;
 }
 .pr-page__mode svg { color: var(--fg-subtle); }
 .pr-page__mode.is-active svg { color: var(--fg); }
@@ -791,7 +791,7 @@
   color: var(--fg-muted);
   padding: 3px 8px 3px 7px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg-subtle);
 }
 .pr-page__diff-risk::before {
@@ -828,7 +828,7 @@
   font-size: 12px;
   line-height: 1.5;
   overflow: hidden;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  box-shadow: var(--shadow-xs);
 }
 .pr-page__hunk {
   border-bottom: 1px dashed color-mix(in srgb, var(--border-strong) 70%, transparent);
@@ -920,10 +920,10 @@
   padding: 2px 7px 2px 6px;
   margin-left: 10px;
   white-space: nowrap;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--bg);
   border: 1px solid var(--border);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow-xs);
 }
 .pr-page__inline-pip::before {
   content: "";
@@ -1079,7 +1079,7 @@
 .pr-page__panel-cta {
   appearance: none;
   background: var(--accent);
-  color: #fff;
+  color: var(--text-inverse);
   border: 1px solid var(--accent);
   padding: 5px 10px;
   border-radius: var(--radius-sm);
@@ -1618,7 +1618,7 @@
   display: block;
   height: 4px;
   background: color-mix(in srgb, var(--fg) 6%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
 }
 .pr-page__ins-inc-bar span {
@@ -1655,7 +1655,7 @@
 .pr-page__ins-owner-bar {
   height: 4px;
   background: color-mix(in srgb, var(--fg) 6%, transparent);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   margin-bottom: 6px;
 }
@@ -1706,7 +1706,7 @@
   content: "";
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 .pr-page__lg--changed::before { background: var(--warn); }
 .pr-page__lg--added::before { background: var(--success); }

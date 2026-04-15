@@ -1,15 +1,28 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Topbar, type Tab } from "@/widgets/topbar";
 import { IdePage } from "@/pages/ide";
 import { HomePage } from "@/pages/home";
+import { NewTabPage } from "@/pages/new-tab";
 import { AgentPage } from "@/pages/agent";
 import { PrPage } from "@/pages/pr";
+import { RulesModal } from "@/pages/rules";
+import { ScenarioPage } from "@/pages/scenario";
+import { ReviewsPage } from "@/pages/reviews";
+import { SettingsPage } from "@/pages/settings";
 
 type TabApp = Tab["app"];
 import { useGlobalShortcuts } from "@/features/global-shortcuts";
 import { SimulateOverlay } from "@/features/simulate-change";
 import { ContextInjectOverlay } from "@/features/context-inject";
+import { FirewallOverlay } from "@/features/firewall-inspector";
 import { ToastHost } from "@/shared/ui/toast";
+import { tabBus } from "@/shared/model/tab-bus";
+import { useUiBus } from "@/shared/model/ui-bus";
+import { CommandPaletteHost } from "@/widgets/command-palette";
+import { DevConsoleHost } from "@/widgets/dev-console";
+import { seedFeatures } from "./feature-seed";
+
+seedFeatures();
 
 const initialTabs: Tab[] = [
   { id: "t1", app: "ide", label: "order-service" },
@@ -27,29 +40,48 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
 
 export function App() {
   useGlobalShortcuts();
+  const settingsOpen = useUiBus((s) => s.settingsOpen);
   const [tabs, setTabs] = useState<Tab[]>(initialTabs);
-  const [activeId, setActiveId] = useState<string>("t2");
+  const [activeId, setActiveId] = useState<string>("t1");
+  const [homeOpen, setHomeOpen] = useState(false);
   const [sidebarW, setSidebarW] = useState(240);
   const [inspectorW, setInspectorW] = useState(360);
   const [bottomH, setBottomH] = useState(260);
 
-  const addTab = () => {
-    const id = `t${Date.now()}`;
-    setTabs((prev) => [...prev, { id, app: "home", label: "New Tab" }]);
+  const selectTab = (id: string) => {
+    setHomeOpen(false);
     setActiveId(id);
   };
 
-  const closeTab = (id: string) => {
-    setTabs((prev) => {
-      const next = prev.filter((t) => t.id !== id);
-      if (id === activeId && next.length > 0) setActiveId(next[next.length - 1].id);
-      return next;
-    });
+  const addTab = () => {
+    setHomeOpen(false);
+    const id = `t${Date.now()}`;
+    setTabs((prev) => [...prev, { id, app: "new-tab", label: "New Tab" }]);
+    setActiveId(id);
   };
 
-  const pickFromHome = (choice: "repo" | "agent" | "pr", label: string) => {
-    const app: Tab["app"] = choice === "agent" ? "agent" : choice === "pr" ? "pr" : "ide";
-    setTabs((prev) => prev.map((t) => (t.id === activeId ? { ...t, app, label } : t)));
+  const toggleHome = () => {
+    setHomeOpen((o) => !o);
+  };
+
+  // Listen for tab-bus open requests (from feature-registry commands etc.)
+  useEffect(() => {
+    return tabBus.subscribe(() => {
+      const req = tabBus.consume();
+      if (!req) return;
+      const id = `t${Date.now()}-${req.id}`;
+      setTabs((prev) => [...prev, { id, app: req.app, label: req.label }]);
+      setActiveId(id);
+    });
+  }, []);
+
+  const closeTab = (id: string) => {
+    let next: Tab[] = [];
+    setTabs((prev) => {
+      next = prev.filter((t) => t.id !== id);
+      return next;
+    });
+    setActiveId((cur) => (id === cur && next.length > 0 ? next[next.length - 1].id : cur));
   };
 
   const activeTab = tabs.find((t) => t.id === activeId);
@@ -61,9 +93,13 @@ export function App() {
   } as CSSProperties;
 
   const pageRegistry: Record<TabApp, () => ReactNode> = {
-    home: () => <HomePage onPick={pickFromHome} />,
+    home: () => <HomePage />, // not a tab; rendered via homeOpen overlay
+    "new-tab": () => <NewTabPage />,
     agent: () => <AgentPage />,
     pr: () => <PrPage />,
+    scenario: () => <ScenarioPage />,
+    reviews: () => <ReviewsPage />,
+    settings: () => <SettingsPage />,
     ide: () => (
       <IdePage
         onResizeSidebar={(dx) => setSidebarW((w) => clamp(w + dx, SIDEBAR_MIN, SIDEBAR_MAX))}
@@ -78,15 +114,21 @@ export function App() {
       <Topbar
         tabs={tabs}
         activeId={activeId}
-        onSelect={setActiveId}
+        onSelect={selectTab}
         onClose={closeTab}
         onAdd={addTab}
+        homeOpen={homeOpen}
+        onToggleHome={toggleHome}
       />
       <div className="app-main">
-        {activeTab && pageRegistry[activeTab.app]()}
+        {settingsOpen ? <SettingsPage /> : homeOpen ? <HomePage /> : activeTab && pageRegistry[activeTab.app]()}
       </div>
       <SimulateOverlay />
       <ContextInjectOverlay />
+      <FirewallOverlay />
+      <RulesModal />
+      <CommandPaletteHost />
+      <DevConsoleHost />
       <ToastHost />
     </div>
   );

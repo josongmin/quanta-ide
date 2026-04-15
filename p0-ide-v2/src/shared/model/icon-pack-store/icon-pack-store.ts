@@ -2,10 +2,14 @@ import { useSyncExternalStore } from "react";
 
 export type IconPackId =
   | "custom"
+  | "material"
+  | "seti"
   | "lucide"
   | "tabler"
   | "phosphor"
   | "phosphor-duotone"
+  | "phosphor-bold"
+  | "phosphor-fill"
   | "heroicons-outline"
   | "heroicons-solid"
   | "remix-line"
@@ -18,10 +22,14 @@ export type IconPackId =
 
 const VALID_PACKS: IconPackId[] = [
   "custom",
+  "material",
+  "seti",
   "lucide",
   "tabler",
   "phosphor",
   "phosphor-duotone",
+  "phosphor-bold",
+  "phosphor-fill",
   "heroicons-outline",
   "heroicons-solid",
   "remix-line",

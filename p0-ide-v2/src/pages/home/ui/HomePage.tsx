@@ -1,9 +1,11 @@
-import { HomePicker } from "@/widgets/home-picker";
+import "./home-page.css";
 
-interface HomePageProps {
-  onPick: (choice: "repo" | "agent" | "pr", label: string) => void;
-}
-
-export function HomePage({ onPick }: HomePageProps) {
-  return <HomePicker onPick={onPick} />;
+export function HomePage() {
+  return (
+    <div className="home-page">
+      <div className="home-page__inner">
+        <h1 className="home-page__title">Home</h1>
+      </div>
+    </div>
+  );
 }

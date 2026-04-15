@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#232323"/>
+      <stop offset="50%" stop-color="#0c0c0c"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.32" r="0.65">
+      <stop offset="0%" stop-color="#0d99ff" stop-opacity="0.18"/>
+      <stop offset="55%" stop-color="#0d99ff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#0d99ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#glow)"/>
+
+  <path d="M 140 10 Q 512 -6 884 10 L 884 24 Q 512 8 140 24 Z" fill="#ffffff" opacity="0.08"/>
+
+  <rect x="1.5" y="1.5" width="1021" height="1021" rx="226.5" ry="226.5" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="2"/>
+
+  <!-- Smaller wordmark + solid fill → matches other dock icons; avoids “line” from vertical gradient -->
+  <text
+    x="512"
+    y="512"
+    text-anchor="middle"
+    dominant-baseline="central"
+    font-family="'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace"
+    font-weight="700"
+    font-size="420"
+    letter-spacing="-28"
+    fill="#f4f4f4"
+  >p0</text>
+</svg>

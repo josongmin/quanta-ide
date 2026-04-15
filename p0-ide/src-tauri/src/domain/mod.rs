@@ -5,5 +5,3 @@
 //! that cross the boundary via `application`).
 
 pub mod error;
-pub mod model;
-pub mod port;

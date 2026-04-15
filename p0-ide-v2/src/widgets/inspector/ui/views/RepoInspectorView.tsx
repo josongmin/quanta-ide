@@ -1,6 +1,7 @@
 import { Section } from "@/shared/ui/section";
 import { riskBarStyle } from "@/shared/lib/risk";
 import { focusStore, useFocusStore, type InspectorMode } from "@/shared/model/focus-store";
+import { INSPECTOR_MODES } from "@/entities/inspector";
 
 interface RiskFile { name: string; risk: number; issues: number; path: string; }
 interface HotspotAuthor { name: string; riskOwned: number; files: number; }
@@ -41,14 +42,7 @@ const REPO_DATA = {
 
 const SEV_CLASS: Record<1 | 2 | 3, string> = { 3: "is-crit", 2: "is-warn", 1: "is-info" };
 
-const MODES: { id: InspectorMode; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "flow", label: "Flow" },
-  { id: "blast", label: "Blast" },
-  { id: "incidents", label: "Incidents" },
-  { id: "behavior", label: "Behavior" },
-  { id: "ownership", label: "Ownership" },
-];
+const MODES = INSPECTOR_MODES;
 
 function ScoreRing({ score }: { score: number }) {
   const r = 22;
