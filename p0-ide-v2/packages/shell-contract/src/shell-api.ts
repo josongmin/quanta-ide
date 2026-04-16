@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import type { FeatureManifest } from "./feature-types";
 import type { ShortcutBinding } from "./shortcut-types";
 import type { TabApp } from "./types";
@@ -33,4 +34,8 @@ export interface ShellAPI {
   registerFeatures(manifests: FeatureManifest[]): () => void;
   /** Register shortcut bindings. Returns a disposer that unregisters them. */
   registerShortcuts(bindings: ShortcutBinding[]): () => void;
+
+  // -- Overlay registration --------------------------------------------------
+  /** Register a global overlay component. Returns a disposer. */
+  registerOverlay(id: string, component: ComponentType): () => void;
 }

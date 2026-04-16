@@ -1,6 +1,5 @@
 import { createPortal } from "react-dom";
-// TODO: boundary violation — ui-kit should not import store; inject via props or context
-import { toastStore, useToasts, type ToastKind } from "@quanta/shell/stores/toast-store";
+import type { Toast, ToastKind } from "@quanta/shell-contract";
 import "./toast.css";
 
 const KIND_GLYPH: Record<ToastKind, string> = {
@@ -10,8 +9,13 @@ const KIND_GLYPH: Record<ToastKind, string> = {
   danger:  "!",
 };
 
-export function ToastHost() {
-  const toasts = useToasts();
+export interface ToastHostProps {
+  toasts: Toast[];
+  onDismiss: (id: string) => void;
+}
+
+/** Pure presentational toast renderer. Store subscription lives in the shell. */
+export function ToastHost({ toasts, onDismiss }: ToastHostProps) {
   if (toasts.length === 0) return null;
 
   return createPortal(
@@ -31,7 +35,7 @@ export function ToastHost() {
           <button
             type="button"
             className="toast__close"
-            onClick={() => toastStore.dismiss(t.id)}
+            onClick={() => onDismiss(t.id)}
             aria-label="Dismiss"
           >
             ✕

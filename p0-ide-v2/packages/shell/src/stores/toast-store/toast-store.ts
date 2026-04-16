@@ -1,15 +1,7 @@
 import { useSyncExternalStore } from "react";
+import type { Toast, ToastKind } from "@quanta/shell-contract";
 
-export type ToastKind = "info" | "success" | "warn" | "danger";
-
-export interface Toast {
-  id: string;
-  kind: ToastKind;
-  title: string;
-  detail?: string;
-  engine?: string;
-  ttlMs?: number;
-}
+export type { Toast, ToastKind };
 
 interface ToastState {
   toasts: Toast[];

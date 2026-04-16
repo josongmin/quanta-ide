@@ -1,6 +1,5 @@
 import type { ReactElement } from "react";
-// TODO: boundary violation — ui-kit should not import store; extract IconPackId type to ui-kit
-import type { IconPackId } from "@quanta/shell/stores/icon-pack-store";
+import type { IconPackId } from "@quanta/shell-contract";
 
 export interface IconPack {
   id: IconPackId;

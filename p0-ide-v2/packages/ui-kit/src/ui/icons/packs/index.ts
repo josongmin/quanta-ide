@@ -1,6 +1,5 @@
-// TODO: boundary violation — ui-kit should not import store; extract IconPackId type + useIconPack hook
-import type { IconPackId } from "@quanta/shell/stores/icon-pack-store";
-import { useIconPack } from "@quanta/shell/stores/icon-pack-store";
+import type { IconPackId } from "@quanta/shell-contract";
+import { useIconPackId } from "@quanta/shell-contract";
 import { customPack } from "./custom";
 import { materialPack } from "./material";
 import { setiPack } from "./seti";
@@ -64,7 +63,7 @@ export const ICON_PACK_CATEGORIES: { label: string; ids: IconPackId[] }[] = [
 export const ICON_PACK_ORDER: IconPackId[] = ICON_PACK_CATEGORIES.flatMap((c) => c.ids);
 
 export function useActivePack(): IconPack {
-  const id = useIconPack();
+  const id = useIconPackId();
   return ICON_PACKS[id];
 }
 

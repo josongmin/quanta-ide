@@ -1,14 +1,15 @@
 import { useEffect } from "react";
-import { focusStore } from "@quanta/app-ide/stores/focus-store";
 import { uiBus } from "@quanta/shell/stores/ui-bus";
 import { tabBus } from "@quanta/shell/stores/tab-bus";
 import { shortcutRegistry } from "@quanta/shell/stores/shortcut-registry";
 
 /**
- * Register the "shell-level" shortcuts — palette, new tab, overview
- * mode, and the escape cascade — that aren't owned by any single
- * feature manifest. Feature-specific shortcuts (⌘⇧R, ⌘2-6, ⌘E,
- * ⌘⇧S, ⌘⇧F, ⌘⌥⇧D, …) are registered declaratively in feature-seed.
+ * Register shell-level shortcuts: palette, new tab, and escape cascade
+ * for shell-owned modals (palette, dev-console, rules, settings).
+ *
+ * IDE-specific shortcuts (⌘1 overview, ⌘2-6 modes, ⌘E, ⌘⇧S, ⌘⇧F,
+ * and Escape for IDE overlays) are registered by app-ide via
+ * `useShell().registerShortcuts()`.
  */
 function registerShellShortcuts(): () => void {
   const disposers: Array<() => void> = [];
@@ -53,19 +54,16 @@ function registerShellShortcuts(): () => void {
       },
     }),
     shortcutRegistry.register({
-      id: "inspector.mode.overview",
-      keys: "mod+1",
-      label: "Overview inspector",
-      run: (e) => {
-        e.preventDefault();
-        focusStore.setMode("overview");
-      },
-    }),
-    shortcutRegistry.register({
-      id: "escape.closeAll",
+      id: "escape.shell",
       keys: "escape",
-      label: "Close overlays",
+      label: "Close shell modals",
       ignoreMods: true,
+      // Only fire when a shell modal is actually open; otherwise fall through
+      // so app-level escape handlers (e.g. IDE overlays) can respond.
+      when: () => {
+        const ui = uiBus.get();
+        return ui.paletteOpen || ui.devConsoleOpen || ui.rulesOpen || ui.settingsOpen;
+      },
       run: () => {
         const ui = uiBus.get();
         if (ui.paletteOpen) {
@@ -84,10 +82,6 @@ function registerShellShortcuts(): () => void {
           uiBus.toggleSettings(false);
           return;
         }
-        const s = focusStore.get();
-        if (s.simulateOpen) focusStore.toggleSimulate(false);
-        if (s.contextInjectOpen) focusStore.toggleContextInject(false);
-        if (s.firewallOpen) focusStore.toggleFirewall(false);
       },
     }),
   );

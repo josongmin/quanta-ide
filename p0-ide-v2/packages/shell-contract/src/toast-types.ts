@@ -1,9 +1,18 @@
 // ---------------------------------------------------------------------------
 // Toast contract types
-// Minimal subset of `src/shared/model/toast-store/toast-store.ts`.
+// Canonical definitions — shell and ui-kit both depend on these.
 // ---------------------------------------------------------------------------
 
 export type ToastKind = "info" | "success" | "warn" | "danger";
+
+export interface Toast {
+  id: string;
+  kind: ToastKind;
+  title: string;
+  detail?: string;
+  engine?: string;
+  ttlMs?: number;
+}
 
 export interface ToastOptions {
   /** Override the auto-dismiss duration (ms). Pass 0 to persist. */

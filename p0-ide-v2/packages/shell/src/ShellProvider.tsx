@@ -1,6 +1,7 @@
 import { useMemo, type ReactNode } from "react";
-import { ShellProvider } from "@quanta/shell-contract";
+import { ShellProvider, IconPackProvider } from "@quanta/shell-contract";
 import type { TabApp } from "@quanta/shell-contract";
+import { useIconPack } from "@quanta/shell/stores/icon-pack-store";
 import { createShellAPI } from "./create-shell-api";
 
 interface TabActions {
@@ -16,5 +17,12 @@ interface ShellProviderWrapperProps {
 
 export function ShellProviderWrapper({ children, tabActions }: ShellProviderWrapperProps) {
   const api = useMemo(() => createShellAPI(tabActions), [tabActions]);
-  return <ShellProvider value={api}>{children}</ShellProvider>;
+  const packId = useIconPack();
+  return (
+    <ShellProvider value={api}>
+      <IconPackProvider value={packId}>
+        {children}
+      </IconPackProvider>
+    </ShellProvider>
+  );
 }

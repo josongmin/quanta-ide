@@ -1,7 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
-import type { TabDescriptor } from "@quanta/shell-contract";
+import { LayoutProvider, type TabDescriptor } from "@quanta/shell-contract";
 import { Topbar } from "@quanta/shell/widgets/topbar";
-import { IdePage } from "@quanta/app-ide/pages/ide";
 import { HomePage } from "@quanta/app-home/pages/home";
 import { NewTabPage } from "@quanta/app-home/pages/new-tab";
 import { AgentPage } from "@quanta/app-agent/pages/agent";
@@ -12,15 +11,13 @@ import { ReviewsPage } from "@quanta/app-reviews/pages/reviews";
 import { SettingsPage } from "@quanta/app-settings/pages/settings";
 import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
 import { ToastHost } from "@quanta/ui-kit/ui/toast";
+import { toastStore, useToasts } from "@quanta/shell/stores/toast-store";
 import { useUiBus } from "@quanta/shell/stores/ui-bus";
 import { CommandPaletteHost } from "@quanta/shell/widgets/command-palette";
 import { DevConsoleHost } from "@quanta/shell/widgets/dev-console";
 import { seedFeatures } from "@quanta/shell/feature-seed";
-
-// TODO: move to app-ide — these are IDE-specific overlays
-import { SimulateOverlay } from "@quanta/app-ide/features/simulate-change";
-import { ContextInjectOverlay } from "@quanta/app-ide/features/context-inject";
-import { FirewallOverlay } from "@quanta/app-ide/features/firewall-inspector";
+import { useOverlays } from "./overlay-registry";
+import { appRegistry } from "./app-registry";
 
 import { useTabManager } from "./tab-manager";
 import { ShellProviderWrapper } from "./ShellProvider";
@@ -68,20 +65,22 @@ const pageRegistry: Record<string, PageFactory> = {
   scenario: () => <ScenarioPage />,
   reviews: () => <ReviewsPage />,
   settings: () => <SettingsPage />,
-  ide: (ctx) => (
-    <IdePage
-      onResizeSidebar={ctx.onResizeSidebar}
-      onResizeInspector={ctx.onResizeInspector}
-      onResizeBottom={ctx.onResizeBottom}
-    />
-  ),
 };
+
+// ---------------------------------------------------------------------------
+// Connected ToastHost — subscribes to toast-store, passes props to ui-kit.
+// ---------------------------------------------------------------------------
+function ConnectedToastHost() {
+  const toasts = useToasts();
+  return <ToastHost toasts={toasts} onDismiss={toastStore.dismiss} />;
+}
 
 // ---------------------------------------------------------------------------
 // Shell — the root orchestrator component.
 // ---------------------------------------------------------------------------
 export function Shell() {
   useGlobalShortcuts();
+  const registeredOverlays = useOverlays();
   const settingsOpen = useUiBus((s) => s.settingsOpen);
   const { state, openTab, addTab, closeTab, selectTab, toggleHome } =
     useTabManager(initialTabs);
@@ -108,10 +107,23 @@ export function Shell() {
 
   const activeTab = state.tabs.find((t) => t.id === state.activeId);
 
-  // Render the active tab's page via the backward-compat registry.
-  // Once apps register with appRegistry, TabRenderer will replace this.
+  // Render the active tab's page. Apps registered via appRegistry take
+  // priority; the backward-compat pageRegistry handles the rest.
   const renderActivePage = (): ReactNode => {
     if (!activeTab) return null;
+
+    // Check appRegistry first (the proper registration path).
+    const descriptor = appRegistry.get(activeTab.app);
+    if (descriptor) {
+      const Comp = descriptor.Component;
+      return (
+        <LayoutProvider value={resizeCtx}>
+          <Comp tabId={activeTab.id} isActive />
+        </LayoutProvider>
+      );
+    }
+
+    // Backward-compat bridge for apps not yet migrated to appRegistry.
     const factory = pageRegistry[activeTab.app];
     if (!factory) return null;
     return factory(resizeCtx);
@@ -141,16 +153,16 @@ export function Shell() {
           )}
         </div>
 
-        {/* TODO: move to app-ide — IDE-specific overlays */}
-        <SimulateOverlay />
-        <ContextInjectOverlay />
-        <FirewallOverlay />
+        {/* App-registered overlays (IDE overlays, etc.) */}
+        {registeredOverlays.map((Overlay, i) => (
+          <Overlay key={i} />
+        ))}
 
-        {/* Global overlays managed by shell */}
+        {/* Shell-owned overlays */}
         <RulesModal />
         <CommandPaletteHost />
         <DevConsoleHost />
-        <ToastHost />
+        <ConnectedToastHost />
       </div>
     </ShellProviderWrapper>
   );

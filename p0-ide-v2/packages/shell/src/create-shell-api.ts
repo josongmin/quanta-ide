@@ -3,6 +3,7 @@ import { toast } from "@quanta/shell/stores/toast-store";
 import { uiBus } from "@quanta/shell/stores/ui-bus";
 import { shortcutRegistry } from "@quanta/shell/stores/shortcut-registry";
 import { featureRegistry } from "@quanta/shell/stores/feature-registry";
+import { overlayRegistry } from "./overlay-registry";
 
 interface TabActions {
   openTab: (app: TabApp, label: string) => void;
@@ -45,5 +46,7 @@ export function createShellAPI(tabActions: TabActions): ShellAPI {
         for (const d of disposers) d();
       };
     },
+
+    registerOverlay: (id, component) => overlayRegistry.register(id, component),
   };
 }

@@ -27,10 +27,16 @@ export type {
 
 export type { ShortcutBinding } from "./shortcut-types";
 
-export type { ToastKind, ToastOptions } from "./toast-types";
+export type { ToastKind, Toast, ToastOptions } from "./toast-types";
+
+export type { IconPackId } from "./icon-types";
+
+export { IconPackProvider, useIconPackId } from "./icon-pack-context";
 
 export type {
   ShellEvents,
   ShellEventName,
   ShellEventPayload,
 } from "./events";
+
+export { LayoutProvider, useLayout, type LayoutCallbacks } from "./layout-types";

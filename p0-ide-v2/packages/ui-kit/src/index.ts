@@ -37,6 +37,7 @@ export type { FileTypeKey, FileTypeMeta } from "./ui/icons/file-type";
 export { Modal } from "./ui/modal";
 export type { ModalProps } from "./ui/modal";
 export { ToastHost } from "./ui/toast";
+export type { ToastHostProps } from "./ui/toast";
 export { Section, Sub } from "./ui/section";
 export type { SectionStyle } from "./ui/section/Section";
 export { EmptyPane } from "./ui/empty-pane";
