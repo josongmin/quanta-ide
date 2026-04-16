@@ -22,7 +22,8 @@ function measureSiblingFreeze(strip: HTMLDivElement, closingId: string): Record<
   strip.querySelectorAll<HTMLButtonElement>(".topbar__tab").forEach((btn) => {
     const tid = btn.dataset.tabId;
     if (!tid || tid === closingId) return;
-    const w = Math.round(btn.getBoundingClientRect().width);
+    // Keep sub-pixel precision to avoid cumulative rounding shrinkage across many tabs.
+    const w = btn.getBoundingClientRect().width;
     if (w > 0) frozen[tid] = w;
   });
   return frozen;
@@ -70,7 +71,7 @@ export function useWorkspaceTabStrip(onClose: (id: string) => void) {
         closeTimerRef.current = null;
       }
 
-      const widthPx = Math.round(tabEl.getBoundingClientRect().width);
+      const widthPx = tabEl.getBoundingClientRect().width;
       const frozen = measureSiblingFreeze(strip, id);
 
       flushSync(() => {
