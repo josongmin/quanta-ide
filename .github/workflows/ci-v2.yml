@@ -105,3 +105,57 @@ jobs:
           if [ "$TOTAL" -gt "$WARN" ]; then
             echo "::warning::JS bundle is over 1.5 MiB ($TOTAL bytes) — consider code-splitting"
           fi
+
+      - name: Bundle size budget
+        run: pnpm size
+
+      - name: Performance budget
+        run: |
+          echo "## Bundle Analysis" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          ls -lh dist/assets/*.js dist/assets/*.css >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          # Check initial chunk < 300KB
+          INITIAL=$(stat -c%s dist/assets/index-*.js 2>/dev/null || stat -f%z dist/assets/index-*.js)
+          echo "Initial JS: $INITIAL bytes"
+          if [ "$INITIAL" -gt 307200 ]; then
+            echo "::warning::Initial JS chunk exceeds 300KB budget ($INITIAL bytes)"
+          fi
+
+  # ── E2E Tests ───────────────────────────────────────────────────
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: validate
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: p0-ide-v2/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+        working-directory: p0-ide-v2
+
+      - run: npx playwright install chromium --with-deps
+        working-directory: p0-ide-v2
+
+      - run: pnpm e2e
+        working-directory: p0-ide-v2
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: p0-ide-v2/test-results/

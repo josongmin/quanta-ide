@@ -1,0 +1,12 @@
+[
+  {
+    "path": "dist/assets/*.js",
+    "limit": "1.5 MB",
+    "name": "Total JS (all chunks)"
+  },
+  {
+    "path": "dist/assets/index-*.js",
+    "limit": "300 KB",
+    "name": "Initial JS chunk"
+  }
+]
