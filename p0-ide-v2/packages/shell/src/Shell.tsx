@@ -1,14 +1,6 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { LayoutProvider, type TabDescriptor } from "@quanta/shell-contract";
 import { Topbar } from "@quanta/shell/widgets/topbar";
-import { HomePage } from "@quanta/app-home/pages/home";
-import { NewTabPage } from "@quanta/app-home/pages/new-tab";
-import { AgentPage } from "@quanta/app-agent/pages/agent";
-import { PrPage } from "@quanta/app-pr/pages/pr";
-import { RulesModal } from "@quanta/app-rules/pages/rules";
-import { ScenarioPage } from "@quanta/app-scenario/pages/scenario";
-import { ReviewsPage } from "@quanta/app-reviews/pages/reviews";
-import { SettingsPage } from "@quanta/app-settings/pages/settings";
 import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
 import { ToastHost } from "@quanta/ui-kit/ui/toast";
 import { toastStore, useToasts } from "@quanta/shell/stores/toast-store";
@@ -18,7 +10,6 @@ import { DevConsoleHost } from "@quanta/shell/widgets/dev-console";
 import { seedFeatures } from "@quanta/shell/feature-seed";
 import { useOverlays } from "./overlay-registry";
 import { appRegistry } from "./app-registry";
-
 import { useTabManager } from "./tab-manager";
 import { ShellProviderWrapper } from "./ShellProvider";
 
@@ -48,24 +39,6 @@ const BOTTOM_MAX = 720;
 const clamp = (v: number, min: number, max: number) =>
   Math.min(max, Math.max(min, v));
 
-// ---------------------------------------------------------------------------
-// Page registry — backward-compat bridge until apps register via appRegistry.
-// The `ide` entry receives layout resize callbacks from Shell-level state.
-// ---------------------------------------------------------------------------
-type PageFactory = (ctx: {
-  onResizeSidebar: (dx: number) => void;
-  onResizeInspector: (dx: number) => void;
-  onResizeBottom: (dy: number) => void;
-}) => ReactNode;
-
-const pageRegistry: Record<string, PageFactory> = {
-  "new-tab": () => <NewTabPage />,
-  agent: () => <AgentPage />,
-  pr: () => <PrPage />,
-  scenario: () => <ScenarioPage />,
-  reviews: () => <ReviewsPage />,
-  settings: () => <SettingsPage />,
-};
 
 // ---------------------------------------------------------------------------
 // Connected ToastHost — subscribes to toast-store, passes props to ui-kit.
@@ -107,27 +80,22 @@ export function Shell() {
 
   const activeTab = state.tabs.find((t) => t.id === state.activeId);
 
-  // Render the active tab's page. Apps registered via appRegistry take
-  // priority; the backward-compat pageRegistry handles the rest.
+  // Render the active tab's page via appRegistry.
   const renderActivePage = (): ReactNode => {
     if (!activeTab) return null;
-
-    // Check appRegistry first (the proper registration path).
     const descriptor = appRegistry.get(activeTab.app);
-    if (descriptor) {
-      const Comp = descriptor.Component;
-      return (
-        <LayoutProvider value={resizeCtx}>
-          <Comp tabId={activeTab.id} isActive />
-        </LayoutProvider>
-      );
-    }
-
-    // Backward-compat bridge for apps not yet migrated to appRegistry.
-    const factory = pageRegistry[activeTab.app];
-    if (!factory) return null;
-    return factory(resizeCtx);
+    if (!descriptor) return null;
+    const Comp = descriptor.Component;
+    return (
+      <LayoutProvider value={resizeCtx}>
+        <Comp tabId={activeTab.id} isActive />
+      </LayoutProvider>
+    );
   };
+
+  // Resolve shell-level overrides (settings/home) from registry.
+  const SettingsComp = appRegistry.get("settings")?.Component;
+  const HomeComp = appRegistry.get("home")?.Component;
 
   return (
     <ShellProviderWrapper
@@ -144,10 +112,10 @@ export function Shell() {
           onToggleHome={toggleHome}
         />
         <div className="app-main">
-          {settingsOpen ? (
-            <SettingsPage />
-          ) : state.homeOpen ? (
-            <HomePage />
+          {settingsOpen && SettingsComp ? (
+            <SettingsComp tabId="__settings" isActive />
+          ) : state.homeOpen && HomeComp ? (
+            <HomeComp tabId="__home" isActive />
           ) : (
             renderActivePage()
           )}
@@ -159,7 +127,6 @@ export function Shell() {
         ))}
 
         {/* Shell-owned overlays */}
-        <RulesModal />
         <CommandPaletteHost />
         <DevConsoleHost />
         <ConnectedToastHost />
