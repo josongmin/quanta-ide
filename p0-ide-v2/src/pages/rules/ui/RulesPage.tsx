@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/shared/lib";
 import { toast } from "@/shared/model/toast-store";
 import {
   rulesStore,
@@ -118,7 +119,7 @@ export function RulesPage() {
                     type="button"
                     role="tab"
                     aria-selected={a.targetId === activeTarget}
-                    className={`rules-target-tab${a.targetId === activeTarget ? " is-active" : ""}${warnCount > 0 ? " has-warn" : ""}`}
+                    className={cn("rules-target-tab", a.targetId === activeTarget && "is-active", warnCount > 0 && "has-warn")}
                     onClick={() => setActiveTarget(a.targetId)}
                   >
                     <span className="rules-target-tab__dot" aria-hidden />
@@ -188,7 +189,7 @@ function RulesHeader({
       <div className="rules-header__meta">
         <span className="rules-header__stat">{targetCount} targets</span>
         <span className="rules-header__sep">·</span>
-        <span className={`rules-header__stat${warningCount > 0 ? " has-warn" : ""}`}>
+        <span className={cn("rules-header__stat", warningCount > 0 && "has-warn")}>
           {warningCount} warnings
         </span>
         <span className="rules-header__sep">·</span>
@@ -232,7 +233,7 @@ function BuildStatusStrip({
             <button
               key={a.targetId}
               type="button"
-              className={`rules-build__target rules-build__target--${state}${a.targetId === activeTarget ? " is-active" : ""}`}
+              className={cn(`rules-build__target rules-build__target--${state}`, a.targetId === activeTarget && "is-active")}
               onClick={() => onPick(a.targetId)}
               title={`${label} → ${a.outputPath}`}
             >
@@ -286,7 +287,7 @@ function DiagnosticsList({
               <span className="rules-diag__icon" aria-hidden>⚠</span>
               <button
                 type="button"
-                className={`rules-diag__adapter${d.targetId === activeTarget ? " is-active" : ""}`}
+                className={cn("rules-diag__adapter", d.targetId === activeTarget && "is-active")}
                 onClick={() => onFocusTarget(d.targetId)}
               >
                 {label}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { OUTPUT_SOURCES, OUTPUT_LOGS, type OutputSource } from "@/entities/output";
+import "./output-pane.css";
 
 export function OutputPane() {
   const [source, setSource] = useState<OutputSource>("build");

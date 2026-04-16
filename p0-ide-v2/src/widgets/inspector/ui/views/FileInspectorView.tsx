@@ -1,3 +1,4 @@
+import "./file-inspector.css";
 import { useEffect, useState } from "react";
 import { FILES } from "@/entities/file";
 import { useFocusStore } from "@/shared/model/focus-store";

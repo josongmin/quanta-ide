@@ -1,0 +1,268 @@
+.bp {
+  display: flex;
+  flex-direction: row;
+  background: var(--bg);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Left rail (vertical tab list) ─────────────────────────────────── */
+.bp__rail {
+  flex-shrink: 0;
+  width: 34px;
+  background: var(--bg-subtle);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-2) 3px var(--space-2) var(--space-1);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.bp__rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  align-items: center;
+}
+.bp__rail-item { display: flex; justify-content: center; }
+.bp__rail-btn {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--fg-subtle);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.bp__rail-btn:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+.bp__rail-btn.is-active {
+  color: var(--fg);
+  background: var(--bg-selected);
+}
+.bp__rail-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.bp__rail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+}
+.bp__rail-icon svg { width: 17px; height: 17px; }
+
+/* ── Body (to the right of the rail) ──────────────────────────────── */
+.bp__body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pane { padding: 10px 14px; font-size: var(--fs-sm); }
+
+/* ── Shared toolbar (used by Problems, Quanta, Output, Agent) ────── */
+.pb-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 2px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.pb-panel-title {
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding-right: 6px;
+  white-space: nowrap;
+}
+.pb-toolbar-sep {
+  flex-shrink: 0;
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin-right: 6px;
+}
+.pb-toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  align-self: stretch;
+}
+.pb-toolbar-spacer { flex: 1 1 auto; }
+
+.pb-toolbar-action {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--fg-subtle);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.pb-toolbar-action:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+/* ── Shared filter chips ─────────────────────────────────────────── */
+.pb-chip {
+  --sev: var(--fg-subtle);
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 7px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  color: var(--fg-subtle);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.pb-chip-error { --sev: var(--danger); }
+.pb-chip-warn  { --sev: var(--warn); }
+.pb-chip-info  { --sev: var(--accent); }
+.pb-chip-drift  { --sev: var(--warn); }
+.pb-chip-impact { --sev: var(--accent); }
+.pb-chip-dead   { --sev: var(--fg-muted); }
+.pb-chip-graph  { --sev: var(--success); }
+.pb-chip-sync   { --sev: var(--fg-muted); }
+
+.pb-chip:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+.pb-chip.is-active {
+  color: var(--fg);
+}
+.pb-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sev) 35%, transparent);
+}
+
+.pb-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.2px solid color-mix(in srgb, var(--sev) 55%, transparent);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.pb-chip.is-active .pb-chip-dot {
+  background: var(--sev);
+  border-color: var(--sev);
+}
+
+.pb-chip-count {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  opacity: 0.5;
+}
+.pb-chip.is-active .pb-chip-count { opacity: 1; color: var(--sev); }
+.pb-chip-label {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.01em;
+}
+
+/* ── Shared segmented source selector ────────────────────────────── */
+.pb-seg {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-sm);
+  gap: 1px;
+}
+.pb-seg-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0 9px;
+  height: 20px;
+  border-radius: 3px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+.pb-seg-btn:hover { color: var(--fg); }
+.pb-seg-btn.is-active {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);
+}
+.pb-seg-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* ── Watcher toolbar (shared toolbar + chip idiom) ───────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  margin: -2px 0 10px;
+}
+.toolbar__spacer { flex: 1; }
+.toolbar__muted { color: var(--fg-muted); font-size: var(--fs-xs); }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  font-size: var(--fs-xs);
+}
+.chip__n { font-weight: 700; font-variant-numeric: tabular-nums; }
+.chip__l { color: var(--fg-muted); }
+.chip--ok      { border-color: var(--border-success-subtle); background: var(--bg-success-subtle); }
+.chip--ok .chip__n     { color: var(--success); }
+.chip--warn    { border-color: var(--border-warn-subtle); background: var(--bg-warn-subtle); }
+.chip--warn .chip__n   { color: var(--warn); }
+.chip--danger  { border-color: var(--border-danger-subtle); background: var(--bg-danger-subtle); }
+.chip--danger .chip__n { color: var(--danger); }
+.chip--accent  { border-color: var(--border-accent-subtle); background: var(--bg-accent-subtle); }
+.chip--accent .chip__n { color: var(--accent); }
+.chip--muted   { background: var(--bg-subtle); }

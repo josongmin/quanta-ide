@@ -1,3 +1,4 @@
+import { cn } from "@/shared/lib";
 import {
   prStore,
   usePrStore,
@@ -67,7 +68,7 @@ export function ReviewsPage() {
                 type="button"
                 role="tab"
                 aria-selected={f === filter}
-                className={`rev-filter__btn${f === filter ? " is-active" : ""}`}
+                className={cn("rev-filter__btn", f === filter && "is-active")}
                 onClick={() => prStore.setFilter(f)}
               >
                 {f === "all" ? "All" : STATUS_LABEL[f as PRStatus]}
@@ -103,7 +104,7 @@ function PRRow({
 }) {
   const ratioPct = pr.totalHunks > 0 ? (pr.verifiedHunks / pr.totalHunks) * 100 : 0;
   return (
-    <li className={`rev-row rev-row--${pr.status}${selected ? " is-selected" : ""}`}>
+    <li className={cn(`rev-row rev-row--${pr.status}`, selected && "is-selected")}>
       <button type="button" className="rev-row__btn" onClick={onSelect}>
         <div className="rev-row__top">
           <span className="rev-row__num">#{pr.number}</span>
@@ -342,7 +343,7 @@ function HunkRow({ hunk }: { hunk: HunkAttestation }) {
   const failCount = hunk.checks.filter((c) => c.status === "fail").length;
   const unknownCount = hunk.checks.filter((c) => c.status === "unknown").length;
   return (
-    <li className={`rev-hunk rev-hunk--${hunk.tier}${hunk.tier === "risky" ? " is-focus" : ""}`}>
+    <li className={cn(`rev-hunk rev-hunk--${hunk.tier}`, hunk.tier === "risky" && "is-focus")}>
       <div className="rev-hunk__head">
         <span className={`rev-hunk__tier-badge rev-hunk__tier-badge--${hunk.tier}`}>
           {TIER_LABEL[hunk.tier]}

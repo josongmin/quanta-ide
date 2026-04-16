@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/shared/lib";
 import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { EditorView, lineNumbers } from "@codemirror/view";
@@ -156,23 +157,28 @@ export function Editor() {
 
   return (
     <main className="editor" aria-label="Editor">
-      <div className="editor__tabs">
+      <div className="editor__tabs" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.name}
             type="button"
-            className={"tab" + (t.name === activeTab ? " tab--active" : "")}
+            role="tab"
+            aria-selected={t.name === activeTab}
+            aria-label={t.name}
+            className={cn("tab", t.name === activeTab && "tab--active")}
             onClick={() => setActiveTab(t.name)}
           >
             <span className="tab__name">{t.name}</span>
             <span
               className="tab__close"
               role="button"
-              aria-label="Close"
+              tabIndex={-1}
+              aria-label={`Close ${t.name}`}
               onClick={(e) => {
                 e.stopPropagation();
                 closeTab(t.name);
               }}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); closeTab(t.name); } }}
             >
               ×
             </span>

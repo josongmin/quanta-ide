@@ -25,7 +25,7 @@ export function MoreCapabilities({ features, showBrowse, onRun, onBrowseAll }: M
         ))}
       </div>
       {showBrowse && (
-        <button type="button" className="hp__more-browse" onClick={onBrowseAll}>
+        <button type="button" className="hp__more-browse" onClick={onBrowseAll} aria-label="Browse all capabilities">
           browse all →
         </button>
       )}

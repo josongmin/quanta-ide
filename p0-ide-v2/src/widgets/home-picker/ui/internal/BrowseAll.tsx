@@ -13,7 +13,7 @@ export function BrowseAll({ allFeatures, onBack, onRun }: BrowseAllProps) {
     <section className="hp__browse">
       <header className="hp__browse-head">
         <h3 className="hp__browse-title">All Capabilities</h3>
-        <button type="button" className="hp__browse-back" onClick={onBack}>
+        <button type="button" className="hp__browse-back" onClick={onBack} aria-label="Back to home">
           ← back
         </button>
       </header>

@@ -1,4 +1,5 @@
 /* GraphView — call graph visualization */
+import { cn } from "@/shared/lib";
 
 export function GraphView() {
   const nodes = [
@@ -56,7 +57,7 @@ export function GraphView() {
         {nodes.map((n) => (
           <g
             key={n.id}
-            className={`pr-page__node${n.changed ? " is-changed" : ""}${n.added ? " is-added" : ""}${n.risky ? " is-risky" : ""}`}
+            className={cn("pr-page__node", n.changed && "is-changed", n.added && "is-added", n.risky && "is-risky")}
             transform={`translate(${n.x - 70},${n.y - 18})`}
           >
             <rect width="140" height="36" rx="6" />

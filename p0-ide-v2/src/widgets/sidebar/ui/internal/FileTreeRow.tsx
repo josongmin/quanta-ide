@@ -1,3 +1,4 @@
+import { cn } from "@/shared/lib";
 import { ChevronIcon, type IconPack } from "@/shared/ui/icons";
 import { ClockIcon } from "../../lib/icons";
 import type { FileNode } from "../../lib/sidebar.utils";
@@ -32,17 +33,19 @@ export function FileTreeRow({
       aria-expanded={isFolder ? isOpen : undefined}
       aria-level={node.depth + 1}
       tabIndex={0}
-      className={
-        `ide-files-row${isFolder ? " is-folder" : ""}` +
-        `${isFileActive ? " is-active" : ""}` +
-        `${selected === node.name && !isFileActive ? " is-selected" : ""}`
-      }
+      className={cn(
+        "ide-files-row",
+        isFolder && "is-folder",
+        isFileActive && "is-active",
+        selected === node.name && !isFileActive && "is-selected",
+      )}
       data-depth={node.depth}
       onClick={onClick}
       onKeyDown={(e) => {
-        if (e.key === "Enter") {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           if (isFolder) onToggleIfFolder();
+          else onClick();
         }
       }}
     >
@@ -67,7 +70,7 @@ export function FileTreeRow({
         <span className="ide-files-signals">
           {node.tests !== undefined && node.tests !== "✓" && (
             <span
-              className={`ide-files-sig ide-files-sig-tests${node.tests.startsWith("0/") ? " is-bad" : ""}`}
+              className={cn("ide-files-sig ide-files-sig-tests", node.tests.startsWith("0/") && "is-bad")}
               title={`Tests: ${node.tests}`}
             >
               {node.tests}

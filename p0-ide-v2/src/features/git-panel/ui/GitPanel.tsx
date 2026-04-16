@@ -168,7 +168,7 @@ export function GitPanel({ onOpenFile }: GitPanelProps) {
         </section>
 
         <section className="git-panel__section git-panel__section--tail" aria-label="Agent review">
-          <button type="button" className="git-panel__section-head git-panel__section-head--toggle" onClick={() => gitWorkspaceStore.toggleAgentReview()}>
+          <button type="button" className="git-panel__section-head git-panel__section-head--toggle" onClick={() => gitWorkspaceStore.commit.toggleAgentReview()}>
             <span className="git-panel__section-left">
               <IconChevSidebar open={s.agentReviewOpen} />
               <span className="git-panel__section-title">Agent review</span>
@@ -371,17 +371,17 @@ function GitFileBlock({
               </button>
               <span className="git-panel__file-actions">
                 {mode === "unstaged" && (
-                  <button type="button" className="git-panel__mini" disabled={busy} title="Stage" aria-label={`Stage ${basename(f.path)}`} onClick={() => gitWorkspaceStore.stageFile(f.id)}>
+                  <button type="button" className="git-panel__mini" disabled={busy} title="Stage" aria-label={`Stage ${basename(f.path)}`} onClick={() => gitWorkspaceStore.staging.stageFile(f.id)}>
                     +
                   </button>
                 )}
                 {mode === "staged" && (
-                  <button type="button" className="git-panel__mini" disabled={busy} title="Unstage" aria-label={`Unstage ${basename(f.path)}`} onClick={() => gitWorkspaceStore.unstageFile(f.id)}>
+                  <button type="button" className="git-panel__mini" disabled={busy} title="Unstage" aria-label={`Unstage ${basename(f.path)}`} onClick={() => gitWorkspaceStore.staging.unstageFile(f.id)}>
                     −
                   </button>
                 )}
                 {mode === "unstaged" && (
-                  <button type="button" className="git-panel__mini git-panel__mini--danger" disabled={busy} title="Discard" aria-label={`Discard ${basename(f.path)}`} onClick={() => gitWorkspaceStore.discardFile(f.id)}>
+                  <button type="button" className="git-panel__mini git-panel__mini--danger" disabled={busy} title="Discard" aria-label={`Discard ${basename(f.path)}`} onClick={() => gitWorkspaceStore.staging.discardFile(f.id)}>
                     ×
                   </button>
                 )}

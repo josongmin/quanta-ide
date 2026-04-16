@@ -1,3 +1,5 @@
+import "./agent-pane.css";
+
 export { ComplianceSection } from "./ComplianceSection";
 export { ContextPanel } from "./ContextPanel";
 export { DetailDrawer } from "./DetailDrawer";

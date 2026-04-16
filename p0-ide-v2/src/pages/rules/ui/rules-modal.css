@@ -7,7 +7,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-5);
   animation: rules-modal-fade 140ms ease-out;
 }
 @keyframes rules-modal-fade {

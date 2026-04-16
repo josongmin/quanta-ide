@@ -1,4 +1,5 @@
 /* InsightsView — metric cards + inline charts */
+import { cn } from "@/shared/lib";
 
 export function InsightsView() {
   return (
@@ -187,9 +188,7 @@ function InsCard({
         </div>
         {delta && (
           <span
-            className={`pr-page__ins-card-delta${
-              isGood ? " is-good" : isBad ? " is-bad" : ""
-            }`}
+            className={cn("pr-page__ins-card-delta", isGood && "is-good", isBad && "is-bad")}
           >
             <DeltaArrow dir={delta.dir} />
             {delta.value}

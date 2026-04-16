@@ -43,7 +43,7 @@
 }
 
 .git-panel__repo-card {
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   padding: 8px 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
@@ -81,7 +81,7 @@
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   border: 1px solid var(--border);
   background: var(--bg);
   border-radius: var(--radius-sm);
@@ -194,7 +194,7 @@
   grid-column: 1;
   min-width: 0;
   height: 22px;
-  padding: 0 8px;
+  padding: 0 var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
@@ -255,7 +255,7 @@
   min-height: 44px;
   max-height: 100px;
   padding: 8px 10px;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
@@ -276,7 +276,7 @@
 .git-panel__commit-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .git-panel__split {
   display: flex;
@@ -291,7 +291,7 @@
   align-items: center;
   gap: 6px;
   height: 28px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   background: var(--accent);
@@ -331,9 +331,9 @@
 .git-panel__commit-menu {
   position: absolute;
   left: 0;
-  top: calc(100% + 4px);
+  top: calc(100% + var(--space-1));
   min-width: 160px;
-  padding: 4px;
+  padding: var(--space-1);
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -369,7 +369,7 @@
 
 .git-panel__quick-block {
   margin-top: 10px;
-  padding-top: 8px;
+  padding-top: var(--space-2);
   border-top: 1px dashed var(--border);
 }
 .git-panel__quick-kicker {
@@ -422,14 +422,14 @@
 .git-panel__agent-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 4px 0 8px 18px;
 }
 .git-panel__agent-cta {
   appearance: none;
   align-self: flex-start;
   height: 26px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-sm);
   background: var(--accent);
@@ -461,14 +461,14 @@
 }
 .git-panel__section--tail {
   margin-bottom: 0;
-  padding-top: 4px;
+  padding-top: var(--space-1);
   border-top: 1px dashed var(--border);
 }
 .git-panel__section-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
   min-height: 22px;
 }
 .git-panel__section-head--toggle {
@@ -482,7 +482,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   text-align: left;
   border-radius: var(--radius-sm);
 }
@@ -536,7 +536,7 @@
 .git-panel__graph-list {
   list-style: none;
   margin: 0;
-  padding: 0 0 4px;
+  padding: 0 0 var(--space-1);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -544,7 +544,7 @@
 .git-panel__graph-row {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 3px 4px;
   border-radius: var(--radius-sm);
   font-size: 11px;
@@ -573,8 +573,8 @@
 .git-panel__history-row {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 4px 4px;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1);
   border-radius: var(--radius-sm);
   font-size: 11px;
   line-height: 1.35;
@@ -598,7 +598,7 @@
 .git-panel__file-list {
   list-style: none;
   margin: 0;
-  padding: 0 4px 0 0;
+  padding: 0 var(--space-1) 0 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -618,7 +618,7 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 5px 6px;
   border: none;
   background: transparent;
@@ -703,7 +703,7 @@
   flex-shrink: 0;
   width: 10px;
   position: relative;
-  padding-top: 4px;
+  padding-top: var(--space-1);
 }
 .git-panel__graph-dot {
   display: block;
@@ -719,7 +719,7 @@
 /* ── Graphite-style stack (mock) ─────────────────────────────────── */
 .git-panel__section--stack {
   margin-top: 6px;
-  padding-top: 8px;
+  padding-top: var(--space-2);
   border-top: 1px solid var(--border);
 }
 .git-stack__chrome {
@@ -727,7 +727,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
   margin-bottom: 6px;
 }
 .git-stack__sync-split {
@@ -756,10 +756,10 @@
 .git-stack__sync-menu {
   position: absolute;
   left: 0;
-  top: calc(100% + 4px);
+  top: calc(100% + var(--space-1));
   z-index: 30;
   min-width: 200px;
-  padding: 4px;
+  padding: var(--space-1);
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
@@ -813,7 +813,7 @@
 .git-stack__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   padding: 6px 8px 6px 4px;
   border: none;
@@ -887,7 +887,7 @@
 .git-stack__icons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 .git-stack__pr-badge {
@@ -913,7 +913,7 @@
 
 /* PR checkout — “suggested fix” style card (theme tokens; accent may differ from reference) */
 .git-checkout-card {
-  margin-top: 8px;
+  margin-top: var(--space-2);
   padding: 12px 12px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -928,7 +928,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: var(--space-2);
 }
 .git-checkout-card__kicker {
   font-size: var(--fs-10);
@@ -951,7 +951,7 @@
   letter-spacing: -0.02em;
 }
 .git-checkout-card__code {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   padding: 10px 10px 10px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -1009,7 +1009,7 @@
   width: 100%;
   text-align: left;
   padding: 3px 4px;
-  margin: 0 -4px;
+  margin: 0 -var(--space-1);
   border: none;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -1026,7 +1026,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .git-checkout-card__dismiss,
 .git-checkout-card__apply {
@@ -1035,7 +1035,7 @@
   align-items: center;
   gap: 6px;
   height: 30px;
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
   font-size: var(--fs-sm);

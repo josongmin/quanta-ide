@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TERM_SESSIONS } from "@/entities/terminal";
+import "./terminal-pane.css";
 
 export function TerminalPane() {
   const [activeId, setActiveId] = useState(TERM_SESSIONS[0].id);

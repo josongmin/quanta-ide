@@ -12,7 +12,7 @@ export function RecentList() {
             <circle cx="11" cy="11" r="7" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input type="text" placeholder="Search repositories" />
+          <input type="text" placeholder="Search repositories" aria-label="Search repositories" />
           <kbd className="hp__search-kbd">⌘ K</kbd>
         </div>
       </div>

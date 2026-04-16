@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import BoringAvatar from "boring-avatars";
+import { cn } from "@/shared/lib";
 import { uiBus, useUiBus } from "@/shared/model/ui-bus";
 import { useWorkspaceTabStrip } from "../model/use-workspace-tab-strip";
 import "./topbar.css";
@@ -36,7 +37,7 @@ function HomeButton({ active, onClick }: { active: boolean; onClick: () => void 
   return (
     <button
       type="button"
-      className={`topbar__home${active ? " is-active" : ""}`}
+      className={cn("topbar__home", active && "is-active")}
       title="Home"
       aria-label="Home"
       aria-pressed={active}
@@ -131,6 +132,7 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
                     tabIndex={-1}
                     aria-label="Close tab"
                     onClick={(e) => { e.stopPropagation(); beginCloseTab(t.id); }}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); beginCloseTab(t.id); } }}
                   >
                     <CloseIcon />
                   </span>
@@ -204,7 +206,7 @@ function IconButton({
   return (
     <button
       type="button"
-      className={`topbar__icon-btn${active ? " is-active" : ""}`}
+      className={cn("topbar__icon-btn", active && "is-active")}
       title={title}
       aria-label={title}
       aria-pressed={active}

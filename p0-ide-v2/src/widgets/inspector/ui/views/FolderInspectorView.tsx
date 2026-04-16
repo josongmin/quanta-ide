@@ -1,3 +1,4 @@
+import "./folder-inspector.css";
 import { useState } from "react";
 import {
   FOLDER_DATA,

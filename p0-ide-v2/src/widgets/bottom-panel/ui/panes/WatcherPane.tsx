@@ -2,6 +2,7 @@ import { useState } from "react";
 import { TODAY, MONTH, RANGES, type Range } from "@/entities/watcher";
 import { CalendarIcon, ChevronDownTiny } from "../../lib/icons";
 import { eventLabel, bucketTime } from "../../lib/helpers";
+import "./watcher-pane.css";
 
 export function WatcherPane() {
   const [range, setRange] = useState<Range>("30d");

@@ -56,7 +56,7 @@
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--fg);
-  padding: 4px 0;
+  padding: var(--space-1) 0;
 }
 .settings-topbar__input::placeholder { color: var(--fg-subtle); }
 .settings-topbar__input::-webkit-search-cancel-button { appearance: none; }
@@ -155,7 +155,7 @@
   display: inline-block;
   transform: scaleX(0.96);
   transform-origin: left center;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-1);
 }
 .settings-hero__title {
   margin: 0;
@@ -228,7 +228,7 @@
   display: grid;
   grid-template-columns: 16px 1fr auto;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 5px 8px 5px 16px;
   background: transparent;
   border: none;
@@ -323,7 +323,7 @@
 .settings-title__row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .settings-title__h {
   margin: 0;
@@ -359,7 +359,7 @@
 }
 .settings-search__icon {
   position: absolute;
-  left: 8px;
+  left: var(--space-2);
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--font-mono);
@@ -385,7 +385,7 @@
 }
 .settings-search__clear {
   position: absolute;
-  right: 4px;
+  right: var(--space-1);
   top: 50%;
   transform: translateY(-50%);
   appearance: none;
@@ -433,7 +433,7 @@
 .settings-card__title-row {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .settings-card__title {
@@ -498,7 +498,7 @@
 .settings-card__aside {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 .settings-card__state {
   display: inline-flex;
@@ -606,7 +606,7 @@
 .settings-field {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: var(--space-4);
   align-items: center;
   padding: 5px 6px;
   border-radius: var(--radius-sm);
@@ -646,7 +646,7 @@
   appearance: none;
   font-family: inherit;
   font-size: var(--fs-xs);
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -671,7 +671,7 @@
 
 /* Commands strip */
 .settings-card__commands {
-  margin-top: 12px;
+  margin-top: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -690,7 +690,7 @@
 .settings-card__commands-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-1);
 }
 .settings-card__command {
   display: inline-flex;
@@ -707,7 +707,7 @@
 .settings-card__kbd {
   font-family: var(--font-mono);
   font-size: 9px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 3px;

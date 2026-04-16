@@ -1,3 +1,4 @@
+import "./suggestion-overlay.css";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "@/shared/model/toast-store";

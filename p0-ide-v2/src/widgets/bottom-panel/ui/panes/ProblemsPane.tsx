@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { MOCK_PROBLEMS, type Severity } from "@/entities/problem";
 import { ChevronDownTiny, SeverityGlyph } from "../../lib/icons";
+import "./problems-pane.css";
 
 export function ProblemsPane() {
   const [activeSev, setActiveSev] = useState<ReadonlySet<Severity>>(

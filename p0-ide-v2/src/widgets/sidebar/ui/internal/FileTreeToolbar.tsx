@@ -1,3 +1,4 @@
+import { cn } from "@/shared/lib";
 import { ChevronDownTiny, CollapseAllIcon, ExpandAllIcon, PaletteIcon } from "../../lib/icons";
 import { IconPackPicker } from "../IconPackPicker";
 
@@ -32,9 +33,10 @@ export function FileTreeToolbar({
       <span className="ide-files-count">{fileCount} files</span>
       <button
         type="button"
-        className={`ide-files-iconpack-btn${pickerOpen ? " is-open" : ""}`}
+        className={cn("ide-files-iconpack-btn", pickerOpen && "is-open")}
         onClick={onOpenPicker}
         title={`Icon pack: ${packLabel}`}
+        aria-label={`Icon pack: ${packLabel}`}
         aria-haspopup="dialog"
         aria-expanded={pickerOpen}
       >

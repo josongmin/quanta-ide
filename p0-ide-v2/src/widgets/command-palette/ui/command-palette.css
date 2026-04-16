@@ -52,7 +52,7 @@
 .cp__head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   padding: 0 14px 0 16px;
   height: 52px;
   border-bottom: 1px solid var(--border);
@@ -102,7 +102,7 @@
 .cp__head::after {
   content: "";
   position: absolute;
-  left: 16px;
+  left: var(--space-4);
   right: 14px;
   bottom: -1px;
   height: 1px;
@@ -184,7 +184,7 @@
   display: grid;
   grid-template-columns: 22px 1fr auto auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   padding: 0 var(--space-4);
   height: 38px;
   cursor: pointer;
@@ -286,7 +286,7 @@
 .cp__prev-head {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .cp__prev-icon {
   width: 32px;
@@ -349,7 +349,7 @@
   color: var(--fg);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .cp__prev-row-value code {
@@ -443,7 +443,7 @@
 
 /* ── Empty states ──────────────────────────────────────────────── */
 .cp__empty {
-  padding: 48px 24px 32px;
+  padding: var(--space-7) var(--space-5) var(--space-6);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -486,8 +486,8 @@
 .cp__prev--empty {
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding-top: 64px;
+  gap: var(--space-2);
+  padding-top: var(--space-8);
 }
 .cp__prev-empty-mark {
   font-size: 30px;

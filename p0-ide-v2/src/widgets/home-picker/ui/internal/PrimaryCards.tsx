@@ -14,6 +14,7 @@ export function PrimaryCards({ features }: { features: FeatureRecord[] }) {
             className="hp__card"
             onClick={() => p.tileRun()}
             title={p.tileLabel}
+            aria-label={p.tileLabel}
           >
             <span className="hp__card-icon" aria-hidden>
               {f.icon ?? <CategoryIcon category={f.category} />}

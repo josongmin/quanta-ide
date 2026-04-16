@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { cn } from "@/shared/lib";
 import {
   LayoutGrid,
   Waypoints,
@@ -264,7 +265,7 @@ function CategoryLink({
       type="button"
       role="tab"
       aria-selected={selected}
-      className={`settings-nav__item${selected ? " is-selected" : ""}`}
+      className={cn("settings-nav__item", selected && "is-selected")}
       onClick={onSelect}
       data-id={id}
     >
@@ -313,7 +314,7 @@ function FeatureCard({
   }
 
   return (
-    <li className={`settings-card${disabled ? " is-disabled" : ""}`} data-feature={feature.id}>
+    <li className={cn("settings-card", disabled && "is-disabled")} data-feature={feature.id}>
       <header className="settings-card__h">
         <div className="settings-card__title-col">
           <div className="settings-card__title-row">
@@ -395,7 +396,7 @@ function SettingField({
   onChange: (value: unknown) => void;
 }) {
   return (
-    <li className={`settings-field settings-field--${field.type}${disabled ? " is-disabled" : ""}`}>
+    <li className={cn(`settings-field settings-field--${field.type}`, disabled && "is-disabled")}>
       <div className="settings-field__text">
         <span className="settings-field__label">{field.label}</span>
         {field.description && <span className="settings-field__desc">{field.description}</span>}

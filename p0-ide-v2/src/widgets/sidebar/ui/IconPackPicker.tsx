@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "@/shared/lib";
 import { ICON_PACKS, ICON_PACK_CATEGORIES } from "@/shared/ui/icons";
 import {
   ICON_COLOR_OPTIONS,
@@ -62,7 +63,7 @@ export function IconPackPicker({ onClose }: Props) {
         </div>
 
         <div
-          className={`ide-iconpack-modal__colors${activeSupportsColor ? "" : " is-disabled"}`}
+          className={cn("ide-iconpack-modal__colors", !activeSupportsColor && "is-disabled")}
           role="group"
           aria-label="Icon color"
           aria-disabled={!activeSupportsColor}
@@ -76,7 +77,7 @@ export function IconPackPicker({ onClose }: Props) {
                 <button
                   key={opt.id}
                   type="button"
-                  className={`ide-iconpack-modal__swatch${active ? " is-active" : ""}${isDefault ? " is-default" : ""}`}
+                  className={cn("ide-iconpack-modal__swatch", active && "is-active", isDefault && "is-default")}
                   style={opt.value ? { background: opt.value } : undefined}
                   onClick={() => iconColorStore.set(opt.id)}
                   aria-label={opt.label}
@@ -104,7 +105,8 @@ export function IconPackPicker({ onClose }: Props) {
                     <button
                       type="button"
                       key={id}
-                      className={`ide-iconpack-modal__card${active ? " is-active" : ""}`}
+                      className={cn("ide-iconpack-modal__card", active && "is-active")}
+                      aria-pressed={active}
                       onClick={() => iconPackStore.set(id)}
                     >
                       <div className="ide-iconpack-modal__card-head">

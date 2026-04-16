@@ -94,7 +94,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-5);
   pointer-events: none;
 }
 .sim-overlay__scrim,
@@ -149,7 +149,7 @@
 .task-overlay__title {
   font-size: var(--fs-md);
   color: var(--fg);
-  margin-left: 8px;
+  margin-left: var(--space-2);
 }
 .task-overlay__close {
   margin-left: auto;
@@ -159,7 +159,7 @@
   color: var(--fg-subtle);
   font-size: 18px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 .task-overlay__close:hover { color: var(--fg); }
 .task-overlay__body {
@@ -169,7 +169,7 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .task-overlay__foot {
   display: flex;
@@ -186,7 +186,7 @@
   color: var(--fg-subtle);
   align-items: center;
 }
-.task-overlay__actions { display: flex; gap: 8px; }
+.task-overlay__actions { display: flex; gap: var(--space-2); }
 .task-overlay .btn {
   appearance: none;
   border: 1px solid var(--border-strong);
@@ -210,7 +210,7 @@
 }
 .task-overlay .btn--ghost:hover { background: var(--bg-hover); color: var(--fg); }
 .task-overlay__foot-note {
-  margin: 4px 0 0;
+  margin: var(--space-1) 0 0;
   font-size: 10px;
   color: var(--fg-subtle);
   line-height: 1.5;
@@ -261,7 +261,7 @@
   display: inline-block;
   transform: scaleX(0.96);
   transform-origin: left center;
-  padding-top: 4px;
+  padding-top: var(--space-1);
 }
 
 /* Mutation timeline */
@@ -333,7 +333,7 @@
 .sugg-overlay__title {
   font-size: var(--fs-md);
   color: var(--fg);
-  margin-left: 8px;
+  margin-left: var(--space-2);
 }
 .sugg-overlay__close {
   margin-left: auto;
@@ -343,7 +343,7 @@
   color: var(--fg-subtle);
   font-size: 18px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 .sugg-overlay__close:hover { color: var(--fg); }
 .sugg-overlay__body {
@@ -367,7 +367,7 @@
   color: var(--fg-subtle);
   align-items: center;
 }
-.sugg-overlay__actions { display: flex; gap: 8px; }
+.sugg-overlay__actions { display: flex; gap: var(--space-2); }
 .sugg-overlay .btn {
   appearance: none;
   border: 1px solid var(--border-strong);
@@ -393,12 +393,12 @@
 .sim-overlay__title {
   font-size: var(--fs-md);
   color: var(--fg);
-  margin-left: 8px;
+  margin-left: var(--space-2);
 }
 .sim-overlay__title code {
   font-family: var(--font-mono);
   background: var(--bg-muted);
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   font-size: 12px;
 }
@@ -411,7 +411,7 @@
   color: var(--fg-subtle);
   font-size: 18px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 .sim-overlay__close:hover,
 .ctx-overlay__close:hover { color: var(--fg); }
@@ -456,7 +456,7 @@
   color: var(--fg);
 }
 
-.sim-eff { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
+.sim-eff { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .sim-eff__row {
   display: grid;
   grid-template-columns: 10px 80px 1fr;
@@ -470,7 +470,7 @@
 .sim-eff__row--ok .sim-eff__dot { background: var(--fg-muted); }
 .sim-eff__k { color: var(--fg-subtle); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
 .sim-eff__v { font-family: var(--font-mono); color: var(--fg); font-variant-numeric: tabular-nums; }
-.sim-eff__v em { font-style: normal; color: var(--fg-muted); font-size: 11px; margin-left: 4px; }
+.sim-eff__v em { font-style: normal; color: var(--fg-muted); font-size: 11px; margin-left: var(--space-1); }
 .sim-eff__row--bad .sim-eff__v em { color: var(--danger); }
 .sim-eff__row--warn .sim-eff__v em { color: var(--fg-muted); }
 
@@ -491,7 +491,7 @@
 }
 .ctx-card__list {
   list-style: none;
-  padding: 0 12px 12px;
+  padding: 0 var(--space-3) var(--space-3);
   margin: 0;
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -545,7 +545,7 @@
   align-items: center;
 }
 .sim-overlay__actions,
-.ctx-overlay__actions { display: flex; gap: 8px; }
+.ctx-overlay__actions { display: flex; gap: var(--space-2); }
 
 /* Reusable btn — scoped so it doesn't conflict with existing .btn rules */
 .sim-overlay .btn,

@@ -1,3 +1,4 @@
+import { cn } from "@/shared/lib";
 import { HighlightedLabel } from "./HighlightedLabel";
 import { CategoryIcon } from "./icons";
 import type { CommandEntry } from "./command-palette.types";
@@ -14,7 +15,7 @@ export function CommandRow({ entry, flatIndex, isSelected, onHover, onRun }: Com
   return (
     <div
       data-palette-index={flatIndex}
-      className={`cp__row${isSelected ? " cp__row--selected" : ""}`}
+      className={cn("cp__row", isSelected && "cp__row--selected")}
       onMouseEnter={() => onHover(flatIndex)}
       onMouseDown={(ev) => {
         ev.preventDefault();

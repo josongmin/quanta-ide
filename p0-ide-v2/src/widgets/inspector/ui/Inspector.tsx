@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import "./inspector.css";
+import "./views/inspector-chrome.css";
 import { IconClock, IconPlay } from "@/shared/ui/icons";
 import { FileInspectorView } from "./views/FileInspectorView";
 import { FolderInspectorView } from "./views/FolderInspectorView";

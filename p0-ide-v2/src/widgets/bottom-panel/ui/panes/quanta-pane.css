@@ -1,0 +1,43 @@
+/* Quanta pane */
+.pane--quanta {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px var(--space-4) var(--space-3) 10px;
+  color: var(--fg);
+  font-family: var(--font-sans);
+}
+.pane--quanta .q-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  margin-top: 6px;
+}
+
+.q-list { list-style: none; margin: 0; padding: 0; }
+.q-row {
+  display: grid;
+  grid-template-columns: 60px 70px 1fr auto;
+  gap: var(--space-2);
+  align-items: baseline;
+  padding: var(--space-1) 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+.q-row:hover { background: var(--bg-hover); }
+.q-kind {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-align: center;
+}
+.q-kind--drift  { background: var(--bg-warn-subtle); color: var(--warn); }
+.q-kind--impact { background: var(--bg-accent-subtle); color: var(--accent); }
+.q-kind--dead   { background: var(--bg-muted); color: var(--fg-muted); }
+.q-kind--graph  { background: var(--bg-success-subtle); color: var(--success); }
+.q-kind--sync   { background: var(--bg-muted); color: var(--fg-muted); }
+.q-ts { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); }
+.q-sym { color: var(--fg-muted); font-family: var(--font-mono); font-size: var(--fs-xs); }

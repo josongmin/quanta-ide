@@ -12,23 +12,22 @@
     </radialGradient>
   </defs>
 
-  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
-  <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#glow)"/>
-
-  <path d="M 140 10 Q 512 -6 884 10 L 884 24 Q 512 8 140 24 Z" fill="#ffffff" opacity="0.08"/>
-
-  <rect x="1.5" y="1.5" width="1021" height="1021" rx="226.5" ry="226.5" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="2"/>
-
-  <!-- Smaller wordmark + solid fill → matches other dock icons; avoids “line” from vertical gradient -->
-  <text
-    x="512"
-    y="512"
-    text-anchor="middle"
-    dominant-baseline="central"
-    font-family="'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace"
-    font-weight="700"
-    font-size="420"
-    letter-spacing="-28"
-    fill="#f4f4f4"
-  >p0</text>
+  <!-- Inset ~13%: dock/mask size is identical to other apps; artwork that fills the square reads “bigger” -->
+  <g transform="translate(512,512) scale(0.74) translate(-512,-512)">
+    <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
+    <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#glow)"/>
+    <path d="M 140 10 Q 512 -6 884 10 L 884 24 Q 512 8 140 24 Z" fill="#ffffff" opacity="0.08"/>
+    <rect x="1.5" y="1.5" width="1021" height="1021" rx="226.5" ry="226.5" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="2"/>
+    <text
+      x="512"
+      y="512"
+      text-anchor="middle"
+      dominant-baseline="central"
+      font-family="'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', 'Menlo', ui-monospace, monospace"
+      font-weight="700"
+      font-size="380"
+      letter-spacing="-24"
+      fill="#f4f4f4"
+    >p0</text>
+  </g>
 </svg>

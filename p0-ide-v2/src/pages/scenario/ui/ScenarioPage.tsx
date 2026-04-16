@@ -1,3 +1,4 @@
+import { cn } from "@/shared/lib";
 import {
   counterfactualStore,
   useCounterfactualStore,
@@ -38,7 +39,8 @@ export function ScenarioPage() {
               <button
                 key={h}
                 type="button"
-                className={`scen-horizon__btn${input.horizonDays === h ? " is-active" : ""}`}
+                className={cn("scen-horizon__btn", input.horizonDays === h && "is-active")}
+                aria-pressed={input.horizonDays === h}
                 onClick={() => counterfactualStore.setHorizon(h)}
               >
                 {h}d
@@ -152,9 +154,9 @@ export function ScenarioPage() {
               {projection.predictedCascade.map((n) => (
                 <li
                   key={n.symbol}
-                  className={`scen-cascade__row${n.critical ? " is-critical" : ""}`}
+                  className={cn("scen-cascade__row", n.critical && "is-critical")}
                 >
-                  <span className={`scen-cascade__dot${n.critical ? " is-critical" : ""}`} aria-hidden />
+                  <span className={cn("scen-cascade__dot", n.critical && "is-critical")} aria-hidden />
                   <span className="scen-cascade__sym">{n.symbol}</span>
                   <span className="scen-cascade__layer">{n.layer}</span>
                   <div className="scen-cascade__bar">

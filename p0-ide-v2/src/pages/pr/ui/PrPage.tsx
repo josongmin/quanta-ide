@@ -1,4 +1,5 @@
 import { useMemo, useState, type ComponentType } from "react";
+import { cn } from "@/shared/lib";
 import "./pr-page.css";
 import {
   PRS,
@@ -115,7 +116,7 @@ export function PrPage() {
               type="button"
               role="tab"
               aria-selected={queueFilter === f}
-              className={`pr-page__filter-tab${queueFilter === f ? " is-active" : ""}`}
+              className={cn("pr-page__filter-tab", queueFilter === f && "is-active")}
               onClick={() => setQueueFilter(f)}
             >
               {f === "all" ? "All" : f === "mine" ? "My PRs" : "Review requests"}
@@ -132,7 +133,7 @@ export function PrPage() {
 
         <div className="pr-page__search">
           <IconSearch />
-          <input type="text" placeholder="Search PRs..." />
+          <input type="text" placeholder="Search PRs..." aria-label="Search pull requests" />
         </div>
 
         <nav className="pr-page__queue">
@@ -142,7 +143,7 @@ export function PrPage() {
               <button
                 key={pr.id}
                 type="button"
-                className={`pr-page__pr${active ? " is-active" : ""}`}
+                className={cn("pr-page__pr", active && "is-active")}
                 onClick={() => setActivePrId(pr.id)}
               >
                 <div className="pr-page__pr-top">
@@ -192,15 +193,19 @@ export function PrPage() {
           </span>
         </div>
 
-        <ul className="pr-page__files">
+        <ul className="pr-page__files" role="listbox" aria-label="Changed files">
           {FILES.map((f) => {
             const active = f.path === activePath;
             const isReviewed = reviewedPaths.has(f.path);
             return (
               <li
                 key={f.path}
-                className={`pr-page__file${active ? " is-active" : ""}${isReviewed ? " is-reviewed" : ""}`}
+                role="option"
+                aria-selected={active}
+                tabIndex={0}
+                className={cn("pr-page__file", active && "is-active", isReviewed && "is-reviewed")}
                 onClick={() => setActivePath(f.path)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setActivePath(f.path); } }}
               >
                 <span className={`pr-page__file-st pr-page__file-st--${f.status}`}>{f.status}</span>
                 <span className="pr-page__file-path" title={f.path}>
@@ -328,7 +333,7 @@ export function PrPage() {
                   type="button"
                   role="tab"
                   aria-selected={mode === m.id}
-                  className={`pr-page__mode${mode === m.id ? " is-active" : ""}`}
+                  className={cn("pr-page__mode", mode === m.id && "is-active")}
                   onClick={() => setMode(m.id)}
                 >
                   {m.icon}
@@ -340,9 +345,11 @@ export function PrPage() {
               <div className="pr-page__mode-tools">
                 <button
                   type="button"
-                  className={`pr-page__tool${splitView ? " is-on" : ""}`}
+                  className={cn("pr-page__tool", splitView && "is-on")}
                   onClick={() => setSplitView((s) => !s)}
                   title="Unified / Split"
+                  aria-label="Toggle split view"
+                  aria-pressed={splitView}
                 >
                   {splitView ? "Split" : "Unified"}
                 </button>
@@ -394,7 +401,7 @@ export function PrPage() {
             {findings.map((f) => (
               <article
                 key={f.id}
-                className={`pr-page__finding pr-page__finding--${f.sev}${f.applied ? " is-applied" : ""}`}
+                className={cn(`pr-page__finding pr-page__finding--${f.sev}`, f.applied && "is-applied")}
               >
                 <header className="pr-page__finding-head">
                   <span className={`pr-page__finding-sev pr-page__finding-sev--${f.sev}`}>
@@ -445,7 +452,7 @@ export function PrPage() {
             {reviews.map((r) => (
               <article
                 key={r.id}
-                className={`pr-page__review${r.resolved ? " is-resolved" : ""}${r.applied ? " is-applied" : ""}`}
+                className={cn("pr-page__review", r.resolved && "is-resolved", r.applied && "is-applied")}
               >
                 <header className="pr-page__review-head">
                   <span className="pr-page__review-av">{r.avatar}</span>

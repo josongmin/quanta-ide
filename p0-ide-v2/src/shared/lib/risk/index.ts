@@ -1,1 +1,1 @@
-export { riskColor, riskBarStyle } from "./risk";
+export { riskColor, riskColorBg, riskBarStyle } from "./risk";

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { cn } from "@/shared/lib";
 import "./agent-page.css";
 import {
   PROJECTS,
@@ -173,7 +174,7 @@ export function AgentPage() {
                   <button
                     key={s.id}
                     type="button"
-                    className={`agent-page__session${activeSessionId === s.id ? " is-active" : ""}`}
+                    className={cn("agent-page__session", activeSessionId === s.id && "is-active")}
                     onClick={() => setActiveSessionId(s.id)}
                   >
                     <span className="agent-page__session-title">{s.title}</span>
@@ -195,7 +196,7 @@ export function AgentPage() {
           <div className="agent-page__header-actions">
             <button
               type="button"
-              className={`agent-page__panel-toggle${rightOpen ? " is-active" : ""}`}
+              className={cn("agent-page__panel-toggle", rightOpen && "is-active")}
               onClick={() => setRightOpen((v) => !v)}
               aria-label="Toggle right panel"
               aria-pressed={rightOpen}
@@ -323,15 +324,19 @@ export function AgentPage() {
               <span className="agent-page__right-changes-stat">+1725</span>
             </div>
 
-            <ul className="agent-page__right-file-list">
+            <ul className="agent-page__right-file-list" role="listbox" aria-label="Changed files">
               {CHANGED_FILES.map((f) => (
                 <li
                   key={f.path}
-                  className={`agent-page__right-file${selectedPath === f.path ? " is-active" : ""}`}
+                  role="option"
+                  aria-selected={selectedPath === f.path}
+                  tabIndex={0}
+                  className={cn("agent-page__right-file", selectedPath === f.path && "is-active")}
                   onClick={() => setSelectedPath(f.path)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedPath(f.path); } }}
                 >
                   <span className="agent-page__right-file-path">{f.path}</span>
-                  <span className={`agent-page__right-file-badge${f.isNew ? " agent-page__right-file-badge--add" : ""}`}>{f.badge}</span>
+                  <span className={cn("agent-page__right-file-badge", f.isNew && "agent-page__right-file-badge--add")}>{f.badge}</span>
                   <span className="agent-page__right-file-tag">{f.tag}</span>
                 </li>
               ))}

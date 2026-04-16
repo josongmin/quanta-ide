@@ -1,3 +1,4 @@
+import "./repo-inspector.css";
 import { Section } from "@/shared/ui/section";
 import { riskBarStyle } from "@/shared/lib/risk";
 import { useFocusStore, type InspectorMode } from "@/shared/model/focus-store";

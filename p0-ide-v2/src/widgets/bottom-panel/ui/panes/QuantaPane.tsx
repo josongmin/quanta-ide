@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { quantaEvents, QUANTA_KINDS, type QuantaEventKind } from "@/entities/quanta";
+import "./quanta-pane.css";
 
 export function QuantaPane() {
   const [active, setActive] = useState<Set<QuantaEventKind>>(() => new Set(QUANTA_KINDS));

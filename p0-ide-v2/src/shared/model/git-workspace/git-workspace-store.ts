@@ -324,20 +324,6 @@ export const gitWorkspaceStore = {
   branch: branchOps,
   commit: commitNamespace,
 
-  // TODO(deprecated): flat aliases kept for backward compatibility with existing callers.
-  createAndCheckout: branchOps.createAndCheckout,
-  // TODO(deprecated): use gitWorkspaceStore.commit.setCommitMessage instead.
-  setCommitMessage: commitNamespace.setCommitMessage,
-  // TODO(deprecated): use gitWorkspaceStore.commit.toggleAgentReview instead.
-  toggleAgentReview: commitNamespace.toggleAgentReview,
-  // TODO(deprecated): use gitWorkspaceStore.staging.* instead.
-  stageFile: staging.stageFile,
-  unstageFile: staging.unstageFile,
-  stageAll: staging.stageAll,
-  unstageAll: staging.unstageAll,
-  discardFile: staging.discardFile,
-  discardAll: staging.discardAll,
-
   refresh: () => {
     showToast("Working tree refreshed");
   },

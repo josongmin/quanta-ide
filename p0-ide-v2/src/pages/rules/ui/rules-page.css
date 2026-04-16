@@ -47,8 +47,8 @@
 .rules-header__meta {
   display: inline-flex;
   align-items: baseline;
-  gap: 8px;
-  margin-left: 16px;
+  gap: var(--space-2);
+  margin-left: var(--space-4);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--fg-subtle);
@@ -60,14 +60,14 @@
   margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 /* ── Pitch banner ── */
 .rules-page__pitch {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 10px 20px 12px;
   font-size: 11px;
   line-height: 1.5;
@@ -263,7 +263,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-left: 8px;
+  margin-left: var(--space-2);
 }
 .rules-target-tab {
   appearance: none;
@@ -314,7 +314,7 @@
 .rules-diag {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   padding: 10px 20px 14px;
   border-top: 1px solid var(--border);
   background: var(--bg);
@@ -338,8 +338,8 @@
 .rules-diag__head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 0 0 4px;
+  gap: var(--space-2);
+  padding: 0 0 var(--space-1);
 }
 .rules-diag__label {
   font-family: var(--font-sans);
@@ -373,7 +373,7 @@
   display: grid;
   grid-template-columns: 14px auto 1fr;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   padding: 5px 6px;
   border-radius: var(--radius-sm);
   font-size: 11px;
@@ -471,7 +471,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: var(--space-5);
   pointer-events: none;
 }
 .rules-import__scrim {
@@ -511,7 +511,7 @@
 .rules-import__title {
   font-size: var(--fs-md);
   color: var(--fg);
-  margin-left: 8px;
+  margin-left: var(--space-2);
 }
 .rules-import__close {
   margin-left: auto;
@@ -521,7 +521,7 @@
   color: var(--fg-subtle);
   font-size: 18px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 .rules-import__close:hover { color: var(--fg); }
 .rules-import__body {
@@ -531,7 +531,7 @@
   min-height: 0;
 }
 .rules-import__lead {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
   font-size: 12px;
   line-height: 1.5;
   color: var(--fg-muted);
@@ -539,7 +539,7 @@
 .rules-import__lead code {
   font-family: var(--font-mono);
   background: var(--bg-muted);
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border-radius: 3px;
 }
 .rules-import__list {
@@ -614,4 +614,4 @@
   color: var(--fg-subtle);
   align-items: center;
 }
-.rules-import__actions { display: flex; gap: 8px; }
+.rules-import__actions { display: flex; gap: var(--space-2); }
