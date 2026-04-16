@@ -338,11 +338,11 @@
   padding-right: var(--space-1);
 }
 
-/* Search · inbox · settings — logical group; fills topbar height */
+/* Search · inbox · settings — logical group */
 .topbar__utilities {
   display: inline-flex;
-  align-items: stretch;
-  align-self: stretch;
+  align-items: center;
+  align-self: center;
   gap: var(--space-1h);
   flex-shrink: 0;
 }
@@ -352,8 +352,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  align-self: stretch;
+  align-self: center;
   width: 28px;
+  height: 28px;
   margin: 0;
   padding: 0;
   background: transparent;
@@ -387,6 +388,8 @@
   border-radius: 0;
   margin: 0;
   width: 40px;
+  height: auto;
+  align-self: stretch;
 }
 .topbar__icon-btn.is-active:hover {
   background: var(--bg);
