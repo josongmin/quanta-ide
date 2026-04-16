@@ -93,16 +93,18 @@ export function useWorkspaceTabStrip(onClose: (id: string) => void) {
         setCloseAnim(null);
         onClose(id);
 
-        // Suppress ghost hover: after the closed tab is removed from DOM,
-        // the browser fires mouseenter on whatever tab is now under the
-        // cursor. Briefly disable pointer-events so no hover state appears.
+        // Suppress ghost hover: after the closed tab leaves the DOM, the
+        // browser's :hover pseudo-class sticks on whatever tab is now under
+        // the cursor. pointer-events:none alone doesn't clear an existing
+        // :hover. Instead, add a CSS class that visually kills all hover
+        // styles, and remove it on the next real mousemove.
         if (strip) {
-          strip.style.pointerEvents = "none";
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              strip.style.pointerEvents = "";
-            });
-          });
+          strip.classList.add("is-close-settling");
+          const unlisten = () => {
+            strip.classList.remove("is-close-settling");
+            strip.removeEventListener("mousemove", unlisten);
+          };
+          strip.addEventListener("mousemove", unlisten, { once: true });
         }
       }, settleMs);
     },

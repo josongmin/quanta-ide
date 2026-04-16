@@ -168,6 +168,17 @@
 .topbar__tab.is-width-frozen {
   transition: color 0.12s ease, background 0.12s ease;
 }
+
+/* Kill ghost hover after tab close — browser :hover sticks until real mouse movement */
+.is-close-settling .topbar__tab,
+.is-close-settling .topbar__tab:hover {
+  color: var(--fg-muted);
+  background: transparent;
+}
+.is-close-settling .topbar__tab-close {
+  opacity: 0;
+}
+
 .topbar__tab:hover { color: var(--fg); }
 .topbar__tab-inner {
   display: inline-flex;
