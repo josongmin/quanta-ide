@@ -1,5 +1,5 @@
 import type { TabAppProps } from "@quanta/shell-contract";
-import { IdePage } from "@/pages/ide";
+import { IdePage } from "@quanta/app-ide/pages/ide";
 import { useLayout } from "./layout-context";
 
 /**

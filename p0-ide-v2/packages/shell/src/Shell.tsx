@@ -1,26 +1,26 @@
 import { useState, type CSSProperties, type ReactNode } from "react";
 import type { TabDescriptor } from "@quanta/shell-contract";
-import { Topbar } from "@/widgets/topbar";
-import { IdePage } from "@/pages/ide";
-import { HomePage } from "@/pages/home";
-import { NewTabPage } from "@/pages/new-tab";
-import { AgentPage } from "@/pages/agent";
-import { PrPage } from "@/pages/pr";
-import { RulesModal } from "@/pages/rules";
-import { ScenarioPage } from "@/pages/scenario";
-import { ReviewsPage } from "@/pages/reviews";
-import { SettingsPage } from "@/pages/settings";
-import { useGlobalShortcuts } from "@/features/global-shortcuts";
-import { ToastHost } from "@/shared/ui/toast";
-import { useUiBus } from "@/shared/model/ui-bus";
-import { CommandPaletteHost } from "@/widgets/command-palette";
-import { DevConsoleHost } from "@/widgets/dev-console";
-import { seedFeatures } from "@/app/feature-seed";
+import { Topbar } from "@quanta/shell/widgets/topbar";
+import { IdePage } from "@quanta/app-ide/pages/ide";
+import { HomePage } from "@quanta/app-home/pages/home";
+import { NewTabPage } from "@quanta/app-home/pages/new-tab";
+import { AgentPage } from "@quanta/app-agent/pages/agent";
+import { PrPage } from "@quanta/app-pr/pages/pr";
+import { RulesModal } from "@quanta/app-rules/pages/rules";
+import { ScenarioPage } from "@quanta/app-scenario/pages/scenario";
+import { ReviewsPage } from "@quanta/app-reviews/pages/reviews";
+import { SettingsPage } from "@quanta/app-settings/pages/settings";
+import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
+import { ToastHost } from "@quanta/ui-kit/ui/toast";
+import { useUiBus } from "@quanta/shell/stores/ui-bus";
+import { CommandPaletteHost } from "@quanta/shell/widgets/command-palette";
+import { DevConsoleHost } from "@quanta/shell/widgets/dev-console";
+import { seedFeatures } from "@quanta/shell/feature-seed";
 
 // TODO: move to app-ide — these are IDE-specific overlays
-import { SimulateOverlay } from "@/features/simulate-change";
-import { ContextInjectOverlay } from "@/features/context-inject";
-import { FirewallOverlay } from "@/features/firewall-inspector";
+import { SimulateOverlay } from "@quanta/app-ide/features/simulate-change";
+import { ContextInjectOverlay } from "@quanta/app-ide/features/context-inject";
+import { FirewallOverlay } from "@quanta/app-ide/features/firewall-inspector";
 
 import { useTabManager } from "./tab-manager";
 import { ShellProviderWrapper } from "./ShellProvider";

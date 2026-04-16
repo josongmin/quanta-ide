@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppKind, TabDescriptor } from "@quanta/shell-contract";
-import { tabBus } from "@/shared/model/tab-bus";
+import { tabBus } from "@quanta/shell/stores/tab-bus";
 
 export interface TabState {
   tabs: TabDescriptor[];

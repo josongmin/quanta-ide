@@ -1,9 +1,9 @@
 import type { FeatureManifest } from "@quanta/shell-contract";
-import { rulesStore } from "@/entities/agent-rules";
-import { complianceStore } from "@/entities/compliance";
-import { tabBus } from "@/shared/model/tab-bus";
-import { uiBus } from "@/shared/model/ui-bus";
-import { toast } from "@/shared/model/toast-store";
+import { rulesStore } from "@quanta/app-rules/entities/agent-rules";
+import { complianceStore } from "@quanta/app-rules/entities/compliance";
+import { tabBus } from "@quanta/shell/stores/tab-bus";
+import { uiBus } from "@quanta/shell/stores/ui-bus";
+import { toast } from "@quanta/shell/stores/toast-store";
 
 function openRulesModal() {
   uiBus.toggleRules(true);

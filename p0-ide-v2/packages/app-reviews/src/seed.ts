@@ -1,6 +1,6 @@
 import type { FeatureManifest } from "@quanta/shell-contract";
-import { tabBus } from "@/shared/model/tab-bus";
-import { toast } from "@/shared/model/toast-store";
+import { tabBus } from "@quanta/shell/stores/tab-bus";
+import { toast } from "@quanta/shell/stores/toast-store";
 
 /**
  * Reviews app feature manifests.

@@ -1,5 +1,5 @@
 import type { TabAppProps } from "@quanta/shell-contract";
-import { AgentPage } from "@/pages/agent";
+import { AgentPage } from "@quanta/app-agent/pages/agent";
 
 /**
  * Agent tab application.

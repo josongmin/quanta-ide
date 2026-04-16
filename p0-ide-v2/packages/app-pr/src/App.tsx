@@ -1,5 +1,5 @@
 import type { TabAppProps } from "@quanta/shell-contract";
-import { PrPage } from "@/pages/pr";
+import { PrPage } from "@quanta/app-pr/pages/pr";
 
 /**
  * PR review tab application.

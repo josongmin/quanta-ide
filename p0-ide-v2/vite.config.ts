@@ -9,7 +9,7 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "src"),
+      "@quanta/ui-kit": path.resolve(__dirname, "packages/ui-kit/src"),
       "@quanta/shell-contract": path.resolve(__dirname, "packages/shell-contract/src"),
       "@quanta/shell": path.resolve(__dirname, "packages/shell/src"),
       "@quanta/app-ide": path.resolve(__dirname, "packages/app-ide/src"),

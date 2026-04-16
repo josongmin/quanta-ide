@@ -18,7 +18,7 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
+
       "@quanta/shell-contract": ["packages/shell-contract/src"],
       "@quanta/shell-contract/*": ["packages/shell-contract/src/*"],
       "@quanta/shell": ["packages/shell/src"],
@@ -38,7 +38,9 @@
       "@quanta/app-settings": ["packages/app-settings/src"],
       "@quanta/app-settings/*": ["packages/app-settings/src/*"],
       "@quanta/app-home": ["packages/app-home/src"],
-      "@quanta/app-home/*": ["packages/app-home/src/*"]
+      "@quanta/app-home/*": ["packages/app-home/src/*"],
+      "@quanta/ui-kit": ["packages/ui-kit/src"],
+      "@quanta/ui-kit/*": ["packages/ui-kit/src/*"]
     }
   },
   "include": ["src", "packages/*/src"]

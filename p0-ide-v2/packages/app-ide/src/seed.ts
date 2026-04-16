@@ -1,6 +1,6 @@
 import type { FeatureManifest } from "@quanta/shell-contract";
-import { focusStore } from "@/shared/model/focus-store";
-import { tabBus } from "@/shared/model/tab-bus";
+import { focusStore } from "@quanta/app-ide/stores/focus-store";
+import { tabBus } from "@quanta/shell/stores/tab-bus";
 
 /**
  * IDE app feature manifests.

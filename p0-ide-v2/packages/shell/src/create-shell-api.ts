@@ -1,8 +1,8 @@
 import type { ShellAPI, TabApp } from "@quanta/shell-contract";
-import { toast } from "@/shared/model/toast-store";
-import { uiBus } from "@/shared/model/ui-bus";
-import { shortcutRegistry } from "@/shared/model/shortcut-registry";
-import { featureRegistry } from "@/shared/model/feature-registry";
+import { toast } from "@quanta/shell/stores/toast-store";
+import { uiBus } from "@quanta/shell/stores/ui-bus";
+import { shortcutRegistry } from "@quanta/shell/stores/shortcut-registry";
+import { featureRegistry } from "@quanta/shell/stores/feature-registry";
 
 interface TabActions {
   openTab: (app: TabApp, label: string) => void;

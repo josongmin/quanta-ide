@@ -1,9 +1,9 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Shell } from "@quanta/shell";
-import "./app/styles/tokens.css";
-import "./app/styles/reset.css";
-import "./app/styles/app.css";
+import "@quanta/ui-kit/styles/tokens.css";
+import "@quanta/ui-kit/styles/reset.css";
+import "@quanta/shell/styles/app.css";
 
 if ("__TAURI_INTERNALS__" in window) {
   document.documentElement.classList.add("is-tauri");

@@ -1,5 +1,5 @@
 import type { FeatureManifest } from "@quanta/shell-contract";
-import { tabBus } from "@/shared/model/tab-bus";
+import { tabBus } from "@quanta/shell/stores/tab-bus";
 
 /**
  * Agent app feature manifests.
