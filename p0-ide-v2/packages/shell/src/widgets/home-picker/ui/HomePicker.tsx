@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { featureRegistry, type FeatureRecord } from "@quanta/shell/stores/feature-registry";
 import { useHomePickerFeatures } from "../model/use-home-picker-features";
+import { QuickActions } from "./internal/QuickActions";
 import { PrimaryCards } from "./internal/PrimaryCards";
 import { MoreCapabilities } from "./internal/MoreCapabilities";
 import { BrowseAll } from "./internal/BrowseAll";
+import { AttentionQueue } from "./internal/AttentionQueue";
+import { ActiveWork } from "./internal/ActiveWork";
 import { RecentList } from "./internal/RecentList";
+import { TeamActivity } from "./internal/TeamActivity";
+import { ContextualTips } from "./internal/ContextualTips";
 import "./home-picker.css";
 
 type Choice = "repo" | "agent" | "pr";
@@ -42,6 +47,8 @@ export function HomePicker(_props: HomePickerProps) {
           </h1>
         </header>
 
+        <QuickActions />
+
         <PrimaryCards features={primaryFeatures} />
 
         <MoreCapabilities
@@ -58,7 +65,18 @@ export function HomePicker(_props: HomePickerProps) {
             onRun={runCapability}
           />
         ) : (
-          <RecentList />
+          <>
+            <div className="hp__dashboard">
+              <AttentionQueue />
+              <ActiveWork />
+            </div>
+
+            <RecentList />
+
+            <TeamActivity />
+
+            <ContextualTips />
+          </>
         )}
       </div>
     </div>
