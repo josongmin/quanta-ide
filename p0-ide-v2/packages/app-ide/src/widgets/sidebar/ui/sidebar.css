@@ -603,3 +603,96 @@
   color: var(--fg-subtle);
 }
 .ide-files-sig-issues[data-risk="4"] { color: var(--accent); }
+
+/* ── Dependencies section ── */
+.ide-deps {
+  flex-shrink: 0;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+}
+.ide-deps-header {
+  appearance: none;
+  width: 100%;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: 5px var(--space-2h) 4px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  user-select: none;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.ide-deps-header:hover { background: var(--bg-hover); color: var(--fg); }
+.ide-deps-header:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.ide-deps-label { font-weight: var(--fw-semibold); }
+.ide-deps-chev {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  position: relative;
+  transition: transform 0.15s ease;
+  transform: rotate(0deg);
+}
+.ide-deps-chev::before,
+.ide-deps-chev::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 5px;
+  height: 1.5px;
+  background: currentColor;
+  border-radius: 1px;
+}
+.ide-deps-chev::before { left: 0; transform: translateY(-50%) rotate(-40deg); }
+.ide-deps-chev::after { right: 0; transform: translateY(-50%) rotate(40deg); }
+.ide-deps.is-open .ide-deps-chev { transform: rotate(180deg); }
+.ide-deps-list {
+  display: flex;
+  flex-direction: column;
+  padding: 0 4px 12px;
+}
+.ide-dep-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: 3px var(--space-1h);
+  border-radius: var(--radius-sm);
+  cursor: default;
+  user-select: none;
+  transition: background 0.12s ease;
+}
+.ide-dep-row:hover { background: var(--bg-hover); }
+.ide-dep-icon {
+  flex-shrink: 0;
+  color: var(--fg-subtle);
+}
+.ide-dep-name {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  color: var(--fg);
+  letter-spacing: -0.005em;
+}
+.ide-dep-label {
+  font-family: var(--font-sans);
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+}
+.ide-dep-kind {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.ide-dep-row:hover .ide-dep-kind { opacity: 1; }

@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { LayoutProvider, type TabDescriptor } from "@quanta/shell-contract";
 import { Topbar } from "@quanta/shell/widgets/topbar";
 import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
@@ -99,6 +99,32 @@ export function Shell() {
       bottomRef.current((h) => clamp(h - dy, BOTTOM_MIN, BOTTOM_MAX)),
   }), []);
 
+  // When an active topbar tab covers the sidebar edge, set a data attr so CSS
+  // can hide the resize-handle top (ㅜ shape instead of + shape).
+  const shellRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) return;
+    const check = () => {
+      const tab = shell.querySelector<HTMLElement>(".topbar__tab.is-active");
+      if (!tab) {
+        shell.removeAttribute("data-sidebar-under-tab");
+        return;
+      }
+      const shellLeft = shell.getBoundingClientRect().left;
+      const tabRect = tab.getBoundingClientRect();
+      const edge = shellLeft + sidebarW;
+      if (edge >= tabRect.left && edge <= tabRect.right) {
+        shell.setAttribute("data-sidebar-under-tab", "");
+      } else {
+        shell.removeAttribute("data-sidebar-under-tab");
+      }
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [sidebarW, state.activeId, state.homeOpen, settingsOpen, state.tabs.length]);
+
   const activeTab = state.tabs.find((t) => t.id === state.activeId);
 
   // Render the active tab's page via appRegistry.
@@ -124,7 +150,7 @@ export function Shell() {
     <ShellProviderWrapper
       tabActions={tabActions}
     >
-      <div className="app-shell" style={layoutStyle}>
+      <div className="app-shell" ref={shellRef} style={layoutStyle}>
         <Topbar
           tabs={state.tabs}
           activeId={state.activeId}

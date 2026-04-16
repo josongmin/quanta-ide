@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Canvas View — SOTA++ interactive graph for file structure
+   Canvas View — code-pane-centric layout with external dependency nodes
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── Canvas container ─────────────────────────────────────────────── */
@@ -24,27 +24,32 @@
   transform-origin: 0 0;
 }
 
-/* SVG layer — edges + markers */
+/* SVG layer — edges + markers (inside the nodes div, shares zoom) */
 .canvas-view__svg {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   overflow: visible;
   pointer-events: none;
+  z-index: 2;
 }
 
-/* Nodes layer (HTML overlay) */
+/* Nodes layer sits below edges */
+
+/* Nodes layer (HTML overlay) — below SVG edges */
 .canvas-view__nodes {
   position: absolute;
   top: 0;
   left: 0;
   transform-origin: 0 0;
   pointer-events: none;
+  z-index: 1;
 }
 
 /* Re-enable pointer events on interactive elements */
-.canvas-view__nodes .fn-node,
 .canvas-view__nodes .ext-node,
-.canvas-view__nodes .class-node {
+.canvas-view__nodes .terminal-node,
+.canvas-view__nodes .code-pane {
   pointer-events: auto;
 }
 
@@ -121,445 +126,195 @@
   background: var(--bg-muted);
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Class node — container card for a class with methods inside
-   ═══════════════════════════════════════════════════════════════════ */
-.class-node {
-  position: absolute;
-  box-sizing: border-box;
-  border: 1.5px solid var(--border-strong);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg) 92%, var(--bg-subtle));
-  overflow: visible;
-  user-select: none;
-  transition:
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.class-node:hover {
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.07);
-}
-
-.class-node__header {
+/* ── Metrics strip ────────────────────────────────────────────────── */
+.file-group__metrics {
   display: flex;
   align-items: center;
-  gap: var(--space-1h);
-  padding: 10px 14px 4px;
-}
-
-.class-node__glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-muted);
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  flex-shrink: 0;
-}
-
-.class-node__kind {
-  font-size: var(--fs-xs);
-  color: var(--fg-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
-.class-node__icon {
-  font-size: 11px;
-  flex-shrink: 0;
-  cursor: default;
-  line-height: 1;
-}
-.class-node__icon--hot { color: var(--danger); }
-.class-node__icon--warm { color: var(--warn); }
-.class-node__icon--incident { color: var(--warn); }
-
-.class-node__name {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-bold);
-  color: var(--fg);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.class-node__risk {
-  font-family: var(--font-mono);
-  font-size: var(--fs-10);
-  font-weight: var(--fw-bold);
-  flex-shrink: 0;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.class-node__risk--high {
-  color: var(--danger);
-  background: var(--bg-danger-subtle);
-}
-
-.class-node__risk--mid {
-  color: var(--warn);
-  background: var(--bg-warn-subtle);
-}
-
-.class-node__risk--low {
-  color: var(--fg-muted);
-  background: var(--bg-muted);
-}
-
-.class-node__heat {
-  font-size: 11px;
-  cursor: default;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.class-node__heat--hot {
-  color: var(--danger);
-}
-
-.class-node__heat--warm {
-  color: var(--warn);
-}
-
-.class-node__heat--cold {
-  color: var(--fg-subtle);
-}
-
-.class-node__incident {
-  font-size: 11px;
-  color: var(--warn);
-  cursor: default;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.class-node__metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px var(--space-2);
-  padding: 2px 14px 6px;
-  font-size: var(--fs-9);
-  color: var(--fg-subtle);
-  font-variant-numeric: tabular-nums;
-}
-
-.class-node__chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 2px;
-  font-size: var(--fs-9);
-  color: var(--fg-subtle);
-  font-variant-numeric: tabular-nums;
-}
-
-.class-node__chip-k {
-  font-size: 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--fg-subtle);
-  opacity: 0.7;
-  margin-right: 2px;
-}
-
-.class-node__chip.is-bad {
-  color: var(--danger);
-}
-
-.class-node__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 0 14px 8px;
-}
-
-.class-node__tag {
-  display: inline-flex;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-9);
-  font-weight: var(--fw-medium);
-  background: var(--bg-muted);
-  color: var(--fg-muted);
-}
-
-.class-node__tag--danger { color: var(--danger); background: var(--bg-danger-subtle); }
-.class-node__tag--warn { color: var(--warn); background: var(--bg-warn-subtle); }
-
-/* Body has NO position:relative — methods use position:absolute
-   relative to .class-node (the offset parent), and their y coords
-   already include CLASS_HEADER_H offset from the layout engine. */
-.class-node__body {
-  /* no positioning — methods positioned relative to .class-node */
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   Internal function nodes
-   ═══════════════════════════════════════════════════════════════════ */
-.fn-node {
-  position: absolute;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  cursor: pointer;
-  transition:
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
-  user-select: none;
-}
-
-.fn-node:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
-}
-
-.fn-node.is-active {
-  border-color: var(--accent);
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent),
-    0 2px 12px rgba(0, 0, 0, 0.06);
-}
-
-/* Risk tone — no top-border stripe; risk pill handles color */
-
-/* Taint glow for sink nodes */
-.fn-node--taint-sink {
-  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
-}
-
-/* Compact mode — methods inside a class container */
-.fn-node--compact {
-  border-width: 1px;
-  border-radius: 6px;
-}
-
-/* Behavior change indicator — subtle accent shadow */
-.fn-node--changed {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
-}
-
-.fn-node--changed:hover {
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent),
-    0 2px 12px rgba(0, 0, 0, 0.06);
-}
-
-/* Unstable — subtle pulsing border */
-.fn-node--unstable {
-  animation: unstable-pulse 2s ease-in-out infinite;
-}
-
-@keyframes unstable-pulse {
-  0%, 100% { box-shadow: none; }
-  50% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 25%, transparent); }
-}
-
-/* ── Node head ────────────────────────────────────────────────────── */
-.fn-node__head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px 2px;
-}
-
-.fn-node--compact .fn-node__head {
-  padding: 6px 10px 2px;
-}
-
-.fn-node__glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-muted);
-  color: var(--fg-muted);
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-semibold);
-  flex-shrink: 0;
-}
-
-.fn-node__kind {
-  font-size: var(--fs-xs);
-  color: var(--fg-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-
-.fn-node--compact .fn-node__glyph {
-  width: 16px;
-  height: 16px;
-  font-size: var(--fs-10);
-}
-
-.fn-node--compact .fn-node__kind {
-  font-size: var(--fs-9);
-}
-
-.fn-node__name {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: var(--fw-semibold);
-  color: var(--fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.fn-node--compact .fn-node__name {
-  font-size: 11px;
-}
-
-/* ── Tags row (taint, heat, incident — below metrics) ─────────── */
-.fn-node__tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 2px 12px 6px;
-}
-
-.fn-node--compact .fn-node__tags {
-  padding: 2px 10px 5px;
-}
-
-.fn-node__tag {
-  display: inline-flex;
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-9);
-  font-weight: var(--fw-medium);
-  background: var(--bg-muted);
-  color: var(--fg-muted);
-}
-
-.fn-node__tag--danger { color: var(--danger); background: var(--bg-danger-subtle); }
-.fn-node__tag--warn { color: var(--warn); background: var(--bg-warn-subtle); }
-.fn-node__tag--accent { color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
-
-.fn-node__risk {
-  font-family: var(--font-mono);
-  font-size: var(--fs-10);
-  font-weight: var(--fw-bold);
-  flex-shrink: 0;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-variant-numeric: tabular-nums;
-}
-
-.fn-node__risk--high {
-  color: var(--danger);
-  background: var(--bg-danger-subtle);
-}
-
-.fn-node__risk--mid {
-  color: var(--warn);
-  background: var(--bg-warn-subtle);
-}
-
-.fn-node__risk--low {
-  color: var(--fg-muted);
-  background: var(--bg-muted);
-}
-
-/* ── Node metrics ─────────────────────────────────────────────────── */
-.fn-node__metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px var(--space-2);
-  padding: 3px 12px 8px;
+  gap: 5px;
+  padding: 3px 14px;
+  border-bottom: 1px solid var(--border);
   font-family: var(--font-sans);
-  font-size: var(--fs-10);
-  color: var(--fg-muted);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.file-group__metrics::-webkit-scrollbar { display: none; }
 
-.fn-node--compact .fn-node__metrics {
-  padding: 2px 10px 6px;
-}
-
-.fn-node__chip {
+/* ── Metric chip ──────────────────────────────────────────────────── */
+.m-chip {
+  position: relative;
   display: inline-flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 10px 5px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-muted);
+  white-space: nowrap;
+  cursor: default;
+  transition: background 0.1s ease, border-color 0.1s ease;
+  overflow: hidden;
+}
+
+.m-chip:hover { background: var(--bg-hover); }
+
+/* Label — small, muted, sentence case */
+.m-chip__label {
+  font-size: 9.5px;
+  font-weight: var(--fw-medium);
+  color: var(--fg-subtle);
+  line-height: 1;
+  letter-spacing: 0.01em;
+}
+
+/* Body row: number + optional badge */
+.m-chip__body {
+  display: flex;
   align-items: baseline;
-  gap: 2px;
-  font-size: var(--fs-9);
+  gap: 5px;
+  line-height: 1;
+}
+
+/* Primary number */
+.m-chip__num {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+}
+
+/* Percentage (complexity) */
+.m-chip__pct {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
   color: var(--fg-subtle);
   font-variant-numeric: tabular-nums;
 }
 
-.fn-node__chip-k {
-  font-size: 7px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--fg-subtle);
-  opacity: 0.7;
-  margin-right: 2px;
-}
-
-.fn-node__chip.is-bad {
+/* Critical count (blast) — inline, danger-colored */
+.m-chip__crit {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: var(--fw-semibold);
   color: var(--danger);
+  opacity: 0.8;
 }
 
-.fn-node__chip.is-warn {
-  color: var(--warn);
+/* Budget bar — 2px line pinned to chip bottom */
+.m-chip__bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
-
-/* Inline taint badge (in metrics row) */
-.fn-node__taint-inline {
-  padding: 0 4px;
-  border-radius: var(--radius-sm);
-  font-size: 8px;
-  font-weight: var(--fw-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.m-chip__bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
 }
+.m-chip__bar-fill--low  { background: var(--fg-subtle); opacity: 0.4; }
+.m-chip__bar-fill--mid  { background: var(--warn); }
+.m-chip__bar-fill--high { background: var(--danger); }
 
-.fn-node__taint-inline--sink {
-  color: var(--danger);
-  background: var(--bg-danger-subtle);
+/* ── Severity tones ── */
+.m-chip--mid {
+  border-color: color-mix(in srgb, var(--warn) 22%, var(--border));
+  background: color-mix(in srgb, var(--warn) 5%, var(--bg-muted));
 }
+.m-chip--mid .m-chip__num   { color: var(--warn); }
+.m-chip--mid .m-chip__pct   { color: color-mix(in srgb, var(--warn) 55%, var(--fg-subtle)); }
+.m-chip--mid .m-chip__label { color: color-mix(in srgb, var(--warn) 40%, var(--fg-subtle)); }
 
-.fn-node__taint-inline--source {
-  color: var(--warn);
-  background: var(--bg-warn-subtle);
+.m-chip--high {
+  border-color: color-mix(in srgb, var(--danger) 28%, var(--border));
+  background: color-mix(in srgb, var(--danger) 5%, var(--bg-muted));
 }
+.m-chip--high .m-chip__num   { color: var(--danger); }
+.m-chip--high .m-chip__pct   { color: color-mix(in srgb, var(--danger) 55%, var(--fg-subtle)); }
+.m-chip--high .m-chip__label { color: color-mix(in srgb, var(--danger) 45%, var(--fg-subtle)); }
 
-/* Hot path indicator (subtle footer line) */
-.fn-node__hotpath {
-  padding: 2px 12px 6px;
-  font-size: var(--fs-9);
-  color: var(--fg-subtle);
-  white-space: nowrap;
+/* ── Code pane — central source code renderer ────────────────────── */
+.code-pane {
+  position: absolute;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--fg);
   overflow: hidden;
-  text-overflow: ellipsis;
+  user-select: text;
 }
 
-.fn-node--compact .fn-node__hotpath {
-  padding: 2px 10px 5px;
+.code-pane__line {
+  display: flex;
+  align-items: center;
+  padding: 0 16px 0 0;
+  white-space: pre;
+  transition: background 0.1s ease;
 }
 
-/* Dead state dims the whole node */
-.fn-node.is-dead {
-  opacity: 0.5;
+.code-pane__line:hover {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
 }
 
-.fn-node.is-dead .fn-node__name {
-  text-decoration: line-through;
+/* Taint line highlights */
+.code-pane__line--taint-source {
+  background: color-mix(in srgb, var(--warn) 6%, transparent);
+}
+
+.code-pane__line--taint-sink {
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+.code-pane__line--taint-through {
+  background: color-mix(in srgb, var(--fg-subtle) 4%, transparent);
+}
+
+/* Function entry line — subtle emphasis */
+.code-pane__line--fn-entry {
+  /* no background change, just makes fn entries identifiable */
+}
+
+/* Gutter taint dots */
+.code-pane__gutter-mark {
+  width: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.code-pane__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.code-pane__dot--source {
+  background: var(--warn);
+}
+
+.code-pane__dot--sink {
+  background: var(--danger);
+}
+
+.code-pane__dot--through {
+  background: var(--fg-subtle);
+}
+
+/* Line numbers */
+.code-pane__ln {
+  display: inline-block;
+  width: 28px;
+  text-align: right;
+  padding-right: 12px;
+  color: var(--fg-subtle);
+  font-size: 11px;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* Code text */
+.code-pane__text {
+  white-space: pre;
 }
 
 /* ── External nodes ───────────────────────────────────────────────── */
@@ -569,7 +324,7 @@
   border: 1px dashed var(--border);
   border-radius: 8px;
   background: var(--bg);
-  padding: 8px 12px;
+  padding: 6px 12px;
   cursor: default;
   transition:
     border-color 0.15s ease,
@@ -610,8 +365,8 @@
   font-weight: var(--fw-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  line-height: 16px;
-  margin-bottom: 4px;
+  line-height: 14px;
+  margin-bottom: 3px;
 }
 
 .ext-node__layer--domain {
@@ -687,7 +442,7 @@
 .ext-node--in-group {
   border: none;
   border-radius: 0;
-  padding: 4px 8px;
+  padding: 5px 8px;
   background: transparent;
 }
 
@@ -696,50 +451,119 @@
   border-color: transparent;
 }
 
+/* ── Terminal endpoint nodes (DB, cache, queue, etc.) ── */
+.terminal-node {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  cursor: default;
+  user-select: none;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  pointer-events: auto;
+}
+
+.terminal-node:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.terminal-node__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+
+.terminal-node__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.terminal-node__kind {
+  font-size: 7px;
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.terminal-node__name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* DB — purple */
+.terminal-node--db { border-color: color-mix(in srgb, #7c3aed 40%, var(--border)); }
+.terminal-node--db .terminal-node__icon { background: #7c3aed0f; color: #7c3aed; }
+.terminal-node--db .terminal-node__kind { color: #7c3aed; }
+
+/* Cache — cyan */
+.terminal-node--cache { border-color: color-mix(in srgb, #0891b2 40%, var(--border)); }
+.terminal-node--cache .terminal-node__icon { background: #0891b20f; color: #0891b2; }
+.terminal-node--cache .terminal-node__kind { color: #0891b2; }
+
+/* Queue — amber */
+.terminal-node--queue { border-color: color-mix(in srgb, #d97706 40%, var(--border)); }
+.terminal-node--queue .terminal-node__icon { background: #d976060f; color: #d97706; }
+.terminal-node--queue .terminal-node__kind { color: #d97706; }
+
+/* API — blue */
+.terminal-node--api { border-color: color-mix(in srgb, #2563eb 40%, var(--border)); }
+.terminal-node--api .terminal-node__icon { background: #2563eb0f; color: #2563eb; }
+.terminal-node--api .terminal-node__kind { color: #2563eb; }
+
+/* Storage — green */
+.terminal-node--storage { border-color: color-mix(in srgb, #059669 40%, var(--border)); }
+.terminal-node--storage .terminal-node__icon { background: #0596690f; color: #059669; }
+.terminal-node--storage .terminal-node__kind { color: #059669; }
+
 /* When in group, the layer badge is smaller */
 .ext-node--in-group .ext-node__layer {
   margin-bottom: 2px;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Edges — SOTA bezier curves
-   ═══════════════════════════════════════════════════════════════════ */
-.flow-edge {
+/* ── Canvas edges (line-to-node connections) ──────────────────────── */
+.canvas-edge {
   fill: none;
   stroke-linecap: round;
-  stroke-linejoin: round;
   pointer-events: stroke;
   cursor: pointer;
-  transition:
-    opacity 0.15s ease,
-    stroke-width 0.15s ease;
 }
 
-/* Internal call edges: subtle gray */
-.flow-edge--call {
+.canvas-edge--call {
   stroke: var(--border-strong);
+  stroke-width: 0.8;
+  opacity: 0.5;
+}
+
+.canvas-edge--call:hover {
+  opacity: 0.85;
   stroke-width: 1.5;
-  opacity: 0.45;
 }
 
-.flow-edge--call:hover {
-  opacity: 0.8;
-  stroke-width: 2;
-}
-
-/* Taint: animated red dash with glow */
-.flow-edge--taint {
+.canvas-edge--taint {
   stroke: var(--danger);
-  stroke-width: 1.8;
-  opacity: 0.65;
+  stroke-width: 1;
+  opacity: 0.5;
   stroke-dasharray: 6 4;
   animation: taint-dash 1s linear infinite;
-  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--danger) 30%, transparent));
 }
 
-.flow-edge--taint:hover {
-  opacity: 1;
-  stroke-width: 2.5;
+.canvas-edge--taint:hover {
+  opacity: 0.9;
+  stroke-width: 1.5;
 }
 
 @keyframes taint-dash {
@@ -748,93 +572,45 @@
   }
 }
 
-/* Dep edges: light dashed */
-.flow-edge--dep {
+.canvas-edge--dep {
   stroke: var(--fg-subtle);
-  stroke-width: 1;
+  stroke-width: 0.8;
   stroke-dasharray: 3 3;
-  opacity: 0.3;
+  opacity: 0.35;
 }
 
-.flow-edge--dep:hover {
-  opacity: 0.6;
-  stroke-width: 1.5;
+.canvas-edge--dep:hover {
+  opacity: 0.7;
+  stroke-width: 1.2;
 }
 
-/* External edges — slightly colored */
-.flow-edge--external-in {
-  stroke: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
-  stroke-width: 1.5;
-  opacity: 0.5;
-}
-
-.flow-edge--external-in:hover {
-  opacity: 0.8;
-  stroke-width: 2;
-}
-
-.flow-edge--external-out {
-  stroke: var(--border-strong);
-  stroke-width: 1.5;
-  opacity: 0.5;
-}
-
-.flow-edge--external-out:hover {
-  opacity: 0.8;
-  stroke-width: 2;
-}
-
-/* Arrow markers */
-.canvas-view__defs marker path {
-  transition: fill 0.15s ease;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   Flow step dots — taint edge intermediate hops
-   ═══════════════════════════════════════════════════════════════════ */
-.flow-step circle {
-  stroke: var(--bg);
-  stroke-width: 2;
-  transition: r 0.15s;
-}
-
-.flow-step--source circle {
-  fill: var(--warn);
-}
-
-.flow-step--propagate circle {
-  fill: var(--fg-subtle);
-}
-
-.flow-step--sink circle {
-  fill: var(--danger);
-}
-
-.flow-step__bg {
+/* Edge labels */
+.canvas-edge__label-bg {
   fill: var(--bg);
   stroke: var(--border);
   stroke-width: 0.5;
-  opacity: 0.92;
+  opacity: 0.9;
 }
 
-.flow-step__label {
-  font-family: var(--font-mono);
+.canvas-edge__label {
+  font-family: var(--font-sans);
   font-size: 9px;
   fill: var(--fg-muted);
   pointer-events: none;
 }
 
-.flow-edge-group:hover .flow-step circle {
-  r: 5;
-}
-
-.flow-edge-group:hover .flow-step__label {
+.canvas-edge-group:hover .canvas-edge__label {
   fill: var(--fg);
 }
 
-.flow-edge-group:hover .flow-step__bg {
+.canvas-edge-group:hover .canvas-edge__label-bg {
   opacity: 1;
   stroke: var(--border-strong);
+}
+
+/* Arrow markers */
+.canvas-view__defs marker path {
+  transition: fill 0.15s ease;
 }
 
 /* ── Controls (floating bottom-right) ─────────────────────────────── */
@@ -882,120 +658,85 @@
   margin: 0 auto;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Taint chain track — horizontal data-flow visualization
-   ═══════════════════════════════════════════════════════════════════ */
-.taint-chain__label {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-family: var(--font-sans);
-  font-size: var(--fs-9);
-  color: var(--fg-subtle);
-  pointer-events: none;
+/* ── Gutter connection dots (SVG circles, rendered by EdgeLayer) ─────── */
+.canvas-dot {
+  pointer-events: all;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
 }
 
-.taint-chain__sev {
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-weight: var(--fw-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.taint-chain__sev--3 { color: var(--danger); background: var(--bg-danger-subtle); }
-.taint-chain__sev--2 { color: var(--warn); background: var(--bg-warn-subtle); }
-.taint-chain__sev--1 { color: var(--fg-muted); background: var(--bg-muted); }
-
-.taint-chain__owasp {
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
+.canvas-dot--taint {
+  fill: var(--danger);
+  opacity: 0.65;
 }
 
-.taint-chain__node {
-  position: absolute;
-  box-sizing: border-box;
-  border-radius: 8px;
-  padding: 8px 12px;
-  user-select: none;
-  pointer-events: auto;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+.canvas-dot--call {
+  fill: var(--border-strong);
+  opacity: 0.55;
 }
 
-.taint-chain__node--source {
-  border: 1.5px solid color-mix(in srgb, var(--warn) 40%, var(--border));
-  background: color-mix(in srgb, var(--warn) 3%, var(--bg));
-}
-.taint-chain__node--sink {
-  border: 1.5px solid color-mix(in srgb, var(--danger) 40%, var(--border));
-  background: color-mix(in srgb, var(--danger) 3%, var(--bg));
-}
-.taint-chain__node--bundle {
-  border: 1px dashed var(--border);
-  background: var(--bg);
+.canvas-dot--dep {
+  fill: var(--fg-subtle);
+  opacity: 0.45;
 }
 
-.taint-chain__node:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+.canvas-dot:hover {
+  opacity: 1;
 }
 
-.taint-chain__node-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1h);
+/* ── Selection states (active flow / dimmed context) ─────────────── */
+
+/* Clickable nodes */
+.ext-node { cursor: pointer; }
+.terminal-node { cursor: pointer; }
+
+/* Dim everything when selection is active */
+.canvas-view--has-selection .code-pane__line {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
 }
 
-.taint-chain__hop {
-  font-size: 8px;
-  font-weight: var(--fw-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-}
-.taint-chain__hop--source { color: var(--warn); background: var(--bg-warn-subtle); }
-.taint-chain__hop--sink { color: var(--danger); background: var(--bg-danger-subtle); }
-.taint-chain__hop--bundle { color: var(--fg-muted); background: var(--bg-muted); }
-
-.taint-chain__symbol {
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-semibold);
-  color: var(--fg);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.canvas-view--has-selection .ext-node,
+.canvas-view--has-selection .terminal-node {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
 }
 
-.taint-chain__detail {
-  font-size: var(--fs-9);
-  color: var(--fg-muted);
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.canvas-view--has-selection .canvas-edge {
+  opacity: 0.08;
 }
 
-.taint-chain__fn {
-  font-size: var(--fs-9);
-  color: var(--fg-subtle);
-  font-family: var(--font-mono);
+.canvas-view--has-selection .canvas-dot {
+  opacity: 0.1;
 }
 
-.taint-chain__file {
-  font-size: var(--fs-9);
-  color: var(--fg-subtle);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.canvas-view--has-selection .canvas-dot--active {
+  opacity: 1;
 }
 
-/* Dashed taint chain edge */
-.taint-chain__edge {
-  fill: none;
-  stroke: var(--danger);
+/* Active elements restore full visibility */
+.canvas-view--has-selection .code-pane__line--active {
+  opacity: 1;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.canvas-view--has-selection .ext-node--active,
+.canvas-view--has-selection .terminal-node--active {
+  opacity: 1;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.canvas-view--has-selection .canvas-edge--active {
+  opacity: 0.85;
   stroke-width: 1.5;
-  stroke-dasharray: 6 4;
-  opacity: 0.5;
-  stroke-linecap: round;
+}
+
+/* ── Confidence indicators on edges ──────────────────────────────── */
+.canvas-edge--confidence-low {
+  stroke-dasharray: 1 3;
+}
+
+.canvas-edge--confidence-high {
+  stroke-width: 1.2;
 }

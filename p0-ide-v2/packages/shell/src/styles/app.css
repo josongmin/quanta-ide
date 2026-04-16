@@ -68,6 +68,22 @@
   left: -3px;
   right: -3px;
 }
+
+/* ㅜ shape: animate the sidebar–editor divider clip so the line slides
+   down when an active topbar tab sits above, slides up when it doesn't. */
+@property --handle-clip {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+.app-top-row > .resize-handle {
+  --handle-clip: 0px;
+  background: linear-gradient(to bottom, transparent var(--handle-clip), var(--border) var(--handle-clip));
+  transition: --handle-clip 0.18s ease-out;
+}
+.app-shell[data-sidebar-under-tab] .app-top-row > .resize-handle {
+  --handle-clip: 36px;
+}
 .resize-handle--horizontal {
   height: 1px;
   cursor: row-resize;

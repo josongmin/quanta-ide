@@ -1,1 +1,4 @@
-export type { CanvasEdge, CanvasGraph, CodePane, ExternalNode, ExternalFileGroup, FileGroup, LineMarker } from "./model/types";
+export type {
+  CanvasEdge, CanvasGraph, CanvasSelection, CodePane, Confidence,
+  ExternalNode, ExternalFileGroup, FileGroup, FlowFilter, FlowSegment, LineMarker,
+} from "./model/types";

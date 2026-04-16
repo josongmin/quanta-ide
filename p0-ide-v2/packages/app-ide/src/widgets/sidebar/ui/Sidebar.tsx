@@ -3,26 +3,30 @@ import { useActivePack } from "@quanta/ui-kit/ui/icons";
 import { useGitWorkspaceChangeCount } from "@quanta/app-ide/stores/git-workspace";
 import { GitPanel } from "@quanta/app-ide/features/git-panel";
 import { resolveIconColor, useIconColor } from "@quanta/shell/stores/icon-pack-store";
-import { defaultNodes, type FileNode } from "../lib/sidebar.utils";
+import { defaultNodes, defaultDeps, type FileNode, type ExternalDep } from "../lib/sidebar.utils";
 import { useFileTreeState } from "../model/use-file-tree-state";
 import { FileTreeHeader } from "./internal/FileTreeHeader";
 import { FileTreeToolbar } from "./internal/FileTreeToolbar";
 import { FileTreeRow } from "./internal/FileTreeRow";
+import { DepRow } from "./internal/DepRow";
 import { GitModal } from "./internal/GitModal";
 import "./sidebar.css";
 
-export type { FileNode, FolderNode, FileLeaf } from "../lib/sidebar.utils";
+export type { FileNode, FolderNode, FileLeaf, ExternalDep } from "../lib/sidebar.utils";
 
 interface SidebarProps {
+  projectName?: string;
   nodes?: FileNode[];
+  deps?: ExternalDep[];
   onSelect?: (kind: "file" | "folder", name: string) => void;
 }
 
-export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
+export function Sidebar({ projectName = "codegraph_agent", nodes = defaultNodes, deps = defaultDeps, onSelect }: SidebarProps) {
   const gitChangeCount = useGitWorkspaceChangeCount();
   const [selected, setSelected] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [gitOpen, setGitOpen] = useState(false);
+  const [depsOpen, setDepsOpen] = useState(false);
   const pack = useActivePack();
   const iconColorId = useIconColor();
   const iconColor = resolveIconColor(iconColorId);
@@ -30,10 +34,6 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
   const { openState, visibleNodes, toggleFolder, expandAll, collapseAll } = useFileTreeState(nodes);
 
   const fileCount = useMemo(() => nodes.filter((n) => n.type === "file").length, [nodes]);
-  const projectName = useMemo(() => {
-    const root = nodes.find((n) => n.depth === 0 && n.type === "folder");
-    return root?.name ?? "workspace";
-  }, [nodes]);
 
   return (
     <aside
@@ -82,6 +82,28 @@ export function Sidebar({ nodes = defaultNodes, onSelect }: SidebarProps) {
           );
         })}
       </div>
+
+      {deps.length > 0 && (
+        <div className={`ide-deps${depsOpen ? " is-open" : ""}`}>
+          <button
+            type="button"
+            className="ide-deps-header"
+            onClick={() => setDepsOpen((v) => !v)}
+            aria-expanded={depsOpen}
+          >
+            <span className="ide-deps-label">Dependencies</span>
+            <span className="ide-files-section-count">{deps.length}</span>
+            <span className="ide-deps-chev" />
+          </button>
+          {depsOpen && (
+            <div className="ide-deps-list" role="list">
+              {deps.map((dep) => (
+                <DepRow key={dep.name} dep={dep} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {gitOpen && (
         <GitModal onClose={() => setGitOpen(false)}>

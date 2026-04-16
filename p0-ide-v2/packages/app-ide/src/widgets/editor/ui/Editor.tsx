@@ -12,6 +12,7 @@ import { engineGutter } from "@quanta/app-ide/features/editor-gutter-marks";
 import { fnHeaders } from "@quanta/app-ide/features/editor-fn-header";
 import { fileHeader } from "@quanta/app-ide/features/editor-file-header";
 import { RiskMinimap } from "@quanta/app-ide/features/editor-risk-minimap";
+import { CanvasView } from "@quanta/app-ide/features/editor-canvas";
 import "./editor.css";
 
 const initialTabs = [
@@ -133,6 +134,7 @@ export function Editor() {
     [file],
   );
 
+  const viewMode = useFocusStore((s) => s.viewMode);
   const scrollToLine = useFocusStore((s) => s.scrollToLine);
   useEffect(() => {
     if (!scrollToLine) return;
@@ -185,26 +187,60 @@ export function Editor() {
       </div>
 
       <div className="editor__canvas">
-        <CodeMirror
-          ref={cmRef}
-          value={ORCHESTRATOR_SOURCE}
-          theme={editorTheme}
-          extensions={extensions}
-          basicSetup={{
-            lineNumbers: false,
-            foldGutter: false,
-            highlightActiveLine: true,
-            highlightActiveLineGutter: true,
-            autocompletion: false,
-            indentOnInput: false,
-          }}
-          className="editor__cm"
-        />
-        <RiskMinimap
-          points={file.minimap}
-          totalLines={ORCHESTRATOR_SOURCE.split("\n").length}
-          onJump={jumpTo}
-        />
+        {viewMode === "code" ? (
+          <>
+            <CodeMirror
+              ref={cmRef}
+              value={ORCHESTRATOR_SOURCE}
+              theme={editorTheme}
+              extensions={extensions}
+              basicSetup={{
+                lineNumbers: false,
+                foldGutter: false,
+                highlightActiveLine: true,
+                highlightActiveLineGutter: true,
+                autocompletion: false,
+                indentOnInput: false,
+              }}
+              className="editor__cm"
+            />
+            <RiskMinimap
+              points={file.minimap}
+              totalLines={ORCHESTRATOR_SOURCE.split("\n").length}
+              onJump={jumpTo}
+            />
+          </>
+        ) : (
+          <CanvasView file={file} />
+        )}
+        <div className="editor__view-toggle">
+          <button
+            type="button"
+            className={cn("editor__view-btn", viewMode === "code" && "is-active")}
+            onClick={() => focusStore.setViewMode("code")}
+            title="Code view"
+            aria-label="Code view"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={cn("editor__view-btn", viewMode === "canvas" && "is-active")}
+            onClick={() => focusStore.setViewMode("canvas")}
+            title="Canvas view"
+            aria-label="Canvas view"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="3" y="14" width="7" height="7" rx="1" />
+              <path d="M14 17h7M17.5 14v7" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {symAnchor && (

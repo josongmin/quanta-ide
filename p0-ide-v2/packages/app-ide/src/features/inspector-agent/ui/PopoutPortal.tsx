@@ -11,56 +11,82 @@ function isTauri(): boolean {
   return document.documentElement.classList.contains("is-tauri");
 }
 
-/**
- * Tauri branch: opens a native OS window via WebviewWindow.
- * The child window loads the same app with `?popout=agent`,
- * which renders a standalone AgentPane in main.tsx.
- */
+// Singleton: only one agent window at a time
+interface TauriWebview {
+  destroy(): Promise<void>;
+  onCloseRequested(
+    handler: (event: { preventDefault(): void }) => void | Promise<void>,
+  ): Promise<() => void>;
+}
+
+let activeWebview: TauriWebview | null = null;
+
+function setActiveWebview(wv: TauriWebview | null) {
+  activeWebview = wv;
+}
+
+function getActiveWebview(): TauriWebview | null {
+  return activeWebview;
+}
+
+async function destroyActiveWebview() {
+  const wv = activeWebview;
+  activeWebview = null;
+  if (wv) await wv.destroy().catch(() => {});
+}
+
 function TauriNativeWindow({ title, onClose }: { title: string; onClose: () => void }) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const mounted = useRef(false);
 
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
+    if (mounted.current || getActiveWebview()) return;
+    mounted.current = true;
+
+    let unlistenClose: (() => void) | undefined;
 
     (async () => {
+      await destroyActiveWebview();
+
       const { WebviewWindow } = await import("@tauri-apps/api/webviewWindow");
 
-      const label = `agent-popout-${Date.now()}`;
-      const webview = new WebviewWindow(label, {
+      const webview = new WebviewWindow(`agent-${Date.now()}`, {
         url: "/?popout=agent",
         title,
         width: 480,
         height: 700,
-        x: window.screenX + window.outerWidth - 500,
-        y: window.screenY + 60,
         resizable: true,
         decorations: true,
-        center: false,
+        center: true,
       });
+      setActiveWebview(webview);
 
-      unlisten = await webview.onCloseRequested(() => {
+      unlistenClose = await webview.onCloseRequested(async (event) => {
+        event.preventDefault();
+        setActiveWebview(null);
+        await webview.destroy();
         onCloseRef.current();
       });
-    })().catch(() => {
-      // Tauri API failed — fall back by closing
+    })().catch((err: unknown) => {
+      console.error("[Agent popout] Tauri window failed:", err);
+      setActiveWebview(null);
       onCloseRef.current();
     });
 
     return () => {
-      unlisten?.();
+      unlistenClose?.();
+      const wv = getActiveWebview();
+      if (wv) {
+        setActiveWebview(null);
+        wv.destroy().catch(() => {});
+      }
     };
-  }, [title]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // No inline content — native window loads its own React tree via ?popout=agent
   return null;
 }
 
-/**
- * Platform-aware popout:
- * - Tauri → native OS window (WebviewWindow)
- * - Web   → FloatingPanel (draggable/resizable overlay)
- */
 export function PopoutPortal({ children, title = "Agent", onClose }: PopoutPortalProps) {
   if (isTauri()) {
     return <TauriNativeWindow title={title} onClose={onClose} />;
