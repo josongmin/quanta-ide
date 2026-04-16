@@ -17,7 +17,29 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": {
+      "@/*": ["src/*"],
+      "@quanta/shell-contract": ["packages/shell-contract/src"],
+      "@quanta/shell-contract/*": ["packages/shell-contract/src/*"],
+      "@quanta/shell": ["packages/shell/src"],
+      "@quanta/shell/*": ["packages/shell/src/*"],
+      "@quanta/app-ide": ["packages/app-ide/src"],
+      "@quanta/app-ide/*": ["packages/app-ide/src/*"],
+      "@quanta/app-agent": ["packages/app-agent/src"],
+      "@quanta/app-agent/*": ["packages/app-agent/src/*"],
+      "@quanta/app-pr": ["packages/app-pr/src"],
+      "@quanta/app-pr/*": ["packages/app-pr/src/*"],
+      "@quanta/app-reviews": ["packages/app-reviews/src"],
+      "@quanta/app-reviews/*": ["packages/app-reviews/src/*"],
+      "@quanta/app-rules": ["packages/app-rules/src"],
+      "@quanta/app-rules/*": ["packages/app-rules/src/*"],
+      "@quanta/app-scenario": ["packages/app-scenario/src"],
+      "@quanta/app-scenario/*": ["packages/app-scenario/src/*"],
+      "@quanta/app-settings": ["packages/app-settings/src"],
+      "@quanta/app-settings/*": ["packages/app-settings/src/*"],
+      "@quanta/app-home": ["packages/app-home/src"],
+      "@quanta/app-home/*": ["packages/app-home/src/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "packages/*/src"]
 }
