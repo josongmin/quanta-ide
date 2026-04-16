@@ -105,11 +105,7 @@
   font-weight: 700;
   letter-spacing: -0.05em;
   line-height: 1;
-  color: #000000;
-}
-
-[data-theme="dark"] .topbar__logo {
-  color: #f5f5f5;
+  color: var(--topbar-logo-fg);
 }
 
 /* ── Tab bar (Chrome-style: grow to max, shrink proportionally when crowded) ── */
@@ -283,7 +279,7 @@
 /* Crowded-tab title (fixed below tab; portal from Topbar.tsx) */
 .topbar-tab-tooltip {
   position: fixed;
-  z-index: 100000;
+  z-index: var(--z-toast);
   transform: translateX(-50%);
   margin: 0;
   padding: 5px 10px;
@@ -296,12 +292,12 @@
   word-break: break-word;
   pointer-events: none;
   box-shadow: var(--shadow-md, 0 4px 12px rgba(0, 0, 0, 0.12));
-  background: rgba(28, 28, 28, 0.94);
-  color: #fafafa;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
 }
 [data-theme="dark"] .topbar-tab-tooltip {
-  background: rgba(250, 250, 250, 0.95);
-  color: #141414;
+  background: var(--tooltip-bg);
+  color: var(--tooltip-fg);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 

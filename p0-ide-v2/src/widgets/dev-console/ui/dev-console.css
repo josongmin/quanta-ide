@@ -4,7 +4,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.25);
-  z-index: 1000;
+  z-index: var(--z-overlay);
 }
 
 .devc {
@@ -18,7 +18,7 @@
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
-  z-index: 1001;
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
   overflow: hidden;
