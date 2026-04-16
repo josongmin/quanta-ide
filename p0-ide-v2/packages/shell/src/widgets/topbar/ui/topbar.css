@@ -220,14 +220,14 @@
 
 .topbar__tab-close {
   position: absolute;
-  right: 6px;
+  right: 4px;
   top: 50%;
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: var(--radius-sm);
   color: var(--fg-subtle);
   opacity: 0;
@@ -236,11 +236,11 @@
   border: none;
   transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
-.topbar__tab:hover .topbar__tab-close { opacity: 0.8; }
+.topbar__tab:hover .topbar__tab-close { opacity: 0.9; }
 .topbar__tab-close:hover {
   opacity: 1;
   color: var(--fg);
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.12);
 }
 
 /* [+] add tab — hugs the rightmost tab */
@@ -262,6 +262,15 @@
   color: var(--fg-subtle);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
+}
+.topbar__tab-add::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--topbar-divider);
 }
 .topbar__tab-add:hover {
   background: rgba(0, 0, 0, 0.05);
