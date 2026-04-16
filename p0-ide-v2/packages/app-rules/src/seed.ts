@@ -1,5 +1,5 @@
 import type { FeatureManifest } from "@quanta/shell-contract";
-import { rulesStore } from "@quanta/app-rules/entities/agent-rules";
+import { rulesStore } from "@quanta/domain-types/agent-rules";
 import { complianceStore } from "@quanta/app-rules/entities/compliance";
 import { tabBus } from "@quanta/shell/stores/tab-bus";
 import { uiBus } from "@quanta/shell/stores/ui-bus";

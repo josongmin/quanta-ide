@@ -1,5 +1,5 @@
 import { cn } from "@quanta/ui-kit/lib";
-import type { BuildArtifact, BuildTarget } from "@quanta/app-rules/entities/agent-rules";
+import type { BuildArtifact, BuildTarget } from "@quanta/domain-types/agent-rules";
 import { labelFor } from "../lib/rules-page.utils";
 
 export function BuildStatusStrip({

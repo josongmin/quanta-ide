@@ -1,0 +1,107 @@
+# ────────────────────────────────────────────────────────────────
+# CI — p0-ide-v2
+#
+# Validates the p0-ide-v2 frontend on every push/PR that touches
+# its source tree.  Four sequential gates:
+#   1. Typecheck  (tsc -b)
+#   2. Lint       (ESLint, architecture boundaries, --max-warnings 0)
+#   3. Test       (Vitest, jsdom)
+#   4. Build      (Vite production bundle + bundle-size sanity check)
+#
+# Caching: pnpm store is cached via actions/setup-node's built-in
+# cache key (hash of pnpm-lock.yaml).  Frozen lockfile ensures
+# reproducible installs.
+# ────────────────────────────────────────────────────────────────
+
+name: CI — p0-ide-v2
+
+on:
+  pull_request:
+    paths:
+      - "p0-ide-v2/**"
+      - ".github/workflows/ci-v2.yml"
+  push:
+    branches: [main, "redesign/**"]
+    paths:
+      - "p0-ide-v2/**"
+      - ".github/workflows/ci-v2.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-v2-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: p0-ide-v2
+
+jobs:
+  validate:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # ── Toolchain ─────────────────────────────────────────────
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0          # must match packageManager in package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: p0-ide-v2/pnpm-lock.yaml
+
+      # ── Install ───────────────────────────────────────────────
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Gates (sequential — fail fast) ────────────────────────
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (architecture boundaries)
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      # ── Build + bundle-size guard ─────────────────────────────
+      - name: Build
+        run: pnpm build
+
+      - name: Bundle size check
+        run: |
+          set -euo pipefail
+
+          # Sum all JS assets produced by Vite
+          TOTAL=0
+          for f in dist/assets/*.js; do
+            SIZE=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
+            echo "  $(basename "$f"): $SIZE bytes"
+            TOTAL=$((TOTAL + SIZE))
+          done
+
+          echo ""
+          echo "Total JS bundle: $TOTAL bytes ($(( TOTAL / 1024 )) KiB)"
+
+          # Hard gate: fail if total JS exceeds 2 MiB
+          LIMIT=$((2 * 1024 * 1024))
+          if [ "$TOTAL" -gt "$LIMIT" ]; then
+            echo "::error::JS bundle exceeds 2 MiB limit ($TOTAL bytes)"
+            exit 1
+          fi
+
+          # Soft warning at 1.5 MiB
+          WARN=$((3 * 512 * 1024))
+          if [ "$TOTAL" -gt "$WARN" ]; then
+            echo "::warning::JS bundle is over 1.5 MiB ($TOTAL bytes) — consider code-splitting"
+          fi

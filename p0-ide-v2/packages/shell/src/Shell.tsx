@@ -1,4 +1,4 @@
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { Suspense, useState, type CSSProperties, type ReactNode } from "react";
 import { LayoutProvider, type TabDescriptor } from "@quanta/shell-contract";
 import { Topbar } from "@quanta/shell/widgets/topbar";
 import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
@@ -49,6 +49,13 @@ function ConnectedToastHost() {
 }
 
 // ---------------------------------------------------------------------------
+// AppSkeleton — lightweight placeholder shown while a lazy app chunk loads.
+// ---------------------------------------------------------------------------
+function AppSkeleton() {
+  return <div className="app-skeleton" />;
+}
+
+// ---------------------------------------------------------------------------
 // Shell — the root orchestrator component.
 // ---------------------------------------------------------------------------
 export function Shell() {
@@ -88,7 +95,9 @@ export function Shell() {
     const Comp = descriptor.Component;
     return (
       <LayoutProvider value={resizeCtx}>
-        <Comp tabId={activeTab.id} isActive />
+        <Suspense fallback={<AppSkeleton />}>
+          <Comp tabId={activeTab.id} isActive />
+        </Suspense>
       </LayoutProvider>
     );
   };
@@ -113,9 +122,13 @@ export function Shell() {
         />
         <div className="app-main">
           {settingsOpen && SettingsComp ? (
-            <SettingsComp tabId="__settings" isActive />
+            <Suspense fallback={<AppSkeleton />}>
+              <SettingsComp tabId="__settings" isActive />
+            </Suspense>
           ) : state.homeOpen && HomeComp ? (
-            <HomeComp tabId="__home" isActive />
+            <Suspense fallback={<AppSkeleton />}>
+              <HomeComp tabId="__home" isActive />
+            </Suspense>
           ) : (
             renderActivePage()
           )}

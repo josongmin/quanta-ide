@@ -4,7 +4,7 @@ import { toast } from "@quanta/shell/stores/toast-store";
 import {
   rulesStore,
   useRulesStore,
-} from "@quanta/app-rules/entities/agent-rules";
+} from "@quanta/domain-types/agent-rules";
 import { labelFor } from "../lib/rules-page.utils";
 import { RulesHeader } from "./RulesHeader";
 import { BuildStatusStrip } from "./BuildStatusStrip";

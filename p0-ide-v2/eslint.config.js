@@ -33,6 +33,14 @@ const shellContractBans = [
   ban(anyAppDeep,          "shell-contract must not import app packages"),
 ];
 
+/** domain-types: no shell, no apps (same isolation as ui-kit) */
+const domainTypesBans = [
+  ban("@quanta/shell",    "domain-types must not import shell runtime"),
+  ban("@quanta/shell/**", "domain-types must not import shell runtime"),
+  ban(anyApp,             "domain-types must not import app packages"),
+  ban(anyAppDeep,         "domain-types must not import app packages"),
+];
+
 /** ui-kit: may import shell-contract only */
 const uiKitBans = [
   ban("@quanta/shell",    "ui-kit must not import shell runtime"),
@@ -97,6 +105,16 @@ export default tseslint.config(
     rules: {
       "no-restricted-imports": ["error", {
         patterns: [...legacyBan, ...shellContractBans],
+      }],
+    },
+  },
+
+  // ── domain-types: no shell runtime, no apps ────────────────────────
+  {
+    files: ["packages/domain-types/src/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": ["error", {
+        patterns: [...legacyBan, ...domainTypesBans],
       }],
     },
   },

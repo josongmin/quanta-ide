@@ -13,12 +13,15 @@
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
 
+      "@quanta/domain-types": ["packages/domain-types/src"],
+      "@quanta/domain-types/*": ["packages/domain-types/src/*"],
       "@quanta/shell-contract": ["packages/shell-contract/src"],
       "@quanta/shell-contract/*": ["packages/shell-contract/src/*"],
       "@quanta/shell": ["packages/shell/src"],

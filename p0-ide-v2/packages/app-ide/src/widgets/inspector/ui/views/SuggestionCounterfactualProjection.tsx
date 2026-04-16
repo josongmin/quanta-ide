@@ -4,7 +4,7 @@ import {
   METRIC_LABEL,
   type HorizonDays,
   type MetricId,
-} from "@quanta/app-ide/entities/counterfactual";
+} from "@quanta/domain-types/counterfactual";
 import { TrajectoryGraph } from "@quanta/app-ide/features/counterfactual-graph";
 import { tabBus } from "@quanta/shell/stores/tab-bus";
 

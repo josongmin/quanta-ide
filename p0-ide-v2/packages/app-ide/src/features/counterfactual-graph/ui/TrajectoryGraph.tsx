@@ -5,8 +5,8 @@ import type {
   Projection,
   Trajectory,
   TrajectoryPoint,
-} from "@quanta/app-ide/entities/counterfactual";
-import { METRIC_LABEL, METRIC_UNIT } from "@quanta/app-ide/entities/counterfactual";
+} from "@quanta/domain-types/counterfactual";
+import { METRIC_LABEL, METRIC_UNIT } from "@quanta/domain-types/counterfactual";
 import "./trajectory-graph.css";
 
 interface Props {

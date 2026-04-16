@@ -6,7 +6,7 @@ import {
   METRIC_UNIT,
   type HorizonDays,
   type MetricId,
-} from "@quanta/app-scenario/entities/counterfactual";
+} from "@quanta/domain-types/counterfactual";
 import { TrajectoryGraph } from "@quanta/app-scenario/features/counterfactual-graph";
 import "./scenario-page.css";
 
