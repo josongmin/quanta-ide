@@ -164,6 +164,14 @@
     max-width calc(var(--topbar-tab-flex-ms) * 1ms) ease;
 }
 
+/* Previous tab expanding to fill gap when the rightmost tab closes (rapid-close UX) */
+.topbar__tab.is-expanding-fill {
+  transition: color 0.12s ease, background 0.12s ease,
+    flex-basis calc(var(--topbar-tab-flex-ms) * 1ms) ease,
+    min-width calc(var(--topbar-tab-flex-ms) * 1ms) ease,
+    max-width calc(var(--topbar-tab-flex-ms) * 1ms) ease;
+}
+
 /* Avoid flex “catch-up” transitions while widths are held for close / strip leave */
 .topbar__tab.is-width-frozen {
   transition: color 0.12s ease, background 0.12s ease;
