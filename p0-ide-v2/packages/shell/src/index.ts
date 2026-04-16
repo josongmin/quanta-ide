@@ -5,3 +5,4 @@ export { overlayRegistry, useOverlays } from "./overlay-registry";
 export { useTabManager, type TabState } from "./tab-manager";
 export { ShellProviderWrapper } from "./ShellProvider";
 export { createShellAPI } from "./create-shell-api";
+export { registerFeatureManifests } from "./feature-seed";

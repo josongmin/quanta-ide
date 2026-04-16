@@ -138,14 +138,14 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
             );
           })}
         </div>
+        <button type="button" className="topbar__tab-add" onClick={onAdd} aria-label="New tab" title="New tab">
+          <PlusIcon />
+        </button>
         <div className="topbar__tabs-drag" data-tauri-drag-region aria-hidden />
       </div>
 
       <div className="topbar__right" data-tauri-drag-region>
         <div className="topbar__utilities" role="toolbar" aria-label="Search and account actions">
-          <button type="button" className="topbar__tab-add" onClick={onAdd} aria-label="New tab" title="New tab">
-            <PlusIcon />
-          </button>
           <IconButton title="Search (⌘K)"><SearchIcon /></IconButton>
           <IconButton title="Notifications">
             <InboxIcon />

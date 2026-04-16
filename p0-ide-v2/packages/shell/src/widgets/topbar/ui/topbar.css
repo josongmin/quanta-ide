@@ -108,12 +108,13 @@
   color: var(--topbar-logo-fg);
 }
 
-/* ── Tab bar (Chrome-style: grow to max, shrink proportionally when crowded) ── */
+/* ── Tab bar (Chrome-style: tabs start at max width, shrink when crowded) ── */
 .topbar__tabs {
   display: flex;
   align-items: stretch;
   gap: 0;
-  flex: 1 1 0%;
+  /* Size to content (tabs × max-width), shrink when space is tight — keeps [+] hugging the last tab */
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   height: 100%;
@@ -142,15 +143,15 @@
   transition: color 0.12s ease, background 0.12s ease;
 }
 
-/* Equal flex for all tabs — avoids the first/active tab eating extra width when few are open */
+/* Chrome-style: fixed width, shrink only when the strip overflows */
 .topbar__tab:not(.is-active) {
-  flex: 1 1 0%;
-  max-width: var(--topbar-tab-max, 200px);
+  width: var(--topbar-tab-max, 200px);
+  flex: 0 1 auto;
 }
 
 .topbar__tab.is-active {
-  flex: 1 1 0%;
-  max-width: var(--topbar-tab-max, 200px);
+  width: var(--topbar-tab-max, 200px);
+  flex: 0 1 auto;
   background: var(--bg);
   color: var(--fg);
 }
@@ -235,15 +236,14 @@
   border: none;
   transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
 }
-.topbar__tab:hover .topbar__tab-close,
-.topbar__tab.is-active .topbar__tab-close { opacity: 0.8; }
+.topbar__tab:hover .topbar__tab-close { opacity: 0.8; }
 .topbar__tab-close:hover {
   opacity: 1;
   color: var(--fg);
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* [+] add tab — lives in topbar__utilities, just before search */
+/* [+] add tab — hugs the rightmost tab */
 .topbar__tab-add {
   position: relative;
   flex-shrink: 0;
@@ -254,7 +254,7 @@
   box-sizing: border-box;
   width: 28px;
   min-width: 28px;
-  margin: 0;
+  margin: 0 4px 0 var(--space-1h);
   padding: 0;
   background: transparent;
   border: none;

@@ -2,10 +2,6 @@ import { featureRegistry, type FeatureManifest } from "@quanta/shell/stores/feat
 import { uiBus } from "@quanta/shell/stores/ui-bus";
 import { shortcutRegistry } from "@quanta/shell/stores/shortcut-registry";
 
-// App-specific features are seeded by each app's seed.ts
-// (packages/app-ide, app-agent, app-rules, app-scenario, app-reviews, app-home).
-// They will be registered via `useShell().registerFeatures()` when each app mounts (Phase B).
-
 const SHELL_FEATURES: readonly FeatureManifest[] = [
   {
     id: "settings",
@@ -44,10 +40,9 @@ const SHELL_FEATURES: readonly FeatureManifest[] = [
 
 let seeded = false;
 
-export function seedFeatures(): void {
-  if (seeded) return;
-  seeded = true;
-  for (const f of SHELL_FEATURES) {
+/** Register an array of feature manifests + their keybindings. */
+export function registerFeatureManifests(features: readonly FeatureManifest[]): void {
+  for (const f of features) {
     featureRegistry.register(f);
     for (const cmd of f.commands ?? []) {
       if (!cmd.keybinding) continue;
@@ -62,4 +57,10 @@ export function seedFeatures(): void {
       });
     }
   }
+}
+
+export function seedFeatures(): void {
+  if (seeded) return;
+  seeded = true;
+  registerFeatureManifests(SHELL_FEATURES);
 }

@@ -1,10 +1,19 @@
 import { StrictMode, lazy } from "react";
 import { createRoot } from "react-dom/client";
-import { Shell, appRegistry } from "@quanta/shell";
+import { Shell, appRegistry, registerFeatureManifests } from "@quanta/shell";
 import type { AppKind } from "@quanta/shell-contract";
 import "@quanta/ui-kit/styles/tokens.css";
 import "@quanta/ui-kit/styles/reset.css";
 import "@quanta/shell/styles/app.css";
+
+// Feature seeds — eagerly imported so all features appear in Settings/Palette
+// immediately, regardless of which tabs have been opened. Seed files are tiny
+// (manifest metadata only); they don't pull in app components.
+import { IDE_FEATURES } from "@quanta/app-ide/seed";
+import { AGENT_FEATURES } from "@quanta/app-agent/seed";
+import { REVIEWS_FEATURES } from "@quanta/app-reviews/seed";
+import { RULES_FEATURES } from "@quanta/app-rules/seed";
+import { SCENARIO_FEATURES } from "@quanta/app-scenario/seed";
 
 // ---------------------------------------------------------------------------
 // Lazy app registrations — each app's Component is code-split via dynamic
@@ -86,6 +95,13 @@ appRegistry.register({
     import("@quanta/app-home").then((m) => ({ default: m.NewTabApp })),
   ),
 });
+
+// Register all app feature manifests eagerly.
+registerFeatureManifests(IDE_FEATURES);
+registerFeatureManifests(AGENT_FEATURES);
+registerFeatureManifests(REVIEWS_FEATURES);
+registerFeatureManifests(RULES_FEATURES);
+registerFeatureManifests(SCENARIO_FEATURES);
 
 if ("__TAURI_INTERNALS__" in window) {
   document.documentElement.classList.add("is-tauri");
