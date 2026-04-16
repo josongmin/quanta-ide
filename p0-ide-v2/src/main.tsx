@@ -1,10 +1,14 @@
-import { StrictMode, lazy } from "react";
+import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { Shell, appRegistry, registerFeatureManifests } from "@quanta/shell";
 import type { AppKind } from "@quanta/shell-contract";
 import "@quanta/ui-kit/styles/tokens.css";
 import "@quanta/ui-kit/styles/reset.css";
 import "@quanta/shell/styles/app.css";
+
+const AgentPopout = lazy(() =>
+  import("@quanta/app-ide/features/inspector-agent").then((m) => ({ default: m.AgentPane })),
+);
 
 // Feature seeds — eagerly imported so all features appear in Settings/Palette
 // immediately, regardless of which tabs have been opened. Seed files are tiny
@@ -107,8 +111,18 @@ if ("__TAURI_INTERNALS__" in window) {
   document.documentElement.classList.add("is-tauri");
 }
 
+const isPopout = new URLSearchParams(window.location.search).get("popout") === "agent";
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <Shell />
+    {isPopout ? (
+      <Suspense fallback={null}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100vh", overflow: "hidden" }}>
+          <AgentPopout fileName="orchestrator.py" />
+        </div>
+      </Suspense>
+    ) : (
+      <Shell />
+    )}
   </StrictMode>,
 );

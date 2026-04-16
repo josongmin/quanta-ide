@@ -1,1 +1,1 @@
-export type { SymbolKind, Taint, SymbolFacts } from "./model/types";
+export type { SymbolKind, Taint, Layer, SymbolFacts } from "./model/types";

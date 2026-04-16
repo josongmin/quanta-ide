@@ -1137,3 +1137,38 @@ button.tab-banner__chip:hover .tab-banner__glyph { color: var(--fg-muted); }
 }
 .callsite-tip__trace:hover { text-decoration: underline; }
 
+/* ── View mode toggle (floating top-right) ── */
+.editor__view-toggle {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  z-index: 20;
+  display: flex;
+  gap: 1px;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.editor__view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: var(--fg-subtle);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.editor__view-btn:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.editor__view-btn.is-active {
+  background: var(--bg-muted);
+  color: var(--fg);
+}
+

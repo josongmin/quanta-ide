@@ -1,13 +1,14 @@
 import { useSyncExternalStore } from "react";
 import { createInspectorModeStore, type InspectorMode, type InspectorModeState } from "./inspector-mode-store";
 import { createOverlayStore, type OverlayState } from "./overlay-store";
+import { createViewModeStore, type ViewMode, type ViewModeState } from "./view-mode-store";
 
-export type { InspectorMode };
+export type { InspectorMode, ViewMode };
 
-export interface FocusState extends InspectorModeState, OverlayState {}
+export interface FocusState extends InspectorModeState, OverlayState, ViewModeState {}
 
 // Shared subscriber bus: every mutation fans out to facade listeners
-// regardless of whether it came from the mode store or the overlay store.
+// regardless of which sub-store originated the change.
 const listeners = new Set<() => void>();
 const notify = () => {
   for (const l of [...listeners]) l();
@@ -15,20 +16,24 @@ const notify = () => {
 
 const modeStore = createInspectorModeStore(notify);
 const overlayStore = createOverlayStore(notify);
+const viewModeStore = createViewModeStore(notify);
 
 // Stable snapshot cache so useSyncExternalStore gets referential stability
 // until something actually changes.
-let cachedSnapshot: FocusState = { ...modeStore.get(), ...overlayStore.get() };
+let cachedSnapshot: FocusState = { ...modeStore.get(), ...overlayStore.get(), ...viewModeStore.get() };
 let lastMode = modeStore.get();
 let lastOverlay = overlayStore.get();
+let lastViewMode = viewModeStore.get();
 
 function snapshot(): FocusState {
   const m = modeStore.get();
   const o = overlayStore.get();
-  if (m !== lastMode || o !== lastOverlay) {
+  const v = viewModeStore.get();
+  if (m !== lastMode || o !== lastOverlay || v !== lastViewMode) {
     lastMode = m;
     lastOverlay = o;
-    cachedSnapshot = { ...m, ...o };
+    lastViewMode = v;
+    cachedSnapshot = { ...m, ...o, ...v };
   }
   return cachedSnapshot;
 }
@@ -66,6 +71,12 @@ export const focusStore = {
   },
   toggleFirewall: (open?: boolean) => {
     overlayStore.toggleFirewall(open);
+  },
+  setViewMode: (mode: ViewMode) => {
+    viewModeStore.setViewMode(mode);
+  },
+  toggleViewMode: () => {
+    viewModeStore.toggleViewMode();
   },
 };
 
