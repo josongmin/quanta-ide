@@ -128,11 +128,8 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
                   <span className="topbar__tab-label">{t.label}</span>
                   <span
                     className="topbar__tab-close"
-                    role="button"
-                    tabIndex={-1}
-                    aria-label="Close tab"
+                    aria-hidden="true"
                     onClick={(e) => { e.stopPropagation(); beginCloseTab(t.id); }}
-                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); beginCloseTab(t.id); } }}
                   >
                     <CloseIcon />
                   </span>
@@ -140,12 +137,12 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
               </button>
             );
           })}
-          {/* [+] stays next to tabs; drag tail extends to the left edge of search / utilities */}
-          <button type="button" className="topbar__tab-add" onClick={onAdd} aria-label="New tab" title="New tab">
-            <PlusIcon />
-          </button>
-          <div className="topbar__tabs-drag" data-tauri-drag-region aria-hidden />
         </div>
+        {/* [+] stays next to tabs; drag tail extends to the left edge of search / utilities */}
+        <button type="button" className="topbar__tab-add" onClick={onAdd} aria-label="New tab" title="New tab">
+          <PlusIcon />
+        </button>
+        <div className="topbar__tabs-drag" data-tauri-drag-region aria-hidden />
       </div>
 
       <div className="topbar__right" data-tauri-drag-region>

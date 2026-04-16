@@ -91,6 +91,7 @@ export function AgentChatArea({
             className="agent-page__input"
             type="text"
             placeholder="Send follow-up"
+            aria-label="Agent message"
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
             onKeyDown={(e) => {

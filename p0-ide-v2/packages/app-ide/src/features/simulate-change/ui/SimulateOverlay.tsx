@@ -9,7 +9,7 @@ export function SimulateOverlay() {
 
   return (
     <div className="sim-overlay" role="dialog" aria-modal="true" aria-label="Simulate change">
-      <div className="sim-overlay__scrim" onClick={() => focusStore.toggleSimulate(false)} />
+      <div className="sim-overlay__scrim" onClick={() => focusStore.toggleSimulate(false)} aria-hidden />
       <div className="sim-overlay__panel">
         <header className="sim-overlay__head">
           <div className="sim-overlay__kicker">Simulate change</div>

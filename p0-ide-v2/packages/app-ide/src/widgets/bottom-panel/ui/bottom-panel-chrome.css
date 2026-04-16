@@ -75,28 +75,28 @@
   overflow: hidden;
 }
 
-.pane { padding: 10px 14px; font-size: var(--fs-sm); }
+.pane { padding: var(--space-2h) var(--space-3h); font-size: var(--fs-sm); }
 
 /* ── Shared toolbar (used by Problems, Quanta, Output, Agent) ────── */
 .pb-toolbar {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   height: 32px;
-  padding: 0 2px;
+  padding: 0 var(--space-0h);
   background: var(--bg);
   border-bottom: 1px solid var(--border);
 }
 .pb-panel-title {
   flex-shrink: 0;
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 400;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-normal);
   color: var(--fg-subtle);
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  padding-right: 6px;
+  padding-right: var(--space-1h);
   white-space: nowrap;
 }
 .pb-toolbar-sep {
@@ -104,12 +104,12 @@
   width: 1px;
   height: 14px;
   background: var(--border);
-  margin-right: 6px;
+  margin-right: var(--space-1h);
 }
 .pb-toolbar-filters {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-0h);
   align-self: stretch;
 }
 .pb-toolbar-spacer { flex: 1 1 auto; }
@@ -121,10 +121,10 @@
   color: var(--fg-subtle);
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
-  font-weight: 400;
+  font-weight: var(--fw-normal);
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 2px var(--space-2);
+  padding: var(--space-0h) var(--space-2);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: color 0.12s ease, background 0.12s ease;
@@ -140,7 +140,7 @@
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   height: 22px;
   padding: 0 7px;
   background: transparent;
@@ -149,7 +149,7 @@
   color: var(--fg-subtle);
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
-  font-weight: 400;
+  font-weight: var(--fw-normal);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
@@ -191,7 +191,7 @@
 .pb-chip-count {
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
-  font-weight: 400;
+  font-weight: var(--fw-normal);
   font-variant-numeric: tabular-nums;
   color: var(--fg);
   opacity: 0.5;
@@ -206,7 +206,7 @@
 .pb-seg {
   display: inline-flex;
   align-items: center;
-  padding: 2px;
+  padding: var(--space-0h);
   background: var(--bg-muted);
   border-radius: var(--radius-sm);
   gap: 1px;
@@ -239,23 +239,23 @@
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-bottom: 10px;
+  gap: var(--space-1h);
+  padding-bottom: var(--space-2h);
   border-bottom: 1px solid var(--border);
-  margin: -2px 0 10px;
+  margin: -var(--space-0h) 0 var(--space-2h);
 }
 .toolbar__spacer { flex: 1; }
 .toolbar__muted { color: var(--fg-muted); font-size: var(--fs-xs); }
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px var(--space-2);
+  gap: var(--space-1h);
+  padding: var(--space-0h) var(--space-2);
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
   font-size: var(--fs-xs);
 }
-.chip__n { font-weight: 700; font-variant-numeric: tabular-nums; }
+.chip__n { font-weight: var(--fw-bold); font-variant-numeric: tabular-nums; }
 .chip__l { color: var(--fg-muted); }
 .chip--ok      { border-color: var(--border-success-subtle); background: var(--bg-success-subtle); }
 .chip--ok .chip__n     { color: var(--success); }

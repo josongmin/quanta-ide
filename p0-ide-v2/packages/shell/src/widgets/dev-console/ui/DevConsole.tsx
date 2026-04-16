@@ -45,6 +45,7 @@ function DevConsole() {
             <input
               className="devc__filter"
               placeholder="filter..."
+              aria-label="Filter features"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
             />

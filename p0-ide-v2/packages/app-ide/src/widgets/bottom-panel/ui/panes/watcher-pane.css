@@ -3,17 +3,17 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 10px var(--space-4) var(--space-3) 10px;
+  padding: var(--space-2h) var(--space-4) var(--space-3) var(--space-2h);
 }
-.wt-mono { font-family: var(--font-mono); color: var(--fg); font-weight: 600; }
+.wt-mono { font-family: var(--font-mono); color: var(--fg); font-weight: var(--fw-semibold); }
 
 /* toolbar controls */
 .wt-pill {
   appearance: none;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 10px 5px 11px;
+  gap: var(--space-1h);
+  padding: 5px var(--space-2h) 5px 11px;
   border: 1px solid var(--border);
   border-radius: 5px;
   background: var(--bg);
@@ -54,7 +54,7 @@
   display: flex;
   flex-direction: column;
   gap: 7px;
-  padding: 10px var(--space-3) var(--space-2);
+  padding: var(--space-2h) var(--space-3) var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
@@ -70,8 +70,8 @@
 }
 .wt-title { display: flex; align-items: baseline; gap: var(--space-2); min-width: 0; }
 .wt-kicker {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
   letter-spacing: 0.11em;
   text-transform: uppercase;
   color: var(--fg);
@@ -87,13 +87,13 @@
 .wt-head-stat {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-1h);
   flex-shrink: 0;
 }
 .wt-hn {
   font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
   font-variant-numeric: tabular-nums;
   color: var(--fg);
 }
@@ -113,8 +113,8 @@
 }
 .wt-row-label {
   align-self: center;
-  font-size: 9px;
-  font-weight: 600;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--fg-subtle);
@@ -194,7 +194,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  gap: var(--space-0h);
 }
 .wt-evt {
   width: 7px;
@@ -218,9 +218,9 @@
   margin-left: 60px;
   display: flex;
   justify-content: space-between;
-  padding-top: 2px;
+  padding-top: var(--space-0h);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--fg-subtle);
   font-variant-numeric: tabular-nums;
 }

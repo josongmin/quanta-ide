@@ -19,14 +19,14 @@
 .cfgraph__ylabel,
 .cfgraph__xlabel {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--fs-9);
   fill: var(--fg-subtle);
   font-variant-numeric: tabular-nums;
 }
 
 .cfgraph__unit {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--fs-9);
   fill: var(--fg-subtle);
   text-anchor: start;
 }
@@ -55,8 +55,8 @@
 
 .cfgraph__endlabel {
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
   font-variant-numeric: tabular-nums;
 }
 .cfgraph__endlabel--apply   { fill: var(--success); }

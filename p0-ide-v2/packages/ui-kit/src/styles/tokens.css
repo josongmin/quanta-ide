@@ -54,19 +54,41 @@
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
 
-  /* Scale */
+  /* Font-size scale */
+  --fs-9: 9px;
   --fs-10: 10px;
   --fs-xs: 11px;
   --fs-sm: 12px;
   --fs-md: 13px;
   --fs-lg: 14px;
   --fs-xl: 16px;
+  --fs-2xl: 18px;
+
+  /* Font-weight */
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* Line-height */
+  --lh-1: 1;
+  --lh-tight: 1.35;
+  --lh-snug: 1.4;
+  --lh-base: 1.45;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.55;
+  --lh-loose: 1.6;
 
   /* Spacing */
+  --space-0h: 2px;
   --space-1: 4px;
+  --space-1h: 6px;
   --space-2: 8px;
+  --space-2h: 10px;
   --space-3: 12px;
+  --space-3h: 14px;
   --space-4: 16px;
+  --space-4h: 20px;
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;

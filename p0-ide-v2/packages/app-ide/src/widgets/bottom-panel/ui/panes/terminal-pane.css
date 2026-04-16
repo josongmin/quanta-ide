@@ -3,17 +3,17 @@
 .term-tabs {
   display: flex;
   align-items: stretch;
-  gap: 2px;
-  padding: var(--space-1) 6px 0;
+  gap: var(--space-0h);
+  padding: var(--space-1) var(--space-1h) 0;
   border-bottom: 1px solid var(--border);
   background: var(--bg-subtle);
 }
 .term-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   height: 26px;
-  padding: 0 var(--space-1) 0 10px;
+  padding: 0 var(--space-1) 0 var(--space-2h);
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
@@ -45,7 +45,7 @@
 .term-tab-name { font-family: var(--font-mono); }
 .term-tab-sub {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--fg-subtle);
   padding: 1px 5px;
   border-radius: 3px;
@@ -88,10 +88,10 @@
 .term-tab-new:hover { background: var(--bg-hover); color: var(--fg); }
 .term-body {
   margin: 0;
-  padding: 14px 20px;
+  padding: var(--space-3h) var(--space-4h);
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
-  line-height: 1.6;
+  line-height: var(--lh-loose);
   white-space: pre;
   color: var(--fg);
   overflow: auto;

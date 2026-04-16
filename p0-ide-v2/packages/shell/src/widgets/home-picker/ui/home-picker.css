@@ -28,8 +28,8 @@
 }
 .hp__eyebrow {
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-subtle);
@@ -37,14 +37,14 @@
 .hp__title {
   margin: 0;
   font-size: 28px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   letter-spacing: -0.018em;
   line-height: 1.15;
   color: var(--fg);
 }
 .hp__title em {
   font-style: italic;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--accent);
 }
 
@@ -52,7 +52,7 @@
 .hp__cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  gap: var(--space-2h);
 }
 .hp__card {
   appearance: none;
@@ -60,7 +60,7 @@
   display: grid;
   grid-template-columns: 36px 1fr;
   grid-template-rows: auto auto;
-  column-gap: 14px;
+  column-gap: var(--space-3h);
   row-gap: var(--space-1);
   align-items: start;
   padding: 18px 18px 16px;
@@ -112,25 +112,25 @@
 }
 .hp__card-label {
   font-size: var(--fs-md);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--fg);
   letter-spacing: -0.005em;
 }
 .hp__card-sub {
   font-size: var(--fs-xs);
   color: var(--fg-subtle);
-  line-height: 1.45;
+  line-height: var(--lh-base);
 }
 .hp__card-hint {
   position: absolute;
   top: 14px;
   right: 14px;
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.05em;
   color: var(--fg-subtle);
-  padding: 2px 6px;
+  padding: var(--space-0h) var(--space-1h);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg);
@@ -142,20 +142,20 @@
 .hp__section {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2h);
 }
 .hp__section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding-bottom: 6px;
+  padding-bottom: var(--space-1h);
   border-bottom: 1px solid var(--border);
 }
 .hp__section-label {
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--fg-subtle);
@@ -189,8 +189,8 @@
 .hp__search input::placeholder { color: var(--fg-subtle); }
 .hp__search-kbd {
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.05em;
   color: var(--fg-subtle);
   padding: 1px 5px;
@@ -210,7 +210,7 @@
 .hp__row {
   display: grid;
   grid-template-columns: 28px minmax(0, 1fr) 130px 72px 110px 68px;
-  gap: 14px;
+  gap: var(--space-3h);
   align-items: center;
   padding: var(--space-3) var(--space-2);
   border-radius: var(--radius-sm);
@@ -236,8 +236,8 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--fg-muted);
 }
 .hp__row:hover .hp__row-thumb {
@@ -249,12 +249,12 @@
 .hp__row-name {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0h);
   min-width: 0;
 }
 .hp__row-name-text {
   font-size: var(--fs-md);
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   color: var(--fg);
   white-space: nowrap;
   overflow: hidden;
@@ -265,7 +265,7 @@
 .hp__viz {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2h);
   margin-top: 5px;
   min-width: 0;
   flex-wrap: wrap;
@@ -276,7 +276,7 @@
 .hp__diff {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   flex-shrink: 0;
 }
 .hp__diff--empty {
@@ -318,14 +318,14 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
   color: var(--fg-muted);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 50%;
   margin-left: -5px;
-  line-height: 1;
+  line-height: var(--lh-1);
 }
 .hp__author:first-child { margin-left: 0; }
 .hp__author--more { color: var(--fg-subtle); font-size: 8px; }
@@ -342,16 +342,16 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 1px 6px;
+  padding: 1px var(--space-1h);
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-medium);
   border-radius: 3px;
   color: var(--fg-muted);
   background: var(--bg-subtle);
   border: 1px solid var(--border);
   white-space: nowrap;
-  line-height: 1.5;
+  line-height: var(--lh-normal);
 }
 .hp__tag svg { width: 9px; height: 9px; flex-shrink: 0; }
 .hp__tag--info {
@@ -393,7 +393,7 @@
 .hp__sparkbar {
   display: inline-flex;
   align-items: stretch;
-  gap: 2px;
+  gap: var(--space-0h);
   height: 22px;
   width: 100%;
 }
@@ -437,7 +437,7 @@
 .hp__row-status {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--fg-subtle);
@@ -478,8 +478,8 @@
 }
 .hp__more-label {
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg-subtle);
@@ -489,7 +489,7 @@
   display: flex;
   flex-wrap: wrap;
   flex-direction: row;
-  gap: 6px 12px;
+  gap: var(--space-1h) 12px;
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -499,9 +499,9 @@
   border: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--fg-muted);
-  padding: 2px 6px;
+  padding: var(--space-0h) var(--space-1h);
   border-radius: var(--radius-sm);
   transition: background 120ms ease, color 120ms ease;
 }
@@ -513,13 +513,13 @@
   appearance: none;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--fg-muted);
   background: transparent;
   border: 1px solid var(--border);
-  padding: 4px 10px;
+  padding: 4px var(--space-2h);
   border-radius: var(--radius-sm);
   flex-shrink: 0;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
@@ -543,8 +543,8 @@
 }
 .hp__browse-title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   color: var(--fg);
   letter-spacing: -0.01em;
 }
@@ -552,13 +552,13 @@
   appearance: none;
   cursor: pointer;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--fg-muted);
   background: transparent;
   border: 1px solid var(--border);
-  padding: 4px 10px;
+  padding: 4px var(--space-2h);
   border-radius: var(--radius-sm);
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
@@ -578,8 +578,8 @@
 .hp__browse-cat-label {
   margin: 0 0 var(--space-3) 0;
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg-subtle);
@@ -616,15 +616,15 @@
 }
 .hp__cap-title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
   color: var(--fg);
   letter-spacing: -0.005em;
 }
 .hp__cap-desc {
   margin: 0;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: var(--fs-md);
+  line-height: var(--lh-base);
   color: var(--fg-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -641,9 +641,9 @@
 .hp__cap-state {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-10);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--fg-subtle);
@@ -663,7 +663,7 @@
 }
 .hp__cap-kbd {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-10);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--fg-subtle);
@@ -673,8 +673,8 @@
   top: var(--space-3);
   right: var(--space-3);
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }

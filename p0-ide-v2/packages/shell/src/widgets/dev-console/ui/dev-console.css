@@ -119,8 +119,8 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
-  font-size: 14px;
-  line-height: 1;
+  font-size: var(--fs-lg);
+  line-height: var(--lh-1);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -159,7 +159,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px var(--space-3);
+  padding: var(--space-1h) var(--space-3);
   border-bottom: 1px solid var(--border);
   background: transparent;
   border-left: none;
@@ -179,8 +179,8 @@
 }
 
 .devc__feat-dot {
-  font-size: 10px;
-  line-height: 1;
+  font-size: var(--fs-10);
+  line-height: var(--lh-1);
   flex-shrink: 0;
   width: 12px;
   display: inline-flex;
@@ -238,7 +238,7 @@
 .devc__section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-1h);
 }
 
 .devc__section-head {
@@ -280,7 +280,7 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0h);
 }
 
 .devc__deplist li {

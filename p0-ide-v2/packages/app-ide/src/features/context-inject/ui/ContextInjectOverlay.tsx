@@ -11,7 +11,7 @@ export function ContextInjectOverlay() {
 
   return (
     <div className="ctx-overlay" role="dialog" aria-modal="true" aria-label="Ask agent with context">
-      <div className="ctx-overlay__scrim" onClick={() => focusStore.toggleContextInject(false)} />
+      <div className="ctx-overlay__scrim" onClick={() => focusStore.toggleContextInject(false)} aria-hidden />
       <div className="ctx-overlay__panel">
         <header className="ctx-overlay__head">
           <div className="ctx-overlay__kicker">Ask agent — context from cursor</div>
@@ -67,6 +67,7 @@ export function ContextInjectOverlay() {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Ask the agent — context above is auto-included."
+            aria-label="Agent prompt"
             rows={3}
           />
         </div>

@@ -12,33 +12,33 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  line-height: 1;
+  line-height: var(--lh-1);
 }
 .ring__score {
   font-family: var(--font-sans);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-bold);
   color: var(--fg);
 }
 .ring__sub {
   font-family: var(--font-sans);
   font-size: 8px;
-  font-weight: 700;
+  font-weight: var(--fw-bold);
   letter-spacing: 0.12em;
   color: var(--fg-subtle);
-  margin-top: 2px;
+  margin-top: var(--space-0h);
 }
 
 /* ── Repo header (ring + meta rows) ── */
 .rii-header {
   display: flex;
-  gap: 14px;
+  gap: var(--space-3h);
   align-items: center;
 }
 .rii-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-1) 14px;
+  gap: var(--space-1) var(--space-3h);
   flex: 1;
   min-width: 0;
 }
@@ -50,8 +50,8 @@
 }
 .rii-meta-val {
   font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--fg);
 }
 
@@ -64,7 +64,7 @@
 .rstat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0h);
   padding: var(--space-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -72,15 +72,15 @@
 }
 .rstat__label {
   font-family: var(--font-sans);
-  font-size: 9px;
-  font-weight: 700;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
   letter-spacing: 0.12em;
   color: var(--fg-subtle);
 }
 .rstat__value {
   font-family: var(--font-mono);
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
   color: var(--fg);
 }
 .rstat__value.is-accent { color: var(--accent); }

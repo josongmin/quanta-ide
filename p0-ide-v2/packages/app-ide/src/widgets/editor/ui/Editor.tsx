@@ -171,14 +171,11 @@ export function Editor() {
             <span className="tab__name">{t.name}</span>
             <span
               className="tab__close"
-              role="button"
-              tabIndex={-1}
-              aria-label={`Close ${t.name}`}
+              aria-hidden="true"
               onClick={(e) => {
                 e.stopPropagation();
                 closeTab(t.name);
               }}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); closeTab(t.name); } }}
             >
               ×
             </span>

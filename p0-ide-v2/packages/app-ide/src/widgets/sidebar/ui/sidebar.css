@@ -22,28 +22,28 @@
   flex-wrap: nowrap;
   flex-shrink: 0;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   height: 36px;
-  padding: 0 10px;
+  padding: 0 var(--space-2h);
   border-bottom: 1px solid var(--border);
   background: var(--bg);
 }
 .ide-files-project {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
   min-width: 0;
   flex: 0 1 auto;
 }
 .ide-files-project-emoji {
-  font-size: 14px;
-  line-height: 1;
+  font-size: var(--fs-lg);
+  line-height: var(--lh-1);
   flex-shrink: 0;
 }
 .ide-files-project-name {
   font-family: var(--font-sans);
   font-size: var(--fs-md);
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--fg);
   white-space: nowrap;
   overflow: hidden;
@@ -73,10 +73,10 @@
 .ide-files-git-btn svg { color: currentColor; }
 .ide-files-git-btn-count {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--fs-10);
   font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
-  line-height: 1;
+  line-height: var(--lh-1);
 }
 
 /* ── Git modal (centered dialog hosting features/git-panel) ── */
@@ -116,14 +116,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 14px;
+  padding: var(--space-2h) var(--space-3h);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 .ide-git-modal__title {
   font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--fg);
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -155,8 +155,8 @@
 .ide-files-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 14px 4px;
+  gap: var(--space-1h);
+  padding: 5px var(--space-3h) 4px;
   flex-shrink: 0;
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
@@ -165,14 +165,14 @@
   color: var(--fg-muted);
   user-select: none;
 }
-.ide-files-section-label { font-weight: 600; }
+.ide-files-section-label { font-weight: var(--fw-semibold); }
 .ide-files-section-count {
   background: var(--bg-muted);
   color: var(--fg-muted);
-  padding: 1px 6px;
+  padding: 1px var(--space-1h);
   border-radius: 8px;
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -195,7 +195,7 @@
 
 /* ── Icon pack picker ─────────────────────────────────────────── */
 .ide-files-iconpack-btn {
-  margin-left: 6px;
+  margin-left: var(--space-1h);
   appearance: none;
   display: inline-flex;
   align-items: center;
@@ -204,11 +204,11 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--fg-muted);
-  padding: 2px 6px 2px 5px;
+  padding: var(--space-0h) var(--space-1h) var(--space-0h) 5px;
   height: 20px;
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0.02em;
   text-transform: none;
   cursor: pointer;
@@ -227,8 +227,8 @@
 }
 .ide-files-iconpack-btn__label {
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
   letter-spacing: 0;
 }
 
@@ -268,18 +268,18 @@
 .ide-iconpack-modal__title-wrap {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: var(--space-2h);
 }
 .ide-iconpack-modal__title {
   font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-bold);
   color: var(--fg);
   letter-spacing: 0.01em;
 }
 .ide-iconpack-modal__sub {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--fg-subtle);
 }
 .ide-iconpack-modal__close {
@@ -304,8 +304,8 @@
 .ide-iconpack-modal__colors {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 16px;
+  gap: var(--space-2h);
+  padding: var(--space-2h) 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   transition: opacity 0.15s ease;
@@ -315,8 +315,8 @@
 }
 .ide-iconpack-modal__colors-label {
   font-family: var(--font-sans);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
   color: var(--fg-muted);
   flex-shrink: 0;
   text-transform: uppercase;
@@ -324,7 +324,7 @@
 }
 .ide-iconpack-modal__swatches {
   display: flex;
-  gap: 6px;
+  gap: var(--space-1h);
   flex-wrap: wrap;
 }
 .ide-iconpack-modal__swatch {
@@ -352,7 +352,7 @@
 .ide-iconpack-modal__colors-hint {
   margin-left: auto;
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--fg-subtle);
 }
 
@@ -360,7 +360,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 14px 16px 18px;
+  padding: var(--space-3h) 16px 18px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -374,8 +374,8 @@
 .ide-iconpack-modal__section-title {
   margin: 0 0 var(--space-2);
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
   color: var(--fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -390,7 +390,7 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 10px 12px;
+  padding: var(--space-2h) 12px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -412,18 +412,18 @@
 .ide-iconpack-modal__card-head {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1h);
 }
 .ide-iconpack-modal__card-name {
   font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
   color: var(--fg);
 }
 .ide-iconpack-modal__badge {
   font-family: var(--font-sans);
-  font-size: 9px;
-  font-weight: 700;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 1px 5px;
@@ -434,22 +434,22 @@
 }
 .ide-iconpack-modal__check {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--accent);
-  font-weight: 700;
-  line-height: 1;
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-1);
 }
 .ide-iconpack-modal__card-hint {
   font-family: var(--font-sans);
-  font-size: 10px;
+  font-size: var(--fs-10);
   color: var(--fg-subtle);
 }
 .ide-iconpack-modal__preview {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding-top: 6px;
-  margin-top: 2px;
+  gap: var(--space-1h);
+  padding-top: var(--space-1h);
+  margin-top: var(--space-0h);
   border-top: 1px dashed var(--border);
 }
 .ide-iconpack-modal__preview .ide-files-icon {
@@ -466,14 +466,14 @@
 .ide-files-tree {
   display: flex;
   flex-direction: column;
-  padding: 2px 8px 12px;
+  padding: var(--space-0h) 8px 12px;
   flex: 1;
 }
 .ide-files-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
+  gap: var(--space-1h);
+  padding: 4px var(--space-1h);
   border-radius: var(--radius-sm);
   color: var(--fg);
   cursor: pointer;
@@ -496,8 +496,8 @@
   color: var(--fg);
 }
 
-.ide-files-row[data-depth="0"] { padding-left: 6px; }
-.ide-files-row[data-depth="1"] { padding-left: 14px; }
+.ide-files-row[data-depth="0"] { padding-left: var(--space-1h); }
+.ide-files-row[data-depth="1"] { padding-left: var(--space-3h); }
 .ide-files-row[data-depth="2"] { padding-left: 22px; }
 .ide-files-row[data-depth="3"] { padding-left: 30px; }
 
@@ -554,8 +554,8 @@
 /* git status */
 .ide-files-git {
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
   width: 12px;
   text-align: center;
   flex-shrink: 0;
@@ -569,7 +569,7 @@
 .ide-files-signals {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-0h);
   flex-shrink: 0;
   margin-left: auto;
   opacity: 0;
@@ -581,12 +581,12 @@
 .ide-files-sig {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-0h);
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  line-height: 1;
-  padding: 2px 4px;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-1);
+  padding: var(--space-0h) 4px;
   border-radius: var(--radius-xs);
   white-space: nowrap;
   color: var(--fg-subtle);
@@ -598,8 +598,8 @@
 .ide-files-sig-stale svg { color: var(--warn); opacity: 0.85; }
 .ide-files-sig-issues {
   font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
   color: var(--fg-subtle);
 }
 .ide-files-sig-issues[data-risk="4"] { color: var(--accent); }

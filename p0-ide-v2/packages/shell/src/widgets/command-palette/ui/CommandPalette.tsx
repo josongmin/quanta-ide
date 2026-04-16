@@ -70,6 +70,7 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
             value={rawQuery}
             onChange={handleInputChange}
             placeholder="Type a command or capability…"
+            aria-label="Search commands"
             spellCheck={false}
             autoComplete="off"
           />
@@ -78,7 +79,13 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
         </div>
 
         <div className="cp__body">
-          <div className="cp__list" ref={listRef}>
+          <div
+            className="cp__list"
+            ref={listRef}
+            {...(grouped.length > 0
+              ? { role: "listbox", "aria-label": "Command results" }
+              : {})}
+          >
             {grouped.length === 0 ? (
               <EmptyState query={filter.trim()} />
             ) : (

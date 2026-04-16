@@ -15,6 +15,7 @@ export function ActivityRail() {
           key={it.id}
           className={"rail__item" + (i === 0 ? " rail__item--active" : "")}
           title={it.label}
+          aria-label={it.label}
         >
           <span className="rail__glyph" aria-hidden="true">
             {it.label[0]}
