@@ -243,7 +243,7 @@
   background: rgba(0, 0, 0, 0.08);
 }
 
-/* [+] add tab — keep narrow so tab row keeps more space */
+/* [+] add tab — lives in topbar__utilities, just before search */
 .topbar__tab-add {
   position: relative;
   flex-shrink: 0;
@@ -254,7 +254,7 @@
   box-sizing: border-box;
   width: 28px;
   min-width: 28px;
-  margin: 0 4px 0 var(--space-1h);
+  margin: 0;
   padding: 0;
   background: transparent;
   border: none;

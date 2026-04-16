@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { HoverAnchor } from "../model/symbol-hover";
 import { computePos } from "./symbol-popup.utils";
@@ -19,11 +19,7 @@ interface Props {
 
 export function SymbolPopup({ anchor, onMouseEnter, onMouseLeave, onOpenFlow, onJumpLine }: Props) {
   const { info, rect } = anchor;
-  const [pos, setPos] = useState<CSSProperties>(() => computePos(rect));
-
-  useEffect(() => {
-    setPos(computePos(rect));
-  }, [rect]);
+  const pos: CSSProperties = useMemo(() => computePos(rect), [rect]);
 
   const hasContext =
     info.deps !== undefined ||

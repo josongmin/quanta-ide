@@ -1,5 +1,5 @@
 import "./suggestion-overlay.css";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "@quanta/shell/stores/toast-store";
 import { focusStore } from "@quanta/app-ide/stores/focus-store";
@@ -45,25 +45,20 @@ export function SuggestionOverlay({ data, onClose }: Props) {
     [allEvents],
   );
 
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        handleApply();
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Timer ref for apply timeout — ensures cleanup on unmount.
+  const applyTimerRef = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (applyTimerRef.current !== null) window.clearTimeout(applyTimerRef.current);
+  }, []);
 
-  function handleApply() {
+  const handleApply = useCallback(() => {
     if (applying || replay.status === "verified") return;
     setApplying(true);
     toast.info("Applying patch…", data.title, "taint v2 · behavior diff");
     setReplay((r) => ({ ...r, status: "pending" }));
 
-    window.setTimeout(() => {
+    applyTimerRef.current = window.setTimeout(() => {
+      applyTimerRef.current = null;
       setReplay((r) => ({
         ...r,
         status: "verified",
@@ -71,7 +66,6 @@ export function SuggestionOverlay({ data, onClose }: Props) {
       }));
       setApplying(false);
 
-      // Run compliance verifiers against this change set
       const events = complianceStore.submit({
         id: CURRENT_CHANGE_ID,
         label: data.title,
@@ -97,7 +91,19 @@ export function SuggestionOverlay({ data, onClose }: Props) {
         );
       }
     }, 1800);
-  }
+  }, [applying, replay.status, data]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        handleApply();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, handleApply]);
 
   function handleDismiss() {
     toast.warn("Patch dismissed", "Counterfactual cost recorded in patch trail", "patch trail");

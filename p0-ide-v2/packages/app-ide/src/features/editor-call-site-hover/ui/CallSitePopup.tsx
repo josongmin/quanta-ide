@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { CallSiteAnchor } from "../model/call-site-hover";
 
@@ -13,8 +13,7 @@ const WIDTH = 340;
 
 export function CallSitePopup({ anchor, onMouseEnter, onMouseLeave, onOpenFlow }: Props) {
   const { info, rect } = anchor;
-  const [pos, setPos] = useState<CSSProperties>(() => compute(rect));
-  useEffect(() => setPos(compute(rect)), [rect]);
+  const pos: CSSProperties = useMemo(() => compute(rect), [rect]);
 
   return (
     <div
