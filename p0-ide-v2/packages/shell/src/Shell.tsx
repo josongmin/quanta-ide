@@ -1,4 +1,4 @@
-import { Suspense, useState, type CSSProperties, type ReactNode } from "react";
+import { Suspense, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { LayoutProvider, type TabDescriptor } from "@quanta/shell-contract";
 import { Topbar } from "@quanta/shell/widgets/topbar";
 import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
@@ -65,6 +65,12 @@ export function Shell() {
   const { state, openTab, addTab, closeTab, selectTab, toggleHome } =
     useTabManager(initialTabs);
 
+  // Stable tabActions for ShellProvider — prevents ShellAPI recreation on every render.
+  const tabActions = useMemo(
+    () => ({ openTab, closeTab, selectTab }),
+    [openTab, closeTab, selectTab],
+  );
+
   // Layout dimensions — IDE-specific but shell-level during Phase A
   const [sidebarW, setSidebarW] = useState(240);
   const [inspectorW, setInspectorW] = useState(360);
@@ -76,14 +82,22 @@ export function Shell() {
     "--bottom-h": `${bottomH}px`,
   } as CSSProperties;
 
-  const resizeCtx = {
+  // Stable resize context — callbacks use refs to avoid re-creating on every render.
+  const sidebarRef = useRef(setSidebarW);
+  const inspectorRef = useRef(setInspectorW);
+  const bottomRef = useRef(setBottomH);
+  sidebarRef.current = setSidebarW;
+  inspectorRef.current = setInspectorW;
+  bottomRef.current = setBottomH;
+
+  const resizeCtx = useMemo(() => ({
     onResizeSidebar: (dx: number) =>
-      setSidebarW((w) => clamp(w + dx, SIDEBAR_MIN, SIDEBAR_MAX)),
+      sidebarRef.current((w) => clamp(w + dx, SIDEBAR_MIN, SIDEBAR_MAX)),
     onResizeInspector: (dx: number) =>
-      setInspectorW((w) => clamp(w - dx, INSPECTOR_MIN, INSPECTOR_MAX)),
+      inspectorRef.current((w) => clamp(w - dx, INSPECTOR_MIN, INSPECTOR_MAX)),
     onResizeBottom: (dy: number) =>
-      setBottomH((h) => clamp(h - dy, BOTTOM_MIN, BOTTOM_MAX)),
-  };
+      bottomRef.current((h) => clamp(h - dy, BOTTOM_MIN, BOTTOM_MAX)),
+  }), []);
 
   const activeTab = state.tabs.find((t) => t.id === state.activeId);
 
@@ -108,7 +122,7 @@ export function Shell() {
 
   return (
     <ShellProviderWrapper
-      tabActions={{ openTab, closeTab, selectTab }}
+      tabActions={tabActions}
     >
       <div className="app-shell" style={layoutStyle}>
         <Topbar

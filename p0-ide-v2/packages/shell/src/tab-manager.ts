@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppKind, TabDescriptor } from "@quanta/shell-contract";
 import { tabBus } from "@quanta/shell/stores/tab-bus";
 
@@ -13,38 +13,38 @@ export function useTabManager(initialTabs: TabDescriptor[]) {
   const [activeId, setActiveId] = useState<string>(initialTabs[0]?.id ?? "");
   const [homeOpen, setHomeOpen] = useState(false);
 
-  const selectTab = (id: string) => {
+  const selectTab = useCallback((id: string) => {
     setHomeOpen(false);
     setActiveId(id);
-  };
+  }, []);
 
   /** Open a specific app kind in a new tab. */
-  const openTab = (app: AppKind, label: string) => {
+  const openTab = useCallback((app: AppKind, label: string) => {
     setHomeOpen(false);
     const id = `t${Date.now()}`;
     setTabs((prev) => [...prev, { id, app, label }]);
     setActiveId(id);
-  };
+  }, []);
 
   /** Add a blank "new-tab" tab (used by the [+] button in the topbar). */
-  const addTab = () => {
+  const addTab = useCallback(() => {
     openTab("new-tab", "New Tab");
-  };
+  }, [openTab]);
 
-  const toggleHome = () => {
+  const toggleHome = useCallback(() => {
     setHomeOpen((o) => !o);
-  };
+  }, []);
 
-  const closeTab = (id: string) => {
-    let next: TabDescriptor[] = [];
+  const closeTab = useCallback((id: string) => {
     setTabs((prev) => {
-      next = prev.filter((t) => t.id !== id);
+      const next = prev.filter((t) => t.id !== id);
+      // Also fix activeId if the closed tab was active.
+      setActiveId((cur) =>
+        id === cur && next.length > 0 ? next[next.length - 1].id : cur,
+      );
       return next;
     });
-    setActiveId((cur) =>
-      id === cur && next.length > 0 ? next[next.length - 1].id : cur,
-    );
-  };
+  }, []);
 
   // Listen for tab-bus open requests (from feature-registry commands etc.)
   useEffect(() => {
@@ -57,7 +57,10 @@ export function useTabManager(initialTabs: TabDescriptor[]) {
     });
   }, []);
 
-  const state: TabState = { tabs, activeId, homeOpen };
+  const state: TabState = useMemo(
+    () => ({ tabs, activeId, homeOpen }),
+    [tabs, activeId, homeOpen],
+  );
 
   return { state, openTab, addTab, closeTab, selectTab, toggleHome };
 }
