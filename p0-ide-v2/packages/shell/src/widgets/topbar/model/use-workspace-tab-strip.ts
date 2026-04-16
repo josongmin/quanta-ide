@@ -80,31 +80,29 @@ export function useWorkspaceTabStrip(onClose: (id: string) => void) {
       const widthPx = tabEl.getBoundingClientRect().width;
       const frozen = measureSiblingFreeze(strip, id);
 
-      // Detect the "expand previous" case: closing the rightmost tab.
-      // The previous tab expands to absorb the gap so its X button lands
-      // exactly where the just-clicked X was → enables rapid sequential closing.
-      let expandId: string | null = null;
-      if (isLastTab) {
-        const prevTab = allTabs[closingIndex - 1];
-        expandId = prevTab.dataset.tabId ?? null;
-      }
-
       // Phase 1: freeze all siblings at current widths + pin closing tab.
       flushSync(() => {
         setFrozenSiblingPx(frozen);
         setCloseAnim({ tabId: id, widthPx, phase: "pin" });
-        setExpandTabId(expandId);
+        // Mark ALL siblings as expanding when closing the last tab.
+        setExpandTabId(isLastTab ? "__all__" : null);
       });
 
       void tabEl.offsetWidth;
 
-      // Phase 2: collapse closing tab to 0. If closing the last tab,
-      // also expand the previous tab to fill the gap (capped at max tab width).
-      if (expandId && frozen[expandId] != null) {
+      // Phase 2: collapse closing tab to 0.
+      // If closing the rightmost tab, distribute its width evenly across ALL
+      // remaining tabs so they grow uniformly and the new-last tab's X button
+      // lands where the closed tab's X was → enables rapid sequential closing.
+      if (isLastTab) {
         const maxW =
           parseFloat(getComputedStyle(strip).getPropertyValue("--topbar-tab-max")) || 200;
-        const expandedFrozen = { ...frozen };
-        expandedFrozen[expandId] = Math.min(frozen[expandId] + widthPx, maxW);
+        const siblingIds = Object.keys(frozen);
+        const extra = widthPx / siblingIds.length;
+        const expandedFrozen: Record<string, number> = {};
+        for (const tid of siblingIds) {
+          expandedFrozen[tid] = Math.min(frozen[tid] + extra, maxW);
+        }
         flushSync(() => {
           setFrozenSiblingPx(expandedFrozen);
           setCloseAnim({ tabId: id, widthPx, phase: "out" });
@@ -142,12 +140,12 @@ export function useWorkspaceTabStrip(onClose: (id: string) => void) {
     (tabId: string, isActive: boolean): { className: string; style: CSSProperties | undefined; innerStyle: CSSProperties | undefined } => {
       const frozenW = frozenSiblingPx?.[tabId];
       const ex = closeAnim?.tabId === tabId ? closeAnim : null;
-      const isExpanding = tabId === expandTabId;
+      const isExpanding = expandTabId === "__all__" || tabId === expandTabId;
 
       const parts = ["topbar__tab"];
       if (isActive) parts.push("is-active");
       if (ex) parts.push("is-tab-exiting");
-      else if (isExpanding) parts.push("is-expanding-fill");
+      else if (isExpanding && frozenW != null) parts.push("is-expanding-fill");
       else if (frozenW != null) parts.push("is-width-frozen");
 
       let style: CSSProperties | undefined;
