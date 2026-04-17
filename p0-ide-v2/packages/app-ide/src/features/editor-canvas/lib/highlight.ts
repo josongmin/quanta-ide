@@ -74,7 +74,7 @@ export function tokenizeLine(line: string): Token[] {
     }
 
     // Number
-    if (/\d/.test(line[i]) && (i === 0 || /[\s(,=\[{:+\-*/<>!]/.test(line[i - 1]))) {
+    if (/\d/.test(line[i]) && (i === 0 || /[\s(,=[{:+\-*/<>!]/.test(line[i - 1]))) {
       let j = i;
       while (j < line.length && /[\d._xXoObBeE]/.test(line[j])) j++;
       tokens.push(["hl-number", line.slice(i, j)]);

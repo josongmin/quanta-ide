@@ -82,7 +82,7 @@ function TauriNativeWindow({ title, onClose }: { title: string; onClose: () => v
         wv.destroy().catch(() => {});
       }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   return null;
 }
