@@ -1,5 +1,20 @@
 import type { Layer } from "@quanta/app-ide/entities/symbol";
 
+/** A semantic block of code (class, function, imports, etc.) for fragment view. */
+export interface CodeFragment {
+  id: string;
+  label: string;
+  kind: "imports" | "constants" | "class" | "function" | "module-level";
+  startLine: number;
+  endLine: number;
+  signalCount: number;
+  defaultExpanded: boolean;
+  /** Nested members (methods inside a class). */
+  children?: CodeFragment[];
+  /** Nesting depth (0 = top-level). */
+  depth?: number;
+}
+
 /** The rendered source code pane in the center of the canvas. */
 export interface CodePane {
   source: string;
@@ -8,6 +23,7 @@ export interface CodePane {
   w: number;
   h: number;
   lineHeight: number;
+  fragments: CodeFragment[];
 }
 
 /**
@@ -47,6 +63,14 @@ export interface FileGroup {
   riskScore: number;
   loc: number;
   owner: string;
+  /** Number of functions/methods */
+  functions: number;
+  /** Number of classes */
+  classes: number;
+  /** Number of import statements */
+  imports: number;
+  /** Number of incoming callers */
+  callers: number;
   /** Peak cyclomatic complexity */
   cpxMax: number;
   /** Complexity budget usage (0–100+) */
@@ -126,6 +150,8 @@ export interface CanvasSelection {
   flowNodes: string[];
   /** Lines in the code pane that are part of the active flow */
   activeLines: number[];
+  /** Node IDs that can be expanded to reveal next hops */
+  expandableNodeIds?: string[];
 }
 
 /** Filter criteria for edge visibility. */

@@ -8,6 +8,7 @@ export interface SymbolFacts {
   kind: SymbolKind;
   detail?: string;
   line: number;
+  children?: SymbolFacts[];
   layer?: Layer;
   role?: string;
   contract?: { verb: "implements" | "extends"; name: string };

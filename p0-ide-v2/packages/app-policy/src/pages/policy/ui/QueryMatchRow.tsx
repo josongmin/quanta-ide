@@ -6,29 +6,25 @@ interface QueryMatchRowProps {
   match: QueryMatch;
 }
 
-function confidenceClass(c: QueryMatch["confidence"]) {
-  return severityClass(c === "high" ? "high" : c === "medium" ? "medium" : "low");
-}
-
 export function QueryMatchRow({ match }: QueryMatchRowProps) {
   const loc = match.col
     ? `${match.file}:${match.line}:${match.col}`
     : `${match.file}:${match.line}`;
 
   return (
-    <div className="pol-match">
-      <div className="pol-match__top">
-        <span className="pol-match__loc">{loc}</span>
-        {match.symbol && <span className="pol-tag">{match.symbol}</span>}
-        {match.isNew && <span className="pol-match__new">NEW</span>}
-        <span className={cn("pol-sev pol-match__confidence", confidenceClass(match.confidence))}>
+    <div className="pol-qm">
+      <div className="pol-qm__head">
+        <span className="pol-qm__loc">{loc}</span>
+        {match.symbol && <span className="pol-qm__sym">{match.symbol}</span>}
+        {match.isNew && <span className="pol-qm__new">new</span>}
+        <span className={cn("pol-sev pol-qm__conf", severityClass(match.confidence === "high" ? "high" : match.confidence === "medium" ? "medium" : "low"))}>
           {match.confidence}
         </span>
       </div>
       {match.snippet && (
-        <pre className="pol-match__snippet">{match.snippet}</pre>
+        <pre className="pol-qm__code">{match.snippet}</pre>
       )}
-      <p className="pol-match__reason">{match.reason}</p>
+      <p className="pol-qm__why">{match.reason}</p>
     </div>
   );
 }

@@ -543,8 +543,9 @@
   position: absolute;
   inset: 0;
   background: var(--border-strong);
+  border: 1px solid var(--border-rest);
   border-radius: var(--radius-pill);
-  transition: background 0.16s ease;
+  transition: background 0.16s ease, border-color 0.16s ease;
 }
 .settings-card__toggle-track::before,
 .settings-field__toggle-track::before {
@@ -553,36 +554,37 @@
   border-radius: 50%;
   background: #fff;
   transition: transform 0.16s ease;
-  box-shadow: 0 1px 2px color-mix(in srgb, var(--fg) 18%, transparent);
+  box-shadow: none;
 }
 .settings-card__toggle input:checked + .settings-card__toggle-track,
 .settings-field__toggle input:checked + .settings-field__toggle-track {
   background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* Card-level (primary) — regular size */
 .settings-card__toggle {
-  width: 30px;
-  height: 17px;
+  width: 32px;
+  height: 20px;
 }
 .settings-card__toggle-track::before {
-  left: 2px;
-  top: 2px;
-  width: 13px;
-  height: 13px;
+  left: 3px;
+  top: 3px;
+  width: 14px;
+  height: 14px;
 }
 .settings-card__toggle input:checked + .settings-card__toggle-track::before {
-  transform: translateX(13px);
+  transform: translateX(12px);
 }
 
 /* Sub-field (secondary) — smaller */
 .settings-field__toggle {
-  width: 24px;
-  height: 14px;
+  width: 26px;
+  height: 16px;
 }
 .settings-field__toggle-track::before {
-  left: 2px;
-  top: 2px;
+  left: 3px;
+  top: 3px;
   width: 10px;
   height: 10px;
 }

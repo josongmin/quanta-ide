@@ -21,7 +21,12 @@ export function ToastHost({ toasts, onDismiss }: ToastHostProps) {
   return createPortal(
     <div className="toast-host" role="region" aria-label="Notifications" aria-live="polite">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast toast--${t.kind}`} role="status">
+        <div
+          key={t.id}
+          className={`toast toast--${t.kind}${t.leaving ? " toast--leaving" : ""}`}
+          role="status"
+          style={t.ttlMs ? { "--toast-ttl": `${t.ttlMs}ms` } as React.CSSProperties : undefined}
+        >
           <span className={`toast__glyph toast__glyph--${t.kind}`} aria-hidden>
             {KIND_GLYPH[t.kind]}
           </span>
@@ -40,6 +45,7 @@ export function ToastHost({ toasts, onDismiss }: ToastHostProps) {
           >
             ✕
           </button>
+          {t.ttlMs && !t.leaving && <span className="toast__timer" aria-hidden />}
         </div>
       ))}
     </div>,

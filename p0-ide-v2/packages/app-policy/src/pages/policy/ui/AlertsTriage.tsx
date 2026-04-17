@@ -86,61 +86,65 @@ export function AlertsTriage() {
 
         {selected ? (
           <div className="pol-split__detail">
-            <h2 className="pol-detail__title">{selected.ruleName}</h2>
+            <h2 className="pol-d__hero-name">{selected.ruleName}</h2>
 
-            <div className="pol-detail__row">
-              <span className="pol-detail__label">File</span>
-              <span className="pol-detail__value" style={{ fontFamily: "var(--font-mono)" }}>
-                {selected.line ? `${selected.file}:${selected.line}` : selected.file}
-              </span>
-            </div>
-            <div className="pol-detail__row">
-              <span className="pol-detail__label">Severity</span>
-              <span className={cn("pol-sev", severityClass(selected.severity))}>{SEVERITY_LABEL[selected.severity]}</span>
-            </div>
-            <div className="pol-detail__row">
-              <span className="pol-detail__label">Status</span>
-              <span className={cn("pol-vs", violationStatusClass(selected.status))}>{VIOLATION_STATUS_LABEL[selected.status]}</span>
-            </div>
-            <div className="pol-detail__row">
-              <span className="pol-detail__label">Repo</span>
-              <span className="pol-detail__value">{selected.repo}</span>
-            </div>
-            {selected.service && (
-              <div className="pol-detail__row">
-                <span className="pol-detail__label">Service</span>
-                <span className="pol-detail__value">{selected.service}</span>
+            <div className="pol-d__props">
+              <div className="pol-d__prop">
+                <span className="pol-d__prop-k">File</span>
+                <span className="pol-d__val" style={{ fontFamily: "var(--font-mono)" }}>
+                  {selected.line ? `${selected.file}:${selected.line}` : selected.file}
+                </span>
               </div>
-            )}
-            <div className="pol-detail__row">
-              <span className="pol-detail__label">Detected</span>
-              <span className="pol-detail__value">{relativeTime(selected.detectedAt)}</span>
+              <div className="pol-d__prop">
+                <span className="pol-d__prop-k">Severity</span>
+                <span className={cn("pol-sev", severityClass(selected.severity))}>{SEVERITY_LABEL[selected.severity]}</span>
+              </div>
+              <div className="pol-d__prop">
+                <span className="pol-d__prop-k">Status</span>
+                <span className={cn("pol-vs", violationStatusClass(selected.status))}>{VIOLATION_STATUS_LABEL[selected.status]}</span>
+              </div>
+              <div className="pol-d__prop">
+                <span className="pol-d__prop-k">Repo</span>
+                <span className="pol-d__val">{selected.repo}</span>
+              </div>
+              {selected.service && (
+                <div className="pol-d__prop">
+                  <span className="pol-d__prop-k">Service</span>
+                  <span className="pol-d__val">{selected.service}</span>
+                </div>
+              )}
+              <div className="pol-d__prop">
+                <span className="pol-d__prop-k">Detected</span>
+                <span className="pol-d__val">{relativeTime(selected.detectedAt)}</span>
+              </div>
+              {selected.assignee && (
+                <div className="pol-d__prop">
+                  <span className="pol-d__prop-k">Assignee</span>
+                  <span className="pol-d__val">{selected.assignee}</span>
+                </div>
+              )}
+              {selected.linkedPR && (
+                <div className="pol-d__prop">
+                  <span className="pol-d__prop-k">Linked PR</span>
+                  <span className="pol-d__val" style={{ fontFamily: "var(--font-mono)" }}>{selected.linkedPR}</span>
+                </div>
+              )}
             </div>
-            {selected.assignee && (
-              <div className="pol-detail__row">
-                <span className="pol-detail__label">Assignee</span>
-                <span className="pol-detail__value">{selected.assignee}</span>
-              </div>
-            )}
-            {selected.linkedPR && (
-              <div className="pol-detail__row">
-                <span className="pol-detail__label">Linked PR</span>
-                <span className="pol-detail__value" style={{ fontFamily: "var(--font-mono)" }}>{selected.linkedPR}</span>
-              </div>
-            )}
 
-            <p className="pol-detail__desc">{selected.message}</p>
+            <p className="pol-d__method">{selected.message}</p>
 
-            {selected.snippet && <pre className="pol-snippet">{selected.snippet}</pre>}
+            {selected.snippet && <pre className="pol-qm__code">{selected.snippet}</pre>}
 
             {selected.suggestedFix && (
-              <>
-                <span className="pol-detail__section-label">Suggested fix</span>
-                <p className="pol-detail__desc">{selected.suggestedFix}</p>
-              </>
+              <section className="pol-d__section">
+                <header className="pol-d__section-head">
+                  <span className="pol-d__section-title">Suggested Fix</span>
+                </header>
+                <p className="pol-qm__why">{selected.suggestedFix}</p>
+              </section>
             )}
 
-            <div className="pol-detail__actions">
+            <div className="pol-d__actions">
               {TRIAGE_ACTIONS.filter((a) => a.status !== selected.status).map((action) => (
                 <button
                   key={action.status}

@@ -262,13 +262,53 @@ export const policyStore = {
 
   filteredRules(): PolicyRule[] {
     const { category, severity, ruleStatus, engine, searchQuery } = state.filters;
-    const q = searchQuery.toLowerCase();
+
+    // Parse structured query: extract field:value pairs, remainder is free text
+    const fieldAliases: Record<string, string> = { e: "engine", eng: "engine", sev: "severity", s: "status", cat: "category", t: "tag", o: "owner" };
+    const structured: { field: string; value: string }[] = [];
+    const textParts: string[] = [];
+    for (const part of searchQuery.split(/\s+/)) {
+      const m = part.match(/^(\w+):(.+)$/);
+      if (m) {
+        const raw = m[1].toLowerCase();
+        structured.push({ field: fieldAliases[raw] ?? raw, value: m[2].toLowerCase() });
+      } else if (part) {
+        textParts.push(part);
+      }
+    }
+    const q = textParts.join(" ").toLowerCase();
+
     return state.rules.filter((r) => {
+      // UI-control filters (cards, pills)
       if (category !== "all" && r.category !== category) return false;
       if (severity !== "all" && r.severity !== severity) return false;
       if (ruleStatus !== "all" && r.status !== ruleStatus) return false;
       if (engine !== "all" && r.engine !== engine) return false;
-      if (q && !r.name.toLowerCase().includes(q) && !r.tags.some((t) => t.toLowerCase().includes(q))) return false;
+
+      // Structured query filters
+      for (const f of structured) {
+        switch (f.field) {
+          case "engine": if (!r.engine.toLowerCase().includes(f.value)) return false; break;
+          case "severity": if (r.severity !== f.value) return false; break;
+          case "category": if (!r.category.toLowerCase().includes(f.value)) return false; break;
+          case "status": if (r.status !== f.value) return false; break;
+          case "tag": if (!r.tags.some((t) => t.toLowerCase().includes(f.value))) return false; break;
+          case "owner": if (!r.owner.toLowerCase().includes(f.value)) return false; break;
+          case "scope": {
+            const all = [...(r.sourceScope.paths ?? []), ...(r.sourceScope.repos ?? []), ...(r.targetScope.paths ?? []), ...(r.targetScope.repos ?? [])];
+            if (!all.some((s) => s.toLowerCase().includes(f.value))) return false;
+            break;
+          }
+          case "has":
+            if (f.value === "violations" && r.violationCount === 0) return false;
+            if (f.value === "pr" && (!r.relatedPRs || r.relatedPRs.length === 0)) return false;
+            if (f.value === "matches" && r.queryMatches.length === 0) return false;
+            break;
+        }
+      }
+
+      // Free text search (name, description, tags)
+      if (q && !r.name.toLowerCase().includes(q) && !r.description.toLowerCase().includes(q) && !r.tags.some((t) => t.toLowerCase().includes(q))) return false;
       return true;
     });
   },

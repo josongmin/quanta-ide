@@ -1,4 +1,5 @@
-import type { CanvasGraph, CanvasSelection, FlowFilter, FlowSegment } from "@quanta/app-ide/entities/canvas";
+import type { CanvasEdge, CanvasGraph, CanvasSelection, ExternalNode, FlowFilter, FlowSegment } from "@quanta/app-ide/entities/canvas";
+import type { NextHopTarget } from "@quanta/app-ide/entities/file";
 
 // ── Selection computation ──────────────────────────────────────────
 
@@ -6,7 +7,11 @@ import type { CanvasGraph, CanvasSelection, FlowFilter, FlowSegment } from "@qua
  * Compute selection state from a node click:
  * find all edges connected to the node + their code lines.
  */
-export function selectNode(graph: CanvasGraph, nodeId: string): CanvasSelection {
+export function selectNode(
+  graph: CanvasGraph,
+  nodeId: string,
+  nextHops?: Record<string, NextHopTarget[]>,
+): CanvasSelection {
   const flowPath: string[] = [];
   const activeLines = new Set<number>();
 
@@ -17,11 +22,101 @@ export function selectNode(graph: CanvasGraph, nodeId: string): CanvasSelection 
     }
   }
 
+  // Determine which nodes in the flow are expandable
+  const expandableNodeIds: string[] = [];
+  if (nextHops) {
+    for (const node of graph.externalNodes) {
+      if (nextHops[node.id] && nextHops[node.id].length > 0) {
+        expandableNodeIds.push(node.id);
+      }
+    }
+  }
+
   return {
     nodeId,
     flowPath,
     flowNodes: [nodeId],
     activeLines: [...activeLines],
+    expandableNodeIds: expandableNodeIds.length > 0 ? expandableNodeIds : undefined,
+  };
+}
+
+/**
+ * Expand the graph by adding next-hop nodes and edges for a given node.
+ * Returns a new CanvasGraph with the expanded nodes/edges appended.
+ */
+export function expandFlow(
+  graph: CanvasGraph,
+  nodeId: string,
+  targets: NextHopTarget[],
+): CanvasGraph {
+  const sourceNode = graph.externalNodes.find((n) => n.id === nodeId);
+  if (!sourceNode || targets.length === 0) return graph;
+
+  const newNodes: ExternalNode[] = [];
+  const newEdges: CanvasEdge[] = [];
+
+  // Find the source edge to inherit line/col for the new edge
+  const sourceEdge = graph.edges.find((e) => e.extNodeId === nodeId);
+
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i];
+    const newNodeId = `ext:expanded:${target.name}`;
+
+    // Skip if already expanded
+    if (graph.externalNodes.some((n) => n.id === newNodeId)) continue;
+
+    // Position: to the right of the source node
+    const newNode: ExternalNode = {
+      id: newNodeId,
+      name: target.name,
+      file: target.file,
+      side: sourceNode.side,
+      connectedTo: [],
+      isTerminal: !!target.terminalKind,
+      terminalKind: target.terminalKind,
+      x: sourceNode.side === "left"
+        ? sourceNode.x - sourceNode.w - 100
+        : sourceNode.x + sourceNode.w + 100,
+      y: sourceNode.y + i * 60,
+      w: sourceNode.w,
+      h: sourceNode.h,
+    };
+    newNodes.push(newNode);
+
+    // Create edge from source node's line to new node
+    const edgeId = `e-expand-${graph.edges.length + i}`;
+    const newEdge: CanvasEdge = {
+      id: edgeId,
+      line: sourceEdge?.line ?? 1,
+      col: sourceEdge?.col ?? 0,
+      symbolLen: sourceEdge?.symbolLen ?? 0,
+      side: "right",
+      extNodeId: newNodeId,
+      kind: "taint",
+      label: `→ ${target.name}`,
+      color: sourceEdge?.color ?? "#888",
+      confidence: "high",
+    };
+    newEdges.push(newEdge);
+  }
+
+  if (newNodes.length === 0) return graph;
+
+  // Compute new canvas bounds
+  let maxRight = graph.width;
+  let maxBottom = graph.height;
+  for (const n of newNodes) {
+    maxRight = Math.max(maxRight, n.x + n.w + 48);
+    maxBottom = Math.max(maxBottom, n.y + n.h + 48);
+  }
+
+  return {
+    ...graph,
+    externalNodes: [...graph.externalNodes, ...newNodes],
+    edges: [...graph.edges, ...newEdges],
+    width: maxRight,
+    height: maxBottom,
   };
 }
 

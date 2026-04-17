@@ -12,6 +12,7 @@ import { InspectorModeTabs } from "./InspectorModeTabs";
 import { FileInspectorHero } from "./FileInspectorHero";
 import { FileSignalsSection } from "./FileSignalsSection";
 import { FileCoverageSection } from "./FileCoverageSection";
+import { FileSymbolsSection } from "./FileSymbolsSection";
 import { FileDeadCodeSection } from "./FileDeadCodeSection";
 import { FileChurnSection } from "./FileChurnSection";
 import { FileFixSection } from "./FileFixSection";
@@ -52,6 +53,7 @@ export function FileInspectorView({ name }: { name: string }) {
       {mode === "overview" && (
         <div className="insp__overview-wrap">
           <FileInspectorHero name={name} />
+          {file && <FileSymbolsSection file={file} />}
           <FileSignalsSection />
           <FileCoverageSection />
           <FileDeadCodeSection />

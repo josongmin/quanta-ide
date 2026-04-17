@@ -5,28 +5,27 @@ interface Props {
   group: FileGroup;
 }
 
-type Tone = "high" | "mid" | "low";
-
-function riskTone(s: number): Tone { return s >= 70 ? "high" : s >= 40 ? "mid" : "low"; }
-function countTone(n: number): Tone { return n >= 5 ? "high" : n >= 1 ? "mid" : "low"; }
-
-function cellTone(n: number): string {
-  if (n === 0) return "stat-cell--zero";
-  const t = countTone(n);
-  return t === "low" ? "" : `stat-cell--${t}`;
+function riskColor(score: number): string {
+  if (score >= 70) return "var(--danger)";
+  if (score >= 40) return "var(--warn)";
+  return "var(--success)";
 }
 
-const RISK_LABEL: Record<Tone, string> = { high: "High risk", mid: "Medium risk", low: "Low risk" };
+function riskLabel(score: number): string {
+  if (score >= 70) return "High risk";
+  if (score >= 40) return "Medium";
+  return "Low";
+}
 
 export function FileGroupBg({ group }: Props) {
-  const tone = riskTone(group.riskScore);
+  const score = group.riskScore;
 
   return (
     <div
       className="file-group"
       style={{ left: group.x, top: group.y, width: group.w, height: group.h }}
     >
-      {/* ── Header ── */}
+      {/* Row 1: file name + risk score */}
       <div className="file-group__header">
         <svg className="file-group__icon" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
           <path d="M4 1.5h5.586a1 1 0 0 1 .707.293l2.414 2.414a1 1 0 0 1 .293.707V13.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.2" />
@@ -34,83 +33,34 @@ export function FileGroupBg({ group }: Props) {
         </svg>
         <span className="file-group__name">{group.name}</span>
         <span className="file-group__spacer" />
-        <span className="file-group__meta">@{group.owner}</span>
+        <span className="file-group__score" style={{ color: riskColor(score) }}>
+          {score}
+        </span>
+        <span className="file-group__score-sub">/100</span>
+        <span className={cn("file-group__risk-badge", score >= 70 && "file-group__risk-badge--high")}>
+          {riskLabel(score)}
+        </span>
       </div>
 
-      {/* ── Risk score hero ── */}
-      <div className={cn("file-score", `file-score--${tone}`)}>
-        <div className="file-score__head">
-          <span className="file-score__val">{group.riskScore}</span>
-          <span className="file-score__denom">/100</span>
-          <span className="file-score__spacer" />
-          <span className={cn("file-score__badge", `file-score__badge--${tone}`)}>
-            <span className="file-score__dot" />
-            {RISK_LABEL[tone]}
-          </span>
-        </div>
-        <div className="file-score__bar">
-          <div
-            className="file-score__bar-fill"
-            style={{ width: `${group.riskScore}%` }}
-          />
-        </div>
+      {/* Stat grid — 2 rows × 3 cols */}
+      <div className="file-group__grid">
+        <Stat icon="≡" value={group.loc.toLocaleString()} label="LINES" />
+        <Stat icon="ƒ" value={String(group.functions)} label="FUNCTIONS" />
+        <Stat icon="C" value={String(group.classes)} label="CLASSES" />
+        <Stat icon="↓" value={String(group.imports)} label="IMPORTS" />
+        <Stat icon="→" value={String(group.callers)} label="CALLERS" warn={group.callers > 20} />
+        <Stat icon="λ" value={String(group.cpxMax)} label="CPX PEAK" warn={group.cpxMax > 10} />
       </div>
+    </div>
+  );
+}
 
-      {/* ── Stat grid ── */}
-      <div className="file-stats">
-        {/* Row 1: structure metrics — solid separators */}
-        <div className="file-stats__row file-stats__row--solid">
-          <div className="stat-cell">
-            <div className="stat-cell__head">
-              <span className="stat-cell__icon">≡</span>
-              <span className="stat-cell__num">{group.loc.toLocaleString()}</span>
-            </div>
-            <span className="stat-cell__label">Lines</span>
-          </div>
-          <div className="stat-cell">
-            <div className="stat-cell__head">
-              <span className="stat-cell__icon">λ</span>
-              <span className="stat-cell__num">{group.cpxMax}</span>
-            </div>
-            <span className="stat-cell__label">Cpx peak</span>
-          </div>
-          <div className={cn("stat-cell", cellTone(group.blast))}>
-            <div className="stat-cell__head">
-              <span className="stat-cell__icon">→</span>
-              <span className="stat-cell__num">{group.blast}</span>
-              {group.blastCritical > 0 && (
-                <span className="stat-cell__crit">{group.blastCritical} crit</span>
-              )}
-            </div>
-            <span className="stat-cell__label">Blast</span>
-          </div>
-        </div>
-
-        {/* Row 2: quality metrics — dashed separators */}
-        <div className="file-stats__row file-stats__row--dashed">
-          <div className={cn("stat-cell", cellTone(group.taintCount))}>
-            <div className="stat-cell__head">
-              <span className="stat-cell__icon">⚡</span>
-              <span className="stat-cell__num">{group.taintCount}</span>
-            </div>
-            <span className="stat-cell__label">Taint</span>
-          </div>
-          <div className={cn("stat-cell", cellTone(group.archViolations))}>
-            <div className="stat-cell__head">
-              <span className="stat-cell__icon">⊘</span>
-              <span className="stat-cell__num">{group.archViolations}</span>
-            </div>
-            <span className="stat-cell__label">Violations</span>
-          </div>
-          <div className={cn("stat-cell", cellTone(group.deadCount))}>
-            <div className="stat-cell__head">
-              <span className="stat-cell__icon">∅</span>
-              <span className="stat-cell__num">{group.deadCount}</span>
-            </div>
-            <span className="stat-cell__label">Dead code</span>
-          </div>
-        </div>
-      </div>
+function Stat({ icon, value, label, warn }: { icon: string; value: string; label: string; warn?: boolean }) {
+  return (
+    <div className={cn("fg-stat", warn && "fg-stat--warn")}>
+      <span className="fg-stat__icon">{icon}</span>
+      <span className="fg-stat__value">{value}</span>
+      <span className="fg-stat__label">{label}</span>
     </div>
   );
 }

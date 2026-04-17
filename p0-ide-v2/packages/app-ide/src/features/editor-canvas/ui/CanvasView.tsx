@@ -4,7 +4,7 @@ import type { CanvasSelection } from "@quanta/app-ide/entities/canvas";
 import { cn } from "@quanta/ui-kit/lib";
 import { useCanvasGraph } from "../model/use-canvas-graph";
 import { useCanvasViewport } from "../model/use-canvas-viewport";
-import { selectNode } from "../lib/flow-slice";
+import { selectNode, expandFlow } from "../lib/flow-slice";
 import { CodePaneView } from "./CodePaneView";
 import { ExtNode } from "./ExtNode";
 import { ExtFileGroup } from "./ExtFileGroup";
@@ -36,8 +36,30 @@ export function CanvasView({ file }: { file: FileFacts }) {
   }, []);
 
   // ── Viewport (pan / zoom / fit) ─────────────────────────────────
-  const { viewport, transform, pan, zoom, fit, zoomIn, zoomOut } =
+  const { viewport, transform, pan, zoom, fit, focusRegion, zoomIn, zoomOut } =
     useCanvasViewport(graph.width, graph.height, containerSize.w, containerSize.h);
+
+  // ── Expanded graph (grows as user expands flow hops) ────────────
+  const [expandedGraph, setExpandedGraph] = useState(graph);
+  useEffect(() => setExpandedGraph(graph), [graph]);
+
+  // ── Auto-focus: center on external nodes region (flow diagram) ───
+  const hasFocused = useRef(false);
+  useEffect(() => {
+    if (hasFocused.current || containerSize.w === 0) return;
+
+    if (graph.externalNodes.length > 0) {
+      // Focus on the area where external nodes live — shows full flow
+      const ys = graph.externalNodes.map((n) => n.y);
+      const minY = Math.min(...ys) - 120;
+      const maxY = Math.max(...graph.externalNodes.map((n) => n.y + n.h)) + 120;
+      focusRegion({ x: 0, y: minY, w: graph.width, h: maxY - minY });
+    } else {
+      // Fallback: fit entire graph
+      focusRegion({ x: 0, y: 0, w: graph.width, h: graph.height });
+    }
+    hasFocused.current = true;
+  }, [graph, containerSize, focusRegion]);
 
   // ── Selection state ─────────────────────────────────────────────
   const [selection, setSelection] = useState<CanvasSelection | null>(null);
@@ -57,23 +79,55 @@ export function CanvasView({ file }: { file: FileFacts }) {
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
-      setSelection((prev) => (prev?.nodeId === nodeId ? null : selectNode(graph, nodeId)));
+      setSelection((prev) =>
+        prev?.nodeId === nodeId ? null : selectNode(expandedGraph, nodeId, file.nextHops),
+      );
     },
-    [graph],
+    [expandedGraph, file.nextHops],
   );
 
   const handleEdgeClick = useCallback(
     (edgeId: string) => {
-      const edge = graph.edges.find((e) => e.id === edgeId);
+      const edge = expandedGraph.edges.find((e) => e.id === edgeId);
       if (!edge) return;
       setSelection((prev) =>
-        prev?.nodeId === edge.extNodeId ? null : selectNode(graph, edge.extNodeId),
+        prev?.nodeId === edge.extNodeId ? null : selectNode(expandedGraph, edge.extNodeId, file.nextHops),
       );
     },
-    [graph],
+    [expandedGraph, file.nextHops],
   );
 
-  // Clear selection when graph changes
+  const handleExpandFlow = useCallback(
+    (nodeId: string) => {
+      // Expand ALL reachable hops at once — trace to terminal
+      let g = expandedGraph;
+      const visited = new Set<string>();
+      const queue = [nodeId];
+
+      while (queue.length > 0) {
+        const nid = queue.shift()!;
+        if (visited.has(nid)) continue;
+        visited.add(nid);
+
+        const targets = file.nextHops?.[nid];
+        if (!targets || targets.length === 0) continue;
+
+        g = expandFlow(g, nid, targets);
+
+        // Queue newly added nodes for further expansion
+        for (const t of targets) {
+          const expandedId = `ext:expanded:${t.name}`;
+          if (!visited.has(expandedId)) queue.push(expandedId);
+        }
+      }
+
+      setExpandedGraph(g);
+      setSelection(selectNode(g, nodeId, file.nextHops));
+    },
+    [expandedGraph, file.nextHops],
+  );
+
+  // Clear selection when base graph changes
   useEffect(() => setSelection(null), [graph]);
 
   // ── Mouse interaction: pan via drag ─────────────────────────────
@@ -103,23 +157,29 @@ export function CanvasView({ file }: { file: FileFacts }) {
     dragging.current = false;
   }, []);
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Use native wheel event to safely call preventDefault (non-passive)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
-      const rect = containerRef.current?.getBoundingClientRect();
-      if (!rect) return;
-      const cx = e.clientX - rect.left;
-      const cy = e.clientY - rect.top;
-      zoom(e.deltaY * -0.001, cx, cy);
-    },
-    [zoom],
-  );
+      if (e.ctrlKey || e.metaKey) {
+        const rect = el.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cy = e.clientY - rect.top;
+        zoom(e.deltaY * -0.004, cx, cy);
+      } else {
+        pan(-e.deltaX, -e.deltaY);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [zoom, pan]);
 
   return (
     <div
       className={cn("canvas-view", selection && "canvas-view--has-selection")}
       ref={containerRef}
-      onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -134,28 +194,31 @@ export function CanvasView({ file }: { file: FileFacts }) {
       <div
         className="canvas-view__nodes"
         style={{
-          transform: `translate(${viewport.x}px, ${viewport.y}px)`,
-          zoom: viewport.scale,
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
+          transformOrigin: "0 0",
+          willChange: "transform",
         }}
       >
-        <FileGroupBg group={graph.fileGroup} />
+        <FileGroupBg group={expandedGraph.fileGroup} />
         <CodePaneView
-          codePane={graph.codePane}
-          markers={graph.lineMarkers}
+          codePane={expandedGraph.codePane}
+          markers={expandedGraph.lineMarkers}
           activeLines={activeLines}
         />
-        {graph.externalFileGroups.map((g) => (
+        {expandedGraph.externalFileGroups.map((g) => (
           <ExtFileGroup key={g.id} group={g} />
         ))}
-        {graph.externalNodes.map((n) => (
+        {expandedGraph.externalNodes.map((n) => (
           <ExtNode
             key={n.id}
             node={n}
             active={activeNodes?.has(n.id)}
+            expandable={selection?.expandableNodeIds?.includes(n.id)}
             onNodeClick={handleNodeClick}
+            onExpand={handleExpandFlow}
           />
         ))}
-        <EdgeLayer graph={graph} activeEdges={activeEdges} onEdgeClick={handleEdgeClick} />
+        <EdgeLayer graph={expandedGraph} activeEdges={activeEdges} onEdgeClick={handleEdgeClick} />
       </div>
 
       <CanvasControls onZoomIn={zoomIn} onZoomOut={zoomOut} onFit={fit} />

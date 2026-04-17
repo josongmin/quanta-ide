@@ -81,22 +81,25 @@ export function buildCanvasGraph(file: FileFacts, source: string): CanvasGraph {
 
   // ── 3. Symbol deps -> incoming / outgoing ─────────────────────────────
   for (const sym of file.symbols) {
-    if (!["class", "method", "function"].includes(sym.kind)) continue;
-    if (!fnNames.has(sym.name) || !sym.deps) continue;
+    const targets = [sym, ...(sym.children ?? [])];
+    for (const s of targets) {
+      if (!["class", "method", "function"].includes(s.kind)) continue;
+      if (!fnNames.has(s.name) || !s.deps) continue;
 
-    for (const inc of sym.deps.incoming) {
-      if (fnNames.has(inc.name)) continue;
-      const extId = ensureExt(inc.name, "left", undefined, inc.layer);
-      addEdge(sym.line, sym.name, "left", extId, "dep", `${inc.name} calls this`);
-      markers.push({ line: sym.line, side: "left", kind: "dep-in", label: inc.name, extNodeId: extId });
-    }
+      for (const inc of s.deps.incoming) {
+        if (fnNames.has(inc.name)) continue;
+        const extId = ensureExt(inc.name, "left", undefined, inc.layer);
+        addEdge(s.line, s.name, "left", extId, "dep", `${inc.name} calls this`);
+        markers.push({ line: s.line, side: "left", kind: "dep-in", label: inc.name, extNodeId: extId });
+      }
 
-    for (const out of sym.deps.outgoing) {
-      if (fnNames.has(out.name)) continue;
-      const extId = ensureExt(out.name, "right", undefined, out.layer);
-      const callKey = `${sym.line}|right|${extId}|call`;
-      if (!edgeSet.has(callKey)) {
-        addEdge(sym.line, sym.name, "right", extId, "dep", `uses ${out.name}`);
+      for (const out of s.deps.outgoing) {
+        if (fnNames.has(out.name)) continue;
+        const extId = ensureExt(out.name, "right", undefined, out.layer);
+        // Skip if any edge already connects to this external node
+        if (!edges.some((e) => e.extNodeId === extId)) {
+          addEdge(s.line, s.name, "right", extId, "dep", `uses ${out.name}`);
+        }
       }
     }
   }

@@ -3,6 +3,7 @@ import type { EngineType } from "@quanta/domain-types/policies";
 import { ENGINE_LABEL } from "@quanta/domain-types/policies";
 import { policyStore, usePolicyStore } from "@quanta/app-policy/entities/policy";
 import { CategoryCards } from "./CategoryCards";
+import { QueryBar } from "./QueryBar";
 import { RuleListItem } from "./RuleListItem";
 import { RuleDetailPane } from "./RuleDetailPane";
 
@@ -15,7 +16,6 @@ function engineLabel(e: EngineType | "all") {
 export function RuleCatalog() {
   const selectedRuleId = usePolicyStore((s) => s.selectedRuleId);
   const engineFilter = usePolicyStore((s) => s.filters.engine);
-  const searchQuery = usePolicyStore((s) => s.filters.searchQuery);
   const rules = policyStore.filteredRules();
   const selectedRule = rules.find((r) => r.id === selectedRuleId) ?? null;
 
@@ -28,12 +28,6 @@ export function RuleCatalog() {
           <span className="pol-catalog__title">Security / Policy Rule Management</span>
         </div>
         <div className="pol-catalog__actions">
-          <input
-            className="pol-catalog__search"
-            placeholder="Search rules, tags..."
-            value={searchQuery}
-            onChange={(e) => policyStore.setSearchQuery(e.target.value)}
-          />
           <button
             type="button"
             className="pol-btn pol-btn--ghost"
@@ -50,6 +44,9 @@ export function RuleCatalog() {
           </button>
         </div>
       </header>
+
+      {/* Query bar */}
+      <QueryBar resultCount={rules.length} />
 
       {/* Category cards */}
       <CategoryCards />
@@ -72,7 +69,7 @@ export function RuleCatalog() {
       <div className="pol-split">
         <div className="pol-split__list">
           {rules.length === 0 ? (
-            <div className="pol-split__empty">No rules match filters</div>
+            <div className="pol-split__empty">No rules match the current query</div>
           ) : (
             rules.map((rule) => (
               <RuleListItem key={rule.id} rule={rule} isSelected={rule.id === selectedRuleId} />

@@ -31,27 +31,45 @@ export function FileInspectorHero({ name }: { name: string }) {
 
       <div className="hero__metrics">
         <div className="hero__metric">
-          <span className="hero__metric-val">1,974</span>
+          <span className="hero__metric-head">
+            <span className="hero__metric-glyph">☰</span>
+            <span className="hero__metric-val">1,974</span>
+          </span>
           <span className="hero__metric-key">lines</span>
         </div>
         <div className="hero__metric">
-          <span className="hero__metric-val">11</span>
+          <span className="hero__metric-head">
+            <span className="hero__metric-glyph">ƒ</span>
+            <span className="hero__metric-val">11</span>
+          </span>
           <span className="hero__metric-key">functions</span>
         </div>
         <div className="hero__metric">
-          <span className="hero__metric-val">3</span>
+          <span className="hero__metric-head">
+            <span className="hero__metric-glyph">C</span>
+            <span className="hero__metric-val">3</span>
+          </span>
           <span className="hero__metric-key">classes</span>
         </div>
         <div className="hero__metric">
-          <span className="hero__metric-val">24</span>
+          <span className="hero__metric-head">
+            <span className="hero__metric-glyph">↓</span>
+            <span className="hero__metric-val">24</span>
+          </span>
           <span className="hero__metric-key">imports</span>
         </div>
         <div className="hero__metric">
-          <span className="hero__metric-val">38</span>
+          <span className="hero__metric-head">
+            <span className="hero__metric-glyph">→</span>
+            <span className="hero__metric-val">38</span>
+          </span>
           <span className="hero__metric-key">callers</span>
         </div>
         <div className="hero__metric">
-          <span className="hero__metric-val">9</span>
+          <span className="hero__metric-head">
+            <span className="hero__metric-glyph">λ</span>
+            <span className="hero__metric-val">9</span>
+          </span>
           <span className="hero__metric-key">cpx peak</span>
         </div>
       </div>

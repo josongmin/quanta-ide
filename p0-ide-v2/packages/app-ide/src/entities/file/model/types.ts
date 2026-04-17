@@ -10,6 +10,12 @@ import type { Incident } from "@quanta/app-ide/entities/incident";
 import type { BehaviorDiffChunk } from "@quanta/app-ide/entities/behavior";
 import type { OwnershipEntry } from "@quanta/app-ide/entities/ownership";
 
+export interface NextHopTarget {
+  name: string;
+  file?: string;
+  terminalKind?: "db" | "cache" | "queue" | "api" | "storage";
+}
+
 export interface FileFacts {
   name: string;
   loc: number;
@@ -34,4 +40,6 @@ export interface FileFacts {
   incidents: Incident[];
   behaviorDiff: BehaviorDiffChunk[];
   ownership: OwnershipEntry[];
+  /** Maps external node ID → reachable next-hop targets for progressive expansion. */
+  nextHops?: Record<string, NextHopTarget[]>;
 }

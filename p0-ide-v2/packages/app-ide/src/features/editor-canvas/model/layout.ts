@@ -1,11 +1,13 @@
 import type {
   CanvasEdge,
   CanvasGraph,
+  CodeFragment,
   ExternalFileGroup,
   ExternalNode,
   FileGroup,
   LineMarker,
 } from "@quanta/app-ide/entities/canvas";
+import { buildFragments } from "../lib/build-fragments";
 
 // ── Layout constants ────────────────────────────────────────────────
 const LINE_H = 20;
@@ -16,17 +18,17 @@ const CODE_PAD_RIGHT = 16;
 export const CODE_FONT_W = 7.5;
 const FILE_PAD_X = 20;
 const FILE_PAD_Y = 16;
-const FILE_HEADER_H = 44;
-const INSIGHT_BAR_H = 120;
+const FILE_HEADER_H = 92;
+const INSIGHT_BAR_H = 0;
 const EXT_W = 210;
 const EXT_H = 56;
 const EXT_NODE_H = 40;
-const EXT_V_GAP = 20;
+const EXT_V_GAP = 40;
 const EXT_GROUP_HEADER_H = 24;
 const EXT_GROUP_PAD_X = 10;
 const EXT_GROUP_PAD_Y = 8;
 const EXT_NODE_IN_GROUP_GAP = 6;
-const COL_GAP = 80;
+const COL_GAP = 140;
 const CANVAS_PAD = 48;
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -207,14 +209,30 @@ export function layoutGraph(
   const lines = source.split("\n");
   const maxLineLen = lines.reduce((max, l) => Math.max(max, l.length), 0);
   const codeW = CODE_PAD_X + maxLineLen * CODE_FONT_W + CODE_PAD_RIGHT;
-  const codeH = lines.length * LINE_H;
 
-  // ── 2. File group wraps code pane ──────────────────────────────────
+  // ── 1b. Build fragments for reference (metadata only) ──────────────
+  // Note: All code lines are rendered expanded, not folded
+  const fragments: CodeFragment[] = buildFragments(source, lineMarkers);
+  const totalLineCount = lines.length;
+  const codeH = totalLineCount * LINE_H + 16; // +16 for padding
+
+  // ── 2. Count structural metrics from source ────────────────────────
+  let fnCount = fragments.filter((f) => f.kind === "function").length;
+  for (const f of fragments) fnCount += (f.children?.length ?? 0);
+  const clsCount = fragments.filter((f) => f.kind === "class").length;
+  const importCount = lines.filter((l) => /^\s*(import |from \S+ import )/.test(l)).length;
+  const callerCount = lineMarkers.filter((m) => m.side === "left" && m.kind === "dep-in").length;
+
+  // ── 3. File group wraps code pane ──────────────────────────────────
   const fileGroup: FileGroup = {
     name: file.name,
     riskScore: file.riskScore,
     loc: file.loc,
     owner: file.owner,
+    functions: fnCount,
+    classes: clsCount,
+    imports: importCount,
+    callers: callerCount,
     cpxMax: file.cpxMax,
     cpxBudgetPct: file.cpxBudgetPct,
     blast: file.blast,
@@ -247,11 +265,12 @@ export function layoutGraph(
     w: codeW,
     h: codeH,
     lineHeight: LINE_H,
+    fragments,
   };
 
-  // ── 6. Line-to-Y mapping ──────────────────────────────────────────
+  // ── 6. Line-to-Y mapping (each line has fixed height) ──────────────
   function lineY(line: number): number {
-    return codePaneY + (line - 1) * LINE_H + LINE_H / 2;
+    return codePaneY + (line - 1) * LINE_H + 8; // +8 for top padding
   }
 
   // Build extNodeId → line[] map from edges

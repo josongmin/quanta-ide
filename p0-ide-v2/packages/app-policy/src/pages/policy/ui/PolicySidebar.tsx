@@ -2,60 +2,82 @@ import { cn } from "@quanta/ui-kit/lib";
 import type { SidebarItem } from "@quanta/domain-types/policies";
 import { policyStore, usePolicyStore } from "@quanta/app-policy/entities/policy";
 
-interface NavEntry {
-  id: SidebarItem;
+interface NavSection {
   label: string;
-  enabled: boolean;
+  items: { id: SidebarItem; label: string; count?: number; enabled: boolean }[];
 }
 
-const NAV_ITEMS: NavEntry[] = [
-  { id: "overview", label: "Overview", enabled: false },
-  { id: "rule-catalog", label: "Rule Catalog", enabled: true },
-  { id: "rule-sets", label: "Rule Sets", enabled: false },
-  { id: "authoring", label: "Authoring", enabled: true },
-  { id: "validation", label: "Validation", enabled: false },
-  { id: "engines", label: "Policies / Engines", enabled: false },
-  { id: "pr-enforcement", label: "PR Enforcement", enabled: false },
-  { id: "alerts-triage", label: "Alerts & Triage", enabled: true },
-  { id: "exceptions", label: "Exceptions", enabled: false },
-  { id: "governance", label: "Governance", enabled: false },
+const NAV_SECTIONS: NavSection[] = [
+  {
+    label: "Catalog",
+    items: [
+      { id: "rule-catalog", label: "All rules", enabled: true },
+      { id: "alerts-triage", label: "Alerts & Triage", enabled: true },
+    ],
+  },
+  {
+    label: "Authoring",
+    items: [
+      { id: "authoring", label: "Rule builder", enabled: true },
+      { id: "rule-sets", label: "Rule sets", enabled: false },
+      { id: "validation", label: "Validation", enabled: false },
+    ],
+  },
+  {
+    label: "Governance",
+    items: [
+      { id: "pr-enforcement", label: "PR enforcement", enabled: false },
+      { id: "engines", label: "Engines", enabled: false },
+      { id: "exceptions", label: "Exceptions", enabled: false },
+      { id: "governance", label: "Audit log", enabled: false },
+    ],
+  },
 ];
 
 export function PolicySidebar() {
   const active = usePolicyStore((s) => s.activeSidebarItem);
+  const stats = policyStore.stats();
+
+  function countFor(id: SidebarItem): number | undefined {
+    if (id === "rule-catalog") return stats.totalRules;
+    if (id === "alerts-triage") return stats.openViolations;
+    return undefined;
+  }
 
   return (
     <aside className="pol-sidebar" aria-label="Policy Studio navigation">
-      {/* Header */}
       <div className="pol-sidebar__header">
         <span className="pol-sidebar__kicker">Policy Studio</span>
-        <p className="pol-sidebar__desc">
-          CodeQL, Semgrep 등을 합쳐서 다 커버하는 통합 엔지니어링 + 보안 관리 공간
-        </p>
       </div>
 
-      {/* Navigation */}
       <nav className="pol-sidebar__nav">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            className={cn(
-              "pol-sidebar__item",
-              item.id === active && "is-active",
-              !item.enabled && "is-disabled",
-            )}
-            onClick={() => item.enabled && policyStore.setSidebarItem(item.id)}
-            disabled={!item.enabled}
-          >
-            {item.label}
-          </button>
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.label} className="pol-sidebar__group">
+            <span className="pol-sidebar__group-label">{section.label}</span>
+            {section.items.map((item) => {
+              const count = countFor(item.id);
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={cn(
+                    "pol-sidebar__item",
+                    item.id === active && "is-active",
+                    !item.enabled && "is-disabled",
+                  )}
+                  onClick={() => item.enabled && policyStore.setSidebarItem(item.id)}
+                  disabled={!item.enabled}
+                >
+                  <span className="pol-sidebar__item-label">{item.label}</span>
+                  {count != null && <span className="pol-sidebar__item-count">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
         ))}
       </nav>
 
-      {/* Active Rule Sets */}
-      <div className="pol-sidebar__section">
-        <span className="pol-sidebar__section-label">Active Rule Sets</span>
+      <div className="pol-sidebar__footer">
         <div className="pol-sidebar__ruleset">
           <span className="pol-sidebar__ruleset-name">Global Secure Engineering Baseline</span>
           <span className="pol-sidebar__ruleset-meta">Org 기준 적용</span>

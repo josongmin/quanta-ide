@@ -127,8 +127,10 @@ export function EdgeLayer({ graph, activeEdges, onEdgeClick }: Props) {
     }
 
     const dx = Math.abs(x2 - x1);
-    const cp = Math.max(dx * 0.4, 40);
-    return `M ${x1} ${y1} C ${x1 + cp} ${y1}, ${x2 - cp} ${y2}, ${x2} ${y2}`;
+    const dy = y2 - y1;
+    const cpX = Math.max(dx * 0.4, 40);
+    const cpY = dy * 0.15;
+    return `M ${x1} ${y1} C ${x1 + cpX} ${y1 + cpY}, ${x2 - cpX} ${y2 - cpY}, ${x2} ${y2}`;
   }
 
   return (
@@ -149,9 +151,18 @@ export function EdgeLayer({ graph, activeEdges, onEdgeClick }: Props) {
         </marker>
       </defs>
 
-      {/* Edge paths */}
+      {/* Edge paths — suppress dep/call when taint exists on same route */}
       {graph.edges.map((edge) => {
         if (!extRects.has(edge.extNodeId)) return null;
+
+        // If a taint edge exists on the same line→node, hide the dep/call edge
+        if (edge.kind !== "taint") {
+          const hasTaintOnSameRoute = graph.edges.some(
+            (e) => e.kind === "taint" && e.line === edge.line && e.extNodeId === edge.extNodeId,
+          );
+          if (hasTaintOnSameRoute) return null;
+        }
+
         const dot = getPos(edge);
         const isActive = activeEdges?.has(edge.id);
 

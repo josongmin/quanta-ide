@@ -39,13 +39,20 @@ export const toastStore = {
     return id;
   },
   dismiss: (id: string) => {
-    state = { toasts: state.toasts.filter((t) => t.id !== id) };
-    emit();
+    // Clear auto-dismiss timer first
     const timer = timers.get(id);
     if (timer !== undefined) {
       window.clearTimeout(timer);
       timers.delete(id);
     }
+    // Mark as leaving → triggers exit animation
+    state = { toasts: state.toasts.map((t) => (t.id === id ? { ...t, leaving: true } : t)) };
+    emit();
+    // Remove after exit animation completes
+    window.setTimeout(() => {
+      state = { toasts: state.toasts.filter((t) => t.id !== id) };
+      emit();
+    }, 240);
   },
   clear: () => {
     state = { toasts: [] };

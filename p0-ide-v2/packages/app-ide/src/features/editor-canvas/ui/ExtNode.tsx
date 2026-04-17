@@ -1,10 +1,13 @@
+import type { ReactNode } from "react";
 import type { ExternalNode } from "@quanta/app-ide/entities/canvas";
 import { cn } from "@quanta/ui-kit/lib";
 
 interface Props {
   node: ExternalNode;
   active?: boolean;
+  expandable?: boolean;
   onNodeClick?: (nodeId: string) => void;
+  onExpand?: (nodeId: string) => void;
 }
 
 const S = { width: 14, height: 14, viewBox: "0 0 24 24", fill: "none" as const, stroke: "currentColor" as const, strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -25,7 +28,7 @@ function StorageIcon() {
   return (<svg {...S}><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z" /></svg>);
 }
 
-const TERMINAL_ICONS: Record<string, () => JSX.Element> = {
+const TERMINAL_ICONS: Record<string, () => ReactNode> = {
   db: DbIcon,
   cache: CacheIcon,
   queue: QueueIcon,
@@ -41,12 +44,17 @@ const TERMINAL_LABELS: Record<string, string> = {
   storage: "Storage",
 };
 
-export function ExtNode({ node, active, onNodeClick }: Props) {
+export function ExtNode({ node, active, expandable, onNodeClick, onExpand }: Props) {
   const hasFileGroup = !!node.file;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onNodeClick?.(node.id);
+  };
+
+  const handleExpand = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onExpand?.(node.id);
   };
 
   // Terminal endpoint — special card with icon
@@ -84,6 +92,16 @@ export function ExtNode({ node, active, onNodeClick }: Props) {
       <div className="ext-node__name" title={node.name}>{node.name}</div>
       {!hasFileGroup && node.file && (
         <div className="ext-node__file" title={node.file}>{node.file}</div>
+      )}
+      {expandable && (
+        <button
+          type="button"
+          className="ext-node__expand"
+          onClick={handleExpand}
+          title="Expand flow — trace next hop"
+        >
+          →
+        </button>
       )}
     </div>
   );

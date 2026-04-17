@@ -154,6 +154,23 @@
 .hero__metric:nth-child(n+4) {
   padding-top: var(--space-2h);
 }
+.hero__metric-head {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1h);
+}
+.hero__metric-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-subtle);
+  line-height: var(--lh-1);
+  user-select: none;
+}
 .hero__metric-val {
   font-family: var(--font-sans);
   font-size: var(--fs-md);
@@ -394,26 +411,182 @@
   font-size: var(--fs-xs);
 }
 
-/* ── Symbols (unused / future) ── */
-.syms { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-0h); }
-.sym__row {
-  display: grid;
-  grid-template-columns: 18px 1fr auto auto auto;
-  gap: var(--space-1h);
-  align-items: center;
-  padding: var(--space-1) var(--space-1h);
-  border-radius: var(--radius-sm);
-  font-size: var(--fs-sm);
+/* ── Symbol tree ── */
+.stree { list-style: none; margin: 0; padding: 0; }
+.stree__children { list-style: none; margin: 0; padding: 0; }
+.stree__item { position: relative; }
+
+/* Tree guide lines — vertical connector from parent to children */
+.stree__guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+  z-index: 0;
 }
-.sym__row:hover { background: var(--bg-hover); }
-.sym__glyph {
-  color: var(--fg-muted);
+.stree__guide--last { bottom: 50%; }
+
+/* Row */
+.stree__row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  cursor: default;
+  color: var(--fg);
+  line-height: 20px;
+  position: relative;
+  z-index: 1;
+  transition: background 0.1s ease;
+}
+.stree__row--expandable { cursor: pointer; }
+.stree__row:hover { background: var(--bg-hover); }
+.stree__row--flagged {
+  background: color-mix(in srgb, var(--danger) 3%, transparent);
+  border-left: 2px solid var(--danger);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  margin-left: -2px;
+}
+.stree__row--flagged:hover {
+  background: color-mix(in srgb, var(--danger) 6%, transparent);
+}
+
+/* Chevron toggle */
+.stree__chev {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--fg-subtle);
+  transform: rotate(-90deg);
+  transition: transform 0.12s ease;
 }
-.sym__line, .sym__callers { color: var(--fg-muted); font-size: var(--fs-xs); }
-.sym__risk { font-weight: var(--fw-semibold); }
+.stree__chev.is-open { transform: rotate(0deg); }
+.stree__chev-spacer { width: 14px; flex-shrink: 0; }
+
+/* Taint dots — like canvas gutter */
+.stree__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.stree__dot--sink   { background: var(--danger); }
+.stree__dot--source { background: var(--warn, #d4a72c); }
+.stree__dot--through { background: var(--fg-subtle); }
+
+/* Kind icon */
+.stree__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  flex-shrink: 0;
+  color: var(--fg-muted);
+}
+.stree__kglyph {
+  display: inline-flex;
+  width: 12px; height: 12px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: var(--fw-bold);
+  font-style: normal;
+  line-height: 1;
+}
+
+/* Name + line */
+.stree__label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.stree__name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stree__ln {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-subtle);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right-side trailing badges */
+.stree__trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.stree__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--fw-semibold);
+  line-height: 16px;
+  white-space: nowrap;
+}
+.stree__badge--danger { color: var(--danger); background: var(--bg-danger-subtle); }
+.stree__badge--warn   { color: var(--fg-muted); background: var(--bg-muted); }
+.stree__badge--muted  { color: var(--fg-subtle); background: var(--bg-muted); }
+
+/* Collapsed signal count — like code-frag__signal-count */
+.stree__signal-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: var(--fw-bold);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  padding: 0 5px;
+  border-radius: 6px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 16px;
+}
+
+/* Risk score */
+.stree__risk {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Detail subtitle — shown when expanded */
+.stree__detail {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  color: var(--fg-subtle);
+  line-height: var(--lh-normal);
+  padding: 0 8px 4px;
+  position: relative;
+  z-index: 1;
+}
 
 /* ── Tags (unused / future) ── */
 .tag {

@@ -12,6 +12,8 @@ export interface Toast {
   detail?: string;
   engine?: string;
   ttlMs?: number;
+  /** @internal Set by the store when the toast is animating out. */
+  leaving?: boolean;
 }
 
 export interface ToastOptions {

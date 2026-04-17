@@ -13,7 +13,7 @@ function ScopePills({ scope }: { scope: PolicyRule["sourceScope"] }) {
     ...(scope.paths ?? []).map((v) => v),
     ...(scope.teams ?? []).map((v) => `team:${v}`),
   ];
-  if (entries.length === 0) return <span className="pol-detail__value">any</span>;
+  if (entries.length === 0) return <span className="pol-d__val">any</span>;
   return (
     <div className="pol-scope-pills">
       {entries.map((e) => (
@@ -29,131 +29,134 @@ interface RuleDetailPaneProps {
 
 export function RuleDetailPane({ rule }: RuleDetailPaneProps) {
   const displayId = formatRuleId(rule.ruleIdPrefix, rule.ruleNumber);
+  const matchCount = rule.queryMatches.length;
+  const newCount = rule.queryMatches.filter((m) => m.isNew).length;
 
   return (
     <div className="pol-split__detail">
-      {/* Top: ID + status */}
-      <div className="pol-detail__top">
-        <span className="pol-detail__id">{displayId}</span>
-        <span className={cn("pol-status", `pol-status--${rule.status}`)}>
-          {rule.status}
-        </span>
+      {/* ── Hero ── */}
+      <div className="pol-d__hero">
+        <span className="pol-d__hero-id">{displayId}</span>
+        <span className={cn("pol-status", `pol-status--${rule.status}`)}>{rule.status}</span>
       </div>
+      <h2 className="pol-d__hero-name">{rule.name}</h2>
 
-      <h2 className="pol-detail__title">{rule.name}</h2>
-
-      {/* Method description */}
       {rule.method && (
-        <div className="pol-detail__method">{rule.method}</div>
+        <p className="pol-d__method">{rule.method}</p>
       )}
 
-      <p className="pol-detail__desc">{rule.description}</p>
+      {/* ── Stat grid ── */}
+      <div className="pol-d__stats">
+        <div className="pol-d__stat">
+          <span className="pol-d__stat-num">{rule.violationCount}</span>
+          <span className="pol-d__stat-label">Violations</span>
+        </div>
+        <div className="pol-d__stat">
+          <span className="pol-d__stat-num">{matchCount}</span>
+          <span className="pol-d__stat-label">Matches</span>
+        </div>
+        <div className="pol-d__stat">
+          <span className={cn("pol-d__stat-num", newCount > 0 && "pol-d__stat-num--accent")}>{newCount}</span>
+          <span className="pol-d__stat-label">New in PR</span>
+        </div>
+      </div>
 
-      {/* PR Enforcement */}
+      {/* ── Properties ── */}
+      <div className="pol-d__props">
+        <div className="pol-d__prop">
+          <span className="pol-d__prop-k">Severity</span>
+          <span className={cn("pol-sev", severityClass(rule.severity))}>{SEVERITY_LABEL[rule.severity]}</span>
+        </div>
+        <div className="pol-d__prop">
+          <span className="pol-d__prop-k">Category</span>
+          <span className="pol-d__val">{CATEGORY_LABEL[rule.category]}</span>
+        </div>
+        <div className="pol-d__prop">
+          <span className="pol-d__prop-k">Engine</span>
+          <EngineBadge engine={rule.engine} />
+        </div>
+        <div className="pol-d__prop">
+          <span className="pol-d__prop-k">Constraint</span>
+          <span className="pol-d__val">{rule.constraint}</span>
+        </div>
+        <div className="pol-d__prop">
+          <span className="pol-d__prop-k">Owner</span>
+          <span className="pol-d__val">{rule.owner}</span>
+        </div>
+        {rule.lastTriggeredAt && (
+          <div className="pol-d__prop">
+            <span className="pol-d__prop-k">Last triggered</span>
+            <span className="pol-d__val">{relativeTime(rule.lastTriggeredAt)}</span>
+          </div>
+        )}
+        <div className="pol-d__prop">
+          <span className="pol-d__prop-k">Source scope</span>
+          <ScopePills scope={rule.sourceScope} />
+        </div>
+        <div className="pol-d__prop">
+          <span className="pol-d__prop-k">Target scope</span>
+          <ScopePills scope={rule.targetScope} />
+        </div>
+      </div>
+
+      {/* ── Tags ── */}
+      {rule.tags.length > 0 && (
+        <div className="pol-d__tags">
+          {rule.tags.map((t) => <span key={t} className="pol-tag">{t}</span>)}
+        </div>
+      )}
+
+      {/* ── PR Enforcement ── */}
       {rule.prEnforcement && (
-        <div className="pol-detail__section">
-          <span className="pol-detail__section-label">PR Enforcement</span>
-          <div className="pol-enforcement">
-            <div className="pol-enforcement__row">
-              <span className="pol-enforcement__action">
-                {rule.prEnforcement.action === "block" ? "Block PR Merge" : rule.prEnforcement.action === "warn" ? "Warn on PR" : "Comment on PR"}
-              </span>
-              <span className="pol-enforcement__branches">
-                {rule.prEnforcement.branches.join(", ")}
-              </span>
+        <section className="pol-d__section">
+          <header className="pol-d__section-head">
+            <span className="pol-d__section-title">PR Enforcement</span>
+          </header>
+          <div className="pol-d__enforcement">
+            <div className="pol-d__enf-row">
+              <span className="pol-d__enf-action">{rule.prEnforcement.action === "block" ? "Block PR Merge" : rule.prEnforcement.action === "warn" ? "Warn on PR" : "Comment on PR"}</span>
+              <span className="pol-d__enf-branches">{rule.prEnforcement.branches.join(" / ")}</span>
             </div>
             {rule.prEnforcement.approvalRequired && (
-              <div className="pol-enforcement__row">
-                <span className="pol-enforcement__action">Security approval required</span>
+              <div className="pol-d__enf-row">
+                <span className="pol-d__enf-action">Security approval required</span>
                 {rule.prEnforcement.canaryPercent != null && (
-                  <span className="pol-enforcement__branches">Canary {rule.prEnforcement.canaryPercent}%</span>
+                  <span className="pol-d__enf-branches">Canary {rule.prEnforcement.canaryPercent}%</span>
                 )}
               </div>
             )}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Metadata rows */}
-      <div className="pol-detail__row">
-        <span className="pol-detail__label">Category</span>
-        <span className="pol-cat-label">{CATEGORY_LABEL[rule.category]}</span>
-      </div>
-      <div className="pol-detail__row">
-        <span className="pol-detail__label">Severity</span>
-        <span className={cn("pol-sev", severityClass(rule.severity))}>{SEVERITY_LABEL[rule.severity]}</span>
-      </div>
-      <div className="pol-detail__row">
-        <span className="pol-detail__label">Engine</span>
-        <EngineBadge engine={rule.engine} />
-      </div>
-      <div className="pol-detail__row">
-        <span className="pol-detail__label">Constraint</span>
-        <span className="pol-detail__value">{rule.constraint}</span>
-      </div>
-      <div className="pol-detail__row">
-        <span className="pol-detail__label">Source</span>
-        <ScopePills scope={rule.sourceScope} />
-      </div>
-      <div className="pol-detail__row">
-        <span className="pol-detail__label">Target</span>
-        <ScopePills scope={rule.targetScope} />
-      </div>
-      <div className="pol-detail__row">
-        <span className="pol-detail__label">Owner</span>
-        <span className="pol-detail__value">{rule.owner}</span>
-      </div>
-      {rule.lastTriggeredAt && (
-        <div className="pol-detail__row">
-          <span className="pol-detail__label">Last triggered</span>
-          <span className="pol-detail__value">{relativeTime(rule.lastTriggeredAt)}</span>
-        </div>
-      )}
-
-      {/* Tags */}
-      {rule.tags.length > 0 && (
-        <div className="pol-detail__row">
-          <span className="pol-detail__label">Tags</span>
-          <div className="pol-scope-pills">
-            {rule.tags.map((t) => <span key={t} className="pol-tag">{t}</span>)}
-          </div>
-        </div>
-      )}
-
-      {/* Query Matches */}
-      <div className="pol-detail__section">
-        <span className="pol-detail__section-label">
-          Query Matches ({rule.queryMatches.length})
-        </span>
+      {/* ── Query Matches ── */}
+      <section className="pol-d__section">
+        <header className="pol-d__section-head">
+          <span className="pol-d__section-title">Query Matches</span>
+          <span className="pol-d__section-count">{matchCount}</span>
+        </header>
         <QueryMatchesList matches={rule.queryMatches} />
-      </div>
+      </section>
 
-      {/* Related PRs */}
+      {/* ── Related PRs ── */}
       {rule.relatedPRs && rule.relatedPRs.length > 0 && (
-        <div className="pol-detail__section">
-          <span className="pol-detail__section-label">Related PRs</span>
-          <div className="pol-related-prs">
+        <section className="pol-d__section">
+          <header className="pol-d__section-head">
+            <span className="pol-d__section-title">Related PRs</span>
+            <span className="pol-d__section-count">{rule.relatedPRs.length}</span>
+          </header>
+          <div className="pol-d__pr-list">
             {rule.relatedPRs.map((pr) => (
-              <div key={pr} className="pol-related-pr">{pr}</div>
+              <div key={pr} className="pol-d__pr-row">{pr}</div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Actions */}
-      <div className="pol-detail__actions">
-        <button
-          type="button"
-          className="pol-btn"
-          onClick={() => policyStore.editRule(rule.id)}
-        >
-          Edit rule
-        </button>
-        <button
-          type="button"
-          className="pol-btn pol-btn--ghost"
-          onClick={() => policyStore.toggleRuleStatus(rule.id)}
-        >
+      {/* ── Actions ── */}
+      <div className="pol-d__actions">
+        <button type="button" className="pol-btn" onClick={() => policyStore.editRule(rule.id)}>Edit rule</button>
+        <button type="button" className="pol-btn pol-btn--ghost" onClick={() => policyStore.toggleRuleStatus(rule.id)}>
           {rule.status === "active" ? "Deactivate" : "Activate"}
         </button>
       </div>

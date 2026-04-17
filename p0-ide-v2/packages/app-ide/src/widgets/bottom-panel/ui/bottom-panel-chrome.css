@@ -241,7 +241,6 @@
   align-items: center;
   gap: var(--space-1h);
   padding-bottom: var(--space-2h);
-  border-bottom: 1px solid var(--border);
   margin: -var(--space-0h) 0 var(--space-2h);
 }
 .toolbar__spacer { flex: 1; }

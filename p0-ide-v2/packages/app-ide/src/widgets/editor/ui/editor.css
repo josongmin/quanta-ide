@@ -164,9 +164,18 @@
   height: 100%;
 }
 .editor__cm .cm-scroller {
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--fg-subtle) 22%, transparent) transparent;
 }
-.editor__cm .cm-scroller::-webkit-scrollbar { display: none; }
+.editor__cm .cm-scroller::-webkit-scrollbar { width: 4px; height: 4px; }
+.editor__cm .cm-scroller::-webkit-scrollbar-track { background: transparent; }
+.editor__cm .cm-scroller::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--fg-subtle) 20%, transparent);
+  border-radius: 0;
+}
+.editor__cm .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--fg-subtle) 40%, transparent);
+}
 
 /* ── Symbol marks (inline) ── */
 .cm-sym {
