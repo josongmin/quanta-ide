@@ -138,6 +138,24 @@ export const IDE_FEATURES: readonly FeatureManifest[] = [
     },
   },
   {
+    id: "security-rules",
+    title: "Security Rules",
+    description:
+      "Define, manage, and enforce security rules with source/sink registry, packs, and live violation preview.",
+    category: "rules",
+    visibility: "user",
+    version: "0.1.0",
+    badge: "new",
+    commands: [
+      {
+        id: "securityRules.open",
+        title: "Open Security Rules",
+        keybinding: "⌘8",
+        run: () => focusStore.setViewMode("security-rules"),
+      },
+    ],
+  },
+  {
     id: "prompt-firewall",
     title: "Prompt Injection Firewall",
     description:

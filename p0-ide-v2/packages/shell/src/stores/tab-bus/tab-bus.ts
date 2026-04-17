@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 
-export type TabApp = "new-tab" | "agent" | "pr" | "ide" | "scenario" | "reviews" | "settings";
+export type TabApp = "new-tab" | "agent" | "pr" | "ide" | "scenario" | "reviews" | "policy" | "settings";
 
 export interface OpenTabRequest {
   id: number;

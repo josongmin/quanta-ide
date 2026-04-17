@@ -13,6 +13,7 @@ import { fnHeaders } from "@quanta/app-ide/features/editor-fn-header";
 import { fileHeader } from "@quanta/app-ide/features/editor-file-header";
 import { RiskMinimap } from "@quanta/app-ide/features/editor-risk-minimap";
 import { CanvasView } from "@quanta/app-ide/features/editor-canvas";
+import { SecurityRulesView } from "@quanta/app-ide/features/security-rules";
 import "./editor.css";
 
 const initialTabs = [
@@ -210,6 +211,8 @@ export function Editor() {
               onJump={jumpTo}
             />
           </>
+        ) : viewMode === "security-rules" ? (
+          <SecurityRulesView />
         ) : (
           <CanvasView file={file} />
         )}

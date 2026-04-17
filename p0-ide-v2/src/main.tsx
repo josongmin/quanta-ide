@@ -18,6 +18,7 @@ import { AGENT_FEATURES } from "@quanta/app-agent/seed";
 import { REVIEWS_FEATURES } from "@quanta/app-reviews/seed";
 import { RULES_FEATURES } from "@quanta/app-rules/seed";
 import { SCENARIO_FEATURES } from "@quanta/app-scenario/seed";
+import { POLICY_FEATURES } from "@quanta/app-policy/seed";
 
 // ---------------------------------------------------------------------------
 // Lazy app registrations — each app's Component is code-split via dynamic
@@ -77,6 +78,14 @@ appRegistry.register({
 });
 
 appRegistry.register({
+  id: "policy",
+  label: "Policy",
+  Component: lazy(() =>
+    import("@quanta/app-policy").then((m) => ({ default: m.PolicyApp })),
+  ),
+});
+
+appRegistry.register({
   id: "settings",
   label: "Settings",
   Component: lazy(() =>
@@ -106,6 +115,7 @@ registerFeatureManifests(AGENT_FEATURES);
 registerFeatureManifests(REVIEWS_FEATURES);
 registerFeatureManifests(RULES_FEATURES);
 registerFeatureManifests(SCENARIO_FEATURES);
+registerFeatureManifests(POLICY_FEATURES);
 
 if ("__TAURI_INTERNALS__" in window) {
   document.documentElement.classList.add("is-tauri");

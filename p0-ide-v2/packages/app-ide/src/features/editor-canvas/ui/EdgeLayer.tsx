@@ -1,6 +1,5 @@
 import type { CanvasEdge, CanvasGraph, CodePane } from "@quanta/app-ide/entities/canvas";
 import { cn } from "@quanta/ui-kit/lib";
-import { CODE_PAD_X, CODE_FONT_W } from "../model/layout";
 
 // ── Constants ─────────────────────────────────────────────────────────
 

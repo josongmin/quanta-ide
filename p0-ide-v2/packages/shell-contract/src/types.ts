@@ -8,6 +8,7 @@ export type TabApp =
   | "ide"
   | "scenario"
   | "reviews"
+  | "policy"
   | "settings";
 
 /** Superset: every surface the shell can render, including non-tab pages. */

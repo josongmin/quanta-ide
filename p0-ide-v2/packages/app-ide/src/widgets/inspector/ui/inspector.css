@@ -45,28 +45,20 @@
 .hero__risk-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 3px var(--space-2) 3px 7px;
+  padding: 3px var(--space-2h);
   border-radius: var(--radius-pill);
   font-family: var(--font-sans);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-10);
   font-weight: var(--fw-semibold);
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   line-height: var(--lh-1);
   white-space: nowrap;
-}
-.hero__risk-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 15%, transparent);
 }
 
 /* Risk meter */
 .hero__risk-track {
   position: relative;
-  height: 4px;
+  height: 3px;
   border-radius: var(--radius-pill);
   background: var(--bg-muted);
   overflow: hidden;
@@ -78,14 +70,6 @@
   bottom: 0;
   border-radius: var(--radius-pill);
   transition: width 0.3s ease;
-}
-.hero__risk-tick {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--bg);
-  opacity: 0.9;
 }
 
 /* Stat grid */
@@ -147,6 +131,47 @@
   letter-spacing: 0.08em;
 }
 
+/* Metrics grid (file hero — unified 2×3) */
+.hero__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+.hero__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+}
+.hero__metric:nth-child(3n+1) { padding-left: 0; }
+.hero__metric:nth-child(3n) { padding-right: 0; }
+.hero__metric:not(:nth-child(3n)) {
+  border-right: 1px solid var(--border);
+}
+.hero__metric:nth-child(-n+3) {
+  padding-bottom: var(--space-2h);
+  border-bottom: 1px solid var(--border);
+}
+.hero__metric:nth-child(n+4) {
+  padding-top: var(--space-2h);
+}
+.hero__metric-val {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.hero__metric-key {
+  font-family: var(--font-sans);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-medium);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* Meta row */
 .hero__meta {
   display: inline-flex;
@@ -169,6 +194,7 @@
 .insp__title,
 .insp__section-label,
 .hero__stat-key,
+.hero__metric-key,
 .stat__k,
 .sub__k,
 .flow-pane__k,

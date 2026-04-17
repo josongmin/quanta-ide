@@ -5,27 +5,21 @@ interface Props {
   group: FileGroup;
 }
 
-function riskTone(score: number): "high" | "mid" | "low" {
-  if (score >= 70) return "high";
-  if (score >= 40) return "mid";
-  return "low";
+type Tone = "high" | "mid" | "low";
+
+function riskTone(s: number): Tone { return s >= 70 ? "high" : s >= 40 ? "mid" : "low"; }
+function countTone(n: number): Tone { return n >= 5 ? "high" : n >= 1 ? "mid" : "low"; }
+
+function cellTone(n: number): string {
+  if (n === 0) return "stat-cell--zero";
+  const t = countTone(n);
+  return t === "low" ? "" : `stat-cell--${t}`;
 }
 
-function budgetTone(pct: number): "high" | "mid" | "low" {
-  if (pct >= 80) return "high";
-  if (pct >= 50) return "mid";
-  return "low";
-}
-
-function countTone(n: number): "high" | "mid" | "low" {
-  if (n >= 5) return "high";
-  if (n >= 1) return "mid";
-  return "low";
-}
+const RISK_LABEL: Record<Tone, string> = { high: "High risk", mid: "Medium risk", low: "Low risk" };
 
 export function FileGroupBg({ group }: Props) {
   const tone = riskTone(group.riskScore);
-  const cpxT = budgetTone(group.cpxBudgetPct);
 
   return (
     <div
@@ -39,85 +33,83 @@ export function FileGroupBg({ group }: Props) {
           <path d="M9.5 1.5V4a.5.5 0 0 0 .5.5h2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
         </svg>
         <span className="file-group__name">{group.name}</span>
-        <span className="file-group__meta">{group.loc} loc</span>
-        <span className="file-group__meta">@{group.owner}</span>
         <span className="file-group__spacer" />
-        <span
-          className={cn("file-group__risk", `file-group__risk--${tone}`)}
-          title={`Risk score: ${group.riskScore}`}
-        >
-          {group.riskScore}
-        </span>
+        <span className="file-group__meta">@{group.owner}</span>
       </div>
 
-      {/* ── Metrics strip ── */}
-      <div className="file-group__metrics">
-        {/* Complexity — always shown */}
-        <div
-          className={cn("m-chip", `m-chip--${cpxT}`)}
-          title={`Cyclomatic complexity — peak ${group.cpxMax}, budget ${group.cpxBudgetPct}%`}
-        >
-          <span className="m-chip__label">Complexity</span>
-          <div className="m-chip__body">
-            <span className="m-chip__num">{group.cpxMax}</span>
-            <span className="m-chip__pct">{group.cpxBudgetPct}%</span>
+      {/* ── Risk score hero ── */}
+      <div className={cn("file-score", `file-score--${tone}`)}>
+        <div className="file-score__head">
+          <span className="file-score__val">{group.riskScore}</span>
+          <span className="file-score__denom">/100</span>
+          <span className="file-score__spacer" />
+          <span className={cn("file-score__badge", `file-score__badge--${tone}`)}>
+            <span className="file-score__dot" />
+            {RISK_LABEL[tone]}
+          </span>
+        </div>
+        <div className="file-score__bar">
+          <div
+            className="file-score__bar-fill"
+            style={{ width: `${group.riskScore}%` }}
+          />
+        </div>
+      </div>
+
+      {/* ── Stat grid ── */}
+      <div className="file-stats">
+        {/* Row 1: structure metrics — solid separators */}
+        <div className="file-stats__row file-stats__row--solid">
+          <div className="stat-cell">
+            <div className="stat-cell__head">
+              <span className="stat-cell__icon">≡</span>
+              <span className="stat-cell__num">{group.loc.toLocaleString()}</span>
+            </div>
+            <span className="stat-cell__label">Lines</span>
           </div>
-          <div className="m-chip__bar">
-            <div
-              className={cn("m-chip__bar-fill", `m-chip__bar-fill--${cpxT}`)}
-              style={{ width: `${Math.min(group.cpxBudgetPct, 100)}%` }}
-            />
+          <div className="stat-cell">
+            <div className="stat-cell__head">
+              <span className="stat-cell__icon">λ</span>
+              <span className="stat-cell__num">{group.cpxMax}</span>
+            </div>
+            <span className="stat-cell__label">Cpx peak</span>
+          </div>
+          <div className={cn("stat-cell", cellTone(group.blast))}>
+            <div className="stat-cell__head">
+              <span className="stat-cell__icon">→</span>
+              <span className="stat-cell__num">{group.blast}</span>
+              {group.blastCritical > 0 && (
+                <span className="stat-cell__crit">{group.blastCritical} crit</span>
+              )}
+            </div>
+            <span className="stat-cell__label">Blast</span>
           </div>
         </div>
 
-        {/* Blast radius */}
-        {group.blast > 0 && (
-          <div
-            className={cn("m-chip", `m-chip--${countTone(group.blast)}`)}
-            title={`Blast radius — ${group.blast} affected${group.blastCritical > 0 ? `, ${group.blastCritical} critical` : ""}`}
-          >
-            <span className="m-chip__label">Blast radius</span>
-            <div className="m-chip__body">
-              <span className="m-chip__num">{group.blast}</span>
-              {group.blastCritical > 0 && (
-                <span className="m-chip__crit">{group.blastCritical} crit</span>
-              )}
+        {/* Row 2: quality metrics — dashed separators */}
+        <div className="file-stats__row file-stats__row--dashed">
+          <div className={cn("stat-cell", cellTone(group.taintCount))}>
+            <div className="stat-cell__head">
+              <span className="stat-cell__icon">⚡</span>
+              <span className="stat-cell__num">{group.taintCount}</span>
             </div>
+            <span className="stat-cell__label">Taint</span>
           </div>
-        )}
-
-        {/* Taint flows */}
-        {group.taintCount > 0 && (
-          <div
-            className={cn("m-chip", `m-chip--${countTone(group.taintCount)}`)}
-            title={`${group.taintCount} unsafe data paths`}
-          >
-            <span className="m-chip__label">Taint</span>
-            <span className="m-chip__num">{group.taintCount}</span>
+          <div className={cn("stat-cell", cellTone(group.archViolations))}>
+            <div className="stat-cell__head">
+              <span className="stat-cell__icon">⊘</span>
+              <span className="stat-cell__num">{group.archViolations}</span>
+            </div>
+            <span className="stat-cell__label">Violations</span>
           </div>
-        )}
-
-        {/* Arch violations */}
-        {group.archViolations > 0 && (
-          <div
-            className={cn("m-chip", `m-chip--${countTone(group.archViolations)}`)}
-            title={`${group.archViolations} layer rule breaks`}
-          >
-            <span className="m-chip__label">Violations</span>
-            <span className="m-chip__num">{group.archViolations}</span>
+          <div className={cn("stat-cell", cellTone(group.deadCount))}>
+            <div className="stat-cell__head">
+              <span className="stat-cell__icon">∅</span>
+              <span className="stat-cell__num">{group.deadCount}</span>
+            </div>
+            <span className="stat-cell__label">Dead code</span>
           </div>
-        )}
-
-        {/* Dead code */}
-        {group.deadCount > 0 && (
-          <div
-            className={cn("m-chip", `m-chip--${countTone(group.deadCount)}`)}
-            title={`${group.deadCount} unreachable symbols`}
-          >
-            <span className="m-chip__label">Dead code</span>
-            <span className="m-chip__num">{group.deadCount}</span>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );

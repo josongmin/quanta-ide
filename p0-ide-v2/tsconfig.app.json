@@ -42,6 +42,8 @@
       "@quanta/app-settings/*": ["packages/app-settings/src/*"],
       "@quanta/app-home": ["packages/app-home/src"],
       "@quanta/app-home/*": ["packages/app-home/src/*"],
+      "@quanta/app-policy": ["packages/app-policy/src"],
+      "@quanta/app-policy/*": ["packages/app-policy/src/*"],
       "@quanta/ui-kit": ["packages/ui-kit/src"],
       "@quanta/ui-kit/*": ["packages/ui-kit/src/*"]
     }

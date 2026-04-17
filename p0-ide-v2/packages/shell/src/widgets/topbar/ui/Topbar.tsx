@@ -9,7 +9,7 @@ import "./topbar.css";
 /** Show floating title when tab is this narrow (px), or when the label is truncated. */
 const TAB_TITLE_TIP_NARROW_PX = 128;
 
-export type AppKind = "home" | "new-tab" | "ide" | "agent" | "pr" | "scenario" | "reviews" | "settings";
+export type AppKind = "home" | "new-tab" | "ide" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings";
 export interface Tab { id: string; app: AppKind; label: string; }
 
 const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
@@ -20,6 +20,7 @@ const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   pr: PrIcon,
   scenario: CodeIcon,
   reviews: CodeIcon,
+  policy: CodeIcon,
   settings: SettingsTabIcon,
 };
 
