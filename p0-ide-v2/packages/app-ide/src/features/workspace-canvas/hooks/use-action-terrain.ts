@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import {
   computeRefactorROI,
   buildRefactorSuggestions,
@@ -11,13 +11,21 @@ import {
   type RefactorPlan,
   type RefactorSimulationResult,
   type ImpactCone,
-  type WorkspaceMetrics,
 } from "@quanta/canvas-engine";
-import { ROI_COLD, ROI_WARM, ROI_HOT, type IsoConfig } from "@quanta/canvas-pixi";
+import {
+  ROI_COLD,
+  ROI_WARM,
+  ROI_HOT,
+  DEFAULT_ISO_CONFIG,
+  type IsoConfig,
+} from "@quanta/canvas-pixi";
 import { useSceneStore } from "../store/scene-store";
 import { useFeature } from "../store/feature-flags-store";
 import {
+  actionTerrainStore,
   useActionTerrainStore,
+  EMPTY_SUGGESTIONS,
+  EMPTY_BARS,
   type ActionTerrainBarPayload,
   type ActionTerrainConePayload,
 } from "../store/action-terrain-store";
@@ -27,16 +35,15 @@ export interface ActionTerrainDerived {
   roi: RefactorRoiResult | null;
   suggestions: ReadonlyMap<string, readonly RefactorPlan[]>;
   simulation: RefactorSimulationResult | null;
-  cone: ImpactCone | null;
   bars: readonly ActionTerrainBarPayload[];
   coneForRenderer: ActionTerrainConePayload | null;
   isoConfig: IsoConfig;
-  metrics: WorkspaceMetrics | null;
 }
 
-function deriveRoiColor(t: number): number {
-  if (t <= 0.5) return mixHex(ROI_COLD, ROI_WARM, t * 2);
-  return mixHex(ROI_WARM, ROI_HOT, (t - 0.5) * 2);
+export function deriveRoiColorHex(t: number): number {
+  const clamped = t <= 0 ? 0 : t >= 1 ? 1 : t;
+  if (clamped <= 0.5) return mixHex(ROI_COLD, ROI_WARM, clamped * 2);
+  return mixHex(ROI_WARM, ROI_HOT, (clamped - 0.5) * 2);
 }
 
 function clamp01(x: number): number {
@@ -45,27 +52,26 @@ function clamp01(x: number): number {
   return x;
 }
 
-const DEFAULT_ISO_CONFIG: IsoConfig = { xShiftPerZ: 0.35, maxZ: 180 };
 const MAX_CONE_DEPTH = 4;
 const MAX_SUGGESTIONS_PER_FILE = 2;
-
-const EMPTY_SUGGESTIONS: ReadonlyMap<string, readonly RefactorPlan[]> = new Map();
-const EMPTY_BARS: readonly ActionTerrainBarPayload[] = [];
 
 const DISABLED_RESULT: ActionTerrainDerived = {
   enabled: false,
   roi: null,
   suggestions: EMPTY_SUGGESTIONS,
   simulation: null,
-  cone: null,
   bars: EMPTY_BARS,
   coneForRenderer: null,
   isoConfig: DEFAULT_ISO_CONFIG,
-  metrics: null,
 };
 
 export function useActionTerrain(): ActionTerrainDerived {
-  const mode = useActionTerrainStore(s => s.mode);
+  // Feature-flag AND store-toggle AND sub-feature gates. If the master flag
+  // is off we never want to pay the compute even if the persisted store
+  // state says mode=true.
+  const featureOn = useFeature("action-terrain.mode");
+  const storeMode = useActionTerrainStore(s => s.mode);
+  const mode = featureOn && storeMode;
   const selectedFileId = useActionTerrainStore(s => s.selectedFileId);
   const coneDirection = useActionTerrainStore(s => s.coneDirection);
   const activePlanId = useActionTerrainStore(s => s.activePlanId);
@@ -75,12 +81,10 @@ export function useActionTerrain(): ActionTerrainDerived {
   const graph = useSceneStore(s => s.graph);
   const layout = useSceneStore(s => s.layout);
 
-  // Sub-feature flags: terrain bars and cone can be independently disabled
-  // even when master `.mode` is on.
   const topographyOn = useFeature("action-terrain.leverage-topography");
   const coneOn = useFeature("action-terrain.blast-fix-cone");
 
-  const metrics = useMemo<WorkspaceMetrics | null>(() => {
+  const metrics = useMemo(() => {
     if (!mode) return null;
     if (!graph) return null;
     if (layout?.metrics) return layout.metrics;
@@ -111,6 +115,15 @@ export function useActionTerrain(): ActionTerrainDerived {
     return null;
   }, [activePlanId, suggestions]);
 
+  // Auto-clear a plan id that has gone stale (graph swap invalidated the
+  // prior suggestions). Without this the store holds a phantom selection
+  // that never produces a simulation overlay.
+  useEffect(() => {
+    if (activePlanId && !activePlan && suggestions.size > 0) {
+      actionTerrainStore.selectPlan(null);
+    }
+  }, [activePlanId, activePlan, suggestions]);
+
   const simulation = useMemo<RefactorSimulationResult | null>(() => {
     if (!mode || !roi || !activePlan) return null;
     return simulateRefactor(roi, activePlan);
@@ -133,9 +146,9 @@ export function useActionTerrain(): ActionTerrainDerived {
       const t = clamp01((raw / 100) * heightScale);
       out.push({
         fileId,
-        rect: { x: rect.x, y: rect.y, w: rect.w, h: rect.h },
+        rect,
         heightNorm: t,
-        colorHex: deriveRoiColor(t),
+        colorHex: deriveRoiColorHex(t),
         alpha: 0.88,
         highlighted: selectedFileId === fileId || (deltaSet?.has(fileId) ?? false),
       });
@@ -167,12 +180,9 @@ export function useActionTerrain(): ActionTerrainDerived {
       roi,
       suggestions,
       simulation,
-      cone,
       bars,
       coneForRenderer,
       isoConfig: DEFAULT_ISO_CONFIG,
-      metrics,
     };
-  }, [mode, roi, suggestions, simulation, cone, bars, coneForRenderer, metrics]);
+  }, [mode, roi, suggestions, simulation, bars, coneForRenderer]);
 }
-

@@ -22,6 +22,7 @@ import { debugSettingsStore } from "../store/debug-settings-store";
 import { renderSettingsStore } from "../store/render-settings-store";
 import { stickiesStore, type Sticky } from "../store/stickies-store";
 import { themeStore } from "../store/theme-store";
+import { actionTerrainStore } from "../store/action-terrain-store";
 
 export type CommandCategory =
   | "files"
@@ -184,6 +185,17 @@ export function seedCommands(ctx: CommandSeedContext): readonly Command[] {
     keywords: ["theme", "appearance", "dark", "light"],
     when: () => featureFlagsStore.isEnabled("power.themeSwitcher"),
     run: () => themeStore.cycle(),
+  });
+  out.push({
+    id: "action.actionTerrain.toggle",
+    label: actionTerrainStore.getState().mode
+      ? "Exit Action Terrain (iso refactor-ROI mode)"
+      : "Enter Action Terrain (iso refactor-ROI mode)",
+    category: "actions",
+    keywords: ["iso", "3d", "refactor", "roi", "terrain", "backlog", "hotspot"],
+    hint: "⌘⇧A",
+    when: () => featureFlagsStore.isEnabled("action-terrain.mode"),
+    run: () => actionTerrainStore.toggleMode(),
   });
 
   // Temporal AI surfaces (T4) — each command dispatches the window-level

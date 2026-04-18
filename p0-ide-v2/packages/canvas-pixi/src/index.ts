@@ -9,3 +9,4 @@ export type { PixiDebugHook } from "./debug/pixi-debug-hook";
 // (KIND_STYLE keyed by EdgeKind, LAYER_STYLE keyed by EdgeLayer). Kept as
 // read-only records so HUD can't mutate the renderer palette.
 export { KIND_STYLE, LAYER_STYLE, DESIGN_TOKENS, ROI_COLD, ROI_WARM, ROI_HOT } from "./renderers/shared/colors";
+export { DEFAULT_ISO_CONFIG } from "./renderers/iso/iso-projection";

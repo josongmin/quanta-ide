@@ -288,30 +288,57 @@ register("effectBadge", (world) => {
 
 register("isoTerrain", (world) => {
   const r = new IsoTerrainRenderer(world);
+  // Cache last inputs so viewport-only ticks (which re-fire the overlay
+  // dispatch) don't trigger a 5k-bar rebuild when nothing iso-relevant
+  // changed. Works because the hook's `bars` memo is reference-stable.
+  let lastBars: readonly IsoTerrainBar[] | undefined;
+  let lastCfg: IsoConfig | undefined;
+  let lastEnabled = false;
   return {
     update(ctx) {
-      if (ctx.actionTerrainEnabled && ctx.actionTerrainBars && ctx.actionTerrainBars.length > 0) {
-        r.build(ctx.actionTerrainBars, ctx.actionTerrainIsoConfig);
-      } else {
-        r.clear();
-      }
+      const enabled = !!ctx.actionTerrainEnabled;
+      const bars = ctx.actionTerrainBars;
+      const cfg = ctx.actionTerrainIsoConfig;
+      if (enabled === lastEnabled && bars === lastBars && cfg === lastCfg) return;
+      lastEnabled = enabled;
+      lastBars = bars;
+      lastCfg = cfg;
+      if (enabled && bars && bars.length > 0) r.build(bars, cfg);
+      else r.clear();
     },
-    clear() { r.clear(); },
+    clear() {
+      r.clear();
+      lastBars = undefined;
+      lastCfg = undefined;
+      lastEnabled = false;
+    },
     destroy() { r.destroy(); },
   };
 });
 
 register("isoCone", (world) => {
   const r = new IsoConeRenderer(world);
+  let lastCone: IsoConeInput | null | undefined;
+  let lastCfg: IsoConfig | undefined;
+  let lastEnabled = false;
   return {
     update(ctx) {
-      if (ctx.actionTerrainEnabled && ctx.actionTerrainCone) {
-        r.build(ctx.actionTerrainCone, ctx.actionTerrainIsoConfig);
-      } else {
-        r.clear();
-      }
+      const enabled = !!ctx.actionTerrainEnabled;
+      const cone = ctx.actionTerrainCone ?? null;
+      const cfg = ctx.actionTerrainIsoConfig;
+      if (enabled === lastEnabled && cone === lastCone && cfg === lastCfg) return;
+      lastEnabled = enabled;
+      lastCone = cone;
+      lastCfg = cfg;
+      if (enabled && cone) r.build(cone, cfg);
+      else r.clear();
     },
-    clear() { r.clear(); },
+    clear() {
+      r.clear();
+      lastCone = undefined;
+      lastCfg = undefined;
+      lastEnabled = false;
+    },
     destroy() { r.destroy(); },
   };
 });

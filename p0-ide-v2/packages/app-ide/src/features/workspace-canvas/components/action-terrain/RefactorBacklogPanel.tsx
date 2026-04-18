@@ -5,9 +5,9 @@ import {
   useActionTerrainStore,
   useActionTerrainRender,
 } from "../../store/action-terrain-store";
+import { interactionStore } from "../../store/interaction-store";
 import { hexToCss, type RefactorPlan, type RefactorRoiScore } from "@quanta/canvas-engine";
-import { ROI_COLD, ROI_WARM, ROI_HOT } from "@quanta/canvas-pixi";
-import { mixHex } from "@quanta/canvas-engine";
+import { deriveRoiColorHex } from "../../hooks/use-action-terrain";
 
 const TOP_N = 10;
 
@@ -47,11 +47,7 @@ function basename(id: string): string {
 }
 
 function deriveRoiColorCss(score: number): string {
-  const t = Math.max(0, Math.min(1, score / 100));
-  const hex = t <= 0.5
-    ? mixHex(ROI_COLD, ROI_WARM, t * 2)
-    : mixHex(ROI_WARM, ROI_HOT, (t - 0.5) * 2);
-  return hexToCss(hex);
+  return hexToCss(deriveRoiColorHex(score / 100));
 }
 
 function computeTotalScore(ordered: readonly RefactorRoiScore[]): number {
@@ -101,7 +97,12 @@ export function RefactorBacklogPanel() {
   };
 
   const onRowClick = (id: string) => {
-    actionTerrainStore.selectFile(id === selectedFileId ? null : id);
+    const next = id === selectedFileId ? null : id;
+    actionTerrainStore.selectFile(next);
+    // Mirror into canvas selection so Inspector / EvidencePanel / hover-
+    // summary stay aligned with the terrain focus. Clearing is handled by
+    // the user via Esc; row re-click only clears terrain selection.
+    if (next) interactionStore.selectFile(next);
   };
 
   const onSimulate = (planId: string) => {

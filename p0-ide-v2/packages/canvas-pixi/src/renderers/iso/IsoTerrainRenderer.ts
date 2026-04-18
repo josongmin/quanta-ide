@@ -45,9 +45,13 @@ export class IsoTerrainRenderer {
     const sorted = [...bars].sort((a, b) => a.rect.y - b.rect.y);
 
     for (const bar of sorted) {
-      if (bar.heightNorm <= MIN_VISIBLE_HEIGHT_NORM) continue;
+      // Defensive clamp — upstream is expected to sanitize, but NaN
+      // leakage here produces NaN polygon coords and garbage frames.
+      const h = Number.isFinite(bar.heightNorm) ? bar.heightNorm : 0;
+      if (h <= MIN_VISIBLE_HEIGHT_NORM) continue;
 
-      const zHeight = cfg.maxZ * bar.heightNorm;
+      const zHeight = cfg.maxZ * h;
+      if (!Number.isFinite(zHeight) || zHeight <= 0) continue;
       const faces = buildIsoBoxFaces(bar.rect, zHeight, cfg);
       const globalAlpha = bar.alpha ?? 1;
 

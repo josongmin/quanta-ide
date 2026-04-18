@@ -22,7 +22,6 @@ export function ActionTerrainLayer(): null {
       roi: derived.roi,
       suggestions: derived.suggestions,
       simulation: derived.simulation,
-      cone: derived.cone,
       bars: derived.bars,
       coneForRenderer: derived.coneForRenderer,
       isoConfig: derived.isoConfig,

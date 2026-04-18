@@ -3,8 +3,8 @@ import type {
   RefactorRoiResult,
   RefactorPlan,
   RefactorSimulationResult,
-  ImpactCone,
 } from "@quanta/canvas-engine";
+import { DEFAULT_ISO_CONFIG, type IsoConfig } from "@quanta/canvas-pixi";
 
 export type ConeDirection = "blast" | "fix";
 
@@ -99,9 +99,6 @@ function subscribe(listener: () => void): () => void {
 const actions = {
   toggleMode(): void {
     const next = !state.mode;
-    // Exiting mode wipes ephemerals so a re-entry starts clean — otherwise
-    // the prior cone / simulation resurrects for a graph that may have
-    // changed since.
     state = next
       ? { ...state, mode: true }
       : { ...state, mode: false, selectedFileId: null, activePlanId: null, showSimulationDelta: false };
@@ -169,9 +166,8 @@ export function useActionTerrainStore<T>(selector: (s: ActionTerrainState) => T)
 export const ACTION_TERRAIN_HEIGHT_RANGE = { min: HEIGHT_MIN, max: HEIGHT_MAX } as const;
 
 // ── Render slice ────────────────────────────────────────────────────
-// The hook computes ROI + suggestions + simulation + bars + cone once per
-// input change; all consumers (Pixi overlay, backlog panel, HUD section)
-// subscribe here via a selector so the compute only runs in one place.
+// Populated by ActionTerrainLayer (the sole hook caller); all other
+// consumers read from here via selectors.
 
 export interface ActionTerrainBarPayload {
   fileId: string;
@@ -188,12 +184,7 @@ export interface ActionTerrainConePayload {
     depth: number;
     nodes: readonly { x: number; y: number; fileId: string }[];
   }[];
-  direction: "blast" | "fix";
-}
-
-export interface ActionTerrainIsoConfigPayload {
-  xShiftPerZ: number;
-  maxZ: number;
+  direction: ConeDirection;
 }
 
 export interface ActionTerrainRenderState {
@@ -201,24 +192,22 @@ export interface ActionTerrainRenderState {
   roi: RefactorRoiResult | null;
   suggestions: ReadonlyMap<string, readonly RefactorPlan[]>;
   simulation: RefactorSimulationResult | null;
-  cone: ImpactCone | null;
   bars: readonly ActionTerrainBarPayload[];
   coneForRenderer: ActionTerrainConePayload | null;
-  isoConfig: ActionTerrainIsoConfigPayload;
+  isoConfig: IsoConfig;
 }
 
-const EMPTY_SUGGESTIONS: ReadonlyMap<string, readonly RefactorPlan[]> = new Map();
-const EMPTY_BARS: readonly ActionTerrainBarPayload[] = [];
+export const EMPTY_SUGGESTIONS: ReadonlyMap<string, readonly RefactorPlan[]> = new Map();
+export const EMPTY_BARS: readonly ActionTerrainBarPayload[] = [];
 
 const DEFAULT_RENDER_STATE: ActionTerrainRenderState = {
   enabled: false,
   roi: null,
   suggestions: EMPTY_SUGGESTIONS,
   simulation: null,
-  cone: null,
   bars: EMPTY_BARS,
   coneForRenderer: null,
-  isoConfig: { xShiftPerZ: 0.35, maxZ: 180 },
+  isoConfig: DEFAULT_ISO_CONFIG,
 };
 
 let renderState: ActionTerrainRenderState = DEFAULT_RENDER_STATE;
@@ -234,7 +223,6 @@ function renderStatesEqual(a: ActionTerrainRenderState, b: ActionTerrainRenderSt
     a.roi === b.roi &&
     a.suggestions === b.suggestions &&
     a.simulation === b.simulation &&
-    a.cone === b.cone &&
     a.bars === b.bars &&
     a.coneForRenderer === b.coneForRenderer &&
     a.isoConfig === b.isoConfig
@@ -257,7 +245,6 @@ export const actionTerrainRenderStore = {
     emitRender();
   },
   reset(): void {
-    // Short-circuit so an idle-mode re-render doesn't wake every subscriber.
     if (renderState === DEFAULT_RENDER_STATE) return;
     if (!renderState.enabled && renderState.bars === EMPTY_BARS && !renderState.coneForRenderer) return;
     renderState = DEFAULT_RENDER_STATE;

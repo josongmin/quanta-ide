@@ -130,8 +130,17 @@ export function MultiFileCanvas({ graph }: Props) {
   const showLatencyOverlay = useRenderSettings(s => s.showLatencyOverlay);
   const agentPresence     = usePresenceStore(s => s.agents);
 
-  const actionTerrainMode  = useActionTerrainStore(s => s.mode);
-  const actionTerrainRender = useActionTerrainRender(s => s);
+  const actionTerrainMode    = useActionTerrainStore(s => s.mode);
+  const actionTerrainEnabled = useActionTerrainRender(s => s.enabled);
+  const actionTerrainBars    = useActionTerrainRender(s => s.bars);
+  const actionTerrainCone    = useActionTerrainRender(s => s.coneForRenderer);
+  const actionTerrainIsoCfg  = useActionTerrainRender(s => s.isoConfig);
+  const actionTerrainProps = useMemo(() => ({
+    enabled: actionTerrainEnabled,
+    bars: actionTerrainBars,
+    cone: actionTerrainCone,
+    isoConfig: actionTerrainIsoCfg,
+  }), [actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoCfg]);
 
   const { edgeFocus, edgePredicate, edgeViolations } =
     useEdgeFocusLogic(graph, layout, viewState);
@@ -428,12 +437,7 @@ export function MultiFileCanvas({ graph }: Props) {
           temporal={{ temporalEdgeSet, diffAdded, diffRemoved }}
           trace={{ activeTrace, traceEdgeSet }}
           presence={{ agentPresence, showAgentPresence }}
-          actionTerrain={{
-            enabled: actionTerrainRender.enabled,
-            bars: actionTerrainRender.bars,
-            cone: actionTerrainRender.coneForRenderer,
-            isoConfig: actionTerrainRender.isoConfig,
-          }}
+          actionTerrain={actionTerrainProps}
           highlightCrossGraph={highlightCrossGraph}
           elevationMode={elevationMode}
           effects={graph.effects}

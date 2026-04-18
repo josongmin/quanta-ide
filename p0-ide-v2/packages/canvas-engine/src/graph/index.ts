@@ -118,9 +118,6 @@ export { computeRefactorROI, DEFAULT_ROI_WEIGHTS } from "./refactor-roi";
 export type { ImpactConeRing, ImpactCone, ImpactDirection } from "./blast-fix-cone";
 export { computeBlastCone, computeFixCone } from "./blast-fix-cone";
 
-export type { DebtLayer, DebtStrataResult } from "./debt-strata";
-export { computeDebtStrata } from "./debt-strata";
-
 export type { RefactorPlanKind, RefactorPlan, BuildSuggestionsOptions } from "./refactor-suggestions";
 export { buildRefactorSuggestions } from "./refactor-suggestions";
 
