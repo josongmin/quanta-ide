@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, type PointerEven
 import { clamp } from "@quanta/canvas-engine";
 import { stickiesStore, STICKY_COLORS, type Sticky, type StickyColor } from "../store/stickies-store";
 import { WS_CLASSES } from "../lib/css-classes";
+import { useFeature } from "../store/feature-flags-store";
 
 interface Props {
   sticky: Sticky;
@@ -17,6 +18,7 @@ const MAX_H = 300;
 
 function StickyNoteInner({ sticky, isActive, scale, onDragStart }: Props) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lockEnabled = useFeature("collab.lock");
 
   useLayoutEffect(() => {
     if (!isActive) return;
@@ -35,10 +37,22 @@ function StickyNoteInner({ sticky, isActive, scale, onDragStart }: Props) {
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
       if ((e.target as HTMLElement).closest("button")) return;
+      // Locked stickies cannot be dragged; the header still allows selection.
+      if (sticky.locked) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!isActive) stickiesStore.setActive(sticky.id);
+        return;
+      }
       onDragStart(sticky.id, e);
     },
-    [onDragStart, sticky.id],
+    [onDragStart, sticky.id, sticky.locked, isActive],
   );
+
+  const onLockToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    stickiesStore.toggleLocked(sticky.id);
+  }, [sticky.id]);
 
   const onBodyPointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -79,6 +93,7 @@ function StickyNoteInner({ sticky, isActive, scale, onDragStart }: Props) {
     sticky.resolved ? `${WS_CLASSES.sticky}--resolved` : "",
     sticky.anchorFileId ? `${WS_CLASSES.sticky}--anchored` : "",
     isActive ? `${WS_CLASSES.sticky}--active` : "",
+    sticky.locked ? `${WS_CLASSES.sticky}--locked` : "",
   ].filter(Boolean).join(" ");
 
   // Counter-scale interactive sub-elements so hit targets/text feel consistent
@@ -103,6 +118,16 @@ function StickyNoteInner({ sticky, isActive, scale, onDragStart }: Props) {
       <div className={WS_CLASSES.stickyHeader} onPointerDown={onHeaderPointerDown}>
         <span className={WS_CLASSES.stickyAuthor}>{sticky.author}</span>
         <div className={WS_CLASSES.stickyActions}>
+          {lockEnabled && (
+            <button
+              type="button"
+              className={`${WS_CLASSES.stickyResolve} ws-sticky__lock`}
+              title={sticky.locked ? "unlock" : "lock"}
+              onClick={onLockToggle}
+            >
+              {sticky.locked ? "🔒" : "🔓"}
+            </button>
+          )}
           <button
             type="button"
             className={WS_CLASSES.stickyResolve}

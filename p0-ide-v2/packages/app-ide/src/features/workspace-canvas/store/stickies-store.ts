@@ -2,6 +2,13 @@ import { useSyncExternalStore } from "react";
 
 export type StickyColor = "yellow" | "pink" | "green" | "blue" | "lilac";
 
+/** Optional retro-board assignment — when set, the sticky is ALSO
+ *  rendered inside the RetroColumns overlay in the matching column.
+ *  Does not affect regular canvas sticky rendering. Mirrors the
+ *  RetroColumn type on retro-store (kept as a string literal to avoid
+ *  a circular import between the two stores). */
+export type StickyRetroColumn = "well" | "didnt" | "action";
+
 export interface Sticky {
   id: string;
   x: number;
@@ -15,6 +22,8 @@ export interface Sticky {
   updatedAt: number;
   anchorFileId?: string;
   resolved?: boolean;
+  locked?: boolean;
+  retroColumn?: StickyRetroColumn;
 }
 
 export interface StickiesState {
@@ -125,9 +134,22 @@ const actions = {
     let changed = false;
     const next = state.stickies.map(s => {
       if (s.id !== id) return s;
+      if (s.locked) return s;
       if (s.x === x && s.y === y) return s;
       changed = true;
       return { ...s, x, y, updatedAt: Date.now() };
+    });
+    if (!changed) return;
+    state = { ...state, stickies: next };
+    emit();
+  },
+
+  toggleLocked(id: string) {
+    let changed = false;
+    const next = state.stickies.map(s => {
+      if (s.id !== id) return s;
+      changed = true;
+      return { ...s, locked: !s.locked, updatedAt: Date.now() };
     });
     if (!changed) return;
     state = { ...state, stickies: next };

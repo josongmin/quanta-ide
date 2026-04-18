@@ -14,6 +14,7 @@ import {
 import { useUxSettings, uxSettingsStore } from "../../store/ux-settings-store";
 import { useDebugSettings, debugSettingsStore } from "../../store/debug-settings-store";
 import { stickiesStore, useStickiesStore, type Sticky } from "../../store/stickies-store";
+import { CommentsSection } from "./CommentsSection";
 import { buildShareUrl, decodeWorkspaceState } from "../../lib/workspace-url";
 import {
   applyWorkspaceUrlState,
@@ -515,6 +516,8 @@ export function SceneSection() {
       <TemporalSection temporal={temporal} history={graph?.history} />
 
       <StickiesSection />
+
+      <CommentsSection />
 
       <div className="ws-debug__divider">viewport</div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>

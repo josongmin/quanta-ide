@@ -28,6 +28,13 @@ import { LoadingOverlay } from "./LoadingOverlay";
 import { DebugHud } from "./DebugHud";
 import { EvidencePanel } from "./EvidencePanel";
 import { StickiesLayer } from "./StickiesLayer";
+import { AnnotationsLayer } from "./AnnotationsLayer";
+import { AnnotationToolbar } from "./AnnotationToolbar";
+import { CollabLayer } from "./CollabLayer";
+import { ReviewLayer } from "./ReviewLayer";
+import { SessionTimer } from "./SessionTimer";
+import { DevModeLayer, type DevModeLayerApi } from "./DevModeLayer";
+import { useFeature } from "../store/feature-flags-store";
 
 interface Props {
   graph: WorkspaceGraph;
@@ -298,6 +305,14 @@ export function MultiFileCanvas({ graph }: Props) {
       )}
 
       <StickiesLayer transform={transform} scale={viewport.scale} />
+      <CollabLayer
+        transform={transform}
+        scale={viewport.scale}
+        layout={layout}
+        graph={graph}
+      />
+      <AnnotationsLayer transform={transform} scale={viewport.scale} containerRef={containerRef} />
+      <ReviewLayer graph={graph} transform={transform} scale={viewport.scale} />
       <Minimap layout={layout} viewport={viewport} />
       <CanvasControls
         scale={viewport.scale}
@@ -308,8 +323,19 @@ export function MultiFileCanvas({ graph }: Props) {
         edgeCount={visibleScene?.edges.length ?? 0}
         onToggleEdges={toggleEdges}
       />
+      <AnnotationToolbar />
+      <TimerMount />
       <DebugHud />
       <EvidencePanel />
     </div>
   );
+}
+
+// Feature-gated mount for the session timer widget. Rendered as a
+// separate component so the gate lookup doesn't re-run the canvas
+// body's memoization.
+function TimerMount() {
+  const on = useFeature("review.timer");
+  if (!on) return null;
+  return <SessionTimer />;
 }

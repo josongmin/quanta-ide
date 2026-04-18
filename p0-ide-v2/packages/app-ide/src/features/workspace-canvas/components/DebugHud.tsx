@@ -9,8 +9,10 @@ import { SimulatorSection } from "./debug-hud/SimulatorSection";
 import { GraphSection } from "./debug-hud/GraphSection";
 import { AgentsSection } from "./debug-hud/AgentsSection";
 import { FeaturesSection } from "./debug-hud/FeaturesSection";
+import { FollowSection } from "./debug-hud/FollowSection";
+import { ReviewSection } from "./debug-hud/ReviewSection";
 
-type Tab = "fps" | "lod" | "scene" | "perf" | "graph" | "agents" | "features";
+type Tab = "fps" | "lod" | "scene" | "perf" | "graph" | "agents" | "features" | "review";
 const TABS: readonly { id: Tab; label: string }[] = [
   { id: "fps", label: "fps" },
   { id: "lod", label: "lod" },
@@ -19,6 +21,7 @@ const TABS: readonly { id: Tab; label: string }[] = [
   { id: "graph", label: "graph" },
   { id: "agents", label: "agents" },
   { id: "features", label: "features" },
+  { id: "review", label: "review" },
 ] as const;
 
 // Floating corner overlay for development/debugging. Surfaces the LOD, scale,
@@ -117,8 +120,14 @@ export function DebugHud() {
           </>
         )}
         {tab === "graph" && <GraphSection />}
-        {tab === "agents" && <AgentsSection />}
+        {tab === "agents" && (
+          <>
+            <AgentsSection />
+            <FollowSection />
+          </>
+        )}
         {tab === "features" && <FeaturesSection />}
+        {tab === "review" && <ReviewSection />}
       </div>
     </div>
   );
