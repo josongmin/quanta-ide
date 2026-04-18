@@ -1,5 +1,7 @@
 import { sceneStore } from "../store/scene-store";
 import { presenceStore, type AgentActivity, type AgentPresence } from "../store/presence-store";
+import { getPresenceTransport } from "./presence-transport-ref";
+import { MockPresenceTransport, type PresenceMessage } from "./presence-transport";
 
 // perf: was 3000ms; raised to 12000ms to reduce main-thread tax.
 const TICK_MS = 12000;
@@ -45,8 +47,32 @@ function pickRandom<T>(arr: readonly T[]): T | undefined {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function emit(msg: PresenceMessage): void {
+  const tr = getPresenceTransport();
+  if (tr instanceof MockPresenceTransport) {
+    tr.dispatch(msg);
+  } else {
+    tr.send(msg);
+  }
+}
+
 export function startMockPresence(): () => void {
-  presenceStore.setAgents(seedAgents());
+  const agents = seedAgents();
+  presenceStore.setAgents(agents);
+  // Announce each agent over the transport so any peer subscribed to
+  // `presence-join` picks them up symmetrically. Agent *activity*
+  // (reading/editing/…) is richer than the current wire schema, so the
+  // ticking update below still touches `presenceStore` directly — that
+  // can be promoted to a dedicated wire message later without changing
+  // the interface.
+  for (const a of agents) {
+    emit({
+      kind: "presence-join",
+      userId: a.agentId,
+      label: a.label,
+      color: a.color,
+    });
+  }
 
   let tick = 0;
   const interval = window.setInterval(() => {
@@ -78,6 +104,9 @@ export function startMockPresence(): () => void {
 
   return () => {
     window.clearInterval(interval);
+    for (const a of agents) {
+      emit({ kind: "presence-leave", userId: a.agentId });
+    }
     presenceStore.setAgents([]);
   };
 }

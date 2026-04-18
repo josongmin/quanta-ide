@@ -47,15 +47,7 @@ export function GraphSection() {
   }, [metrics]);
 
   if (!metrics) {
-    return (
-      <div className="ws-debug__grid">
-        <span className="ws-debug__k">상태</span>
-        <span className="ws-debug__v">메트릭 없음</span>
-        <span className="ws-debug__k" style={{ gridColumn: "1 / -1", opacity: 0.6 }}>
-          레이아웃이 완료되면 메트릭이 표시됩니다.
-        </span>
-      </div>
-    );
+    return <GraphEmptyState />;
   }
 
   const hasBetweenness = btwRows.length > 0;
@@ -548,6 +540,39 @@ function HotPathsSection() {
         </>
       )}
     </>
+  );
+}
+
+function GraphEmptyState() {
+  // Layout is computed automatically once the graph is mounted — the
+  // most common reason the metrics panel is empty is "no graph selected
+  // yet" or "still loading". We surface both gracefully and offer a
+  // one-click fit so the user can see the canvas react.
+  const graph = useSceneStore(s => s.graph);
+  const progress = useSceneStore(s => s.layoutProgress);
+  const stage = progress?.stage ?? "idle";
+  const computing =
+    stage === "requested" ||
+    stage === "grid-ready" ||
+    stage === "elk-running";
+  const hasGraph = (graph?.files.length ?? 0) > 0;
+
+  const label = computing
+    ? "Layout is computing…"
+    : hasGraph
+      ? "No metrics yet"
+      : "No graph loaded";
+  const hint = computing
+    ? `Processing ${progress?.filesCount ?? 0} files — centrality will appear shortly.`
+    : hasGraph
+      ? "Run workspace layout to see centrality, SCC, and hot-path rankings."
+      : "Load a workspace to populate the graph view.";
+
+  return (
+    <div className="ws-graph-empty" role="status">
+      <div className="ws-graph-empty__title">{label}</div>
+      <div className="ws-graph-empty__hint">{hint}</div>
+    </div>
   );
 }
 

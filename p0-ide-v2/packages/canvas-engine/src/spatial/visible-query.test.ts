@@ -5,7 +5,7 @@ import {
   buildSuperclusterQuery,
   buildSceneQuery,
 } from "./visible-query";
-import type { WorkspaceGraph, FileNode, FileEdge, Rect } from "../graph/types";
+import type { WorkspaceGraph, FileNode, FileEdge, Rect, WorkspaceComment } from "../graph/types";
 import type { WorkspaceLayout, ClusterMeta, BezierRoute } from "../layout/types";
 import type { Viewport, WorkspaceScene, WorkspaceFileView, WorkspaceClusterView, WorkspaceSuperclusterView } from "../view/types";
 
@@ -140,6 +140,54 @@ describe("buildVisibleQuery (file LOD)", () => {
     // whose id is in the visible set (edge filter is position-based,
     // not id-based).
     expect(view.edges.length).toBeLessThanOrEqual(edges.length);
+  });
+
+  // Regression: the hot-path rewrite uses a reused Uint8Array bitset
+  // for comment → visible-file membership. A stale bit from the
+  // previous frame would cause a comment to be mis-included. Pan the
+  // viewport across two disjoint regions and assert each frame's
+  // comments only reference the files visible in that frame.
+  it("comments follow the viewport across disjoint pans (bitset reuse regression)", () => {
+    const comments: WorkspaceComment[] = ids.map((id, i) => ({
+      id: `c-${id}`,
+      fileId: id,
+      line: 1,
+      author: "t",
+      body: "x",
+      resolved: false,
+      createdAt: i,
+    }));
+    const graphWithComments: WorkspaceGraph = { ...graph, comments };
+
+    // Pan 1: top-left 2×2.
+    const vp1: Viewport = { x: 0, y: 0, scale: 1, width: 200, height: 200 };
+    const view1 = buildVisibleQuery(graphWithComments, layout, vp1);
+    const visible1 = new Set(view1.files.map(f => f.id));
+    for (const c of view1.comments) {
+      expect(visible1.has(c.fileId)).toBe(true);
+    }
+
+    // Pan 2: far bottom-right 2×2 — must not inherit any bits from pan 1.
+    const vp2: Viewport = { x: -300, y: -300, scale: 1, width: 200, height: 200 };
+    const view2 = buildVisibleQuery(graphWithComments, layout, vp2);
+    const visible2 = new Set(view2.files.map(f => f.id));
+    for (const c of view2.comments) {
+      expect(visible2.has(c.fileId)).toBe(true);
+    }
+    // Sanity: the two pans' visible sets don't overlap.
+    for (const id of visible1) expect(visible2.has(id)).toBe(false);
+  });
+
+  // Regression: sequential calls with the same viewport must return
+  // equivalent results. The bitset/buffer reuse must not leak state.
+  it("idempotent under repeated calls (buffer-reuse regression)", () => {
+    const vp: Viewport = { x: 0, y: 0, scale: 1, width: 150, height: 150 };
+    const a = buildVisibleQuery(graph, layout, vp);
+    const b = buildVisibleQuery(graph, layout, vp);
+    const c = buildVisibleQuery(graph, layout, vp);
+    expect(b.files.map(f => f.id).sort()).toEqual(a.files.map(f => f.id).sort());
+    expect(c.files.map(f => f.id).sort()).toEqual(a.files.map(f => f.id).sort());
+    expect(b.edges.map(e => e.id).sort()).toEqual(a.edges.map(e => e.id).sort());
   });
 });
 

@@ -45,7 +45,22 @@ export class EdgeFilter {
     return results.map((item) => item.edgeId);
   }
 
+  /**
+   * Hot-path variant — returns the raw bbox items (each carries `edgeId`)
+   * so callers can skip the extra `.map()` allocation.
+   */
+  queryItems(viewport: { x: number; y: number; w: number; h: number }): ReadonlyArray<EdgeBBoxItem> {
+    return this.tree.search({
+      minX: viewport.x,
+      minY: viewport.y,
+      maxX: viewport.x + viewport.w,
+      maxY: viewport.y + viewport.h,
+    });
+  }
+
   clear(): void {
     this.tree.clear();
   }
 }
+
+export type { EdgeBBoxItem };

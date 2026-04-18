@@ -18,6 +18,7 @@ import {
 } from "../store/images-store";
 import { viewportStore } from "../store/viewport-store";
 import { useFeature } from "../store/feature-flags-store";
+import { showToast as showSharedToast } from "../lib/toast";
 
 interface Props {
   transform: string;
@@ -39,11 +40,6 @@ interface DragRef {
   mode: DragMode;
 }
 
-interface ToastState {
-  id: number;
-  text: string;
-}
-
 const DEFAULT_MAX_WIDTH = 520;
 const DEFAULT_MAX_HEIGHT = 360;
 
@@ -61,7 +57,6 @@ export function ImagesLayer({ transform, scale, containerRef }: Props) {
   const layerRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const dragRef = useRef<DragRef | null>(null);
-  const [toast, setToast] = useState<ToastState | null>(null);
 
   // Mirror the viewport transform imperatively (same pattern as StickiesLayer).
   useEffect(() => {
@@ -91,7 +86,7 @@ export function ImagesLayer({ transform, scale, containerRef }: Props) {
     if (!enabled) return;
 
     const showToast = (text: string) => {
-      setToast({ id: Date.now(), text });
+      showSharedToast(text, 2500);
     };
 
     const isEditableTarget = (t: EventTarget | null): boolean => {
@@ -123,12 +118,7 @@ export function ImagesLayer({ transform, scale, containerRef }: Props) {
     return () => window.removeEventListener("paste", onPaste);
   }, [enabled, containerRef]);
 
-  // Clear toast after 2.5s.
-  useEffect(() => {
-    if (!toast) return;
-    const t = window.setTimeout(() => setToast(null), 2500);
-    return () => window.clearTimeout(t);
-  }, [toast]);
+  // Toast dismissal now lives inside the shared toast store ttl.
 
   // Drag handlers — both for image move (header) and resize (corner).
   const onPointerDownMove = useCallback(
@@ -244,11 +234,6 @@ export function ImagesLayer({ transform, scale, containerRef }: Props) {
           />
         ))}
       </div>
-      {toast && (
-        <div className="ws-image-toast" role="status">
-          {toast.text}
-        </div>
-      )}
     </>
   );
 }

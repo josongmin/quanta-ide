@@ -2,14 +2,10 @@ import { useMemo } from "react";
 import {
   actionTerrainStore,
   useActionTerrainStore,
+  useActionTerrainRender,
   ACTION_TERRAIN_HEIGHT_RANGE,
 } from "../../store/action-terrain-store";
-import { useActionTerrain } from "../../hooks/use-action-terrain";
 import { useFeature, featureFlagsStore } from "../../store/feature-flags-store";
-
-// Action Terrain HUD panel — mode toggle, height slider, cone direction
-// select, and a compact top-5 ROI table. Intended to mirror SceneSection /
-// GraphSection styling so the HUD stays visually uniform.
 
 const TOP_N = 5;
 
@@ -23,12 +19,13 @@ export function ActionTerrainSection() {
   const mode = useActionTerrainStore(s => s.mode);
   const heightScale = useActionTerrainStore(s => s.heightScale);
   const coneDirection = useActionTerrainStore(s => s.coneDirection);
-  const result = useActionTerrain();
+  const roi = useActionTerrainRender(s => s.roi);
+  const enabled = useActionTerrainRender(s => s.enabled);
 
   const top = useMemo(() => {
-    if (!result.enabled) return [];
-    return result.roi.ordered.slice(0, TOP_N);
-  }, [result]);
+    if (!roi) return [];
+    return roi.ordered.slice(0, TOP_N);
+  }, [roi]);
 
   return (
     <>
@@ -50,8 +47,8 @@ export function ActionTerrainSection() {
         />
         <span>아이소 모드 (⌘⇧A)</span>
       </label>
-      <div className="ws-debug__row" style={{ alignItems: "center" }}>
-        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>높이</span>
+      <div className="ws-debug__row ws-debug__row--aligned">
+        <span className="ws-debug__row-label">높이</span>
         <input
           type="range"
           min={ACTION_TERRAIN_HEIGHT_RANGE.min}
@@ -60,15 +57,13 @@ export function ActionTerrainSection() {
           value={heightScale}
           onChange={e => actionTerrainStore.setHeightScale(parseFloat(e.target.value))}
           disabled={!mode}
-          style={{ flex: 1 }}
+          className="ws-debug__row-slider"
         />
-        <span style={{ flex: "0 0 42px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
-          {heightScale.toFixed(2)}×
-        </span>
+        <span className="ws-debug__row-value">{heightScale.toFixed(2)}×</span>
       </div>
-      <div className="ws-debug__row" style={{ alignItems: "center" }}>
-        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>콘 방향</span>
-        <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
+      <div className="ws-debug__row ws-debug__row--aligned">
+        <span className="ws-debug__row-label">콘 방향</span>
+        <div className="ws-debug__lod ws-debug__row-chips">
           {(["blast", "fix"] as const).map(d => (
             <button
               key={d}
@@ -83,14 +78,14 @@ export function ActionTerrainSection() {
         </div>
       </div>
 
-      {!result.enabled ? (
+      {!enabled ? (
         <div className="ws-debug__hint">모드 비활성 — ⌘⇧A 로 토글하세요.</div>
       ) : top.length === 0 ? (
         <div className="ws-debug__hint">아직 ROI 점수가 없습니다 (그래프 미로드).</div>
       ) : (
         <>
           <div className="ws-debug__divider">상위 {top.length}개 ROI</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
+          <div className="ws-debug__roi-list">
             {top.map(s => (
               <div
                 key={s.fileId}
@@ -101,31 +96,13 @@ export function ActionTerrainSection() {
                 <span className="ws-debug__sticky-text">
                   #{s.rank} {basename(s.fileId)}
                 </span>
-                <span
-                  style={{
-                    flex: "0 0 58px",
-                    height: 6,
-                    borderRadius: 2,
-                    background: "rgba(255,255,255,0.08)",
-                    overflow: "hidden",
-                  }}
-                >
+                <span className="ws-debug__roi-bar">
                   <span
-                    style={{
-                      display: "block",
-                      width: `${Math.max(2, s.score)}%`,
-                      height: "100%",
-                      background: "var(--ws-roi-hot)",
-                    }}
+                    className="ws-debug__roi-bar-fill"
+                    style={{ width: `${Math.max(2, s.score)}%` }}
                   />
                 </span>
-                <span
-                  style={{
-                    flex: "0 0 30px",
-                    textAlign: "right",
-                    fontVariantNumeric: "tabular-nums",
-                  }}
-                >
+                <span className="ws-debug__roi-num">
                   {Math.round(s.score)}
                 </span>
               </div>

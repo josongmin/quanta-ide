@@ -4,11 +4,19 @@ import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/
 import { CITY_FONT_BOLD_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
+import { setText, hashStep, hashStringStep, makeGrowingPool, type GrowingPool } from "./shared/pixi-guards";
 
 // Supergalaxy LOD renderer — draws one soft-coloured box per top-level
 // directory / crate. There are at most a couple hundred of these, so the
 // cost model flips: we can afford BitmapText labels for every cluster.
 // Single InstancedRectMesh + one labelContainer per cluster.
+//
+// Optimization pass (Stream-C dirty-flag parity with CityNodeRenderer):
+// - `labelCache` snapshots the cluster id / fileCount pair; per-frame we
+//   only rebuild the display string when that pair changes.
+// - `setFontSize` / `setFill` / `setText` gates avoid BitmapText atlas
+//   thrash when nothing changed (pan/zoom frames get a free pass).
+// - `pickRects` pool allocates once and overwrites slots in place.
 
 function hslToRgb(h: number, s: number, l: number): number {
   const hue2rgb = (p: number, q: number, t: number) => {
@@ -27,19 +35,43 @@ function hslToRgb(h: number, s: number, l: number): number {
   return (r << 16) | (g << 8) | b;
 }
 
+// Per-cluster cached label state. displayText is expensive-ish to allocate
+// (string split + template literal + number coerce) and we'd otherwise redo
+// it for every cluster on every pan/zoom frame. fileCount is the only real
+// invalidator — cluster id is stable, and the scene layout doesn't call
+// update() unless the set itself changed.
+interface ClusterLabelSnapshot {
+  id: string;
+  fileCount: number;
+  displayText: string;
+}
+
 export class ClusterNodeRenderer {
   private container: Container;
   private rectMesh: InstancedRectMesh;
   private labelContainer: Container;
   private hitLayer: Graphics;
   private pickIndex: SpatialPickIndex;
-  private pickRects: PickRect[] = [];
+  // Pool-allocated pick rects. See pixi-guards.makeGrowingPool for the
+  // allocation / truncation protocol.
+  private pickRectsPool: GrowingPool<PickRect> = makeGrowingPool<PickRect>(
+    () => ({ x: 0, y: 0, w: 0, h: 0, id: "" }),
+  );
   private labelPool: BitmapText[] = [];
   private labelPoolCursor = 0;
   // Cluster ids are stable across frames; hashing the same id every frame
   // for 200+ clusters is wasted work. Memoize per instance — reset on
   // destroy() (module-level cache would leak across canvas remounts).
   private colorCache: Map<string, number> = new Map();
+  // Per-cluster dirty-flag cache for label text. The cluster set rarely
+  // changes in practice (users pan/zoom around supergalaxy a lot more than
+  // they add crates), so this is almost always a cache hit.
+  private labelCache: Map<string, ClusterLabelSnapshot> = new Map();
+  // Shared membership + geometry hash for the hit AABB. The AABB itself
+  // only needs re-drawing when membership or layout changes — pan/zoom is
+  // absorbed by the parent Container transform.
+  private lastHitHash = 0;
+  private lastHitCount = 0;
 
   private onClickCluster?: (id: string) => void;
   private onHoverCluster?: (id: string | null) => void;
@@ -97,6 +129,23 @@ export class ClusterNodeRenderer {
     return color;
   }
 
+  // Acquire-or-reuse the label snapshot for a cluster. Returns the display
+  // text unconditionally; internally decides whether to reformat or reuse.
+  private getLabelText(c: ClusterMeta): string {
+    let snap = this.labelCache.get(c.id);
+    if (snap && snap.fileCount === c.fileCount) return snap.displayText;
+    const name = c.id.split("/").pop() ?? c.id;
+    const displayText = `${name}  ${c.fileCount}`;
+    if (snap) {
+      snap.fileCount = c.fileCount;
+      snap.displayText = displayText;
+    } else {
+      snap = { id: c.id, fileCount: c.fileCount, displayText };
+      this.labelCache.set(c.id, snap);
+    }
+    return displayText;
+  }
+
   private acquireLabel(): BitmapText {
     if (this.labelPoolCursor < this.labelPool.length) {
       const t = this.labelPool[this.labelPoolCursor++];
@@ -121,18 +170,27 @@ export class ClusterNodeRenderer {
     if (clusters.length === 0) {
       this.rectMesh.setInstanceCount(0);
       this.hitLayer.clear();
-      this.pickRects.length = 0;
+      this.pickRectsPool.slots.length = 0;
       this.pickIndex.clear();
       this.releaseLabels();
+      this.lastHitHash = 0;
+      this.lastHitCount = 0;
       return;
     }
     const invScale = Math.min(16, Math.max(1, 1 / viewport.scale));
     this.rectMesh.ensureCapacity(clusters.length);
     const data = this.rectMesh.view();
-    this.pickRects.length = 0;
+    // Pre-grow the pick-rect pool so the loop overwrites slots in place
+    // instead of pushing fresh `{x,y,w,h,id}` literals per cluster.
+    this.pickRectsPool.grow(clusters.length);
+    const pickRects = this.pickRectsPool.slots;
     this.labelPoolCursor = 0;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    // Accumulate a geometry+membership hash. Same shape as CityNode's
+    // shadowHash — coercing to i32 keeps the rolling accumulator cheap and
+    // collision-resilient enough for a dirty-flag gate.
+    let hitHash = 0;
 
     for (let i = 0; i < clusters.length; i++) {
       const c = clusters[i];
@@ -147,47 +205,75 @@ export class ClusterNodeRenderer {
       data[o + 12] = invScale * 1.5;
       data[o + 13] = 24; // corner radius
 
-      this.pickRects.push({ x: c.rect.x, y: c.rect.y, w: c.rect.w, h: c.rect.h, id: c.id });
+      const slot = pickRects[i];
+      slot.x = c.rect.x;
+      slot.y = c.rect.y;
+      slot.w = c.rect.w;
+      slot.h = c.rect.h;
+      slot.id = c.id;
+
+      hitHash = hashStringStep(hitHash, c.id);
+      hitHash = hashStep(hitHash, c.rect.x | 0);
+      hitHash = hashStep(hitHash, c.rect.y | 0);
+      hitHash = hashStep(hitHash, c.rect.w | 0);
+      hitHash = hashStep(hitHash, c.rect.h | 0);
+      hitHash = hashStep(hitHash, c.fileCount);
+
       if (c.rect.x < minX) minX = c.rect.x;
       if (c.rect.y < minY) minY = c.rect.y;
       if (c.rect.x + c.rect.w > maxX) maxX = c.rect.x + c.rect.w;
       if (c.rect.y + c.rect.h > maxY) maxY = c.rect.y + c.rect.h;
 
       // Label (cluster name) — shown centered near top, scaled to viewport.
+      // Style is established at BitmapText construction; we only need to
+      // push per-frame text / scale / position. Guarded text setter skips
+      // the glyph-geometry rebuild when the string hasn't changed.
       const label = this.acquireLabel();
-      const name = c.id.split("/").pop() ?? c.id;
-      const displayText = `${name}  ${c.fileCount}`;
-      if (label.text !== displayText) label.text = displayText;
+      const displayText = this.getLabelText(c);
+      setText(label, displayText);
       label.scale.set(invScale * 2);
       label.x = c.rect.x + 16 * invScale;
       label.y = c.rect.y + 16 * invScale;
     }
 
-    // Single-AABB hit layer — resolves through SpatialPickIndex.
-    this.hitLayer.clear();
-    if (clusters.length > 0) {
+    // Truncate logical length for SpatialPickIndex; retain capacity.
+    pickRects.length = clusters.length;
+
+    // Re-draw the hit AABB only when membership/geometry changed. Pan/zoom
+    // is absorbed by the parent Container transform, so the invisible rect
+    // doesn't need re-emitting.
+    if (hitHash !== this.lastHitHash || clusters.length !== this.lastHitCount) {
+      this.hitLayer.clear();
       this.hitLayer.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: 0x000000, alpha: 0.001 });
+      this.lastHitHash = hitHash;
+      this.lastHitCount = clusters.length;
     }
 
     this.rectMesh.setInstanceCount(clusters.length);
-    this.pickIndex.load(this.pickRects, "cluster");
+    this.pickIndex.load(pickRects, "cluster");
     this.releaseLabels();
   }
 
   clear(): void {
     this.rectMesh.setInstanceCount(0);
     this.hitLayer.clear();
-    this.pickRects.length = 0;
+    this.pickRectsPool.slots.length = 0;
     this.pickIndex.clear();
     this.labelPoolCursor = 0;
     this.releaseLabels();
+    // Invalidate dirty-flag caches so a fresh tier activation doesn't
+    // inherit stale snapshots.
+    this.labelCache.clear();
+    this.lastHitHash = 0;
+    this.lastHitCount = 0;
   }
 
   destroy(): void {
     this.rectMesh.destroy();
     this.pickIndex.clear();
-    this.pickRects.length = 0;
+    this.pickRectsPool.reset();
     this.colorCache.clear();
+    this.labelCache.clear();
     this.container.destroy({ children: true });
   }
 }

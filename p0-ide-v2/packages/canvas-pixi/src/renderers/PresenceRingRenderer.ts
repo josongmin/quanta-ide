@@ -1,5 +1,6 @@
 import { Graphics, Container, Text, Ticker } from "pixi.js";
 import type { Rect, Viewport, LodLevel } from "@quanta/canvas-engine";
+import { setFontSize, setFill, setText, hashStep, hashStringStep } from "./shared/pixi-guards";
 
 export type AgentActivity = "reading" | "editing" | "analyzing" | "idle";
 
@@ -27,6 +28,13 @@ const ACTIVITY_SHORT: Record<AgentActivity, string> = {
   idle: "idle",
 };
 
+// Pulse alpha is resolved against a coarse bucket (30 steps per cycle).
+// Within a bucket the stroke alpha difference is < 0.007 — imperceptible,
+// but it lets us short-circuit identical redraws when neither the membership
+// nor the pulse bucket changed. This keeps the ring renderer from redrawing
+// the Graphics 60 fps even while everything else is idle.
+const PULSE_BUCKETS = 30;
+
 function isCoarseLod(lod: LodLevel): boolean {
   return lod === "universe" || lod === "supergalaxy" || lod === "galaxy";
 }
@@ -42,6 +50,18 @@ export class PresenceRingRenderer {
   private lastRectById: Map<string, Rect> | null = null;
   private lastViewport: Viewport | null = null;
   private lastLod: LodLevel = "galaxy";
+
+  // Membership hash — fileId + agentId + activity + staleness bucket. When
+  // this is stable *and* the pulse bucket is stable, the redraw is a no-op.
+  // Position is intentionally excluded: agents don't move between files on
+  // the animation tick, so a pure camera pan doesn't touch this hash.
+  private lastMembershipHash = 0;
+  private lastMembershipCount = 0;
+  private lastPulseBucket = -1;
+  // Coarse invScale bucket. Stroke width scales with invScale; switching
+  // LOD or panning fast enough to change bucket invalidates the redraw.
+  private lastInvScaleBucket = -1;
+  private lastShowLabels = false;
 
   constructor(parent: Container) {
     this.container = new Container();
@@ -64,6 +84,11 @@ export class PresenceRingRenderer {
     this.lastRectById = fileRectById;
     this.lastViewport = viewport ?? null;
     this.lastLod = lod;
+    // External rebuild always forces a redraw; callers of build() have
+    // changed something semantically (new presence, new layout, new LOD).
+    this.lastMembershipHash = 0;
+    this.lastMembershipCount = -1;
+    this.lastPulseBucket = -1;
     this.redraw();
   }
 
@@ -72,6 +97,10 @@ export class PresenceRingRenderer {
     this.lastRectById = null;
     this.gfx.clear();
     this.resetLabels();
+    this.lastMembershipHash = 0;
+    this.lastMembershipCount = 0;
+    this.lastPulseBucket = -1;
+    this.lastInvScaleBucket = -1;
   }
 
   destroy(): void {
@@ -89,15 +118,55 @@ export class PresenceRingRenderer {
     this.redraw();
   };
 
+  private computeMembershipHash(now: number): { hash: number; count: number } {
+    let h = 0;
+    let count = 0;
+    for (const p of this.lastPresence) {
+      if (!p.focusFileId) continue;
+      count++;
+      h = hashStringStep(h, p.agentId);
+      h = hashStringStep(h, p.focusFileId);
+      h = hashStep(h, p.activity.charCodeAt(0));
+      // Staleness is binary (age > STALE_MS), so collapse to 0/1. If an
+      // agent *crosses* the staleness threshold, the hash flips and we
+      // redraw. Within either state the alpha is constant.
+      h = hashStep(h, (now - p.updatedAt) > STALE_MS ? 1 : 0);
+      h = hashStep(h, p.color | 0);
+    }
+    return { hash: h, count };
+  }
+
   private redraw(): void {
-    this.gfx.clear();
-    this.resetLabels();
     const rects = this.lastRectById;
-    if (!rects) return;
+    if (!rects) {
+      this.gfx.clear();
+      this.resetLabels();
+      return;
+    }
 
     const scale = this.lastViewport?.scale ?? 1;
     const invScale = Math.min(32, Math.max(1, 1 / scale));
     const showLabels = scale >= LABEL_MIN_SCALE && !isCoarseLod(this.lastLod);
+
+    // Round invScale to the nearest 0.5 for bucket comparison — small camera
+    // jitters at the same LOD stop invalidating the redraw path.
+    const invScaleBucket = Math.round(invScale * 2);
+    const pulseBucket = Math.floor(((this.pulsePhase / (Math.PI * 2)) % 1 + 1) % 1 * PULSE_BUCKETS);
+    const now = Date.now();
+    const { hash, count } = this.computeMembershipHash(now);
+
+    if (
+      hash === this.lastMembershipHash
+      && count === this.lastMembershipCount
+      && pulseBucket === this.lastPulseBucket
+      && invScaleBucket === this.lastInvScaleBucket
+      && showLabels === this.lastShowLabels
+    ) {
+      return;
+    }
+
+    this.gfx.clear();
+    this.resetLabels();
 
     const byFile = new Map<string, AgentPresenceInput[]>();
     for (const p of this.lastPresence) {
@@ -107,7 +176,6 @@ export class PresenceRingRenderer {
       else byFile.set(p.focusFileId, [p]);
     }
 
-    const now = Date.now();
     const pulse = 0.85 + Math.sin(this.pulsePhase) * 0.1;
 
     for (const [fileId, agents] of byFile) {
@@ -131,14 +199,26 @@ export class PresenceRingRenderer {
 
         if (showLabels && i === 0) {
           const label = this.acquireLabel();
-          label.text = ACTIVITY_SHORT[agent.activity];
-          label.style.fontSize = 10 * invScale;
-          label.style.fill = agent.color;
+          // Guarded setters: activity short-code rarely changes within a
+          // session, and fontSize only changes when invScale bucket shifts.
+          // Skipping the Text layout invalidation on stable frames matters
+          // more here than for a pool of 3 BitmapTexts would suggest —
+          // Pixi's Text is canvas-backed and each style change schedules a
+          // full canvas redraw.
+          setText(label, ACTIVITY_SHORT[agent.activity]);
+          setFontSize(label, 10 * invScale);
+          setFill(label, agent.color);
           label.position.set(x, y - 14 * invScale);
           label.visible = true;
         }
       }
     }
+
+    this.lastMembershipHash = hash;
+    this.lastMembershipCount = count;
+    this.lastPulseBucket = pulseBucket;
+    this.lastInvScaleBucket = invScaleBucket;
+    this.lastShowLabels = showLabels;
   }
 
   private acquireLabel(): Text {

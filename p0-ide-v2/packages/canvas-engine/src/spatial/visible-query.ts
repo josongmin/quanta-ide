@@ -1,4 +1,4 @@
-import type { WorkspaceGraph } from "../graph/types";
+import type { WorkspaceGraph, FileNode, FileEdge } from "../graph/types";
 import type { WorkspaceLayout, ClusterMeta } from "../layout/types";
 import type {
   WorkspaceView,
@@ -10,11 +10,22 @@ import type {
 } from "../view/types";
 import { FileIndex } from "./file-index";
 import { EdgeFilter } from "./edge-filter";
+import { buildIdIndex, ensureBitsetCapacity } from "./id-index";
 import { getTierConfig } from "../lod/lod-config";
 
 interface SpatialCache {
   fileIndex: FileIndex;
   edgeFilter: EdgeFilter;
+  /** `fileId → index` used for bitset membership (comments → visible files). */
+  fileIdToIndex: Map<string, number>;
+  /** `fileId → FileNode` for O(1) hydration of rbush hits back into nodes. */
+  fileById: Map<string, FileNode>;
+  /** `edgeId → FileEdge` for O(1) hydration. */
+  edgeById: Map<string, FileEdge>;
+  /** Identity of the graph used to build the id/node/edge lookups. If the
+   *  graph reference changes under a stable layout (rare but possible when
+   *  callers swap graph data while reusing a layout), we rebuild lazily. */
+  graphRef: WorkspaceGraph;
 }
 
 // WeakMap: auto-invalidates when layout object is GC'd
@@ -22,18 +33,44 @@ const spatialCache = new WeakMap<WorkspaceLayout, SpatialCache>();
 
 function getSpatialCache(graph: WorkspaceGraph, layout: WorkspaceLayout): SpatialCache {
   const cached = spatialCache.get(layout);
-  if (cached) return cached;
+  if (cached && cached.graphRef === graph) return cached;
 
   const fileIndex = new FileIndex();
   fileIndex.load(layout.fileRects);
 
   const edgeFilter = new EdgeFilter();
-  edgeFilter.load(graph.fileEdges.map(e => e.id), layout.edgeRoutes);
+  // Build the edge-id list inline (for-loop, no intermediate .map array
+  // of edge objects). This path runs once per layout so allocation
+  // pressure here is irrelevant — but staying consistent with the rest
+  // of the hot-path style.
+  const edgeIds: string[] = new Array(graph.fileEdges.length);
+  for (let i = 0; i < graph.fileEdges.length; i++) edgeIds[i] = graph.fileEdges[i].id;
+  edgeFilter.load(edgeIds, layout.edgeRoutes);
 
-  const entry: SpatialCache = { fileIndex, edgeFilter };
+  const fileIdToIndex = buildIdIndex(graph.files);
+  const fileById = new Map<string, FileNode>();
+  for (let i = 0; i < graph.files.length; i++) fileById.set(graph.files[i].id, graph.files[i]);
+  const edgeById = new Map<string, FileEdge>();
+  for (let i = 0; i < graph.fileEdges.length; i++) edgeById.set(graph.fileEdges[i].id, graph.fileEdges[i]);
+
+  const entry: SpatialCache = {
+    fileIndex,
+    edgeFilter,
+    fileIdToIndex,
+    fileById,
+    edgeById,
+    graphRef: graph,
+  };
   spatialCache.set(layout, entry);
   return entry;
 }
+
+// Module-scoped scratch bitset for "is fileId visible?" membership tests
+// during the comments filter. Reused across frames — `.fill(0)` at the
+// top of each `buildVisibleQuery` call. Grows on demand via
+// `ensureBitsetCapacity`; never shrinks (frame-to-frame the file count
+// is near-stable).
+let visibleFileBitset: Uint8Array = new Uint8Array(0);
 
 function viewportToCanvas(viewport: Viewport): { x: number; y: number; w: number; h: number } {
   return {
@@ -125,15 +162,64 @@ export function buildVisibleQuery(
   }
 
   const canvasRect = viewportToCanvas(viewport);
-  const { fileIndex, edgeFilter } = getSpatialCache(graph, layout);
+  const cache = getSpatialCache(graph, layout);
+  const { fileIndex, edgeFilter, fileIdToIndex, fileById, edgeById } = cache;
 
-  const visibleFileIds = new Set(fileIndex.query(canvasRect));
-  const files = graph.files.filter((f) => visibleFileIds.has(f.id));
+  // Hot path — every allocation here lands in the per-frame budget. The
+  // original implementation allocated two Sets, three `.filter` callbacks,
+  // and one `.map` per call (6–30k objects/frame under a fast pan). This
+  // rewrite uses:
+  //   - rbush items directly (one `.map()` removed)
+  //   - O(1) Map hydration (rbush hit → FileNode/FileEdge object)
+  //   - a reusable Uint8Array bitset for comment membership (no Set)
+  //   - explicit for-loops with pre-sized output arrays (no .filter chains)
 
-  const visibleEdgeIds = new Set(edgeFilter.query(canvasRect));
-  const edges = graph.fileEdges.filter((e) => visibleEdgeIds.has(e.id));
+  const fileItems = fileIndex.queryItems(canvasRect);
+  const files: FileNode[] = new Array(fileItems.length);
+  // Keep a parallel fill-count because Map.get may miss if the graph and
+  // layout go out of sync mid-frame — we compact into the exact length
+  // of survivors at the end instead of leaving `undefined` holes.
+  let fileWriteIdx = 0;
 
-  const comments = graph.comments.filter((c) => visibleFileIds.has(c.fileId));
+  // Zero the bitset and grow if the graph has more files than we've seen.
+  visibleFileBitset = ensureBitsetCapacity(visibleFileBitset, graph.files.length);
+  // `.fill(0, 0, length)` restricts the clear to the live portion — the
+  // bitset may be larger than graph.files.length if it was sized for a
+  // previous, bigger graph.
+  visibleFileBitset.fill(0, 0, graph.files.length);
+
+  for (let i = 0; i < fileItems.length; i++) {
+    const id = fileItems[i].fileId;
+    const node = fileById.get(id);
+    if (!node) continue; // graph/layout mismatch (rare; swap in flight)
+    files[fileWriteIdx++] = node;
+    const idx = fileIdToIndex.get(id);
+    if (idx !== undefined) visibleFileBitset[idx] = 1;
+  }
+  if (fileWriteIdx !== files.length) files.length = fileWriteIdx;
+
+  const edgeItems = edgeFilter.queryItems(canvasRect);
+  const edges: FileEdge[] = new Array(edgeItems.length);
+  let edgeWriteIdx = 0;
+  for (let i = 0; i < edgeItems.length; i++) {
+    const edge = edgeById.get(edgeItems[i].edgeId);
+    if (!edge) continue;
+    edges[edgeWriteIdx++] = edge;
+  }
+  if (edgeWriteIdx !== edges.length) edges.length = edgeWriteIdx;
+
+  // Comments: bitset membership (0 allocations for the check itself).
+  // Pre-sizing an output array to `graph.comments.length` would usually
+  // over-allocate a lot; instead push into a plain array — the garbage
+  // churn here is bounded by the visible comment count, not the graph's
+  // total comment count.
+  const commentsIn = graph.comments;
+  const comments: typeof commentsIn = [];
+  for (let i = 0; i < commentsIn.length; i++) {
+    const c = commentsIn[i];
+    const idx = fileIdToIndex.get(c.fileId);
+    if (idx !== undefined && visibleFileBitset[idx] === 1) comments.push(c);
+  }
 
   return { kind: "files", files, edges, comments };
 }

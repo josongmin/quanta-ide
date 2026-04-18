@@ -5,15 +5,9 @@ import {
   projectIso,
   type IsoConfig,
 } from "./iso-projection";
-
-// Iso blast/fix cone — shows impact propagation rising upward (red)
-// from a root file, or downstream fix fan-out sinking (cyan) toward
-// the root. Without parent/child edges in the input we approximate
-// the cone sweep by chaining: root → ring-1 nodes → ring-2 nearest
-// ring-1 neighbour, and so on. Acceptable for a visualization cue.
+import { ROI_HOT, FLOW_CYAN } from "../shared/colors";
 
 export interface IsoConeRing {
-  /** 1..maxDepth — determines z-offset and line tint. */
   depth: number;
   nodes: readonly { x: number; y: number; fileId: string }[];
 }
@@ -21,23 +15,18 @@ export interface IsoConeRing {
 export interface IsoConeInput {
   root: { x: number; y: number };
   rings: readonly IsoConeRing[];
-  /** blast → red/up, fix → cyan/down. */
   direction: "blast" | "fix";
 }
 
-/** World-z step per ring depth. 25 reads clearly against the
- *  terrain column height (~180 max) without clashing at depth 5+. */
 const Z_PER_DEPTH = 25;
-
-/** Dot radius baseline, plus a small "closer rings are fatter" bonus. */
 const BASE_DOT_RADIUS = 6;
 const DEPTH_DOT_BONUS = 3;
 
 const LINE_WIDTH = 2;
 const LINE_ALPHA = 0.65;
 
-const COLOR_BLAST = 0xef4444; // red-500
-const COLOR_FIX = 0x22d3ee;   // cyan-400
+const COLOR_BLAST = ROI_HOT;
+const COLOR_FIX = FLOW_CYAN;
 
 export class IsoConeRenderer {
   private gfx: Graphics;
@@ -49,22 +38,22 @@ export class IsoConeRenderer {
 
   build(input: IsoConeInput, cfg: IsoConfig = DEFAULT_ISO_CONFIG): void {
     this.gfx.clear();
-    if (input.rings.length === 0) return;
 
     const dirSign = input.direction === "blast" ? 1 : -1;
     const baseColor = input.direction === "blast" ? COLOR_BLAST : COLOR_FIX;
+    const rootP = projectIso(input.root.x, input.root.y, 0, cfg);
 
-    // Sort rings by depth ascending so "nearest previous ring" lookup
-    // during line drawing always has the shallower layer available.
+    if (input.rings.length === 0) {
+      // Orphan root — still draw the marker so the user sees their selection.
+      this.gfx.circle(rootP.x, rootP.y, BASE_DOT_RADIUS + DEPTH_DOT_BONUS)
+        .fill({ color: baseColor, alpha: 1 });
+      return;
+    }
+
     const rings = [...input.rings].sort((a, b) => a.depth - b.depth);
     const maxDepth = rings[rings.length - 1]?.depth ?? 1;
 
-    // Cache projected positions per ring so we don't reproject when
-    // connecting depth-N to depth-(N-1).
     const projectedByDepth = new Map<number, { x: number; y: number; fileId: string }[]>();
-
-    // Root is z=0, so projecting is a no-op — kept explicit for clarity.
-    const rootP = projectIso(input.root.x, input.root.y, 0, cfg);
 
     // Pass 1: connector lines (drawn first so dots paint on top).
     for (const ring of rings) {

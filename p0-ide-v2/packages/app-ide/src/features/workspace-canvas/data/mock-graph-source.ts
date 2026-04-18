@@ -1,6 +1,7 @@
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import { loadRepoGraph, loadFileSource } from "./repo-loader";
 import type { GraphSource } from "./graph-source";
+import { synthesizeDemoEdges } from "./synthesize-demo-edges";
 
 // ─────────────────────────────────────────────────────────────────────
 // MockGraphSource — dev-only adapter over the regex scanner plugin.
@@ -50,7 +51,10 @@ class MockGraphSource implements GraphSource {
       : this.config.maxFiles;
 
     const { graph } = await loadRepoGraph({ path, extensions, maxFiles });
-    return graph;
+    // Demo-only: scanner emits `import` edges only. Layer the full kind
+    // catalog on top so every HUD toggle has something to filter.
+    const fileEdges = synthesizeDemoEdges(graph.files, graph.fileEdges);
+    return { ...graph, fileEdges };
   }
 
   /**

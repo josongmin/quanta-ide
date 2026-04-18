@@ -88,6 +88,12 @@ export const VIOLATION_HALO = VIOLATION_RED;
 // Cross-graph / cross-repo join edges (safety-yellow).
 export const CROSS_GRAPH_ACCENT = 0xfacc15;
 
+// Refactor-ROI terrain ramp: green → amber → red. Shared with CSS
+// `--ws-roi-*` tokens so Pixi bars and DOM panel agree on the ramp.
+export const ROI_COLD = 0x22c55e;
+export const ROI_WARM = 0xfacc15;
+export const ROI_HOT = 0xef4444;
+
 /**
  * Design-token namespace consumable by CSS-in-JS or build-time emitters.
  * Mirrors the `:root` CSS variables declared in
@@ -103,6 +109,9 @@ export const DESIGN_TOKENS = {
   riskHigh: RISK_HIGH_RED,
   riskMedium: RISK_TEXT.medium,
   riskLow: RISK_TEXT.low,
+  roiCold: ROI_COLD,
+  roiWarm: ROI_WARM,
+  roiHot: ROI_HOT,
 } as const;
 
 // Edge styling is a two-level registry so the renderer can gracefully handle

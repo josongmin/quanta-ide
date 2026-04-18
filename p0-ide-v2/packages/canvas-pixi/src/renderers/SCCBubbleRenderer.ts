@@ -1,6 +1,7 @@
 import { Graphics, Container, Text } from "pixi.js";
 import type { Rect, Viewport } from "@quanta/canvas-engine";
 import { CYCLE_ORANGE } from "./shared/colors";
+import { setFontSize, setText, hashStep, hashStringStep } from "./shared/pixi-guards";
 
 // Strongly-connected-component bubble renderer. Wraps each cycle (≥2 members)
 // in a soft orange rounded-rect so cycles are obvious at any zoom above
@@ -15,6 +16,11 @@ import { CYCLE_ORANGE } from "./shared/colors";
 //
 // Direct-mount from PixiStage (not via the renderer registry) for the same
 // reason as ClusterEdgeRenderer — this is an overlay pass, not a tier.
+//
+// Optimization pass: SCCs change rarely (only when the dep graph is re-
+// indexed). Hash the cycle membership + each AABB so pan/zoom redraws skip
+// the entire Graphics rebuild. The stroke *width* scales with invScale,
+// so bucketing invScale is part of the hash too.
 
 const PADDING = 12;
 const CORNER_RADIUS = 16;
@@ -29,6 +35,10 @@ export class SCCBubbleRenderer {
   private gfx: Graphics;
   private labelPool: Text[] = [];
   private labelPoolIdx = 0;
+  private lastHash = 0;
+  private lastCount = 0;
+  private lastInvScaleBucket = -1;
+  private lastShowLabels = false;
 
   constructor(parent: Container) {
     this.container = new Container();
@@ -43,14 +53,50 @@ export class SCCBubbleRenderer {
     fileRectById: Map<string, Rect>,
     viewport?: Viewport,
   ): void {
-    this.gfx.clear();
-    this.resetLabels();
-    if (!sccs || sccs.length === 0) return;
+    if (!sccs || sccs.length === 0) {
+      this.gfx.clear();
+      this.resetLabels();
+      this.lastHash = 0;
+      this.lastCount = 0;
+      return;
+    }
 
     const scale = viewport?.scale ?? 1;
     const invScale = Math.min(32, Math.max(1, 1 / scale));
+    const invScaleBucket = Math.round(invScale * 2);
     const strokeWidth = 2 * invScale;
     const showLabels = scale >= LABEL_MIN_SCALE;
+
+    // Hash the SCC list and each member's AABB in a single pre-pass so we
+    // can short-circuit before allocating. Membership hash covers cycle
+    // count and member ids; AABB hash covers the position grid. A miss
+    // here forces the full redraw below.
+    let hash = 0;
+    let count = 0;
+    for (const members of sccs) {
+      if (members.length < 2) continue;
+      const bbox = aabbOfMembers(members, fileRectById);
+      if (!bbox) continue;
+      count++;
+      hash = hashStep(hash, members.length);
+      for (let i = 0; i < members.length; i++) hash = hashStringStep(hash, members[i]);
+      hash = hashStep(hash, bbox.x | 0);
+      hash = hashStep(hash, bbox.y | 0);
+      hash = hashStep(hash, bbox.w | 0);
+      hash = hashStep(hash, bbox.h | 0);
+    }
+
+    if (
+      hash === this.lastHash
+      && count === this.lastCount
+      && invScaleBucket === this.lastInvScaleBucket
+      && showLabels === this.lastShowLabels
+    ) {
+      return;
+    }
+
+    this.gfx.clear();
+    this.resetLabels();
 
     for (const members of sccs) {
       if (members.length < 2) continue;
@@ -69,17 +115,26 @@ export class SCCBubbleRenderer {
 
       if (showLabels) {
         const label = this.acquireLabel();
-        label.text = `cycle · ${members.length}`;
-        label.style.fontSize = 11 * invScale;
+        setText(label, `cycle · ${members.length}`);
+        setFontSize(label, 11 * invScale);
         label.position.set(x + 8, y + 6);
         label.visible = true;
       }
     }
+
+    this.lastHash = hash;
+    this.lastCount = count;
+    this.lastInvScaleBucket = invScaleBucket;
+    this.lastShowLabels = showLabels;
   }
 
   clear(): void {
     this.gfx.clear();
     this.resetLabels();
+    this.lastHash = 0;
+    this.lastCount = 0;
+    this.lastInvScaleBucket = -1;
+    this.lastShowLabels = false;
   }
 
   destroy(): void {

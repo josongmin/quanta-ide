@@ -3084,6 +3084,10 @@
   --ws-hud-fg-subtle: #64748b;
   --ws-hud-fg-soft: #1e293b;
   --ws-hud-surface: #ffffff;
+  --ws-roi-cold: #15803d;
+  --ws-roi-warm: #b45309;
+  --ws-roi-hot:  #b91c1c;
+  --ws-roi-panel-bg: rgba(255, 255, 255, 0.95);
 }
 [data-ws-theme="light"].workspace-canvas {
   background: #f1f5f9;
@@ -3099,6 +3103,10 @@
   --ws-hud-surface: #000000;
   --ws-hud-accent: #fde047;
   --ws-hud-accent-strong: #facc15;
+  --ws-roi-cold: #4ade80;
+  --ws-roi-warm: #fde047;
+  --ws-roi-hot:  #fb7185;
+  --ws-roi-panel-bg: #000000;
 }
 [data-ws-theme="high-contrast"].workspace-canvas {
   background: #ffffff;
@@ -3890,25 +3898,33 @@
    Action Terrain — isometric refactor-ROI mode
    ═══════════════════════════════════════════════════════════════════ */
 
-/* When iso mode is on, dim the 2D DOM card layer so extruded bars dominate.
-   Pointer events stay so cards still respond to click/hover for selection. */
+/* Dim 2D dom-layer so iso bars dominate, but leave selection outline
+   at full intensity — the outline drives which file the blast/fix cone
+   points at, so it must stay readable through the dim. */
 .workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer {
-  opacity: 0.45;
-  transition: opacity 120ms ease;
+  opacity: 0.6;
+  transition: opacity 160ms ease;
+}
+.workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer .ws-card--selected,
+.workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer .ws-card.is-selected {
+  opacity: 1;
+  outline: 2px solid var(--ws-selection-accent);
+  outline-offset: 2px;
 }
 .workspace-canvas[data-action-terrain="off"] .workspace-canvas__dom-layer {
-  transition: opacity 120ms ease;
+  transition: opacity 160ms ease;
 }
 
-/* Floating toggle (bottom-left corner above the pages tab bar). */
+/* Floating toggle — sits above the minimap (which occupies bottom 12-122)
+   so there's no overlap. Also clears storyboard, which is bottom-centre. */
 .ws-action-terrain-toggle-wrap {
   position: absolute;
   left: 12px;
-  bottom: 56px;
+  bottom: 140px;
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 4;
+  z-index: 5;
   pointer-events: auto;
 }
 .ws-action-terrain-toggle {
@@ -3960,14 +3976,15 @@
   text-align: right;
 }
 
-/* Right-side panel. Sits below the inspector tray; becomes the primary
-   reading surface when iso mode is on. */
+/* Left-side panel — right column is owned by Inspector / Regression-hunt
+   (both z 20+). Left column is free between pages tab bar (top 10) and
+   the toggle/minimap (bottom 140 + 122 = 262 reserved). */
 .ws-roi-panel {
   position: absolute;
-  right: 12px;
-  top: 76px;
+  left: 12px;
+  top: 60px;
   width: 320px;
-  max-height: calc(100vh - 160px);
+  max-height: calc(100vh - 280px);
   padding: 10px;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -3975,12 +3992,20 @@
   color: var(--ws-hud-fg);
   font-size: 12px;
   overflow-y: auto;
-  z-index: 4;
+  z-index: 5;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
   backdrop-filter: blur(6px);
+}
+.ws-roi-panel__empty {
+  padding: 12px 10px;
+  color: var(--ws-hud-fg-muted);
+  font-size: 11px;
+  text-align: center;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
 }
 .ws-roi-panel__header {
   display: flex;
@@ -4208,3 +4233,172 @@
 
 .ws-roi-sim-delta--improved { color: var(--ws-roi-cold); font-weight: 600; }
 .ws-roi-sim-delta--worse    { color: var(--ws-roi-hot);  font-weight: 600; }
+
+/* ─── Keyboard hints overlay ─────────────────────────────────────── */
+.ws-keyboard-hints {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: ws-kbd-fade-in 120ms ease-out;
+}
+@keyframes ws-kbd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.ws-keyboard-hints__card {
+  background: var(--ws-hud-surface);
+  color: var(--ws-hud-fg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  width: min(640px, 90vw);
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  animation: ws-kbd-pop-in 140ms ease-out;
+}
+@keyframes ws-kbd-pop-in {
+  from { transform: translateY(4px) scale(0.985); opacity: 0.7; }
+  to   { transform: translateY(0)   scale(1);      opacity: 1;   }
+}
+.ws-keyboard-hints__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ws-keyboard-hints__title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.ws-keyboard-hints__close {
+  background: transparent;
+  border: none;
+  color: var(--ws-hud-fg-muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.ws-keyboard-hints__close:hover { color: var(--ws-hud-fg); }
+.ws-keyboard-hints__body {
+  padding: 12px 18px;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 18px;
+}
+.ws-keyboard-hints__group-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ws-hud-fg-muted);
+  margin: 0 0 6px;
+}
+.ws-keyboard-hints__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ws-keyboard-hints__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.ws-keyboard-hints__keys {
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--ws-hud-fg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  min-width: 96px;
+  text-align: center;
+}
+.ws-keyboard-hints__desc {
+  color: var(--ws-hud-fg-soft);
+  flex: 1;
+}
+.ws-keyboard-hints__footer {
+  padding: 10px 18px 14px;
+  color: var(--ws-hud-fg-subtle);
+  font-size: 11px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ws-keyboard-hints__footer kbd {
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin: 0 2px;
+}
+
+/* ─── Loading skeleton (generic collab placeholder) ──────────────── */
+.ws-collab-skeleton {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.ws-collab-skeleton__pin {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(125, 211, 252, 0.08), rgba(125, 211, 252, 0.22), rgba(125, 211, 252, 0.08));
+  background-size: 200% 100%;
+  animation: ws-skeleton-shimmer 1.4s ease-in-out infinite;
+  border: 1px solid rgba(125, 211, 252, 0.2);
+}
+@keyframes ws-skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ─── Graph tab empty state ──────────────────────────────────────── */
+.ws-graph-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px;
+  color: var(--ws-hud-fg-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ws-graph-empty__title {
+  color: var(--ws-hud-fg);
+  font-size: 13px;
+  font-weight: 600;
+}
+.ws-graph-empty__hint {
+  color: var(--ws-hud-fg-soft);
+}
+.ws-graph-empty__btn {
+  background: var(--ws-selection-accent);
+  border: none;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ws-graph-empty__btn:hover { filter: brightness(1.08); }
+.ws-graph-empty__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

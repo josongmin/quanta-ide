@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { TEMPLATES, applyTemplate } from "../lib/templates";
 import { useSceneStore } from "../store/scene-store";
 import { switchToPage } from "./PagesTabBar";
+import { showToast } from "../lib/toast";
 
 // TemplatesMenu (Batch 5 — Navigation)
 // -------------------------------------------------------------------
@@ -16,7 +17,6 @@ export function TemplatesMenu({ onClose }: Props) {
   const graph = useSceneStore(s => s.graph);
   const layout = useSceneStore(s => s.layout);
   const ref = useRef<HTMLDivElement>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
   // Close on outside click.
   useEffect(() => {
@@ -33,14 +33,9 @@ export function TemplatesMenu({ onClose }: Props) {
       const result = applyTemplate(id, graph, layout);
       switchToPage(result.pageId);
       if (result.seeded === 0) {
-        setToast("Page created — graph not ready, no views seeded yet.");
-        window.setTimeout(() => {
-          setToast(null);
-          onClose();
-        }, 1800);
-      } else {
-        onClose();
+        showToast("Page created — graph not ready, no views seeded yet.", 1800);
       }
+      onClose();
     },
     [graph, layout, onClose],
   );
@@ -60,7 +55,6 @@ export function TemplatesMenu({ onClose }: Props) {
           <div className="ws-templates__item-desc">{t.steps}</div>
         </button>
       ))}
-      {toast && <div className="ws-templates__toast">{toast}</div>}
     </div>
   );
 }

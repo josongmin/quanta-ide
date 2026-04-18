@@ -1,25 +1,19 @@
 import { useSyncExternalStore } from "react";
-
-// Action Terrain store — isometric "refactor ROI = z-height" mode.
-// Mirrors stickies-store/annotations-store shape (useSyncExternalStore).
-// Selection + active plan are ephemeral (session-only); the master toggle,
-// height scale, and cone direction persist to localStorage so a reload
-// lands the user back in the same mode/height they left.
+import type {
+  RefactorRoiResult,
+  RefactorPlan,
+  RefactorSimulationResult,
+  ImpactCone,
+} from "@quanta/canvas-engine";
 
 export type ConeDirection = "blast" | "fix";
 
 export interface ActionTerrainState {
-  /** Master toggle — gates hook compute and renderer ctx. */
   mode: boolean;
-  /** Root of the currently-rendered blast/fix cone; null clears the cone. */
   selectedFileId: string | null;
-  /** Which directed cone to render when a file is selected. */
   coneDirection: ConeDirection;
-  /** Active refactor plan id; null means no simulation overlay. */
   activePlanId: string | null;
-  /** When true, bars render from simulated.after; false = raw ROI. */
   showSimulationDelta: boolean;
-  /** 0.2..2 multiplier against maxZ — HUD slider. */
   heightScale: number;
 }
 
@@ -71,7 +65,6 @@ function readPersisted(): ActionTerrainState {
 function writePersisted(state: ActionTerrainState): void {
   if (typeof localStorage === "undefined") return;
   try {
-    // Selection + active plan are deliberately excluded — ephemeral session state.
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
@@ -105,14 +98,22 @@ function subscribe(listener: () => void): () => void {
 
 const actions = {
   toggleMode(): void {
-    state = { ...state, mode: !state.mode };
+    const next = !state.mode;
+    // Exiting mode wipes ephemerals so a re-entry starts clean — otherwise
+    // the prior cone / simulation resurrects for a graph that may have
+    // changed since.
+    state = next
+      ? { ...state, mode: true }
+      : { ...state, mode: false, selectedFileId: null, activePlanId: null, showSimulationDelta: false };
     writePersisted(state);
     emit();
   },
 
   setMode(v: boolean): void {
     if (state.mode === v) return;
-    state = { ...state, mode: v };
+    state = v
+      ? { ...state, mode: true }
+      : { ...state, mode: false, selectedFileId: null, activePlanId: null, showSimulationDelta: false };
     writePersisted(state);
     emit();
   },
@@ -131,18 +132,12 @@ const actions = {
   },
 
   selectPlan(planId: string | null): void {
-    // Selecting a plan implies simulation overlay ON; clearing returns to raw ROI.
     if (state.activePlanId === planId && state.showSimulationDelta === (planId !== null)) return;
     state = {
       ...state,
       activePlanId: planId,
       showSimulationDelta: planId !== null,
     };
-    emit();
-  },
-
-  toggleSimulationDelta(): void {
-    state = { ...state, showSimulationDelta: !state.showSimulationDelta };
     emit();
   },
 
@@ -174,11 +169,9 @@ export function useActionTerrainStore<T>(selector: (s: ActionTerrainState) => T)
 export const ACTION_TERRAIN_HEIGHT_RANGE = { min: HEIGHT_MIN, max: HEIGHT_MAX } as const;
 
 // ── Render slice ────────────────────────────────────────────────────
-// Kept on its own tiny store (module-scoped, not the settings slice
-// above) so scene/canvas consumers can subscribe to just the derived
-// overlay payload without re-rendering when a user flips coneDirection.
-// Populated by ActionTerrainLayer (which runs useActionTerrain) and
-// consumed by MultiFileCanvas when it composes the Pixi overlay ctx.
+// The hook computes ROI + suggestions + simulation + bars + cone once per
+// input change; all consumers (Pixi overlay, backlog panel, HUD section)
+// subscribe here via a selector so the compute only runs in one place.
 
 export interface ActionTerrainBarPayload {
   fileId: string;
@@ -205,15 +198,26 @@ export interface ActionTerrainIsoConfigPayload {
 
 export interface ActionTerrainRenderState {
   enabled: boolean;
+  roi: RefactorRoiResult | null;
+  suggestions: ReadonlyMap<string, readonly RefactorPlan[]>;
+  simulation: RefactorSimulationResult | null;
+  cone: ImpactCone | null;
   bars: readonly ActionTerrainBarPayload[];
-  cone: ActionTerrainConePayload | null;
+  coneForRenderer: ActionTerrainConePayload | null;
   isoConfig: ActionTerrainIsoConfigPayload;
 }
 
+const EMPTY_SUGGESTIONS: ReadonlyMap<string, readonly RefactorPlan[]> = new Map();
+const EMPTY_BARS: readonly ActionTerrainBarPayload[] = [];
+
 const DEFAULT_RENDER_STATE: ActionTerrainRenderState = {
   enabled: false,
-  bars: [],
+  roi: null,
+  suggestions: EMPTY_SUGGESTIONS,
+  simulation: null,
   cone: null,
+  bars: EMPTY_BARS,
+  coneForRenderer: null,
   isoConfig: { xShiftPerZ: 0.35, maxZ: 180 },
 };
 
@@ -222,6 +226,19 @@ const renderListeners = new Set<() => void>();
 
 function emitRender() {
   for (const l of [...renderListeners]) l();
+}
+
+function renderStatesEqual(a: ActionTerrainRenderState, b: ActionTerrainRenderState): boolean {
+  return (
+    a.enabled === b.enabled &&
+    a.roi === b.roi &&
+    a.suggestions === b.suggestions &&
+    a.simulation === b.simulation &&
+    a.cone === b.cone &&
+    a.bars === b.bars &&
+    a.coneForRenderer === b.coneForRenderer &&
+    a.isoConfig === b.isoConfig
+  );
 }
 
 export const actionTerrainRenderStore = {
@@ -235,20 +252,14 @@ export const actionTerrainRenderStore = {
     };
   },
   set(next: ActionTerrainRenderState): void {
-    // Reference-equality short-circuit — ActionTerrainLayer calls this every
-    // render; skip emit when nothing changed so Pixi ctx stays stable.
-    if (
-      renderState.enabled === next.enabled &&
-      renderState.bars === next.bars &&
-      renderState.cone === next.cone &&
-      renderState.isoConfig === next.isoConfig
-    ) {
-      return;
-    }
+    if (renderStatesEqual(renderState, next)) return;
     renderState = next;
     emitRender();
   },
   reset(): void {
+    // Short-circuit so an idle-mode re-render doesn't wake every subscriber.
+    if (renderState === DEFAULT_RENDER_STATE) return;
+    if (!renderState.enabled && renderState.bars === EMPTY_BARS && !renderState.coneForRenderer) return;
     renderState = DEFAULT_RENDER_STATE;
     emitRender();
   },

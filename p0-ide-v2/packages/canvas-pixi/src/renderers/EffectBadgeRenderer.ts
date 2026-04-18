@@ -10,6 +10,7 @@ import type {
 } from "@quanta/canvas-engine";
 import { EFFECT_STYLE } from "@quanta/canvas-engine";
 import { NEUTRAL_GREY } from "./shared/colors";
+import { setFontSize, setFill, setText, hashStep, hashStringStep } from "./shared/pixi-guards";
 
 // Per-file effect chips rendered as a row below the card's bottom edge.
 // Each chip is a rounded rect + 2-3 letter ASCII glyph (no emoji). Readers
@@ -22,6 +23,13 @@ import { NEUTRAL_GREY } from "./shared/colors";
 // Direct-mount overlay (like SCCBubbleRenderer / StartHereBadgeRenderer) —
 // the renderer registry keys by LodRendererKind and this pass isn't a
 // tier, it's a cross-tier overlay.
+//
+// Optimization pass: rebuild hash over (fileId, effectKinds, invScale
+// bucket). When the visible effect set and zoom bucket haven't changed,
+// the Graphics.clear() + per-chip fills can be skipped entirely. The chip
+// count here is bounded by MAX_CHIPS × visible cards, but tier gating keeps
+// that reasonable at street/ground — the win is avoiding the Graphics path
+// rebuild on plain pan frames.
 
 type TierGate = "city" | "street" | "ground";
 
@@ -50,6 +58,13 @@ export class EffectBadgeRenderer {
   // build() calls (visible not set this frame → hidden).
   private textPool: Text[] = [];
   private textPoolIdx = 0;
+  // Rebuild gate. The inputs are: visible file set × their effect kinds ×
+  // LOD tier × invScale bucket. If all identical, the paint is identical
+  // and we skip the Graphics.clear() + fills + label walk.
+  private lastHash = 0;
+  private lastCount = 0;
+  private lastInvScaleBucket = -1;
+  private lastLod: LodLevel | null = null;
 
   constructor(parent: Container) {
     this.container = new Container();
@@ -66,15 +81,53 @@ export class EffectBadgeRenderer {
     viewport: Viewport,
     lod: LodLevel,
   ): void {
-    this.gfx.clear();
-    this.resetTexts();
-    if (!effects || !tierAllows(lod)) return;
+    if (!effects || !tierAllows(lod)) {
+      this.gfx.clear();
+      this.resetTexts();
+      this.lastHash = 0;
+      this.lastCount = 0;
+      this.lastLod = lod;
+      return;
+    }
 
     const scale = viewport.scale;
     // World-px per screen-px at this zoom. We paint chip geometry in world
     // units so Pixi's camera scaling gives the right on-screen size; the
     // font size is pre-divided so it doesn't grow at zoom-in.
     const invScale = Math.min(8, Math.max(0.5, 1 / scale));
+    // Coarse invScale bucket — same trick as CityNodeRenderer's LABEL_MIN_
+    // threshold. Rebuilds only when the effective chip size bucket shifts.
+    const invScaleBucket = Math.round(invScale * 4);
+
+    // Build the dirty hash in the same pass we'd walk anyway. If the hash
+    // matches we bail before touching the Graphics.
+    let hash = 0;
+    let count = 0;
+    for (const file of files) {
+      const entry = effects[file.id];
+      if (!entry || entry.effects.length === 0) continue;
+      const rect = layout.fileRects.get(file.id);
+      if (!rect) continue;
+      count++;
+      hash = hashStringStep(hash, file.id);
+      hash = hashStep(hash, entry.effects.length);
+      for (let i = 0; i < entry.effects.length; i++) {
+        hash = hashStep(hash, entry.effects[i].charCodeAt(0));
+      }
+    }
+
+    if (
+      hash === this.lastHash
+      && count === this.lastCount
+      && invScaleBucket === this.lastInvScaleBucket
+      && lod === this.lastLod
+    ) {
+      return;
+    }
+
+    this.gfx.clear();
+    this.resetTexts();
+
     const chipH = CHIP_H * invScale;
     const chipW = CHIP_W * invScale;
     const gap = CHIP_GAP * invScale;
@@ -89,11 +142,20 @@ export class EffectBadgeRenderer {
       if (!rect) continue;
       this.drawRow(rect, entry.effects, chipW, chipH, gap, rowGapY, radius, fontSize, invScale);
     }
+
+    this.lastHash = hash;
+    this.lastCount = count;
+    this.lastInvScaleBucket = invScaleBucket;
+    this.lastLod = lod;
   }
 
   clear(): void {
     this.gfx.clear();
     this.resetTexts();
+    this.lastHash = 0;
+    this.lastCount = 0;
+    this.lastInvScaleBucket = -1;
+    this.lastLod = null;
   }
 
   destroy(): void {
@@ -137,9 +199,9 @@ export class EffectBadgeRenderer {
         .fill({ color: style.color, alpha: 0.92 });
 
       const label = this.acquireText();
-      label.text = style.glyph;
-      label.style.fontSize = fontSize;
-      label.style.fill = 0xffffff;
+      setText(label, style.glyph);
+      setFontSize(label, fontSize);
+      setFill(label, 0xffffff);
       label.scale.set(invScale);
       // Center glyph in chip. Text width (post-scale) is `label.width`.
       label.position.set(
@@ -155,9 +217,9 @@ export class EffectBadgeRenderer {
         .roundRect(x, y, chipW, chipH, radius)
         .fill({ color: OVERFLOW_COLOR, alpha: 0.85 });
       const label = this.acquireText();
-      label.text = OVERFLOW_GLYPH;
-      label.style.fontSize = fontSize;
-      label.style.fill = 0xffffff;
+      setText(label, OVERFLOW_GLYPH);
+      setFontSize(label, fontSize);
+      setFill(label, 0xffffff);
       label.scale.set(invScale);
       label.position.set(
         x + chipW / 2 - label.width / 2,

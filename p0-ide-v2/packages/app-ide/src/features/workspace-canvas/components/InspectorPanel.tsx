@@ -9,6 +9,7 @@ import { useSceneStore } from "../store/scene-store";
 import { useInteractionStore, interactionStore } from "../store/interaction-store";
 import { useFeature } from "../store/feature-flags-store";
 import { toMermaidDiagram, toDotGraph, toShareUrl } from "../lib/export-helpers";
+import { showToast, showSuccessToast, showErrorToast } from "../lib/toast";
 
 // Right-sidebar Dev Mode inspector. Mirrors the Figma "properties panel"
 // but scoped to software-intelligence signals: incoming/outgoing edges,
@@ -157,40 +158,36 @@ function NeighborList({
 function CopyAsSection({ file }: { file: FileNode }) {
   const layout = useSceneStore(s => s.layout);
   const visible = useSceneStore(s => s.visibleScene);
-  const [toast, setToast] = useState<string | null>(null);
 
-  const flash = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 1500);
-  }, []);
-
+  // Copy-as feedback routes through the shared toast store so a Cmd+C
+  // on the inspector stacks predictably with engine / export toasts.
   const copy = useCallback(
     async (value: string, label: string) => {
       try {
         if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(value);
-          flash(`Copied ${label}`);
+          showSuccessToast(`Copied ${label}`);
         } else {
           window.prompt(`copy ${label}`, value);
-          flash("Copy manually");
+          showToast("Copy manually");
         }
       } catch {
-        flash("Copy failed");
+        showErrorToast("Copy failed");
       }
     },
-    [flash],
+    [],
   );
 
   const copyPath = useCallback(() => { void copy(file.id, "path"); }, [copy, file.id]);
   const copyShare = useCallback(() => { void copy(toShareUrl(), "share URL"); }, [copy]);
   const copyMermaid = useCallback(() => {
-    if (!layout || !visible) { flash("No scene"); return; }
+    if (!layout || !visible) { showToast("No scene"); return; }
     void copy(toMermaidDiagram({ layout, visible }), "Mermaid");
-  }, [copy, layout, visible, flash]);
+  }, [copy, layout, visible]);
   const copyDot = useCallback(() => {
-    if (!layout || !visible) { flash("No scene"); return; }
+    if (!layout || !visible) { showToast("No scene"); return; }
     void copy(toDotGraph({ layout, visible }), "DOT");
-  }, [copy, layout, visible, flash]);
+  }, [copy, layout, visible]);
 
   return (
     <Section title="Copy as" defaultOpen={false}>
@@ -200,7 +197,6 @@ function CopyAsSection({ file }: { file: FileNode }) {
         <button type="button" className="ws-inspector__btn" onClick={copyMermaid}>mermaid</button>
         <button type="button" className="ws-inspector__btn" onClick={copyDot}>DOT</button>
       </div>
-      {toast && <div className="ws-inspector__toast">{toast}</div>}
     </Section>
   );
 }

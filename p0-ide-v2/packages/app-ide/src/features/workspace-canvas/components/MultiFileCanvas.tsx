@@ -28,6 +28,7 @@ import { useRenderSettings, renderSettingsStore } from "../store/render-settings
 import { usePresenceStore } from "../store/presence-store";
 import { stickiesStore } from "../store/stickies-store";
 import { startMockPresence } from "../lib/mock-presence";
+import { installPresenceBridge } from "../lib/presence-store-bridge";
 import { StreetCard } from "./StreetCard";
 import { GroundCard } from "./GroundCard";
 import { Minimap } from "./Minimap";
@@ -44,6 +45,7 @@ import { SessionTimer } from "./SessionTimer";
 import { DevModeLayer, type DevModeLayerApi } from "./DevModeLayer";
 import { AnomalyBadgesLayer } from "./AnomalyBadgesLayer";
 import { CommandPalette } from "./CommandPalette";
+import { KeyboardHints, useKeyboardHints } from "./KeyboardHints";
 import { LassoOverlay, BulkActionsToolbar } from "./LassoOverlay";
 import { ZoomLens } from "./ZoomLens";
 import { ApplyThemeAttribute } from "./ThemeSwitcher";
@@ -99,6 +101,8 @@ export function MultiFileCanvas({ graph }: Props) {
   // click-outside, or after an action runs. Kept in a local React state
   // rather than a store because the palette lifecycle is purely UI-local.
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // Keyboard hints overlay — owns the "?" global chord.
+  const keyboardHints = useKeyboardHints();
 
   // Store selectors — each column subscribes to its owning sub-store so a
   // pan tick never wakes scene/interaction/settings listeners.
@@ -199,6 +203,11 @@ export function MultiFileCanvas({ graph }: Props) {
   const selectFile = useCallback((fileId: string) => {
     if (devModeApiRef.current?.tryCaptureSelection(fileId)) return;
     rawSelectFile(fileId);
+    // Mirror canvas selection into the Action Terrain store when mode is
+    // active so the blast/fix cone tracks canvas clicks, not just panel rows.
+    if (actionTerrainStore.getState().mode) {
+      actionTerrainStore.selectFile(fileId);
+    }
   }, [rawSelectFile]);
 
   // Pan/zoom transform — written imperatively to bypass React reconciliation
@@ -320,8 +329,13 @@ export function MultiFileCanvas({ graph }: Props) {
   }, [setContainerSize, fitToGraph, layout]);
 
   useEffect(() => {
+    // Install the transport↔store bridge once — idempotent across remounts.
+    const uninstallBridge = installPresenceBridge();
     const stop = startMockPresence();
-    return () => stop();
+    return () => {
+      stop();
+      uninstallBridge();
+    };
   }, []);
 
   // Demo stickies — once per layout, when no stickies exist yet.
@@ -512,6 +526,10 @@ export function MultiFileCanvas({ graph }: Props) {
         fitToGraph={onFit}
         resetViewport={resetViewport}
         exportPng={exportPng}
+      />
+      <KeyboardHints
+        open={keyboardHints.open}
+        onClose={() => keyboardHints.setOpen(false)}
       />
       <ApplyThemeAttribute containerRef={containerRef} />
       <FilmStripScrubber graph={graph} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import { useFeature } from "../store/feature-flags-store";
 import { commentsStore, useCommentsStore } from "../store/comments-store";
@@ -74,6 +74,18 @@ export function CollabLayer({ transform, scale, layout, graph }: Props) {
 
   const threads = useCommentsStore(s => s.threads);
   const openThreadId = useCommentsStore(s => s.openThreadId);
+
+  // Brief skeleton window — layout exists but no comment threads yet.
+  // Covers the render frame between first layout and the seed useEffect
+  // dispatching the demo threads, so users never see a blank pin layer.
+  const [skeletonActive, setSkeletonActive] = useState(true);
+  useEffect(() => {
+    if (!commentsOn) { setSkeletonActive(false); return; }
+    if (threads.length > 0) { setSkeletonActive(false); return; }
+    if (!layout) return;
+    const t = window.setTimeout(() => setSkeletonActive(false), 600);
+    return () => window.clearTimeout(t);
+  }, [commentsOn, threads.length, layout]);
   const openThread = useMemo(
     () => threads.find(t => t.id === openThreadId) ?? null,
     [threads, openThreadId],
@@ -148,6 +160,9 @@ export function CollabLayer({ transform, scale, layout, graph }: Props) {
           className="workspace-canvas__pins-layer"
           style={{ transformOrigin: "0 0" }}
         >
+          {skeletonActive && threads.length === 0 && (
+            <CollabSkeleton layout={layout} />
+          )}
           {threads.map(t => (
             <CommentPin
               key={t.id}
@@ -169,6 +184,33 @@ export function CollabLayer({ transform, scale, layout, graph }: Props) {
         />
       )}
     </>
+  );
+}
+
+interface CollabSkeletonProps {
+  layout: WorkspaceLayout;
+}
+
+// Subtle placeholder pins rendered while the comment thread seeder is
+// still running. Avoids the blank-canvas feel during the first frame
+// between layout arrival and the useEffect that creates demo threads.
+// Picks the top 2 rectangles from the layout so the skeleton appears
+// in plausible anchor positions and fades away as real pins arrive.
+function CollabSkeleton({ layout }: CollabSkeletonProps) {
+  const rects = useMemo(() => {
+    const list = [...layout.fileRects.values()];
+    return list.slice(0, 2);
+  }, [layout]);
+  return (
+    <div className="ws-collab-skeleton" aria-hidden="true">
+      {rects.map((r, i) => (
+        <div
+          key={i}
+          className="ws-collab-skeleton__pin"
+          style={{ left: r.x + r.w - 14, top: r.y - 14 }}
+        />
+      ))}
+    </div>
   );
 }
 

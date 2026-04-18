@@ -1,10 +1,7 @@
-import type { WorkspaceGraph } from "./types";
-import type { WorkspaceMetrics } from "./metrics";
 import type { RefactorRoiResult, RefactorRoiScore } from "./refactor-roi";
 
-// Rule-based refactor plan generator. Intended to be swapped with an LLM
-// call once AiService is wired — shape of RefactorPlan is the frozen
-// contract downstream surfaces (terrain overlay, simulator) consume.
+// Rule-based refactor plan generator. Swappable with an LLM provider
+// producing the same RefactorPlan shape.
 
 export type RefactorPlanKind =
   | "extract-interface"
@@ -59,7 +56,7 @@ function findSccPeers(
   return [];
 }
 
-function planFor(
+function buildPlan(
   kind: RefactorPlanKind,
   score: RefactorRoiScore,
   title: string,
@@ -79,20 +76,12 @@ function planFor(
 }
 
 export function buildRefactorSuggestions(
-  graph: Pick<WorkspaceGraph, "files" | "fileEdges">,
   roi: RefactorRoiResult,
-  metrics: WorkspaceMetrics,
   options: BuildSuggestionsOptions = {},
 ): ReadonlyMap<string, readonly RefactorPlan[]> {
   const maxPerFile = Math.max(0, options.maxPerFile ?? DEFAULT_MAX_PER_FILE);
   const out = new Map<string, readonly RefactorPlan[]>();
   if (maxPerFile === 0) return out;
-
-  // Avoid lint unused — metrics and graph are contract-required and may be
-  // used by future rules; reference them explicitly so the current shape
-  // still compiles cleanly under noUnusedParameters.
-  void metrics;
-  void graph;
 
   const top = roi.ordered.slice(0, TOP_FILES_CONSIDERED);
   for (const score of top) {
@@ -106,11 +95,11 @@ export function buildRefactorSuggestions(
       plans.push(make());
     };
 
-    // Rules are ordered roughly by specificity — more targeted first so the
-    // maxPerFile cap prefers actionable plans over generic ones.
+    // Rules ordered by specificity — targeted first so maxPerFile cap
+    // prefers actionable plans over generic ones.
     pushIf(c.cycleMembership > 50 && !!options.sccs, () => {
       const peers = findSccPeers(options.sccs, score.fileId);
-      return planFor(
+      return buildPlan(
         "break-cycle",
         score,
         `Break cycle involving ${file}`,
@@ -120,7 +109,7 @@ export function buildRefactorSuggestions(
     });
 
     pushIf(c.fanIn > 60 && c.complexity > 40, () =>
-      planFor(
+      buildPlan(
         "extract-interface",
         score,
         `Extract an interface for ${file}`,
@@ -130,7 +119,7 @@ export function buildRefactorSuggestions(
     );
 
     pushIf(c.complexity > 70, () =>
-      planFor(
+      buildPlan(
         "split-file",
         score,
         `Split ${file} into cohesive modules`,
@@ -140,7 +129,7 @@ export function buildRefactorSuggestions(
     );
 
     pushIf(c.testDebt > 50, () =>
-      planFor(
+      buildPlan(
         "add-tests",
         score,
         `Add tests for ${file}`,
@@ -150,7 +139,7 @@ export function buildRefactorSuggestions(
     );
 
     pushIf(c.fanIn > 80, () =>
-      planFor(
+      buildPlan(
         "reduce-fan-in",
         score,
         `Reduce fan-in into ${file}`,

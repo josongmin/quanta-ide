@@ -4,6 +4,7 @@ import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/
 import { CITY_FONT_BOLD_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
+import { setText, hashStep, hashStringStep, makeGrowingPool, type GrowingPool } from "./shared/pixi-guards";
 
 // Universe LOD renderer — draws one chunky architectural box per supercluster
 // (e.g. `crates/`, `tests/`, future service groups). Shares the same
@@ -16,6 +17,11 @@ import { registerRenderer, type RendererHandle, type RenderContext } from "./sha
 //      at 3.5× invScale so the text stays readable at max zoom-out.
 //   3. Thicker borders (invScale * 3), 48px corner radius, 0.92 fill alpha —
 //      tuned to look "architectural" against the grid background.
+//
+// Optimization pass: labelCache for displayName / metaText reuse + pickRect
+// pool + hit-AABB gating. Identical pattern to ClusterNodeRenderer; the
+// per-frame string pair is a heavier allocation (two BitmapText writes) so
+// the cache hit is worth slightly more here.
 
 // Curated palette — pastel-ish but slightly warmer than the ClusterNodeRenderer
 // HSL output so the universe tier reads as its own layer when both are visible
@@ -71,19 +77,34 @@ interface LabelPair {
   meta: BitmapText;
 }
 
+// Per-supercluster label snapshot. Both strings are cheap individually but
+// we walk this loop on every pan/zoom frame; caching the formatted pair
+// saves two string allocations × N superclusters × 60 fps.
+interface SuperclusterLabelSnapshot {
+  id: string;
+  fileCount: number;
+  displayName: string;
+  metaText: string;
+}
+
 export class SuperclusterNodeRenderer {
   private container: Container;
   private rectMesh: InstancedRectMesh;
   private labelContainer: Container;
   private hitLayer: Graphics;
   private pickIndex: SpatialPickIndex;
-  private pickRects: PickRect[] = [];
+  private pickRectsPool: GrowingPool<PickRect> = makeGrowingPool<PickRect>(
+    () => ({ x: 0, y: 0, w: 0, h: 0, id: "" }),
+  );
   private labelPool: LabelPair[] = [];
   private labelPoolCursor = 0;
   // Stable id → palette index → (fill, border) memo. Keyed by id (not index)
   // so incoming/outgoing supercluster sets keep their colours steady across
   // updates. Reset on destroy().
   private colorCache: Map<string, { fill: number; border: number }> = new Map();
+  private labelCache: Map<string, SuperclusterLabelSnapshot> = new Map();
+  private lastHitHash = 0;
+  private lastHitCount = 0;
 
   private onClickSupercluster?: (id: string) => void;
   private onHoverSupercluster?: (id: string | null) => void;
@@ -143,6 +164,22 @@ export class SuperclusterNodeRenderer {
     return entry;
   }
 
+  private getLabelStrings(c: ClusterMeta): { displayName: string; metaText: string } {
+    let snap = this.labelCache.get(c.id);
+    if (snap && snap.fileCount === c.fileCount) return snap;
+    const displayName = c.id.split("/").pop() ?? c.id;
+    const metaText = `${c.fileCount} files`;
+    if (snap) {
+      snap.fileCount = c.fileCount;
+      snap.displayName = displayName;
+      snap.metaText = metaText;
+    } else {
+      snap = { id: c.id, fileCount: c.fileCount, displayName, metaText };
+      this.labelCache.set(c.id, snap);
+    }
+    return snap;
+  }
+
   private acquireLabel(): LabelPair {
     if (this.labelPoolCursor < this.labelPool.length) {
       const pair = this.labelPool[this.labelPoolCursor++];
@@ -172,18 +209,22 @@ export class SuperclusterNodeRenderer {
     if (superclusters.length === 0) {
       this.rectMesh.setInstanceCount(0);
       this.hitLayer.clear();
-      this.pickRects.length = 0;
+      this.pickRectsPool.slots.length = 0;
       this.pickIndex.clear();
       this.releaseLabels();
+      this.lastHitHash = 0;
+      this.lastHitCount = 0;
       return;
     }
     const invScale = Math.min(16, Math.max(1, 1 / viewport.scale));
     this.rectMesh.ensureCapacity(superclusters.length);
     const data = this.rectMesh.view();
-    this.pickRects.length = 0;
+    this.pickRectsPool.grow(superclusters.length);
+    const pickRects = this.pickRectsPool.slots;
     this.labelPoolCursor = 0;
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let hitHash = 0;
 
     for (let i = 0; i < superclusters.length; i++) {
       const c = superclusters[i];
@@ -200,7 +241,20 @@ export class SuperclusterNodeRenderer {
       data[o + 12] = invScale * 3;    // thicker border than cluster tier
       data[o + 13] = 48;              // chunky corner radius (world px)
 
-      this.pickRects.push({ x: c.rect.x, y: c.rect.y, w: c.rect.w, h: c.rect.h, id: c.id });
+      const slot = pickRects[i];
+      slot.x = c.rect.x;
+      slot.y = c.rect.y;
+      slot.w = c.rect.w;
+      slot.h = c.rect.h;
+      slot.id = c.id;
+
+      hitHash = hashStringStep(hitHash, c.id);
+      hitHash = hashStep(hitHash, c.rect.x | 0);
+      hitHash = hashStep(hitHash, c.rect.y | 0);
+      hitHash = hashStep(hitHash, c.rect.w | 0);
+      hitHash = hashStep(hitHash, c.rect.h | 0);
+      hitHash = hashStep(hitHash, c.fileCount);
+
       if (c.rect.x < minX) minX = c.rect.x;
       if (c.rect.y < minY) minY = c.rect.y;
       if (c.rect.x + c.rect.w > maxX) maxX = c.rect.x + c.rect.w;
@@ -209,10 +263,9 @@ export class SuperclusterNodeRenderer {
       // Two-line label: big display name, smaller file-count subtitle. Both
       // pulled from the pool in one shot so we only walk the pool once.
       const { name: nameLabel, meta: metaLabel } = this.acquireLabel();
-      const displayName = c.id.split("/").pop() ?? c.id;
-      const metaText = `${c.fileCount} files`;
-      if (nameLabel.text !== displayName) nameLabel.text = displayName;
-      if (metaLabel.text !== metaText) metaLabel.text = metaText;
+      const { displayName, metaText } = this.getLabelStrings(c);
+      setText(nameLabel, displayName);
+      setText(metaLabel, metaText);
       nameLabel.scale.set(invScale * 3.5);
       // Subtitle ~55% of the headline — keeps the hierarchy readable without
       // a second font install.
@@ -226,29 +279,39 @@ export class SuperclusterNodeRenderer {
       metaLabel.y = nameLabel.y + 28 * invScale * 3.5 + invScale * 6;
     }
 
+    pickRects.length = superclusters.length;
+
     // Single-AABB hit layer — SpatialPickIndex resolves the actual id.
-    this.hitLayer.clear();
-    this.hitLayer.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: 0x000000, alpha: 0.001 });
+    if (hitHash !== this.lastHitHash || superclusters.length !== this.lastHitCount) {
+      this.hitLayer.clear();
+      this.hitLayer.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: 0x000000, alpha: 0.001 });
+      this.lastHitHash = hitHash;
+      this.lastHitCount = superclusters.length;
+    }
 
     this.rectMesh.setInstanceCount(superclusters.length);
-    this.pickIndex.load(this.pickRects, "supercluster");
+    this.pickIndex.load(pickRects, "supercluster");
     this.releaseLabels();
   }
 
   clear(): void {
     this.rectMesh.setInstanceCount(0);
     this.hitLayer.clear();
-    this.pickRects.length = 0;
+    this.pickRectsPool.slots.length = 0;
     this.pickIndex.clear();
     this.labelPoolCursor = 0;
     this.releaseLabels();
+    this.labelCache.clear();
+    this.lastHitHash = 0;
+    this.lastHitCount = 0;
   }
 
   destroy(): void {
     this.rectMesh.destroy();
     this.pickIndex.clear();
-    this.pickRects.length = 0;
+    this.pickRectsPool.reset();
     this.colorCache.clear();
+    this.labelCache.clear();
     this.container.destroy({ children: true });
   }
 }

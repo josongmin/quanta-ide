@@ -431,6 +431,418 @@ function synthesizeEdges(
     }
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  // Extended synthesis: 20 additional kinds covering the full analyzer
+  // taxonomy. Each has its own criterion so the reader can tell edges
+  // apart by *where they appear* — not just by colour.
+  // ════════════════════════════════════════════════════════════════════
+
+  // Extract every exported identifier from a source file — functions,
+  // classes, consts, type aliases, interfaces. Used by dead-edge, alias,
+  // contract, inheritance and clone detectors.
+  const extractExportNames = (src: string): string[] => {
+    const names = new Set<string>();
+    const patterns: RegExp[] = [
+      /export\s+(?:async\s+)?function\s+(\w+)/g,
+      /export\s+(?:abstract\s+)?class\s+(\w+)/g,
+      /export\s+const\s+(\w+)/g,
+      /export\s+let\s+(\w+)/g,
+      /export\s+type\s+(\w+)/g,
+      /export\s+interface\s+(\w+)/g,
+      /export\s+enum\s+(\w+)/g,
+    ];
+    for (const re of patterns) {
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(src)) !== null) names.add(m[1]);
+    }
+    return [...names];
+  };
+
+  const exportMap = new Map<string, string[]>();
+  for (const f of files) exportMap.set(f.id, extractExportNames(sources[f.id] ?? ""));
+  const exportOwner = new Map<string, string>(); // symbol → first file that exports it
+  for (const [id, syms] of exportMap) {
+    for (const s of syms) if (!exportOwner.has(s)) exportOwner.set(s, id);
+  }
+
+  // ── inheritance: `class X extends Y` / `implements Y` resolved via exports
+  const classRe = /class\s+(\w+)(?:\s+extends\s+(\w+))?(?:\s+implements\s+([\w,\s]+))?/g;
+  const INHERIT_CAP = 12;
+  let inheritCount = 0;
+  inheritLoop: for (const f of files) {
+    const src = sources[f.id];
+    if (!src) continue;
+    let m: RegExpExecArray | null;
+    while ((m = classRe.exec(src)) !== null) {
+      const parent = m[2];
+      const interfaces = (m[3] ?? "").split(",").map(s => s.trim()).filter(Boolean);
+      const targets = [parent, ...interfaces].filter((x): x is string => !!x);
+      for (const t of targets) {
+        const owner = exportOwner.get(t);
+        if (!owner || owner === f.id) continue;
+        push(mkEdge(f.id, owner, "inheritance", {
+          weight: 1.0, confidence: 0.95, fromSymbol: m[1], toSymbol: t,
+        }));
+        inheritCount++;
+        if (inheritCount >= INHERIT_CAP) break inheritLoop;
+      }
+    }
+  }
+
+  // ── test-covers: strong shared prefix (≥6 chars) name pairing
+  // Proxy for "test → SUT" when no real test files exist. A file whose
+  // basename is a strict extension of another's is treated as covering it.
+  const TEST_COVERS_CAP = 6;
+  let testCoversCount = 0;
+  const basenames = files.map(f => ({ f, base: (f.name.replace(/\.[^.]+$/, "") || f.name).toLowerCase() }));
+  testLoop: for (let i = 0; i < basenames.length; i++) {
+    for (let j = 0; j < basenames.length; j++) {
+      if (i === j) continue;
+      const a = basenames[i], b = basenames[j];
+      if (a.base.length < 6 || b.base.length < 6) continue;
+      if (a.base.startsWith(b.base) && a.base !== b.base) {
+        push(withAnchors(a.f.id, b.f.id, "test-covers", 0, 0, {
+          weight: 0.7, confidence: 0.7,
+        }));
+        testCoversCount++;
+        if (testCoversCount >= TEST_COVERS_CAP) break testLoop;
+      }
+    }
+  }
+
+  // ── clone: high Jaccard similarity on function-name sets (≥0.6, size ≥3)
+  const fnSets = new Map<string, Set<string>>();
+  for (const f of files) fnSets.set(f.id, new Set(f.functions.map(fn => fn.name)));
+  const CLONE_CAP = 6;
+  let cloneCount = 0;
+  cloneLoop: for (let i = 0; i < files.length; i++) {
+    const a = files[i], sa = fnSets.get(a.id)!;
+    if (sa.size < 3) continue;
+    for (let j = i + 1; j < files.length; j++) {
+      const b = files[j], sb = fnSets.get(b.id)!;
+      if (sb.size < 3) continue;
+      let inter = 0;
+      for (const n of sa) if (sb.has(n)) inter++;
+      const union = sa.size + sb.size - inter;
+      const jac = union === 0 ? 0 : inter / union;
+      if (jac >= 0.6) {
+        push(withAnchors(a.id, b.id, "clone", 0, 0, {
+          weight: 0.8, confidence: jac, severity: jac >= 0.85 ? "high" : "medium",
+        }));
+        cloneCount++;
+        if (cloneCount >= CLONE_CAP) break cloneLoop;
+      }
+    }
+  }
+
+  // ── effect: two files sharing the same non-pure effect kind (env/io/db)
+  // This is the "shared side-channel" relation — e.g., both touch the
+  // same store, or both write env variables. Pairs within the same
+  // package to avoid unrelated noise.
+  const EFFECT_CAP = 10;
+  const effectOf = new Map(files.map(f => [f.id, inferEffectsForId(f.id)]));
+  const sharedEffects = ["env", "db", "net"] as const;
+  let effectCount = 0;
+  effLoop: for (let i = 0; i < files.length; i++) {
+    for (let j = i + 1; j < files.length; j++) {
+      const a = files[i], b = files[j];
+      const pkgA = a.id.split("/")[0], pkgB = b.id.split("/")[0];
+      if (pkgA !== pkgB) continue;
+      const ea = effectOf.get(a.id)!, eb = effectOf.get(b.id)!;
+      const shared = sharedEffects.filter(k => ea.includes(k) && eb.includes(k));
+      if (shared.length === 0) continue;
+      push(withAnchors(a.id, b.id, "effect", 0, 0, {
+        weight: 0.7, confidence: 0.7,
+      }));
+      effectCount++;
+      if (effectCount >= EFFECT_CAP) break effLoop;
+    }
+  }
+
+  // ── pdg: edges that are BOTH a call (direct import+use) and 2-hop data
+  // This is the intersection — "control AND data flow both reach here".
+  const PDG_CAP = 8;
+  const dataflowPairs = new Set<string>();
+  for (const e of out) if (e.kind === "dataflow") dataflowPairs.add(`${e.from}→${e.to}`);
+  const callPairs = new Set<string>();
+  for (const e of out) if (e.kind === "call") callPairs.add(`${e.from}→${e.to}`);
+  let pdgCount = 0;
+  for (const e of imports) {
+    if (pdgCount >= PDG_CAP) break;
+    if (callPairs.has(`${e.from}→${e.to}`) && dataflowPairs.has(`${e.from}→${e.to}`)) {
+      push(withAnchors(e.from, e.to, "pdg", 0, 0, { weight: 0.8, confidence: 0.7 }));
+      pdgCount++;
+    }
+  }
+
+  // ── alias: two files that export the same identifier name (name collision
+  // → points-to aliasing when either is imported under the same symbol)
+  const symToFiles = new Map<string, string[]>();
+  for (const [fid, syms] of exportMap) {
+    for (const s of syms) {
+      const arr = symToFiles.get(s);
+      if (arr) arr.push(fid); else symToFiles.set(s, [fid]);
+    }
+  }
+  const ALIAS_CAP = 6;
+  let aliasCount = 0;
+  aliasLoop: for (const [sym, fids] of symToFiles) {
+    if (fids.length < 2 || sym.length < 4) continue;
+    for (let i = 0; i < fids.length - 1; i++) {
+      push(mkEdge(fids[i], fids[i + 1], "alias", {
+        weight: 0.5, confidence: 0.6, fromSymbol: sym, toSymbol: sym,
+      }));
+      aliasCount++;
+      if (aliasCount >= ALIAS_CAP) break aliasLoop;
+    }
+  }
+
+  // ── feature-flag: files whose id/name contains config/flag/feature →
+  // their direct importers (the gated code paths).
+  const flagRe = /(config|flag|feature|toggle)/i;
+  const FLAG_CAP = 8;
+  let flagCount = 0;
+  flagLoop: for (const f of files) {
+    if (!flagRe.test(f.id)) continue;
+    const gated = rev.get(f.id) ?? [];
+    for (const g of gated) {
+      push(withAnchors(f.id, g, "feature-flag", 0, 0, {
+        weight: 0.8, confidence: 0.75, animated: true,
+      }));
+      flagCount++;
+      if (flagCount >= FLAG_CAP) break flagLoop;
+    }
+  }
+
+  // ── sanitizer: for a few taint sources, identify an intermediate file
+  // whose id/name implies sanitization and emit a sanitizer barrier edge
+  // from that intermediate into each downstream sink.
+  const sanitizerRe = /(sanitiz|validat|guard|escape|normalize)/i;
+  const sanitizers = files.filter(f => sanitizerRe.test(f.id)).map(f => f.id);
+  const SANITIZER_CAP = 5;
+  let sanCount = 0;
+  if (sanitizers.length > 0) {
+    for (const e of out.filter(x => x.kind === "taint-propagation")) {
+      if (sanCount >= SANITIZER_CAP) break;
+      const mid = sanitizers[sanCount % sanitizers.length];
+      if (mid === e.from || mid === e.to) continue;
+      push(withAnchors(mid, e.to, "sanitizer", 0, 0, {
+        weight: 1.0, confidence: 0.9, severity: "low",
+      }));
+      sanCount++;
+    }
+  }
+
+  // ── race: pairs of infra/adapter files both carrying io+env effects
+  // (concurrent writers to the same side-channel).
+  const RACE_CAP = 4;
+  const racyLayers: ArchLayer[] = ["infra", "adapter"];
+  const racyFiles = files.filter(f => {
+    const e = effectOf.get(f.id) ?? [];
+    return racyLayers.includes(f.layer) && e.includes("io") && e.includes("env");
+  });
+  let raceCount = 0;
+  raceLoop: for (let i = 0; i < racyFiles.length; i++) {
+    for (let j = i + 1; j < racyFiles.length; j++) {
+      push(withAnchors(racyFiles[i].id, racyFiles[j].id, "race", 0, 0, {
+        weight: 0.9, confidence: 0.65, severity: "high",
+      }));
+      raceCount++;
+      if (raceCount >= RACE_CAP) break raceLoop;
+    }
+  }
+
+  // ── finding: lint-rule-like hits on function-complexity peaks. Pair up
+  // consecutive hotspots as "same rule fired in both locations".
+  const FINDING_CAP = 5;
+  const cpxPeaks = [...files]
+    .filter(f => f.functions.length >= 5)
+    .sort((a, b) => b.functions.length - a.functions.length)
+    .slice(0, FINDING_CAP + 1);
+  for (let i = 0; i < cpxPeaks.length - 1; i++) {
+    push(withAnchors(cpxPeaks[i].id, cpxPeaks[i + 1].id, "finding", 0, 0, {
+      weight: 1.0, confidence: 0.85, severity: i === 0 ? "high" : "medium",
+      evidenceId: `proof:finding-${i}`,
+    }));
+  }
+
+  // ── contract: types / .d.ts / interface hub file → its importers
+  // (spec ↔ implementation coupling)
+  const contractRe = /(types?\.ts|\.d\.ts|contract|schema)/i;
+  const CONTRACT_CAP = 8;
+  let contractCount = 0;
+  contractLoop: for (const f of files) {
+    if (!contractRe.test(f.id)) continue;
+    const consumers = rev.get(f.id) ?? [];
+    for (const c of consumers) {
+      push(withAnchors(f.id, c, "contract", 0, 0, {
+        weight: 0.7, confidence: 0.8,
+      }));
+      contractCount++;
+      if (contractCount >= CONTRACT_CAP) break contractLoop;
+    }
+  }
+
+  // ── dead-edge: imports where the source file references NO exported
+  // symbol of the target. True "unused import" detection.
+  const DEAD_CAP = 8;
+  let deadCount = 0;
+  deadLoop: for (const e of imports) {
+    const src = sources[e.from];
+    const tgtExports = exportMap.get(e.to) ?? [];
+    if (!src || tgtExports.length === 0) continue;
+    const uses = tgtExports.some(n => {
+      const re = new RegExp(`\\b${n}\\b`);
+      return re.test(src);
+    });
+    if (uses) continue;
+    push(mkEdge(e.from, e.to, "dead-edge", {
+      weight: 0.4, confidence: 0.75, severity: "low",
+    }));
+    deadCount++;
+    if (deadCount >= DEAD_CAP) break deadLoop;
+  }
+
+  // ── runtime-divergence: edges that would be observed at runtime but
+  // have no static counterpart. Proxy: pick two high-risk files and emit
+  // a divergent edge between them that is NOT in the import graph.
+  const DIVERGENCE_CAP = 3;
+  const divergenceCandidates = byRisk.slice(0, 6);
+  let divCount = 0;
+  divLoop: for (let i = 0; i < divergenceCandidates.length; i++) {
+    for (let j = 0; j < divergenceCandidates.length; j++) {
+      if (i === j) continue;
+      const a = divergenceCandidates[i].id, b = divergenceCandidates[j].id;
+      if (importPair.has(`${a}→${b}`)) continue;
+      push(withAnchors(a, b, "runtime-divergence", 0, 0, {
+        weight: 1.1, confidence: 0.7, severity: "high", animated: true,
+      }));
+      divCount++;
+      if (divCount >= DIVERGENCE_CAP) break divLoop;
+    }
+  }
+
+  // ── diff: deterministic subset of import edges flagged as "changed in
+  // most recent snapshot". Stable across reloads via hash(edge.id).
+  const DIFF_CAP = 10;
+  let diffCount = 0;
+  for (const e of imports) {
+    if (diffCount >= DIFF_CAP) break;
+    if ((hashString(e.id) & 0b1111) !== 0) continue;
+    push(mkEdge(e.from, e.to, "diff", {
+      weight: 0.8, confidence: 0.8, severity: "medium",
+      fromLine: e.fromLine, toLine: e.toLine,
+    }));
+    diffCount++;
+  }
+
+  // ── dependency: collapsed package-level edges. One edge per unique
+  // cross-package pair, anchored at the lexicographically-first file of
+  // each package so every package dep lands on the same endpoint.
+  const pkgRep = new Map<string, string>();
+  for (const f of [...files].sort((a, b) => a.id.localeCompare(b.id))) {
+    const pkg = f.id.split("/")[0];
+    if (!pkgRep.has(pkg)) pkgRep.set(pkg, f.id);
+  }
+  const pkgPairsSeen = new Set<string>();
+  for (const e of imports) {
+    const pa = e.from.split("/")[0];
+    const pb = e.to.split("/")[0];
+    if (pa === pb) continue;
+    const k = `${pa}→${pb}`;
+    if (pkgPairsSeen.has(k)) continue;
+    pkgPairsSeen.add(k);
+    const a = pkgRep.get(pa); const b = pkgRep.get(pb);
+    if (!a || !b) continue;
+    push(mkEdge(a, b, "dependency", { weight: 1.0, confidence: 0.95 }));
+  }
+
+  // ── witness: chain files through each evidenced edge's proof steps so
+  // the renderer can draw the proof path as real edges (not just a panel
+  // list). Uses the same id-prefixing convention as synthesizeProofs.
+  const WITNESS_CAP = 12;
+  let witnessCount = 0;
+  const evidenced = out.filter(e => e.evidenceId);
+  witLoop: for (const e of evidenced) {
+    // Walk a 2-step path: from → (intermediate via rev) → to. The middle
+    // file is the bridge witness — pick the rev/fwd neighbour that best
+    // links source to sink.
+    const midCandidates = [...(fwd.get(e.from) ?? []), ...(rev.get(e.to) ?? [])];
+    const mid = midCandidates.find(m => m !== e.from && m !== e.to);
+    if (!mid) continue;
+    push(withAnchors(e.from, mid, "witness", 0, 0, {
+      weight: 0.8, confidence: 0.85, evidenceId: e.evidenceId,
+    }));
+    push(withAnchors(mid, e.to, "witness", 0, 0, {
+      weight: 0.8, confidence: 0.85, evidenceId: e.evidenceId,
+    }));
+    witnessCount += 2;
+    if (witnessCount >= WITNESS_CAP) break witLoop;
+  }
+
+  // ── cochange: files that "always change together" — proxy by pairing
+  // files within the same package whose function-count + loc bucket
+  // collides. Stable across reloads via deterministic hash buckets.
+  const COCHANGE_CAP = 10;
+  const buckets = new Map<string, string[]>();
+  for (const f of files) {
+    const pkg = f.id.split("/")[0];
+    const loBucket = Math.floor(f.loc / 40);
+    const fnBucket = Math.floor(f.functions.length / 2);
+    const k = `${pkg}|${loBucket}|${fnBucket}`;
+    const arr = buckets.get(k);
+    if (arr) arr.push(f.id); else buckets.set(k, [f.id]);
+  }
+  let cochangeCount = 0;
+  cochangeLoop: for (const [, ids] of buckets) {
+    if (ids.length < 2) continue;
+    for (let i = 0; i < ids.length - 1; i++) {
+      push(withAnchors(ids[i], ids[i + 1], "cochange", 0, 0, {
+        weight: 0.5, confidence: 0.6,
+      }));
+      cochangeCount++;
+      if (cochangeCount >= COCHANGE_CAP) break cochangeLoop;
+    }
+  }
+
+  // ── rename-pair: two files whose basenames share ≥8-char common prefix
+  // AND whose suffix differs only by a version/variant marker.
+  // Proxy for "A was renamed from B" when git rename detection is absent.
+  const RENAME_CAP = 3;
+  let renameCount = 0;
+  renameLoop: for (let i = 0; i < basenames.length; i++) {
+    for (let j = i + 1; j < basenames.length; j++) {
+      const a = basenames[i], b = basenames[j];
+      let common = 0;
+      while (common < Math.min(a.base.length, b.base.length) && a.base[common] === b.base[common]) common++;
+      if (common < 8 || a.base === b.base) continue;
+      const diffA = a.base.slice(common), diffB = b.base.slice(common);
+      if (!/^[\-_v\d]{0,6}$/.test(diffA) || !/^[\-_v\d]{0,6}$/.test(diffB)) continue;
+      push(withAnchors(a.f.id, b.f.id, "rename-pair", 0, 0, {
+        weight: 0.6, confidence: 0.6,
+      }));
+      renameCount++;
+      if (renameCount >= RENAME_CAP) break renameLoop;
+    }
+  }
+
+  // ── supply-chain: one designated "vulnerable upstream" file → every
+  // file that imports it. Demo stand-in for CVE propagation through deps.
+  const supplyTarget =
+    files.find(f => f.id.startsWith("canvas-worker/") && f.functions.length >= 2)?.id
+    ?? files.find(f => f.layer === "infra")?.id;
+  if (supplyTarget) {
+    const consumers = rev.get(supplyTarget) ?? [];
+    for (let i = 0; i < Math.min(consumers.length, 5); i++) {
+      push(withAnchors(supplyTarget, consumers[i], "supply-chain", 0, 0, {
+        weight: 1.2,
+        confidence: 0.9,
+        severity: i === 0 ? "critical" : "high",
+        evidenceId: `proof:supply-${i}`,
+      }));
+    }
+  }
+
   return out;
 }
 

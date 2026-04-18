@@ -10,12 +10,24 @@ import type { EdgeKind, EdgeLayer, EdgeSeverity } from "@quanta/canvas-engine";
 
 export type { EdgeKind, EdgeLayer, EdgeSeverity };
 
-export const ALL_EDGE_KINDS: readonly EdgeKind[] = [
-  "import", "call", "reference", "cfg", "inheritance",
-  "dataflow", "effect", "pdg", "alias",
+// Listed in layer order (structural → flow → safety → impact). The
+// assertion below forces a TS error if the canonical EdgeKind union grows
+// (or shrinks) without this array being updated — so HUD toggles can't
+// silently drop a kind the analyzer starts emitting.
+export const ALL_EDGE_KINDS = [
+  "import", "call", "reference", "cfg", "inheritance", "test-covers", "clone",
+  "dataflow", "effect", "pdg", "alias", "feature-flag",
   "taint-propagation", "sanitizer", "race", "cycle", "finding",
+  "contract", "dead-edge", "runtime-divergence",
   "blast", "impact", "diff", "dependency", "witness",
-];
+  "cochange", "rename-pair", "supply-chain",
+] as const satisfies readonly EdgeKind[];
+
+// Compile-time exhaustiveness: every EdgeKind must appear above.
+type _ExhaustiveKindCheck =
+  Exclude<EdgeKind, (typeof ALL_EDGE_KINDS)[number]> extends never ? true : never;
+const _check: _ExhaustiveKindCheck = true;
+void _check;
 
 function allKindsOn(): Record<EdgeKind, boolean> {
   const out = {} as Record<EdgeKind, boolean>;

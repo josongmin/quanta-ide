@@ -5,11 +5,7 @@ import {
   buildIsoBoxFaces,
   type IsoConfig,
 } from "./iso-projection";
-
-// Iso "action terrain" bars — one extruded cabinet-projected box per
-// file card, encoding refactor-ROI (or similar) score as z-height.
-// Drawn into a single shared Graphics so the full field can paint in
-// one submit regardless of bar count.
+import { CROSS_GRAPH_ACCENT } from "../shared/colors";
 
 export interface IsoTerrainBar {
   fileId: string;
@@ -24,17 +20,13 @@ export interface IsoTerrainBar {
   highlighted?: boolean;
 }
 
-/** Shorter than this is invisible at any reasonable zoom, so skip
- *  to save draw calls. */
 const MIN_VISIBLE_HEIGHT_NORM = 0.01;
 
-/** Amber accent for `highlighted` bars — matches the HUD warning token. */
-const HIGHLIGHT_STROKE_COLOR = 0xfacc15;
+const HIGHLIGHT_STROKE_COLOR = CROSS_GRAPH_ACCENT;
 const HIGHLIGHT_STROKE_WIDTH = 2;
 
-/** Face shading multipliers — darken against a neutral black via mixHex. */
-const FRONT_DARKEN_T = 0.3; // front face lerps 30% toward black → 70% brightness
-const RIGHT_DARKEN_T = 0.15; // right face lerps 15% toward black → 85% brightness
+const FRONT_DARKEN_T = 0.3;
+const RIGHT_DARKEN_T = 0.15;
 
 export class IsoTerrainRenderer {
   private gfx: Graphics;

@@ -1,10 +1,16 @@
-import { cursorsStore } from "../store/cursors-store";
 import { sceneStore } from "../store/scene-store";
+import { getPresenceTransport } from "./presence-transport-ref";
+import { MockPresenceTransport, type PresenceMessage } from "./presence-transport";
 
 // Mock cursor driver — spawns two fake viewers ("viewer-a" / "viewer-b") that
 // random-walk across the world and occasionally snap onto a real file's rect.
 // Tick rate is throttled to keep the main thread cheap; the cursor DOM layer
 // should rely on CSS transitions to smooth the larger steps between ticks.
+//
+// Drivers emit PresenceMessages via the active PresenceTransport. When the
+// transport is a MockPresenceTransport the events loop back to the in-process
+// subscribers (cursors-store); swapping to WebSocketPresenceTransport makes
+// the same events go out on the wire, zero code change here.
 
 // perf: was 50ms (20Hz); raised to 500ms (2Hz) to reduce main-thread tax.
 const TICK_MS = 500;
@@ -13,7 +19,7 @@ const SNAP_PROBABILITY = 0.005;
 
 interface Walker {
   id: string;
-  color: string;
+  color: number;
   label: string;
   x: number;
   y: number;
@@ -23,8 +29,8 @@ interface Walker {
 
 function seedWalkers(): Walker[] {
   return [
-    { id: "viewer-a", color: "var(--ws-user-a)", label: "viewer-a", x: 0,   y: 0,   vx: 0, vy: 0 },
-    { id: "viewer-b", color: "var(--ws-user-b)", label: "viewer-b", x: 240, y: 160, vx: 0, vy: 0 },
+    { id: "viewer-a", color: 0x7dd3fc, label: "viewer-a", x: 0,   y: 0,   vx: 0, vy: 0 },
+    { id: "viewer-b", color: 0xc084fc, label: "viewer-b", x: 240, y: 160, vx: 0, vy: 0 },
   ];
 }
 
@@ -32,14 +38,35 @@ function clamp(n: number, lo: number, hi: number): number {
   return n < lo ? lo : n > hi ? hi : n;
 }
 
+function emit(msg: PresenceMessage): void {
+  const tr = getPresenceTransport();
+  // For mock drivers we short-circuit through the mock's own dispatch so
+  // the event reaches in-process subscribers without needing a real
+  // network echo-back. For WS-backed deployments, real cursor updates
+  // come from `tr.send()` → server → `tr.onMessage` (handled elsewhere).
+  if (tr instanceof MockPresenceTransport) {
+    tr.dispatch(msg);
+  } else {
+    tr.send(msg);
+  }
+}
+
 export function startMockCursors(): () => void {
   const walkers = seedWalkers();
+  const now = Date.now();
   for (const w of walkers) {
-    cursorsStore.setCursor(w.id, {
-      color: w.color,
+    emit({
+      kind: "presence-join",
+      userId: w.id,
       label: w.label,
+      color: w.color,
+    });
+    emit({
+      kind: "cursor-update",
+      userId: w.id,
       worldX: w.x,
       worldY: w.y,
+      timestamp: now,
     });
   }
 
@@ -76,12 +103,20 @@ export function startMockCursors(): () => void {
         if (w.y > bounds.h)   { w.y = bounds.h; w.vy = -Math.abs(w.vy); }
       }
 
-      cursorsStore.setCursor(w.id, { worldX: w.x, worldY: w.y });
+      emit({
+        kind: "cursor-update",
+        userId: w.id,
+        worldX: w.x,
+        worldY: w.y,
+        timestamp: Date.now(),
+      });
     }
   }, TICK_MS);
 
   return () => {
     window.clearInterval(interval);
-    cursorsStore.reset();
+    for (const w of walkers) {
+      emit({ kind: "cursor-left", userId: w.id });
+    }
   };
 }

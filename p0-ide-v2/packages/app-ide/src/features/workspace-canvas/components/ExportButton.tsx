@@ -2,45 +2,44 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSceneStore } from "../store/scene-store";
 import { useFeature } from "../store/feature-flags-store";
 import { exportAsPNG, exportAsSVG } from "../lib/export-canvas";
+import { showSuccessToast, showErrorToast, showToast } from "../lib/toast";
 
 // Floating "Export" button pinned to the canvas. Clicking toggles a tiny
 // dropdown with PNG / SVG actions. The feature flag controls visibility;
 // when disabled, the DOM node is omitted entirely so there's no toggling
 // spurious focus outlines on feature rollout.
+//
+// Toast feedback routes through the shared shell toast store via
+// `lib/toast.ts` so exported-file notifications stack cleanly with
+// engine/agent toasts instead of rendering a local sibling pill.
 
 export function ExportButton() {
   const enabled = useFeature("devmode.export");
   const layout = useSceneStore(s => s.layout);
   const visible = useSceneStore(s => s.visibleScene);
   const [open, setOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  const flash = useCallback((msg: string) => {
-    setToast(msg);
-    window.setTimeout(() => setToast(null), 1500);
-  }, []);
 
   const doPng = useCallback(async () => {
     setOpen(false);
     try {
       await exportAsPNG(wrapperRef.current?.closest(".workspace-canvas") as HTMLElement | null);
-      flash("PNG saved");
+      showSuccessToast("PNG saved");
     } catch (err) {
-      flash(`PNG failed: ${err instanceof Error ? err.message : String(err)}`);
+      showErrorToast(`PNG failed: ${err instanceof Error ? err.message : String(err)}`);
     }
-  }, [flash]);
+  }, []);
 
   const doSvg = useCallback(() => {
     setOpen(false);
-    if (!layout || !visible) { flash("No scene"); return; }
+    if (!layout || !visible) { showToast("No scene"); return; }
     try {
       exportAsSVG({ layout, visible });
-      flash("SVG saved");
+      showSuccessToast("SVG saved");
     } catch (err) {
-      flash(`SVG failed: ${err instanceof Error ? err.message : String(err)}`);
+      showErrorToast(`SVG failed: ${err instanceof Error ? err.message : String(err)}`);
     }
-  }, [layout, visible, flash]);
+  }, [layout, visible]);
 
   // Close the dropdown on outside click so it doesn't linger after the user
   // moves back into the canvas.
@@ -87,7 +86,6 @@ export function ExportButton() {
           </button>
         </div>
       )}
-      {toast && <div className="ws-export__toast">{toast}</div>}
     </div>
   );
 }

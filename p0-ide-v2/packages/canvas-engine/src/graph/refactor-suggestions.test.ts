@@ -26,7 +26,7 @@ describe("buildRefactorSuggestions", () => {
     const graph: WorkspaceGraph = { files: [], fileEdges: [], comments: [] };
     const metrics = computeWorkspaceMetrics(graph);
     const roi = computeRefactorROI(graph, metrics);
-    const out = buildRefactorSuggestions(graph, roi, metrics);
+    const out = buildRefactorSuggestions(roi);
     expect(out.size).toBe(0);
   });
 
@@ -51,7 +51,7 @@ describe("buildRefactorSuggestions", () => {
     const metrics = computeWorkspaceMetrics(graph);
     const sccs = [["a.ts", "b.ts", "c.ts", "d.ts"]];
     const roi = computeRefactorROI(graph, metrics, { sccs });
-    const out = buildRefactorSuggestions(graph, roi, metrics, { sccs });
+    const out = buildRefactorSuggestions(roi, { sccs });
     const aPlans = out.get("a.ts")!;
     expect(aPlans.some(p => p.kind === "break-cycle")).toBe(true);
     const plan = aPlans.find(p => p.kind === "break-cycle")!;
@@ -73,7 +73,7 @@ describe("buildRefactorSuggestions", () => {
     const roi = computeRefactorROI(graph, metrics);
     // Sanity: complexity must be above 70 for the rule to fire.
     expect(roi.scores.get("big.ts")!.components.complexity).toBeGreaterThan(70);
-    const out = buildRefactorSuggestions(graph, roi, metrics, { maxPerFile: 3 });
+    const out = buildRefactorSuggestions(roi, { maxPerFile: 3 });
     const plans = out.get("big.ts")!;
     expect(plans.some(p => p.kind === "split-file")).toBe(true);
   });
@@ -89,7 +89,7 @@ describe("buildRefactorSuggestions", () => {
     const graph: WorkspaceGraph = { files, fileEdges: [], comments: [] };
     const metrics = computeWorkspaceMetrics(graph);
     const roi = computeRefactorROI(graph, metrics);
-    const out = buildRefactorSuggestions(graph, roi, metrics);
+    const out = buildRefactorSuggestions(roi);
     const plans = out.get("risky.ts")!;
     expect(plans.some(p => p.kind === "add-tests")).toBe(true);
   });
@@ -106,7 +106,7 @@ describe("buildRefactorSuggestions", () => {
     const graph: WorkspaceGraph = { files, fileEdges: edges, comments: [] };
     const metrics = computeWorkspaceMetrics(graph);
     const roi = computeRefactorROI(graph, metrics);
-    const out = buildRefactorSuggestions(graph, roi, metrics, { maxPerFile: 2 });
+    const out = buildRefactorSuggestions(roi, { maxPerFile: 2 });
     const plans = out.get("hub.ts")!;
     expect(plans.length).toBeLessThanOrEqual(2);
   });
@@ -121,7 +121,7 @@ describe("buildRefactorSuggestions", () => {
     const graph: WorkspaceGraph = { files, fileEdges: [], comments: [] };
     const metrics = computeWorkspaceMetrics(graph);
     const roi = computeRefactorROI(graph, metrics);
-    const out = buildRefactorSuggestions(graph, roi, metrics);
+    const out = buildRefactorSuggestions(roi);
     const plans = out.get("x.ts") ?? [];
     for (const p of plans) {
       expect(p.id).toBe(`${p.kind}:${p.fileId}`);

@@ -1,11 +1,12 @@
 import { Container } from "pixi.js";
-import type { FileNode, WorkspaceLayout, WorkspaceMetrics, ViewState, Viewport, FileLatency } from "@quanta/canvas-engine";
+import type { FileNode, WorkspaceLayout, WorkspaceMetrics, ViewState, Viewport, FileLatency, Rect } from "@quanta/canvas-engine";
 import { latencyColor, mixHex } from "@quanta/canvas-engine";
 import { FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { type PickRect } from "./shared/SpatialPickIndex";
 import { RectNodeRenderer } from "./shared/RectNodeRenderer";
 import { riskFill, riskBorder, SELECTION_ACCENT } from "./shared/colors";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
+import { makeGrowingPool, type GrowingPool } from "./shared/pixi-guards";
 
 // Cost-overlay tint strength, matches CityNodeRenderer's LATENCY_MIX_K so
 // the two tiers agree visually when the user scrolls between them.
@@ -48,6 +49,19 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
   // so we must force the full rebuild path even if the id set is unchanged.
   private prevShowLatency = false;
 
+  // Pool of PickRect slots reused across frames. renderInstance returns a
+  // slot from here instead of `{ x, y, w, h, id }` — on a full 5000-file
+  // rebuild that avoids 5000 object literals per frame. The base class
+  // clears its `pickRects` reference array each updateBase, but the slots
+  // themselves survive because we keep this pool's capacity pinned.
+  private pickRectPool: GrowingPool<PickRect> = makeGrowingPool<PickRect>(
+    () => ({ x: 0, y: 0, w: 0, h: 0, id: "" }),
+  );
+  // Cursor advances once per renderInstance call inside a single updateBase.
+  // Reset to 0 before each full rebuild; partial updates don't use the pool
+  // (they mutate existing buffer rows, not pickRects).
+  private pickRectCursor = 0;
+
   constructor(
     parent: Container,
     opts?: {
@@ -61,10 +75,32 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
   // Fill one instance row for a file. Base class tracks AABB + pickRect.
   protected renderInstance(file: FileNode, i: number, data: Float32Array): PickRect | null {
     const layout = this.frameLayout!;
-    const viewState = this.frameViewState!;
     const rect = layout.fileRects.get(file.id);
     if (!rect) return null;
+    const { x, y, w, h } = this.writeRow(file, rect, i, data);
 
+    this.fileIdToInstanceIdx.set(file.id, i);
+    // Pick rect mirrors the rendered (possibly scaled) AABB so hover targets
+    // the visually larger hub, not the underlying small card position.
+    // Pooled slot — cursor advances as the base iterates renderInstance on
+    // the full-rebuild path. `pickRectCursor` is pre-reset to 0 in update()
+    // before updateBase, and the pool was grown to `valid.length` there.
+    const slot = this.pickRectPool.slots[this.pickRectCursor++];
+    slot.x = x;
+    slot.y = y;
+    slot.w = w;
+    slot.h = h;
+    slot.id = file.id;
+    return slot;
+  }
+
+  // Shared data-buffer write. Used by both full (via renderInstance) and
+  // partial (via partialUpdateSelection) paths. Returns the on-screen AABB
+  // so the full path can hand it back to the pick-rect pool — the partial
+  // path discards the return value because the pickRects list is unchanged
+  // (selection flips don't move cards).
+  private writeRow(file: FileNode, rect: Rect, i: number, data: Float32Array): Rect {
+    const viewState = this.frameViewState!;
     const isSelected = viewState.selectedFileId === file.id;
     const isHovered = viewState.hoveredFileId === file.id;
 
@@ -116,10 +152,7 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     data[o + 12] = bw;
     data[o + 13] = 6; // corner radius
 
-    this.fileIdToInstanceIdx.set(file.id, i);
-    // Pick rect mirrors the rendered (possibly scaled) AABB so hover targets
-    // the visually larger hub, not the underlying small card position.
-    return { x, y, w, h, id: file.id };
+    return { x, y, w, h };
   }
 
   update(
@@ -168,6 +201,12 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     for (const f of files) {
       if (layout.fileRects.has(f.id)) valid.push(f);
     }
+    // Pre-grow the pick-rect pool to the upper bound before the base walks
+    // renderInstance — the cursor increments inside each call, so the
+    // capacity has to be in place first. Reset cursor so the first call
+    // lands on slot 0.
+    this.pickRectPool.grow(valid.length);
+    this.pickRectCursor = 0;
     this.prevInstanceCount = this.updateBase(valid);
     this.prevFileIdsKey = idsKey;
     this.prevSelectedFileId = selection;
@@ -193,11 +232,18 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     this.frameViewState = viewState;
     this.frameLayout = layout;
 
+    // Direct `writeRow` — deliberately bypasses renderInstance (and its
+    // pick-rect pool write) because selection flips don't move the file's
+    // on-screen AABB. base.pickRects from the last full rebuild still points
+    // at the correct pool slot for every file, so the pickIndex stays
+    // consistent without us re-loading it.
     for (const file of files) {
       if (!affected.has(file.id)) continue;
       const idx = this.fileIdToInstanceIdx.get(file.id);
       if (idx === undefined) continue;
-      this.renderInstance(file, idx, data);
+      const rect = layout.fileRects.get(file.id);
+      if (!rect) continue;
+      this.writeRow(file, rect, idx, data);
     }
 
     // Upload the prefix that contains all our written rows. Pixi doesn't
@@ -228,10 +274,12 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     this.prevSelectedFileId = null;
     this.prevHoveredFileId = null;
     this.prevInstanceCount = 0;
+    this.pickRectCursor = 0;
   }
 
   override destroy(): void {
     this.fileIdToInstanceIdx.clear();
+    this.pickRectPool.reset();
     super.destroy();
   }
 }

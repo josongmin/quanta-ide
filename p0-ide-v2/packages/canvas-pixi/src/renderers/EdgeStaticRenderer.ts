@@ -3,6 +3,12 @@ import type { FileEdge, FileNode, WorkspaceLayout, Viewport, EdgeLayer, EdgeSeve
 import type { EdgeGeometryCache } from "@quanta/canvas-engine";
 import { lineAnchor, sideAnchor } from "@quanta/canvas-engine";
 import { resolveEdgeStyle, SEVERITY_RANK, CROSS_GRAPH_STYLE, VIOLATION_RED } from "./shared/colors";
+import {
+  collapseParallelEdges,
+  bundleByFolder,
+  bundleWidthMultiplier,
+  type BundledEdge,
+} from "./edge-bundling";
 
 // Line-anchored edges with per-kind visual vocabulary:
 //   - call / dataflow / impact / taint: arrowhead at target
@@ -59,6 +65,20 @@ const GALAXY_EDGE_BUDGET = 1200;
 const EDGE_SKIP_LODS: ReadonlySet<string> = new Set(["supergalaxy", "universe"]);
 /** LODs where we may cap the edge list to GALAXY_EDGE_BUDGET by weight. */
 const EDGE_BUDGETED_LODS: ReadonlySet<string> = new Set(["galaxy"]);
+/** LODs where same-(src,dst) parallel edges are collapsed into a single
+ *  thicker stroke before draw. Ground/street still render the raw list
+ *  so readers can trace individual function calls. */
+const EDGE_COLLAPSE_LODS: ReadonlySet<string> = new Set(["city"]);
+/** LODs where edges are collapsed to folder-pair trunks. `folderPrefix`
+ *  is capped to FOLDER_BUNDLE_DEPTH segments so a deep path like
+ *  `src/features/canvas/renderer/edge/...` still bundles usefully. */
+const EDGE_FOLDER_BUNDLE_LODS: ReadonlySet<string> = new Set(["galaxy"]);
+const FOLDER_BUNDLE_DEPTH = 3;
+/** Synthetic rect size (world-px) around a folder centre when the renderer
+ *  needs a rect to hand to the anchor code for a folder-level bundle. Small
+ *  enough that the bezier control points produce a visible curve offset,
+ *  not a zero-length kink. */
+const FOLDER_VIRTUAL_RECT_SIZE = 40;
 /** Fractional scale change required to switch out of the last-applied
  *  effective LOD. Below this we keep rendering in the previous mode to
  *  absorb boundary jitter. 0.1 = ±10%. */
@@ -183,6 +203,19 @@ export class EdgeStaticRenderer {
   // full edge list.
   private budgetedSlice: FileEdge[] | null = null;
 
+  // ── Bundling cache ──────────────────────────────────────────────
+  // Bundling is deterministic given (edges array identity, lod, folder
+  // depth, fileRects identity). We cache by identity so zoom pans inside
+  // the same LOD band don't rerun the O(N) collapse pass. Identity refs
+  // rather than content hashes because upstream callers mutate the arrays
+  // sparingly (on filter / temporal changes), and a full content hash of
+  // 9500 edges would cost more than the bundling itself.
+  private bundleCacheEdgesRef: readonly FileEdge[] | null = null;
+  private bundleCacheRectsRef: Map<string, Rect> | null = null;
+  private bundleCacheLod: string | null = null;
+  private bundledEdges: BundledEdge[] | null = null;
+  private bundledFolderCenters: Map<string, { x: number; y: number }> | null = null;
+
   constructor(parent: Container) {
     this.gfx = new Graphics();
     parent.addChildAt(this.gfx, 0); // behind everything
@@ -265,12 +298,61 @@ export class EdgeStaticRenderer {
       return;
     }
 
-    // In budgeted mode, cap the edge list to the top-N by weight. We sort
-    // a shallow copy so the caller's array order is preserved.
-    let workingEdges: FileEdge[] = edges;
-    if (effectiveMode === "budgeted" && edges.length > GALAXY_EDGE_BUDGET) {
-      workingEdges = [...edges]
-        .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+    // Zoom-adaptive bundling — runs before the top-N budget so the cap
+    // applies to bundled edges rather than raw ones (bundled trunk count
+    // is already 5×–20× smaller, so the cap rarely trips).
+    //
+    // Cache key is identity-based: we recompute only when the underlying
+    // edges array, fileRects map, or the active LOD band changes. Zoom
+    // pans inside the same band are free.
+    const shouldCollapseParallel = EDGE_COLLAPSE_LODS.has(opts?.lod ?? "");
+    const shouldFolderBundle = EDGE_FOLDER_BUNDLE_LODS.has(opts?.lod ?? "");
+    let workingEdges: (FileEdge | BundledEdge)[] = edges;
+    let folderCenters: Map<string, { x: number; y: number }> | null = null;
+
+    if (shouldCollapseParallel || shouldFolderBundle) {
+      const cacheHit = this.bundledEdges !== null
+        && this.bundleCacheEdgesRef === edges
+        && this.bundleCacheRectsRef === layout.fileRects
+        && this.bundleCacheLod === (opts?.lod ?? null);
+      if (cacheHit && this.bundledEdges) {
+        workingEdges = this.bundledEdges;
+        folderCenters = this.bundledFolderCenters;
+      } else if (shouldFolderBundle) {
+        const { bundles, folderCenters: fc } = bundleByFolder(edges, layout.fileRects, FOLDER_BUNDLE_DEPTH);
+        this.bundledEdges = bundles;
+        this.bundledFolderCenters = fc;
+        this.bundleCacheEdgesRef = edges;
+        this.bundleCacheRectsRef = layout.fileRects;
+        this.bundleCacheLod = opts?.lod ?? null;
+        workingEdges = bundles;
+        folderCenters = fc;
+      } else {
+        // city LOD — same-pair collapse.
+        const bundles = collapseParallelEdges(edges);
+        this.bundledEdges = bundles;
+        this.bundledFolderCenters = null;
+        this.bundleCacheEdgesRef = edges;
+        this.bundleCacheRectsRef = layout.fileRects;
+        this.bundleCacheLod = opts?.lod ?? null;
+        workingEdges = bundles;
+      }
+    } else {
+      // ground / street tiers: drop the cache so we don't retain a stale
+      // bundle slice when the user zooms back out.
+      this.bundledEdges = null;
+      this.bundledFolderCenters = null;
+      this.bundleCacheEdgesRef = null;
+      this.bundleCacheRectsRef = null;
+      this.bundleCacheLod = null;
+    }
+
+    // In budgeted mode, cap the (possibly bundled) edge list to the top-N
+    // by weight. We sort a shallow copy so the caller's array order is
+    // preserved. After folder-bundling this branch almost never fires.
+    if (effectiveMode === "budgeted" && workingEdges.length > GALAXY_EDGE_BUDGET) {
+      workingEdges = [...workingEdges]
+        .sort((a, b) => bundleSortWeight(b) - bundleSortWeight(a))
         .slice(0, GALAXY_EDGE_BUDGET);
     }
 
@@ -284,7 +366,7 @@ export class EdgeStaticRenderer {
       // still flow because we re-stroke below.
       workingEdges = this.budgetedSlice;
     } else if (effectiveMode === "budgeted") {
-      this.budgetedSlice = workingEdges;
+      this.budgetedSlice = workingEdges as FileEdge[];
     } else {
       this.budgetedSlice = null;
     }
@@ -331,15 +413,37 @@ export class EdgeStaticRenderer {
         const rank = SEVERITY_RANK[edge.severity ?? "low"];
         if (rank < minSeverityRank) continue;
       }
-      if (customPredicate && !customPredicate(edge)) continue;
+      // `customPredicate` is typed against FileEdge; bundled edges retain
+      // the same shape at the field level (id/from/to/kind/layer/weight/...)
+      // so the DSL check evaluates correctly. We cast to FileEdge because
+      // the predicate signature wants the wider raw type.
+      if (customPredicate && !customPredicate(edge as FileEdge)) continue;
       // Live-mode temporal gate. Diff mode's `removed` ghosts bypass this
       // via the post-loop below; `added` ghosts stay in the set when the
       // caller already included them in `temporalEdgeSet` (typical: diff
       // mode ignores temporalEdgeSet entirely and leaves all edges drawable).
       if (temporalEdgeSet && !temporalEdgeSet.has(edge.id)) continue;
 
-      const fromRect = layout.fileRects.get(edge.from);
-      const toRect = layout.fileRects.get(edge.to);
+      const bundleCount = (edge as BundledEdge).bundleCount ?? 1;
+      const isFolderBundle = shouldFolderBundle && bundleCount > 0 && folderCenters !== null
+        && edge.id.startsWith("folder-bundle:");
+
+      let fromRect = layout.fileRects.get(edge.from);
+      let toRect = layout.fileRects.get(edge.to);
+      // Folder-level bundle endpoints reference a virtual rect anchored
+      // at the folder centre. Without this, anchor resolution would use
+      // the rect of whichever file happened to seed the bucket, which
+      // visually bunches all trunks at one card instead of the folder
+      // centre. Synthesising a small rect keeps the bezier control-point
+      // math happy (non-zero spread) without needing a new anchor path.
+      if (isFolderBundle && folderCenters) {
+        const fromFolder = folderPrefixForBundleId(edge.id, "from");
+        const toFolder = folderPrefixForBundleId(edge.id, "to");
+        const fc = fromFolder ? folderCenters.get(fromFolder) : undefined;
+        const tc = toFolder ? folderCenters.get(toFolder) : undefined;
+        if (fc) fromRect = virtualFolderRect(fc);
+        if (tc) toRect = virtualFolderRect(tc);
+      }
       const cachedRoute = cache?.get(edge.id) ?? layout.edgeRoutes.get(edge.id);
       if (!fromRect || !toRect) {
         if (!cachedRoute) continue;
@@ -347,18 +451,23 @@ export class EdgeStaticRenderer {
 
       // Compute the anchor pair based on tier + line-anchor availability.
       const anchors = computeAnchors({
-        edge,
+        edge: edge as FileEdge,
         fromRect,
         toRect,
         fallbackRoute: cachedRoute,
-        anchorMode,
+        // Folder-level bundles anchor to virtual folder-center rects, so
+        // line-anchor math is meaningless there — drop to centre mode.
+        anchorMode: isFolderBundle ? "centre" : anchorMode,
         fileById,
       });
       if (!anchors) continue;
       const { a, b, cp1x, cp1y, cp2x, cp2y } = anchors;
 
-      const style = resolveEdgeStyle(edge);
-      const width = style.baseWidth * invScale * widthMul;
+      const style = resolveEdgeStyle(edge as FileEdge);
+      // Bundles thicken with log(count). Single edges (count<=1) pass
+      // through at multiplier 1 so non-bundled tiers look identical.
+      const bundleWidth = bundleWidthMultiplier(bundleCount);
+      const width = style.baseWidth * invScale * widthMul * bundleWidth;
       const cap: "round" | "butt" = edge.animated ? "round" : (style.cap ?? "butt");
 
       let alpha = focus && !focus.edgeIds.has(edge.id)
@@ -510,6 +619,47 @@ export class EdgeStaticRenderer {
  * in some modes and would defeat the cache; when the user changes those,
  * the rebuild is appropriate anyway.
  */
+/**
+ * Parse the folder path back out of a folder-bundle edge id. The id
+ * format is `folder-bundle:<fromFolder>-><toFolder>` — we can't store
+ * the folders as separate fields on BundledEdge without breaking the
+ * shape compat with FileEdge that the draw loop relies on, so we encode
+ * them in the id and re-split here. Cheap: single indexOf + slice, runs
+ * once per folder-bundle per frame.
+ */
+function folderPrefixForBundleId(id: string, end: "from" | "to"): string | null {
+  const prefix = "folder-bundle:";
+  if (!id.startsWith(prefix)) return null;
+  const rest = id.slice(prefix.length);
+  const arrowAt = rest.indexOf("->");
+  if (arrowAt < 0) return null;
+  return end === "from" ? rest.slice(0, arrowAt) : rest.slice(arrowAt + 2);
+}
+
+/**
+ * Synthesise a small Rect centred on a folder's average file-centre.
+ * The renderer's anchor code needs a non-zero rect to compute the
+ * bezier spread; returning a 0×0 rect collapses the cubic curve into
+ * a line, which reads as a straight spoke (which is fine at galaxy
+ * zoom where you wouldn't notice the curve anyway).
+ */
+function virtualFolderRect(center: { x: number; y: number }): Rect {
+  const half = FOLDER_VIRTUAL_RECT_SIZE / 2;
+  return { x: center.x - half, y: center.y - half, w: FOLDER_VIRTUAL_RECT_SIZE, h: FOLDER_VIRTUAL_RECT_SIZE };
+}
+
+/**
+ * Weight function for the budgeted top-N sort. Bundled edges expose
+ * `weightSum` (sum of underlying weights) which is a better ordering
+ * signal than `weight` (first-seen) — a 50-edge bundle should beat
+ * a single high-weight edge in the budget.
+ */
+function bundleSortWeight(e: FileEdge | BundledEdge): number {
+  const be = e as BundledEdge;
+  if (typeof be.weightSum === "number") return be.weightSum;
+  return (e as FileEdge).weight ?? 0;
+}
+
 function computeFilterHash(opts: EdgeStaticBuildOpts | undefined): string {
   if (!opts) return "";
   const k = opts.kindFilter ? Object.keys(opts.kindFilter).sort().join(",") : "";
