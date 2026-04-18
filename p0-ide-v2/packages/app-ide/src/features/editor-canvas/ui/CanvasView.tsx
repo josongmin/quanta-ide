@@ -204,6 +204,8 @@ export function CanvasView({ file }: { file: FileFacts }) {
           codePane={expandedGraph.codePane}
           markers={expandedGraph.lineMarkers}
           activeLines={activeLines}
+          viewport={viewport}
+          containerH={containerSize.h}
         />
         {expandedGraph.externalFileGroups.map((g) => (
           <ExtFileGroup key={g.id} group={g} />
