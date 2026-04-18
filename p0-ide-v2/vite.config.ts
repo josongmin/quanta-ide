@@ -3,12 +3,13 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { repoScannerPlugin } from "./vite-plugins/repo-scanner";
 import { perfLoggerPlugin } from "./vite-plugins/perf-logger";
+import { gitHistoryPlugin } from "./vite-plugins/git-history-plugin";
 
 const isTauri = Boolean(process.env.TAURI_ENV_PLATFORM);
 
 export default defineConfig({
   base: isTauri ? "/" : "/ide/",
-  plugins: [react(), repoScannerPlugin(), perfLoggerPlugin()],
+  plugins: [react(), repoScannerPlugin(), perfLoggerPlugin(), gitHistoryPlugin()],
   resolve: {
     alias: {
       "@quanta/domain-types": path.resolve(__dirname, "packages/domain-types/src"),
