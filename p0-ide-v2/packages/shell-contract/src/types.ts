@@ -6,6 +6,7 @@ export type TabApp =
   | "agent"
   | "pr"
   | "ide"
+  | "workspace"
   | "scenario"
   | "reviews"
   | "policy"

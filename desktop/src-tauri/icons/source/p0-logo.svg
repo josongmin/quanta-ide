@@ -12,8 +12,8 @@
     </radialGradient>
   </defs>
 
-  <!-- Inset ~13%: dock/mask size is identical to other apps; artwork that fills the square reads “bigger” -->
-  <g transform="translate(512,512) scale(0.74) translate(-512,-512)">
+  <!-- Inset ~9%: slightly larger artwork within the icon frame -->
+  <g transform="translate(512,512) scale(0.82) translate(-512,-512)">
     <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#bg)"/>
     <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228" fill="url(#glow)"/>
     <path d="M 140 10 Q 512 -6 884 10 L 884 24 Q 512 8 140 24 Z" fill="#ffffff" opacity="0.08"/>

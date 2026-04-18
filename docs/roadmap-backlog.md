@@ -51,6 +51,7 @@ AI 가 코드를 쏟아낸다. 문제는 LLM 이 레포 구조를 이해 못 한
 | [0002](adr/0002-workspace-as-analysis-scope.md) | Workspace as Analysis Scope | 외부 의존성 레지스트리(자동+수동), 분석 경계 선언 |
 | [0003](adr/0003-three-axis-positioning.md) | Three-Axis Positioning | Engine × AI × IDE × Workspace, 기능 채택/거절 기준 |
 | [0004](adr/0004-se-as-live-indicator-layer.md) | SE as Live Indicator Layer | 엔진 = SE 지표. live·endogenous·Workspace-governed. SonarQube 대체 |
+| [0006](adr/0006-workspace-canvas-engine.md) | Code Universe (Canvas Engine) | 코드베이스 전체를 2D 캔버스로 탐색. LOD·공간 인덱스·WebGL 렌더링 아키텍처 |
 
 **Workspace 가 갖는 4중 역할** (ADR 누적):
 1. 팀 공유 / 탭 컨테이너
@@ -76,6 +77,7 @@ AI 가 코드를 쏟아낸다. 문제는 LLM 이 레포 구조를 이해 못 한
 
 - **Topbar 탭 / Bottom panel / Inspector / Toast / Command Palette / Dev Console** — 기본 shell 동작 중
 - **Overlay L1~L4** — gutter glyphs, fn-header, SymbolPopup, CallSitePopup, inspector modes, shortcuts 일부
+- **Code Universe (코드유니버스)** — 코드베이스 전체를 2D 캔버스로 탐색하는 뷰. galaxy/city/street/ground LOD, PixiJS WebGL 렌더링, 공간 인덱스(RBush) 기반. [ADR 0006](adr/0006-workspace-canvas-engine.md) 참조.
 - **Feature Registry / Tab Bus** — 초기 골격 있음, 확장 필요
 - **Workspace 개념 미도입** — ADR 0001 기반 리팩터 대기
 - **Home/Picker** — Workspace 도입 시 재설계 필요
@@ -250,6 +252,7 @@ AI 가 코드를 쏟아낸다. 문제는 LLM 이 레포 구조를 이해 못 한
 | U5 | Inspector Modes (Flow/Blast/Incidents/Behavior/Ownership) | 🟢 RFC | overlay-architecture | 일부 구현 |
 | U6 | Home / Picker 랜딩 | 🟢 구현 | widgets/home-picker | Workspace 도입 시 재설계 필요 |
 | U7 | Global Shortcuts | 🟢 구현 | features/global-shortcuts | Feature Registry 연동 필요 |
+| U8 | **Code Universe** (코드유니버스) | 🔵 ADR | [adr/0006](adr/0006-workspace-canvas-engine.md) | 코드베이스 전체 2D 캔버스 탐색. LOD galaxy→city→street→ground, WebGL+DOM 렌더링. 구현 중 |
 
 ---
 

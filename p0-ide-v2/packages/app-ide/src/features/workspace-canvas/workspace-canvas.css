@@ -110,7 +110,7 @@
 }
 
 .street-card--selected {
-  box-shadow: 0 0 0 2px #4f46e5;
+  box-shadow: 0 0 0 1.5px #6366f1, 0 0 0 4px rgba(99, 102, 241, 0.12);
 }
 
 .street-card__header {
@@ -208,7 +208,7 @@
 }
 
 .ground-card--selected {
-  box-shadow: 0 0 0 2px #4f46e5;
+  box-shadow: 0 0 0 1.5px #6366f1, 0 0 0 4px rgba(99, 102, 241, 0.12);
 }
 
 .ground-card__header {

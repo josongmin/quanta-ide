@@ -195,7 +195,25 @@ Settings
 - risk basis 보기
 - reviewer 추천 보기
 
-### B-6. Code Health / Dead Code / Hotspots
+### B-6. Code Universe (코드유니버스)
+
+코드베이스 전체를 한 화면의 2D 캔버스로 탐색하는 뷰. Figma 스타일 줌/패닝으로 전체 지도에서 개별 파일까지 드릴다운.
+
+**LOD 단계**
+- Galaxy (< 0.15× zoom) — 파일 군집, 거리 관계, 레이어 구분
+- City (0.15~0.35×) — 개별 파일 노드, risk 색상, 엣지
+- Street (0.35~0.75×) — 파일 카드 + 함수 목록
+- Ground (≥ 0.75×) — 풀 소스 코드 인라인 표시
+
+**주요 액션**
+- 특정 파일/모듈 클릭 → File Intelligence (B-1)로 이동
+- 엣지 클릭 → 의존 관계 상세
+- 레이어·risk 기준 필터
+- 검색으로 파일 포커스
+
+> 내부 코드명: `workspace-canvas` / `canvas-engine`. ADR: [0006](../p0-ide-v2/.ai/adr/0006-workspace-canvas-engine.md)
+
+### B-7. Code Health / Dead Code / Hotspots
 
 건강도/정리 대상 화면
 

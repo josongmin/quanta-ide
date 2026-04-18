@@ -36,17 +36,24 @@ export function MultiFileCanvas({ graph }: Props) {
     // intentionally exclude visibleScene.edges — rebuild on layout change only
   }, [layout]);
 
-  // ResizeObserver for container size
+  // ResizeObserver for container size — also triggers initial fit if layout
+  // already arrived while container was still 0×0 (worker is fast).
+  const fittedRef = useRef(false);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(entries => {
       const r = entries[0]?.contentRect;
-      if (r) setContainerSize(r.width, r.height);
+      if (!r) return;
+      setContainerSize(r.width, r.height);
+      if (!fittedRef.current && layout && r.width > 0 && r.height > 0) {
+        fittedRef.current = true;
+        fitToGraph(layout.totalBounds.w, layout.totalBounds.h);
+      }
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [setContainerSize]);
+  }, [setContainerSize, fitToGraph, layout]);
 
   // Wheel handler (non-passive for preventDefault)
   useEffect(() => {
@@ -110,8 +117,8 @@ export function MultiFileCanvas({ graph }: Props) {
         style={{ transform, transformOrigin: "0 0" }}
       />
 
-      {/* WebGL layer: Galaxy / City */}
-      {(lod === "galaxy" || lod === "city") && layout && (
+      {/* WebGL layer: always mounted when layout ready to avoid reinit on LOD transition */}
+      {layout && (
         <PixiStage
           visible={visibleScene}
           layout={layout}

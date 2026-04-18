@@ -1,4 +1,4 @@
-# RFC-0006: Workspace Canvas Engine
+# RFC-0006: Code Universe (Workspace Canvas Engine)
 
 **Status:** Proposed  
 **Date:** 2026-04-18  
@@ -7,9 +7,18 @@
 
 ---
 
+## 제품 이름
+
+> **Code Universe** (코드유니버스)
+
+코드베이스 전체를 한 화면에 펼쳐 Figma처럼 탐색하는 2D 캔버스 뷰.  
+내부 패키지·코드명은 `workspace-canvas` / `canvas-engine` 유지, 사용자에게 노출되는 이름은 **Code Universe**.
+
+---
+
 ## Summary
 
-코드베이스 전체를 2D 캔버스에 펼쳐 Figma처럼 탐색할 수 있는 **Workspace Canvas** 시스템을 도입한다.
+코드베이스 전체를 2D 캔버스에 펼쳐 Figma처럼 탐색할 수 있는 **Code Universe** 시스템을 도입한다.
 
 파일, 함수/클래스 구조, 심볼 인사이트(taint, blast, dead), 파일 간 dependency 엣지, 인라인 댓글을 줌 레벨에 따라 적절한 추상화로 보여준다.
 

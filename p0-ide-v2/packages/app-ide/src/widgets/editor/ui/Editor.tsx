@@ -4,7 +4,7 @@ import CodeMirror, { type ReactCodeMirrorRef } from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { EditorView, lineNumbers } from "@codemirror/view";
 import { EditorSelection } from "@codemirror/state";
-import { ORCHESTRATOR, ORCHESTRATOR_SOURCE, ROUTING_POLICY, SECURITY } from "@quanta/app-ide/entities/file";
+import { ORCHESTRATOR, ORCHESTRATOR_SOURCE } from "@quanta/app-ide/entities/file";
 import { focusStore, useFocusStore } from "@quanta/app-ide/stores/focus-store";
 import { symbolHover, SymbolPopup, type HoverAnchor } from "@quanta/app-ide/features/editor-symbol-hover";
 import { callSiteHover, CallSitePopup, type CallSiteAnchor } from "@quanta/app-ide/features/editor-call-site-hover";
@@ -14,7 +14,6 @@ import { fileHeader } from "@quanta/app-ide/features/editor-file-header";
 import { RiskMinimap } from "@quanta/app-ide/features/editor-risk-minimap";
 import { CanvasView } from "@quanta/app-ide/features/editor-canvas";
 import { SecurityRulesView } from "@quanta/app-ide/features/security-rules";
-import { MultiFileCanvas, fileFactsToWorkspaceGraph } from "@quanta/app-ide/features/workspace-canvas";
 import "./editor.css";
 
 const initialTabs = [
@@ -69,7 +68,6 @@ const editorTheme = EditorView.theme({
   ".cm-cursor": { borderLeftColor: "var(--accent)" },
 });
 
-const WORKSPACE_GRAPH = fileFactsToWorkspaceGraph([ORCHESTRATOR, ROUTING_POLICY, SECURITY]);
 
 export function Editor() {
   const file = ORCHESTRATOR;
@@ -216,8 +214,6 @@ export function Editor() {
           </>
         ) : viewMode === "security-rules" ? (
           <SecurityRulesView />
-        ) : viewMode === "workspace" ? (
-          <MultiFileCanvas graph={WORKSPACE_GRAPH} />
         ) : (
           <CanvasView file={file} />
         )}
@@ -246,21 +242,6 @@ export function Editor() {
               <rect x="14" y="3" width="7" height="7" rx="1" />
               <rect x="3" y="14" width="7" height="7" rx="1" />
               <path d="M14 17h7M17.5 14v7" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className={cn("editor__view-btn", viewMode === "workspace" && "is-active")}
-            onClick={() => focusStore.setViewMode("workspace")}
-            title="Workspace canvas"
-            aria-label="Workspace canvas"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="3" width="8" height="6" rx="1" />
-              <rect x="14" y="3" width="8" height="6" rx="1" />
-              <rect x="2" y="15" width="8" height="6" rx="1" />
-              <rect x="14" y="15" width="8" height="6" rx="1" />
-              <path d="M10 6h4M10 18h4M6 9v6M18 9v6" />
             </svg>
           </button>
         </div>

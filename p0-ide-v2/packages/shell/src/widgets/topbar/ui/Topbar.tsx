@@ -9,13 +9,14 @@ import "./topbar.css";
 /** Show floating title when tab is this narrow (px), or when the label is truncated. */
 const TAB_TITLE_TIP_NARROW_PX = 128;
 
-export type AppKind = "home" | "new-tab" | "ide" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings";
+export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings";
 export interface Tab { id: string; app: AppKind; label: string; }
 
 const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   home: HomeTabIcon,
   "new-tab": HomeTabIcon,
   ide: CodeIcon,
+  workspace: WorkspaceIcon,
   agent: AgentIcon,
   pr: PrIcon,
   scenario: CodeIcon,
@@ -255,6 +256,17 @@ function PrIcon() {
       <circle cx="6" cy="18" r="2.2" />
       <circle cx="18" cy="18" r="2.2" />
       <path d="M6 8.2v7.6M18 15.8V11a4 4 0 0 0-4-4h-2.5l2 2m0-4l-2 2" />
+    </svg>
+  );
+}
+function WorkspaceIcon() {
+  return (
+    <svg {...SVG} width="13" height="13">
+      <rect x="2" y="3" width="8" height="6" rx="1" />
+      <rect x="14" y="3" width="8" height="6" rx="1" />
+      <rect x="2" y="15" width="8" height="6" rx="1" />
+      <rect x="14" y="15" width="8" height="6" rx="1" />
+      <path d="M10 6h4M10 18h4M6 9v6M18 9v6" />
     </svg>
   );
 }

@@ -24,6 +24,7 @@ seedFeatures();
 const initialTabs: TabDescriptor[] = [
   { id: "t1", app: "ide", label: "order-service" },
   { id: "t2", app: "ide", label: "payment-service" },
+  { id: "t3", app: "workspace", label: "Code Universe" },
 ];
 
 // ---------------------------------------------------------------------------

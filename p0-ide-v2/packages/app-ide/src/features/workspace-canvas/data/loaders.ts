@@ -1,8 +1,7 @@
-import { SOURCES } from "@quanta/app-ide/entities/file";
+import { SAMPLE_SOURCES } from "./sample-graph";
 import type { GroundFileData } from "../store/workspace-canvas-store";
 
 export async function loadGroundData(fileId: string): Promise<GroundFileData> {
-  // Mock data is synchronous — just lookup from entity mocks
-  const source = SOURCES[fileId] ?? "";
+  const source = SAMPLE_SOURCES[fileId] ?? "";
   return { source };
 }

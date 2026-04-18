@@ -38,6 +38,14 @@ appRegistry.register({
 });
 
 appRegistry.register({
+  id: "workspace",
+  label: "Code Universe",
+  Component: lazy(() =>
+    import("@quanta/app-ide").then((m) => ({ default: m.WorkspaceApp })),
+  ),
+});
+
+appRegistry.register({
   id: "agent",
   label: "Agent",
   Component: lazy(() =>

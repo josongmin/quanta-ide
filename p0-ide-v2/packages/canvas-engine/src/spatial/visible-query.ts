@@ -33,6 +33,18 @@ export function buildVisibleQuery(
   layout: WorkspaceLayout,
   viewport: Viewport,
 ): WorkspaceView {
+  // Container size not yet reported (before first ResizeObserver tick):
+  // returning an empty scene here causes a blank flash that persists until
+  // the next viewport update. Return everything instead so the renderer
+  // always has something to draw while the exact viewport is being set up.
+  if (viewport.width <= 0 || viewport.height <= 0) {
+    return {
+      files: graph.files,
+      edges: graph.fileEdges,
+      comments: graph.comments,
+    };
+  }
+
   // Convert viewport screen coords to canvas coords
   const canvasRect = {
     x: -viewport.x / viewport.scale,

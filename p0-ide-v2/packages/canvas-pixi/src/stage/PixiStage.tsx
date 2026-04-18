@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Application, Container } from "pixi.js";
 import type {
   WorkspaceView,
@@ -38,7 +38,10 @@ export function PixiStage({
   const cityRef = useRef<CityNodeRenderer | null>(null);
   const edgeStaticRef = useRef<EdgeStaticRenderer | null>(null);
   const edgeOverlayRef = useRef<EdgeOverlayRenderer | null>(null);
-  const readyRef = useRef(false);
+  // State (not ref) so render effects re-run when pixi finishes async init.
+  // If readyRef were a plain ref, data that arrived before init completed
+  // would be silently dropped — the effect skips and never re-fires.
+  const [pixiReady, setPixiReady] = useState(false);
 
   // ── Init PixiJS once ─────────────────────────────────────────────
   useEffect(() => {
@@ -47,7 +50,8 @@ export function PixiStage({
     let cancelled = false;
 
     const handleContextLost = () => {
-      readyRef.current = false;
+      setPixiReady(false);
+      appRef.current?.ticker.stop();
     };
     canvas.addEventListener("webglcontextlost", handleContextLost);
 
@@ -91,24 +95,34 @@ export function PixiStage({
       galaxyRef.current = galaxy;
       cityRef.current = city;
       edgeOverlayRef.current = edgeOverlay;
-      readyRef.current = true;
+      setPixiReady(true);
     })();
 
     return () => {
       cancelled = true;
-      readyRef.current = false;
       canvas.removeEventListener("webglcontextlost", handleContextLost);
-      try {
-        appRef.current?.destroy();
-      } catch {
-        // context may already be lost (e.g. HMR, browser resource pressure)
-      }
+      const app = appRef.current;
       appRef.current = null;
       worldRef.current = null;
       galaxyRef.current = null;
       cityRef.current = null;
       edgeStaticRef.current = null;
       edgeOverlayRef.current = null;
+      if (app) {
+        app.ticker.stop();
+        // PixiJS v8 calls extensions.loseContext.loseContext() during destroy
+        // as a GPU-resource hint. If the context is already gone the browser
+        // logs INVALID_OPERATION regardless of try/catch. Null the extension
+        // before destroy so the call is skipped entirely — safe because the
+        // browser already freed GPU resources when the context was lost.
+        try {
+          const ctx = (app.renderer as any)?.context;
+          if (ctx?.extensions) ctx.extensions.loseContext = null;
+        } catch { /* renderer may already be partially torn down */ }
+        try {
+          app.destroy();
+        } catch { /* ignore any remaining teardown errors */ }
+      }
     };
   }, []); // init once — intentional empty deps
 
@@ -125,38 +139,46 @@ export function PixiStage({
     return () => ro.disconnect();
   }, []);
 
-  // ── Camera (runs every viewport change — no React re-render) ─────
+  // ── Camera ───────────────────────────────────────────────────────
+  // pixiReady is intentionally in deps: when pixi finishes async init,
+  // worldRef becomes valid and we must apply the current camera immediately.
+  // Without it, the world container stays at (0,0,scale=1) until the next
+  // viewport change — causing files to render at full size off-screen.
   useEffect(() => {
     const world = worldRef.current;
     if (!world) return;
     world.x = viewState.viewport.x;
     world.y = viewState.viewport.y;
     world.scale.set(viewState.viewport.scale);
-  }, [viewState.viewport]);
+  }, [pixiReady, viewState.viewport]);
 
   // ── Node redraw (files or layout changed) ────────────────────────
   useEffect(() => {
-    if (!readyRef.current) return;
+    if (!pixiReady) return;
     if (lod === "city") {
       cityRef.current?.update(visible.files, layout, viewState);
-      galaxyRef.current?.update([], layout, viewState); // hide galaxy
-    } else {
+      galaxyRef.current?.update([], layout, viewState);
+    } else if (lod === "galaxy") {
       galaxyRef.current?.update(visible.files, layout, viewState);
-      cityRef.current?.update([], layout, viewState); // hide city
+      cityRef.current?.update([], layout, viewState);
+    } else {
+      // street / ground: DOM layer renders, clear Pixi nodes
+      cityRef.current?.update([], layout, viewState);
+      galaxyRef.current?.update([], layout, viewState);
     }
-  }, [visible.files, layout, lod, viewState]);
+  }, [pixiReady, visible.files, layout, lod, viewState]);
 
   // ── Edge static redraw (layout changed) ──────────────────────────
   useEffect(() => {
-    if (!readyRef.current) return;
+    if (!pixiReady) return;
     edgeStaticRef.current?.build(visible.edges, layout, edgeCache);
-  }, [visible.edges, layout, edgeCache]);
+  }, [pixiReady, visible.edges, layout, edgeCache]);
 
   // ── Overlay redraw (selection/hover only — intentional partial deps) ─
   useEffect(() => {
-    if (!readyRef.current) return;
+    if (!pixiReady) return;
     edgeOverlayRef.current?.update(viewState, layout, edgeCache);
-  }, [viewState.selectedEdgeId, viewState.hoveredFileId, layout, edgeCache]); // viewState.* intentional subset
+  }, [pixiReady, viewState.selectedEdgeId, viewState.hoveredFileId, layout, edgeCache]); // viewState.* intentional subset
 
   return (
     <canvas
