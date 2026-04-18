@@ -2,7 +2,7 @@
 // this file is just re-export plumbing so consumers get `@quanta/canvas-engine`.
 // See individual sub-barrels for the authoritative list.
 
-export { clamp } from "./util/math";
+export { clamp, lerp, mixHex, hexToCss, cssToHex } from "./util/math";
 
 export * from "./graph";
 export * from "./layout";

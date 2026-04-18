@@ -4,10 +4,6 @@
 
 import type { Taint } from "@quanta/app-ide/entities/symbol";
 import { tone as riskTone } from "@quanta/app-ide/entities/risk";
-import type { RiskTone } from "@quanta/app-ide/entities/risk";
-
-/** @deprecated re-exported for back-compat — prefer `RiskTone` from `entities/risk`. */
-export type ChipTone = RiskTone;
 
 export type ChipKind =
   | "default"

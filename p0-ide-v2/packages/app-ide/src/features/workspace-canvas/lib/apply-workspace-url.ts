@@ -37,11 +37,11 @@ export function applyWorkspaceUrlState(state: WorkspaceUrlState): void {
   }
 
   if (state.focusMode !== undefined) {
-    renderSettingsStore.setFocusMode(state.focusMode);
+    interactionStore.setFocusMode(state.focusMode);
   }
 
   if (state.focusHops !== undefined) {
-    renderSettingsStore.setFocusHops(state.focusHops);
+    interactionStore.setFocusHops(state.focusHops);
   }
 
   if (state.edgeFilterQuery !== undefined) {
@@ -117,8 +117,8 @@ export function captureWorkspaceUrlState(): WorkspaceUrlState {
     forceLod: debug.forceLod,
     edgeLayers: { ...render.edgeLayers },
     edgeMinSeverity: render.edgeMinSeverity,
-    focusMode: render.focusMode,
-    focusHops: render.focusHops,
+    focusMode: interaction.focusMode,
+    focusHops: interaction.focusHops,
     edgeFilterQuery: render.edgeFilterQuery,
     highlightArchViolations: render.highlightArchViolations,
     showSccBubbles: render.showSccBubbles,
@@ -155,8 +155,8 @@ export function resetWorkspaceUrlState(): void {
   renderSettingsStore.setEdgeLayer("safety", true);
   renderSettingsStore.setEdgeLayer("impact", true);
   renderSettingsStore.setEdgeMinSeverity("low");
-  renderSettingsStore.setFocusMode("on");
-  renderSettingsStore.setFocusHops(1);
+  interactionStore.setFocusMode("on");
+  interactionStore.setFocusHops(1);
   renderSettingsStore.setEdgeFilterQuery("");
   renderSettingsStore.setHighlightArchViolations(true);
   renderSettingsStore.setShowSccBubbles(true);

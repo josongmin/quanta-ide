@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef } from "react";
 import type { WorkspaceLayout, Viewport } from "@quanta/canvas-engine";
-import { useWorkspaceCanvas } from "../store/workspace-canvas-store";
+import { useInteractionStore } from "../store/interaction-store";
 import { useSceneStore } from "../store/scene-store";
 import { uxSettingsStore, useUxSettings } from "../store/ux-settings-store";
 import { computeRiskHeatmap, type HeatCell } from "../lib/heatmap";
@@ -164,7 +164,7 @@ function heatColor(heat: number): string {
 export function Minimap({ layout, viewport }: Props) {
   // Subscribe directly to LOD so the minimap can swap between file-level
   // and cluster-level rendering without prop-drilling from MultiFileCanvas.
-  const lod = useWorkspaceCanvas(s => s.lod);
+  const lod = useInteractionStore(s => s.lod);
   const graph = useSceneStore(s => s.graph);
   const showHeatmap = useUxSettings(s => s.showHeatmap);
 

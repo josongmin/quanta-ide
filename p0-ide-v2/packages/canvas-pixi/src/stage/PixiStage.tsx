@@ -20,7 +20,6 @@ import type {
 } from "@quanta/canvas-engine";
 import { resolveEffectiveTier, getTierConfig, resolveLayerPolicy } from "@quanta/canvas-engine";
 import { RENDERER_REGISTRY, type RendererHandle, type RenderContext } from "../renderers";
-import { EffectBadgeRenderer } from "../renderers/EffectBadgeRenderer";
 import { installCityFonts } from "../renderers/shared/BitmapFontAtlas";
 import type { AgentPresenceInput } from "../renderers/PresenceRingRenderer";
 import { RendererStack, type OverlayRenderCtx } from "../renderers/overlay-registry";
@@ -42,10 +41,6 @@ interface PixiBundle {
   world: Container;
   nodeHandles: Map<LodRendererKind, RendererHandle>;
   overlays: RendererStack;
-  /** Per-file effect chips row below each card. Direct-mount because it
-   *  gates on LOD and reads from per-file effect/latency props — kept
-   *  out of the overlay registry to avoid polluting its context shape. */
-  effectBadge: EffectBadgeRenderer;
 }
 const pixiByCanvas = new WeakMap<HTMLCanvasElement, PixiBundle>();
 const initInFlight = new WeakMap<HTMLCanvasElement, Promise<PixiBundle>>();
@@ -154,7 +149,6 @@ function destroyBundle(bundle: PixiBundle): void {
   try {
     for (const handle of bundle.nodeHandles.values()) handle.destroy();
     bundle.overlays.destroy();
-    bundle.effectBadge.destroy();
   } catch (e) {
     console.warn("[PixiStage] renderer destroy failed", e);
   }
@@ -201,7 +195,6 @@ export function PixiStage({
   const worldRef = useRef<Container | null>(null);
   const nodeHandlesRef = useRef<Map<LodRendererKind, RendererHandle> | null>(null);
   const overlaysRef = useRef<RendererStack | null>(null);
-  const effectBadgeRef = useRef<EffectBadgeRenderer | null>(null);
   const [pixiReady, setPixiReady] = useState(false);
 
   // Latest-callback refs so the init effect can use stable deps ([]).
@@ -235,7 +228,6 @@ export function PixiStage({
       worldRef.current = bundle.world;
       nodeHandlesRef.current = bundle.nodeHandles;
       overlaysRef.current = bundle.overlays;
-      effectBadgeRef.current = bundle.effectBadge;
       setPixiReady(true);
     };
 
@@ -314,7 +306,6 @@ export function PixiStage({
         world,
         nodeHandles,
         overlays: new RendererStack(world),
-        effectBadge: new EffectBadgeRenderer(world),
       };
       pixiByCanvas.set(el, bundle);
       return bundle;
@@ -358,7 +349,6 @@ export function PixiStage({
       worldRef.current = null;
       nodeHandlesRef.current = null;
       overlaysRef.current = null;
-      effectBadgeRef.current = null;
       const bundle = pixiByCanvas.get(canvas);
       if (!bundle) return;
       const prior = pendingDestroys.get(canvas);
@@ -539,6 +529,8 @@ export function PixiStage({
       activeTrace: activeTrace ?? null,
       agentPresence,
       showAgentPresence,
+      effects,
+      showEffectBadges,
     };
     stack.update(ctx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -551,22 +543,8 @@ export function PixiStage({
     showCrossGraphEdges, highlightCrossGraph, crossGraphFlash,
     clusterEdgesToRender, sccBubblesAllowed, startHereAllowed, startHereTopN,
     activeTrace, agentPresence, showAgentPresence,
+    effects, showEffectBadges,
   ]);
-
-  // ── Effect-badge row (city / street / ground) ──────────────────
-  // Direct-mounted (not in overlay registry) because it's a per-file
-  // decoration of the active tier rather than a true cross-tier overlay.
-  useEffect(() => {
-    if (!pixiReady) return;
-    const r = effectBadgeRef.current;
-    if (!r) return;
-    if (showEffectBadges && effects) {
-      r.build(visible.files, effects, layout, viewport, effectiveLod);
-    } else {
-      r.clear();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, showEffectBadges, effects, visible.files, layout, effectiveLod, scaleBucket]);
 
   return (
     <canvas

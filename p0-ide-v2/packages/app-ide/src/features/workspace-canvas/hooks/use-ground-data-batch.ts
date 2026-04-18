@@ -1,4 +1,4 @@
-import { workspaceCanvasStore } from "../store/workspace-canvas-store";
+import { sceneStore } from "../store/scene-store";
 import { loadGroundDataBatch } from "../data/loaders";
 
 // Batch coordinator for ground-data fetches.
@@ -53,7 +53,7 @@ function flush(): void {
 
   const ids = [...batch];
   // Mark all as loading in one emission.
-  workspaceCanvasStore.setGroundLoadingBatch(ids, true);
+  sceneStore.setGroundLoadingBatch(ids, true);
 
   const promise = (async () => {
     try {
@@ -75,7 +75,7 @@ function flush(): void {
       // the currently-mounted subset only. Unmounted ids are dropped
       // silently (their loading flag would also be meaningless since no
       // card is listening).
-      workspaceCanvasStore.setGroundDataBatch(liveEntries, liveIds);
+      sceneStore.setGroundDataBatch(liveEntries, liveIds);
     } finally {
       // In case setGroundDataBatch was not reached (shouldn't happen, but
       // guard against a thrown store update), ensure loading is cleared.

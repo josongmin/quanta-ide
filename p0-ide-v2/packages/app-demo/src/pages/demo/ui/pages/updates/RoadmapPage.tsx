@@ -150,20 +150,27 @@ type Filter = typeof FILTERS[number];
 
 function UpvoteButton({ count, initiallyVoted }: { count: number; initiallyVoted?: boolean }) {
   const [voted, setVoted] = useState(!!initiallyVoted);
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
   const n = voted ? count + (initiallyVoted ? 0 : 1) : count - (initiallyVoted ? 1 : 0);
   return (
     <button
       type="button"
       onClick={() => setVoted((v) => !v)}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
       aria-pressed={voted}
+      aria-label={voted ? `Remove upvote (${n})` : `Upvote (${n})`}
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 4,
-        padding: "2px 8px 2px 6px",
+        gap: "var(--space-1)",
+        padding: "var(--space-1) var(--space-2) var(--space-1) var(--space-1h)",
         height: 24,
-        border: `1px solid ${voted ? "var(--accent)" : "var(--border)"}`,
-        background: voted ? "var(--bg-accent-subtle)" : "var(--bg)",
+        border: `1px solid ${voted ? "var(--accent)" : hover ? "var(--border-strong)" : "var(--border)"}`,
+        background: voted ? "var(--bg-accent-subtle)" : hover ? "var(--bg-hover)" : "var(--bg)",
         color: voted ? "var(--accent)" : "var(--fg-muted)",
         borderRadius: "var(--radius-pill)",
         font: "inherit",
@@ -171,10 +178,12 @@ function UpvoteButton({ count, initiallyVoted }: { count: number; initiallyVoted
         fontWeight: "var(--fw-bold)",
         letterSpacing: "0.04em",
         cursor: "pointer",
+        outline: focus ? "2px solid var(--accent)" : "none",
+        outlineOffset: 2,
         transition: "all 0.14s ease",
       }}
     >
-      <ChevronUp size={11} strokeWidth={2.4} /> {n}
+      <ChevronUp size={11} strokeWidth={2.4} aria-hidden="true" /> {n}
     </button>
   );
 }
@@ -191,12 +200,11 @@ function FeatureCard({ item, dim }: { item: RoadmapItem; dim?: boolean }) {
         display: "flex",
         flexDirection: "column",
         gap: "var(--space-2)",
-        cursor: "pointer",
         transition: "border-color 0.14s ease, transform 0.14s ease",
         opacity: dim ? 0.78 : 1,
       }}
     >
-      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: "var(--space-1)", flexWrap: "wrap" }}>
         {item.tags.map((t) => (
           <span key={t} className="demo-badge">{t}</span>
         ))}
@@ -257,15 +265,16 @@ function FeatureCard({ item, dim }: { item: RoadmapItem; dim?: boolean }) {
       >
         <UpvoteButton count={item.votes} initiallyVoted={item.voted} />
         <span
+          aria-label={`${item.comments} comments`}
           style={{
             fontSize: "var(--fs-10)",
             color: "var(--fg-subtle)",
             display: "inline-flex",
             alignItems: "center",
-            gap: 4,
+            gap: "var(--space-1)",
           }}
         >
-          <MessageSquare size={11} strokeWidth={1.8} /> {item.comments}
+          <MessageSquare size={11} strokeWidth={1.8} aria-hidden="true" /> {item.comments}
         </span>
         <span style={{ marginLeft: "auto" }}>
           <Avatars names={item.subscribers} max={3} />
@@ -360,7 +369,9 @@ export function RoadmapPage() {
             {FILTERS.map((f) => (
               <button
                 key={f}
+                type="button"
                 className={filter === f ? "is-active" : ""}
+                aria-pressed={filter === f}
                 onClick={() => setFilter(f)}
               >
                 {f}
@@ -392,7 +403,7 @@ export function RoadmapPage() {
               aria-label="Search ideas"
             />
           </div>
-          <button className="demo-btn demo-btn--primary">+ Submit idea</button>
+          <button type="button" className="demo-btn demo-btn--primary">+ Submit idea</button>
         </div>
 
         <div

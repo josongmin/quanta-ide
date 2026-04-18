@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { AlertOctagon, AlertTriangle, Sparkles, X } from "lucide-react";
 import { DemoAppHero } from "../../internal/DemoAppHero";
@@ -26,17 +27,17 @@ function FakeChrome({ url, banner, disabled }: ChromeProps) {
           borderBottom: "1px solid var(--border)",
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          padding: "0 12px",
+          gap: "var(--space-1h)",
+          padding: "0 var(--space-3)",
           background: "var(--bg)",
         }}
       >
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff5f57", display: "inline-block" }} />
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#febc2e", display: "inline-block" }} />
-        <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#28c840", display: "inline-block" }} />
+        <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff5f57", display: "inline-block" }} />
+        <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: "#febc2e", display: "inline-block" }} />
+        <span aria-hidden="true" style={{ width: 10, height: 10, borderRadius: "50%", background: "#28c840", display: "inline-block" }} />
         <span
           style={{
-            marginLeft: 8,
+            marginLeft: "var(--space-2)",
             fontSize: "var(--fs-10)",
             color: "var(--fg-subtle)",
             letterSpacing: "0.04em",
@@ -61,10 +62,10 @@ function FakeChrome({ url, banner, disabled }: ChromeProps) {
           transition: "opacity 0.14s ease",
         }}
       >
-        <div style={{ height: 18, width: "40%", background: "var(--bg-muted)", borderRadius: 3, marginBottom: 12 }} />
-        <div style={{ height: 10, width: "80%", background: "var(--bg-muted)", borderRadius: 3, marginBottom: 6 }} />
-        <div style={{ height: 10, width: "70%", background: "var(--bg-muted)", borderRadius: 3, marginBottom: 20 }} />
-        <div style={{ height: 110, background: "var(--bg-muted)", borderRadius: 6 }} />
+        <div aria-hidden="true" style={{ height: 18, width: "40%", background: "var(--bg-muted)", borderRadius: "var(--radius-xs)", marginBottom: "var(--space-3)" }} />
+        <div aria-hidden="true" style={{ height: 10, width: "80%", background: "var(--bg-muted)", borderRadius: "var(--radius-xs)", marginBottom: "var(--space-1h)" }} />
+        <div aria-hidden="true" style={{ height: 10, width: "70%", background: "var(--bg-muted)", borderRadius: "var(--radius-xs)", marginBottom: "var(--space-4h)" }} />
+        <div aria-hidden="true" style={{ height: 110, background: "var(--bg-muted)", borderRadius: "var(--radius-md)" }} />
       </div>
     </div>
   );
@@ -89,37 +90,54 @@ function HealthyBanner() {
         borderBottom: "1px solid var(--border-accent-subtle)",
       }}
     >
-      <Sparkles size={14} strokeWidth={1.8} style={{ color: "var(--accent)", flex: "0 0 auto" }} />
+      <Sparkles size={14} strokeWidth={1.8} aria-hidden="true" style={{ color: "var(--accent)", flex: "0 0 auto" }} />
       <span>
         Your <strong>Team trial</strong> has <strong>14 days</strong> remaining.
       </span>
       <span style={{ color: "var(--fg-subtle)" }}>Renews automatically on Oct 31, 2026.</span>
-      <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+      <span style={{ marginLeft: "auto", display: "flex", gap: "var(--space-1h)", alignItems: "center" }}>
         <button
+          type="button"
           className="demo-btn demo-btn--ghost"
-          style={{ height: 24, padding: "0 8px", fontSize: "var(--fs-10)" }}
+          style={{ height: 24, padding: "0 var(--space-2)", fontSize: "var(--fs-10)" }}
         >
           See pricing
         </button>
-        <button
-          aria-label="Dismiss"
-          style={{
-            width: 24,
-            height: 24,
-            border: 0,
-            background: "transparent",
-            cursor: "pointer",
-            color: "var(--fg-subtle)",
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            borderRadius: "var(--radius-sm)",
-          }}
-        >
-          <X size={13} strokeWidth={1.8} />
-        </button>
+        <DismissButton />
       </span>
     </div>
+  );
+}
+
+function DismissButton() {
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label="Dismiss"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      style={{
+        width: 24,
+        height: 24,
+        border: 0,
+        background: hover ? "var(--bg-hover)" : "transparent",
+        cursor: "pointer",
+        color: hover ? "var(--fg)" : "var(--fg-subtle)",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: "var(--radius-sm)",
+        outline: focus ? "2px solid var(--accent)" : "none",
+        outlineOffset: 2,
+        transition: "background 0.14s ease, color 0.14s ease",
+      }}
+    >
+      <X size={13} strokeWidth={1.8} aria-hidden="true" />
+    </button>
   );
 }
 
@@ -132,20 +150,22 @@ function WarnBanner() {
         borderBottom: "1px solid var(--border-warn-subtle)",
       }}
     >
-      <AlertTriangle size={14} strokeWidth={1.8} style={{ color: "var(--warn)", flex: "0 0 auto" }} />
+      <AlertTriangle size={14} strokeWidth={1.8} aria-hidden="true" style={{ color: "var(--warn)", flex: "0 0 auto" }} />
       <span>
         Your trial ends in <strong>3 days</strong>. Add a payment method to avoid interruption.
       </span>
-      <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+      <span style={{ marginLeft: "auto", display: "flex", gap: "var(--space-1h)", alignItems: "center" }}>
         <button
+          type="button"
           className="demo-btn demo-btn--ghost"
-          style={{ height: 24, padding: "0 10px", fontSize: "var(--fs-10)" }}
+          style={{ height: 24, padding: "0 var(--space-2h)", fontSize: "var(--fs-10)" }}
         >
           Remind me tomorrow
         </button>
         <button
+          type="button"
           className="demo-btn demo-btn--primary"
-          style={{ height: 24, padding: "0 10px", fontSize: "var(--fs-10)" }}
+          style={{ height: 24, padding: "0 var(--space-2h)", fontSize: "var(--fs-10)" }}
         >
           Add payment method
         </button>
@@ -163,20 +183,22 @@ function ExpiredBanner() {
         borderBottom: "1px solid var(--border-danger-subtle)",
       }}
     >
-      <AlertOctagon size={14} strokeWidth={1.8} style={{ color: "var(--danger)", flex: "0 0 auto" }} />
+      <AlertOctagon size={14} strokeWidth={1.8} aria-hidden="true" style={{ color: "var(--danger)", flex: "0 0 auto" }} />
       <span>
         Your trial <strong>expired on Oct 12</strong>. Upgrade to keep running analyses.
       </span>
-      <span style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+      <span style={{ marginLeft: "auto", display: "flex", gap: "var(--space-1h)", alignItems: "center" }}>
         <button
+          type="button"
           className="demo-btn demo-btn--ghost"
-          style={{ height: 24, padding: "0 10px", fontSize: "var(--fs-10)" }}
+          style={{ height: 24, padding: "0 var(--space-2h)", fontSize: "var(--fs-10)" }}
         >
           Contact sales
         </button>
         <button
+          type="button"
           className="demo-btn demo-btn--primary"
-          style={{ height: 24, padding: "0 10px", fontSize: "var(--fs-10)" }}
+          style={{ height: 24, padding: "0 var(--space-2h)", fontSize: "var(--fs-10)" }}
         >
           Upgrade now
         </button>
@@ -196,7 +218,7 @@ interface VariantSectionProps {
 function VariantSection({ kicker, title, sub, banner, disabled }: VariantSectionProps) {
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-      <header style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <header style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
         <span
           style={{
             fontSize: "var(--fs-10)",

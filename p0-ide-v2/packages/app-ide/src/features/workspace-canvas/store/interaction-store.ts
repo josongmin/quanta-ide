@@ -22,6 +22,9 @@ import { findPaths } from "@quanta/canvas-engine";
 
 export type TemporalMode = "off" | "live" | "diff";
 
+export type FocusMode = "off" | "on";
+export type FocusHops = 1 | 2;
+
 export interface TemporalState {
   mode: TemporalMode;
   /** Active index in live mode; also seeds diffTo on first flip to diff. */
@@ -40,6 +43,9 @@ export interface InteractionState {
   pathQuery: PathQuery | null;
   pathResult: PathResult | null;
   inspectedEvidenceId: string | null;
+  focusMode: FocusMode;
+  focusHops: FocusHops;
+  focusDimOpacity: number;
   temporal: TemporalState;
   /** Multi-graph "flash" — files/edges tied to a single source graph are
    *  briefly emphasised (2s) when the user clicks a "graph sources" row in
@@ -79,6 +85,9 @@ let state: InteractionState = {
   pathQuery: null,
   pathResult: null,
   inspectedEvidenceId: null,
+  focusMode: "on",
+  focusHops: 1,
+  focusDimOpacity: 0.08,
   temporal: initialTemporal,
   graphFlash: null,
   activeTraceId: null,
@@ -214,6 +223,25 @@ const actions = {
   setInspectedEvidence(evidenceId: string | null) {
     if (state.inspectedEvidenceId === evidenceId) return;
     state = { ...state, inspectedEvidenceId: evidenceId };
+    emit();
+  },
+
+  setFocusMode(v: FocusMode) {
+    if (state.focusMode === v) return;
+    state = { ...state, focusMode: v };
+    emit();
+  },
+
+  setFocusHops(v: FocusHops) {
+    if (state.focusHops === v) return;
+    state = { ...state, focusHops: v };
+    emit();
+  },
+
+  setFocusDimOpacity(v: number) {
+    const clamped = Math.max(0, Math.min(0.5, v));
+    if (state.focusDimOpacity === clamped) return;
+    state = { ...state, focusDimOpacity: clamped };
     emit();
   },
 

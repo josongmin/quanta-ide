@@ -29,9 +29,9 @@ export function useEdgeFocusLogic(
   edgePredicate: ((edge: FileEdge) => boolean) | undefined;
   edgeViolations: ReadonlySet<string> | undefined;
 } {
-  const focusMode = useRenderSettings(s => s.focusMode);
-  const focusHops = useRenderSettings(s => s.focusHops);
-  const focusDimOpacity = useRenderSettings(s => s.focusDimOpacity);
+  const focusMode = useInteractionStore(s => s.focusMode);
+  const focusHops = useInteractionStore(s => s.focusHops);
+  const focusDimOpacity = useInteractionStore(s => s.focusDimOpacity);
   const edgeFilterQuery = useRenderSettings(s => s.edgeFilterQuery);
   const highlightArchViolations = useRenderSettings(s => s.highlightArchViolations);
   const pathQuery = useInteractionStore(s => s.pathQuery);

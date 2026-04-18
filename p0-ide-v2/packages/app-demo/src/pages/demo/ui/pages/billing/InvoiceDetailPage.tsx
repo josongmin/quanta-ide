@@ -107,7 +107,7 @@ export function InvoiceDetailPage() {
         <div className="demo-sectionbar">
           <button
             className="demo-btn demo-btn--ghost"
-            style={{ padding: "0 10px", height: 30 }}
+            style={{ padding: "0 var(--space-2h)", height: 30 }}
             aria-label="Back to invoices"
           >
             <ArrowLeft size={13} strokeWidth={1.8} /> All invoices
@@ -118,7 +118,7 @@ export function InvoiceDetailPage() {
               fontSize: "var(--fs-xs)",
               color: "var(--fg-subtle)",
               fontFamily: "var(--font-mono)",
-              marginLeft: 4,
+              marginLeft: "var(--space-1)",
             }}
           >
             INV-2026-0005
@@ -126,13 +126,15 @@ export function InvoiceDetailPage() {
           <span className="demo-sectionbar__spacer" />
           <button
             className="demo-btn demo-btn--ghost"
-            style={{ padding: "0 12px", height: 30 }}
+            style={{ padding: "0 var(--space-3)", height: 30 }}
+            aria-label="Send invoice by email"
           >
             <Mail size={13} strokeWidth={1.8} /> Send by email
           </button>
           <button
             className="demo-btn demo-btn--primary"
-            style={{ padding: "0 12px", height: 30 }}
+            style={{ padding: "0 var(--space-3)", height: 30 }}
+            aria-label="Download invoice as PDF"
           >
             <Download size={13} strokeWidth={1.8} /> Download PDF
           </button>
@@ -194,12 +196,12 @@ export function InvoiceDetailPage() {
                   fontWeight: "var(--fw-bold)",
                   fontFamily: "var(--font-mono)",
                   color: "var(--fg)",
-                  marginTop: 2,
+                  marginTop: "var(--space-0h)",
                 }}
               >
                 INV-2026-0005
               </div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-subtle)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-subtle)", marginTop: "var(--space-0h)" }}>
                 Issued 2026-04-01 · Due on receipt
               </div>
             </div>
@@ -218,10 +220,10 @@ export function InvoiceDetailPage() {
           >
             <div>
               <div style={KICKER_STYLE}>Billed to</div>
-              <div style={{ marginTop: 6, fontSize: "var(--fs-md)", fontWeight: "var(--fw-semibold)" }}>
+              <div style={{ marginTop: "var(--space-1h)", fontSize: "var(--fs-md)", fontWeight: "var(--fw-semibold)" }}>
                 Acme Inc.
               </div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-muted)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-muted)", marginTop: "var(--space-0h)" }}>
                 billing@acme.com
               </div>
               <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-muted)" }}>
@@ -239,13 +241,13 @@ export function InvoiceDetailPage() {
                   fontWeight: "var(--fw-bold)",
                   letterSpacing: "-0.02em",
                   fontVariantNumeric: "tabular-nums",
-                  marginTop: 6,
+                  marginTop: "var(--space-1h)",
                   color: "var(--fg)",
                 }}
               >
                 $792.00 USD
               </div>
-              <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-subtle)", marginTop: 2 }}>
+              <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-subtle)", marginTop: "var(--space-0h)" }}>
                 Paid 2026-04-01 · Visa •• 4242
               </div>
             </div>
@@ -253,7 +255,7 @@ export function InvoiceDetailPage() {
 
           {/* Line items */}
           <div style={KICKER_STYLE}>Line items</div>
-          <table className="demo-table" style={{ marginTop: 6, marginBottom: "var(--space-4)" }}>
+          <table className="demo-table" style={{ marginTop: "var(--space-1h)", marginBottom: "var(--space-4)" }}>
             <thead>
               <tr>
                 <th>Description</th>
@@ -268,7 +270,7 @@ export function InvoiceDetailPage() {
                   <td>
                     <div style={{ fontWeight: "var(--fw-medium)", color: "var(--fg)" }}>{li.desc}</div>
                     {li.period && (
-                      <div style={{ fontSize: "var(--fs-10)", color: "var(--fg-subtle)", marginTop: 2 }}>
+                      <div style={{ fontSize: "var(--fs-10)", color: "var(--fg-subtle)", marginTop: "var(--space-0h)" }}>
                         {li.period}
                       </div>
                     )}
@@ -296,14 +298,14 @@ export function InvoiceDetailPage() {
                 minWidth: 280,
                 display: "flex",
                 flexDirection: "column",
-                gap: 6,
+                gap: "var(--space-1h)",
                 fontSize: "var(--fs-sm)",
               }}
             >
               <TotalsRow label="Subtotal" value="$900.00" />
               <TotalsRow label="Yearly discount (-20%)" value="-$180.00" />
               <TotalsRow label="Sales tax (VAT 10%)" value="$72.00" />
-              <div style={{ height: 1, background: "var(--border)", margin: "6px 0" }} />
+              <div style={{ height: 1, background: "var(--border)", margin: "var(--space-1h) 0" }} />
               <TotalsRow label="Total paid" value="$792.00 USD" bold />
             </div>
           </div>

@@ -69,6 +69,9 @@ export function useUrlStateSync(): void {
         }
       }, 500);
     };
+    // Fan-out to five stores is safe: `scheduleWrite` early-returns while
+    // a timer is pending, so concurrent emissions from multiple stores
+    // collapse into a single debounced history.replaceState call.
     const unsubs = [
       viewportStore.subscribe(scheduleWrite),
       interactionStore.subscribe(scheduleWrite),

@@ -125,8 +125,8 @@ function MethodBadge({ method, size = "sm" }: { method: Method; size?: "sm" | "m
   const style = METHOD_STYLE[method];
   const dims =
     size === "md"
-      ? { padding: "4px 10px", fontSize: "var(--fs-xs)", minWidth: 58 }
-      : { padding: "2px 8px", fontSize: "var(--fs-10)", minWidth: 46 };
+      ? { padding: "var(--space-1) var(--space-2h)", fontSize: "var(--fs-xs)", minWidth: 58 }
+      : { padding: "var(--space-1) var(--space-2)", fontSize: "var(--fs-10)", minWidth: 46 };
   return (
     <span
       style={{
@@ -161,7 +161,7 @@ function ParamTable({ rows }: { rows: ParamRow[] }) {
         style={{
           display: "grid",
           gridTemplateColumns: "minmax(120px, 160px) 110px 80px minmax(0, 1fr)",
-          padding: "8px var(--space-3)",
+          padding: "var(--space-2) var(--space-3)",
           background: "var(--bg-subtle)",
           borderBottom: "1px solid var(--border)",
           fontSize: "var(--fs-10)",
@@ -200,6 +200,147 @@ function ParamTable({ rows }: { rows: ParamRow[] }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function LangTab({
+  lang,
+  active,
+  onSelect,
+}: {
+  lang: Lang;
+  active: boolean;
+  onSelect: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onSelect}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      style={{
+        padding: "var(--space-1) var(--space-2h)",
+        border: 0,
+        borderRadius: "var(--radius-pill)",
+        background: active ? "#2a2a2a" : hover ? "#1f1f1f" : "transparent",
+        color: active ? "#f4f4f4" : hover ? "#d4d4d4" : "#9a9a9a",
+        fontSize: "var(--fs-10)",
+        fontWeight: "var(--fw-semibold)",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        fontFamily: "var(--font-mono)",
+        cursor: "pointer",
+        outline: focus ? "2px solid var(--accent)" : "none",
+        outlineOffset: 1,
+        transition: "background 0.14s ease, color 0.14s ease",
+      }}
+    >
+      {lang}
+    </button>
+  );
+}
+
+function RunButton({ onClick, pulse }: { onClick: () => void; pulse: boolean }) {
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      style={{
+        marginLeft: "auto",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "var(--space-1h)",
+        padding: "var(--space-1) var(--space-3)",
+        height: 26,
+        border: `1px solid ${pulse ? "var(--accent)" : hover ? "#3a3a3a" : "#2a2a2a"}`,
+        borderRadius: "var(--radius-sm)",
+        background: pulse ? "var(--accent)" : hover ? "#1f1f1f" : "#141414",
+        color: pulse ? "#fff" : "#e4e4e4",
+        fontSize: "var(--fs-10)",
+        fontWeight: "var(--fw-semibold)",
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        cursor: "pointer",
+        outline: focus ? "2px solid var(--accent)" : "none",
+        outlineOffset: 2,
+        transition: "background 0.14s ease, border-color 0.14s ease",
+      }}
+    >
+      <Play size={11} strokeWidth={2.2} aria-hidden="true" />
+      Run
+    </button>
+  );
+}
+
+function EndpointNavButton({
+  endpoint,
+  active,
+  onClick,
+}: {
+  endpoint: Endpoint;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  const [focus, setFocus] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onFocus={() => setFocus(true)}
+      onBlur={() => setFocus(false)}
+      aria-current={active ? "true" : undefined}
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: "var(--space-2)",
+        padding: "var(--space-1h) var(--space-3)",
+        border: 0,
+        background: active
+          ? "var(--bg)"
+          : hover
+          ? "var(--bg-hover)"
+          : "transparent",
+        borderLeft: active
+          ? `2px solid ${METHOD_STYLE[endpoint.method].fg}`
+          : "2px solid transparent",
+        color: active || hover ? "var(--fg)" : "var(--fg-muted)",
+        cursor: "pointer",
+        font: "inherit",
+        textAlign: "left",
+        outline: focus ? "2px solid var(--accent)" : "none",
+        outlineOffset: -2,
+        transition: "background 0.14s ease, color 0.14s ease",
+      }}
+    >
+      <MethodBadge method={endpoint.method} />
+      <code
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: "var(--fs-xs)",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {endpoint.path}
+      </code>
+    </button>
   );
 }
 
@@ -269,26 +410,28 @@ export function ApiExplorerPage() {
                 top: 0,
               }}
             >
-              <div
+              <label
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 6,
+                  gap: "var(--space-1h)",
                   border: "1px solid var(--border)",
-                  padding: "0 10px",
+                  padding: "0 var(--space-2h)",
                   height: 28,
                   borderRadius: "var(--radius-sm)",
                   background: "var(--bg)",
                   color: "var(--fg-subtle)",
                   fontSize: "var(--fs-xs)",
+                  cursor: "text",
                 }}
               >
-                <Search size={13} strokeWidth={2} />
+                <Search size={13} strokeWidth={2} aria-hidden="true" />
                 <input
                   type="search"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Search endpoints"
+                  aria-label="Search endpoints"
                   style={{
                     border: 0,
                     outline: "none",
@@ -299,7 +442,7 @@ export function ApiExplorerPage() {
                     minWidth: 0,
                   }}
                 />
-              </div>
+              </label>
             </div>
 
             <div style={{ padding: "var(--space-2) 0" }}>
@@ -317,45 +460,14 @@ export function ApiExplorerPage() {
                   >
                     {resource}
                   </div>
-                  {grouped[resource].map((e) => {
-                    const active = e.id === selectedId;
-                    return (
-                      <button
-                        key={e.id}
-                        type="button"
-                        onClick={() => setSelectedId(e.id)}
-                        style={{
-                          width: "100%",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          padding: "6px var(--space-3)",
-                          border: 0,
-                          background: active ? "var(--bg)" : "transparent",
-                          borderLeft: active
-                            ? `2px solid ${METHOD_STYLE[e.method].fg}`
-                            : "2px solid transparent",
-                          color: active ? "var(--fg)" : "var(--fg-muted)",
-                          cursor: "pointer",
-                          font: "inherit",
-                          textAlign: "left",
-                        }}
-                      >
-                        <MethodBadge method={e.method} />
-                        <code
-                          style={{
-                            fontFamily: "var(--font-mono)",
-                            fontSize: "var(--fs-xs)",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {e.path}
-                        </code>
-                      </button>
-                    );
-                  })}
+                  {grouped[resource].map((e) => (
+                    <EndpointNavButton
+                      key={e.id}
+                      endpoint={e}
+                      active={e.id === selectedId}
+                      onClick={() => setSelectedId(e.id)}
+                    />
+                  ))}
                 </div>
               ))}
             </div>
@@ -465,77 +577,34 @@ export function ApiExplorerPage() {
                 display: "flex",
                 alignItems: "center",
                 gap: "var(--space-2)",
+                flexWrap: "wrap",
               }}
             >
               <div
                 style={{
                   display: "inline-flex",
-                  padding: 2,
+                  padding: "var(--space-1)",
                   background: "#141414",
                   border: "1px solid #1f1f1f",
                   borderRadius: "var(--radius-pill)",
-                  gap: 2,
+                  gap: "var(--space-1)",
                 }}
+                role="tablist"
+                aria-label="Language"
               >
-                {LANGS.map((l) => {
-                  const active = lang === l;
-                  return (
-                    <button
-                      key={l}
-                      type="button"
-                      onClick={() => setLang(l)}
-                      style={{
-                        padding: "4px 10px",
-                        border: 0,
-                        borderRadius: "var(--radius-pill)",
-                        background: active ? "#2a2a2a" : "transparent",
-                        color: active ? "#f4f4f4" : "#9a9a9a",
-                        fontSize: "var(--fs-10)",
-                        fontWeight: "var(--fw-semibold)",
-                        letterSpacing: "0.04em",
-                        textTransform: "uppercase",
-                        fontFamily: "var(--font-mono)",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {l}
-                    </button>
-                  );
-                })}
+                {LANGS.map((l) => (
+                  <LangTab key={l} lang={l} active={lang === l} onSelect={() => setLang(l)} />
+                ))}
               </div>
-              <button
-                type="button"
-                onClick={run}
-                style={{
-                  marginLeft: "auto",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "4px 12px",
-                  height: 26,
-                  border: "1px solid #2a2a2a",
-                  borderRadius: "var(--radius-sm)",
-                  background: pulse ? "var(--accent)" : "#141414",
-                  color: pulse ? "#fff" : "#e4e4e4",
-                  fontSize: "var(--fs-10)",
-                  fontWeight: "var(--fw-semibold)",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  cursor: "pointer",
-                  transition: "background 0.2s ease",
-                }}
-              >
-                <Play size={11} strokeWidth={2.2} />
-                Run
-              </button>
+              <RunButton onClick={run} pulse={pulse} />
             </div>
 
             <pre
               style={{
                 color: "#e4e4e4",
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                padding: 16,
+                fontSize: "var(--fs-sm)",
+                padding: "var(--space-4)",
                 margin: 0,
                 whiteSpace: "pre",
                 overflow: "auto",
@@ -568,8 +637,8 @@ export function ApiExplorerPage() {
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 4,
-                  padding: "2px 8px",
+                  gap: "var(--space-1)",
+                  padding: "var(--space-1) var(--space-2)",
                   borderRadius: "var(--radius-xs)",
                   background: "color-mix(in srgb, var(--success) 18%, #0a0a0a)",
                   color: "var(--success)",
@@ -596,8 +665,8 @@ export function ApiExplorerPage() {
               style={{
                 color: "#e4e4e4",
                 fontFamily: "var(--font-mono)",
-                fontSize: 12,
-                padding: 16,
+                fontSize: "var(--fs-sm)",
+                padding: "var(--space-4)",
                 margin: 0,
                 whiteSpace: "pre",
                 overflow: "auto",

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { LayoutProgress } from "../store/workspace-canvas-store";
+import type { LayoutProgress } from "../store/scene-store";
 
 interface Props {
   progress: LayoutProgress;

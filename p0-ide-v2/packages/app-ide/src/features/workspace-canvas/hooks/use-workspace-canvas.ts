@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import { buildSceneQuery, isClusterView, isSuperclusterView } from "@quanta/canvas-engine";
-import { workspaceCanvasStore } from "../store/workspace-canvas-store";
+import { batch } from "../store/workspace-canvas-store";
 import { useViewportStore } from "../store/viewport-store";
 import { sceneStore, useSceneStore } from "../store/scene-store";
 import { interactionStore, useInteractionStore } from "../store/interaction-store";
@@ -19,14 +19,12 @@ function setEq(a: Set<string>, b: Set<string>): boolean {
 }
 
 export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
-  // 1. Push graph into store via the facade's cross-cutting setGraph so
-  //    scene swap + selection reset happen atomically (one facade emit).
   useEffect(() => {
-    workspaceCanvasStore.setGraph(graph);
-    // Pathfinding store needs the edges too; inject so the setter can solve
-    // synchronously without pulling the whole graph through a selector tree.
+    batch(() => {
+      sceneStore.setGraph(graph);
+      interactionStore.resetSelection();
+    });
     interactionStore.setPathGraph({ fileEdges: graph.fileEdges });
-    // Trigger initial grid layout immediately (fast), then ELK (slow)
     requestLayout(graph, "grid-then-elk");
     requestAggregates(graph);
   }, [graph]);

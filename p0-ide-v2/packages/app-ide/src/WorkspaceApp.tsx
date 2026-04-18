@@ -5,7 +5,7 @@ import {
   MultiFileCanvas,
   SAMPLE_GRAPH,
   loadRepoGraph,
-  workspaceCanvasStore,
+  sceneStore,
   setActiveGraphSource,
   type GraphSource,
   type LoadRepoResult,
@@ -98,7 +98,7 @@ export function WorkspaceApp(props: WorkspaceAppProps) {
       }
       // Record the repo root BEFORE setGraph so any ground-card effects
       // that fire on the new graph see the correct root.
-      workspaceCanvasStore.setRepoRoot(path);
+      sceneStore.setRepoRoot(path);
       setGraph(graph);
       setStatus({ kind: "loaded", result: { graph, stats }, path });
     } catch (err) {
@@ -167,7 +167,7 @@ export function WorkspaceApp(props: WorkspaceAppProps) {
               type="button"
               className="workspace-app__btn workspace-app__btn--ghost"
               onClick={() => {
-                workspaceCanvasStore.setRepoRoot(null);
+                sceneStore.setRepoRoot(null);
                 setGraph(SAMPLE_GRAPH);
                 setStatus({ kind: "idle" });
               }}

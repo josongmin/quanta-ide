@@ -2,7 +2,7 @@ import { Graphics, Container, Ticker } from "pixi.js";
 import type { FileEdge, FileNode, WorkspaceLayout, Viewport, EdgeLayer, EdgeSeverity, Rect, EdgeKind } from "@quanta/canvas-engine";
 import type { EdgeGeometryCache } from "@quanta/canvas-engine";
 import { lineAnchor, sideAnchor } from "@quanta/canvas-engine";
-import { resolveEdgeStyle, SEVERITY_RANK, CROSS_GRAPH_STYLE } from "./shared/colors";
+import { resolveEdgeStyle, SEVERITY_RANK, CROSS_GRAPH_STYLE, VIOLATION_RED } from "./shared/colors";
 
 // Line-anchored edges with per-kind visual vocabulary:
 //   - call / dataflow / impact / taint: arrowhead at target
@@ -253,7 +253,7 @@ export class EdgeStaticRenderer {
         this.gfx
           .moveTo(a.x, a.y)
           .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
-          .stroke({ color: 0xdc2626, alpha: 0.45, width: width * 3, cap: "round" });
+          .stroke({ color: VIOLATION_RED, alpha: 0.45, width: width * 3, cap: "round" });
       }
 
       // Diff mode — green halo under edges that exist in B but not A.

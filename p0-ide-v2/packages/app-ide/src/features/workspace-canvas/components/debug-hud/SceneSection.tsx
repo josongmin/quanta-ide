@@ -106,9 +106,9 @@ export function SceneSection() {
   const edgeMinSeverity = useRenderSettings(s => s.edgeMinSeverity);
   const edgeWidthMul = useRenderSettings(s => s.edgeWidthMul);
   const freezeScene = useDebugSettings(s => s.freezeScene);
-  const focusMode = useRenderSettings(s => s.focusMode);
-  const focusHops = useRenderSettings(s => s.focusHops);
-  const focusDimOpacity = useRenderSettings(s => s.focusDimOpacity);
+  const focusMode = useInteractionStore(s => s.focusMode);
+  const focusHops = useInteractionStore(s => s.focusHops);
+  const focusDimOpacity = useInteractionStore(s => s.focusDimOpacity);
 
   const tb = layout?.totalBounds;
   const clusterTotal = layout?.clusters?.length ?? 0;
@@ -379,7 +379,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={focusMode === "on"}
-          onChange={e => renderSettingsStore.setFocusMode(e.target.checked ? "on" : "off")}
+          onChange={e => interactionStore.setFocusMode(e.target.checked ? "on" : "off")}
         />
         <span>focus mode</span>
       </label>
@@ -389,7 +389,7 @@ export function SceneSection() {
             key={h}
             type="button"
             className={`ws-debug__chip${focusHops === h ? " is-on" : ""}`}
-            onClick={() => renderSettingsStore.setFocusHops(h)}
+            onClick={() => interactionStore.setFocusHops(h)}
             disabled={focusMode !== "on"}
             title={`${h}-hop`}
           >
@@ -405,7 +405,7 @@ export function SceneSection() {
           max={0.5}
           step={0.01}
           value={focusDimOpacity}
-          onChange={e => renderSettingsStore.setFocusDimOpacity(parseFloat(e.target.value))}
+          onChange={e => interactionStore.setFocusDimOpacity(parseFloat(e.target.value))}
           disabled={focusMode !== "on"}
           style={{ flex: 1 }}
         />

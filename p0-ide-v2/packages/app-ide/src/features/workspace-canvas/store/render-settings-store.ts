@@ -11,19 +11,12 @@ import type { EdgeLayer, EdgeSeverity } from "@quanta/canvas-engine";
 export type EdgeKind = "import" | "taint-propagation" | "blast";
 export type { EdgeLayer, EdgeSeverity };
 
-export type FocusMode = "off" | "on";
-export type FocusHops = 1 | 2;
-
 export interface RenderSettingsState {
   showEdges: boolean;
   edgeKinds: Record<EdgeKind, boolean>;
   edgeLayers: Record<EdgeLayer, boolean>;
   edgeMinSeverity: EdgeSeverity;
   edgeWidthMul: number;
-
-  focusMode: FocusMode;
-  focusHops: FocusHops;
-  focusDimOpacity: number;
 
   showClusterEdges: boolean;
   showSccBubbles: boolean;
@@ -51,9 +44,6 @@ let state: RenderSettingsState = {
   edgeLayers: { structural: true, flow: true, safety: true, impact: true },
   edgeMinSeverity: "low",
   edgeWidthMul: 1,
-  focusMode: "on",
-  focusHops: 1,
-  focusDimOpacity: 0.08,
   showClusterEdges: true,
   showSccBubbles: true,
   showStartHereBadges: true,
@@ -102,22 +92,6 @@ const actions = {
     const clamped = Math.max(0.25, Math.min(3, v));
     if (state.edgeWidthMul === clamped) return;
     state = { ...state, edgeWidthMul: clamped };
-    emit();
-  },
-  setFocusMode(v: FocusMode) {
-    if (state.focusMode === v) return;
-    state = { ...state, focusMode: v };
-    emit();
-  },
-  setFocusHops(v: FocusHops) {
-    if (state.focusHops === v) return;
-    state = { ...state, focusHops: v };
-    emit();
-  },
-  setFocusDimOpacity(v: number) {
-    const clamped = Math.max(0, Math.min(0.5, v));
-    if (state.focusDimOpacity === clamped) return;
-    state = { ...state, focusDimOpacity: clamped };
     emit();
   },
   setShowClusterEdges(v: boolean) {

@@ -255,7 +255,7 @@ export function DataRetentionPage() {
                     style={{
                       width: 32,
                       height: 32,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-lg)",
                       background: "var(--bg-muted)",
                       color: "var(--fg-muted)",
                       display: "inline-flex",
@@ -278,7 +278,7 @@ export function DataRetentionPage() {
                       style={{
                         fontSize: "var(--fs-xs)",
                         color: "var(--fg-subtle)",
-                        marginTop: 2,
+                        marginTop: "var(--space-0h)",
                       }}
                     >
                       {cat.description}
@@ -288,7 +288,7 @@ export function DataRetentionPage() {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 8,
+                      gap: "var(--space-2)",
                     }}
                   >
                     <span className="demo-badge">{cat.count}</span>
@@ -313,7 +313,7 @@ export function DataRetentionPage() {
                   style={{
                     display: "grid",
                     gridTemplateColumns: `repeat(${cat.options.length}, 1fr)`,
-                    gap: 4,
+                    gap: "var(--space-1)",
                     marginTop: "var(--space-2h)",
                   }}
                 >
@@ -332,7 +332,7 @@ export function DataRetentionPage() {
                         }
                         disabled={opt.locked}
                         style={{
-                          padding: "8px 6px",
+                          padding: "var(--space-2) var(--space-1h)",
                           border: `1px solid ${
                             isSelected ? "var(--fg)" : "var(--border)"
                           }`,
@@ -353,6 +353,11 @@ export function DataRetentionPage() {
                           transition: "all 0.12s ease",
                           position: "relative",
                         }}
+                        aria-label={
+                          opt.locked
+                            ? `${opt.label} (Enterprise plan)`
+                            : opt.label
+                        }
                       >
                         {opt.label}
                         {opt.locked && (
@@ -361,9 +366,10 @@ export function DataRetentionPage() {
                             strokeWidth={2}
                             style={{
                               position: "absolute",
-                              top: 4,
-                              right: 4,
+                              top: "var(--space-1)",
+                              right: "var(--space-1)",
                             }}
+                            aria-hidden="true"
                           />
                         )}
                       </button>
@@ -440,7 +446,7 @@ export function DataRetentionPage() {
             strokeWidth={1.8}
             style={{
               color: "var(--warn)",
-              marginTop: 2,
+              marginTop: "var(--space-0h)",
               flexShrink: 0,
             }}
           />
@@ -468,6 +474,7 @@ export function DataRetentionPage() {
           }}
         >
           <span
+            aria-live="polite"
             style={{
               fontSize: "var(--fs-10)",
               color: "var(--fg-subtle)",

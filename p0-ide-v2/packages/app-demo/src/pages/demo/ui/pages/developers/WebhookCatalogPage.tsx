@@ -192,31 +192,34 @@ export function WebhookCatalogPage() {
                 type="button"
                 onClick={() => setCat(c)}
                 className={cat === c ? "is-active" : ""}
+                aria-pressed={cat === c}
               >
                 {c}
               </button>
             ))}
           </div>
-          <div
+          <label
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 6,
+              gap: "var(--space-1h)",
               border: "1px solid var(--border)",
-              padding: "0 10px",
+              padding: "0 var(--space-2h)",
               height: 28,
               borderRadius: "var(--radius-sm)",
               background: "var(--bg)",
               color: "var(--fg-subtle)",
               fontSize: "var(--fs-xs)",
+              cursor: "text",
             }}
           >
-            <Search size={13} strokeWidth={2} />
+            <Search size={13} strokeWidth={2} aria-hidden="true" />
             <input
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search events"
+              aria-label="Search events"
               style={{
                 border: 0,
                 outline: "none",
@@ -226,7 +229,7 @@ export function WebhookCatalogPage() {
                 width: 180,
               }}
             />
-          </div>
+          </label>
         </div>
 
         <div
@@ -343,13 +346,13 @@ export function WebhookCatalogPage() {
                 >
                   <button
                     className="demo-btn demo-btn--ghost"
-                    style={{ height: 26, padding: "0 10px", fontSize: "var(--fs-10)" }}
+                    style={{ height: 26, padding: "0 var(--space-2h)", fontSize: "var(--fs-10)" }}
                   >
                     Copy curl
                   </button>
                   <button
                     className="demo-btn demo-btn--ghost"
-                    style={{ height: 26, padding: "0 10px", fontSize: "var(--fs-10)" }}
+                    style={{ height: 26, padding: "0 var(--space-2h)", fontSize: "var(--fs-10)" }}
                   >
                     Send test
                   </button>

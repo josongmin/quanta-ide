@@ -162,7 +162,7 @@ export function SecurityDisclosurePage() {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
+                gap: "var(--space-2)",
                 marginBottom: "var(--space-2)",
               }}
             >
@@ -218,7 +218,7 @@ export function SecurityDisclosurePage() {
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: 8,
+              gap: "var(--space-2)",
               alignItems: "stretch",
             }}
           >
@@ -289,7 +289,7 @@ export function SecurityDisclosurePage() {
                       justifyContent: "center",
                       width: 32,
                       height: 32,
-                      borderRadius: 8,
+                      borderRadius: "var(--radius-lg)",
                       background: "var(--bg-muted)",
                       color: "var(--fg-muted)",
                       marginBottom: "var(--space-2h)",
@@ -299,7 +299,7 @@ export function SecurityDisclosurePage() {
                   </div>
                   <h4
                     style={{
-                      margin: "0 0 4px 0",
+                      margin: "0 0 var(--space-1) 0",
                       fontSize: "var(--fs-sm)",
                       fontWeight: "var(--fw-semibold)",
                     }}
@@ -401,7 +401,7 @@ export function SecurityDisclosurePage() {
                       color: "var(--fg-muted)",
                       display: "flex",
                       flexDirection: "column",
-                      gap: 4,
+                      gap: "var(--space-1)",
                     }}
                   >
                     {t.examples.map((e) => (
@@ -409,7 +409,7 @@ export function SecurityDisclosurePage() {
                         key={e}
                         style={{
                           display: "flex",
-                          gap: 6,
+                          gap: "var(--space-1h)",
                           alignItems: "flex-start",
                         }}
                       >
@@ -418,7 +418,7 @@ export function SecurityDisclosurePage() {
                           strokeWidth={3}
                           style={{
                             color,
-                            marginTop: 6,
+                            marginTop: "var(--space-1h)",
                             flexShrink: 0,
                           }}
                         />
@@ -463,7 +463,7 @@ export function SecurityDisclosurePage() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   marginBottom: "var(--space-2h)",
                 }}
               >
@@ -498,7 +498,7 @@ export function SecurityDisclosurePage() {
                     style={{
                       display: "flex",
                       alignItems: "flex-start",
-                      gap: 8,
+                      gap: "var(--space-2)",
                       fontSize: "var(--fs-xs)",
                       color: "var(--fg)",
                     }}
@@ -538,7 +538,7 @@ export function SecurityDisclosurePage() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: "var(--space-2)",
                   marginBottom: "var(--space-2h)",
                 }}
               >
@@ -573,7 +573,7 @@ export function SecurityDisclosurePage() {
                     style={{
                       display: "flex",
                       alignItems: "flex-start",
-                      gap: 8,
+                      gap: "var(--space-2)",
                       fontSize: "var(--fs-xs)",
                       color: "var(--fg)",
                     }}
@@ -628,14 +628,14 @@ export function SecurityDisclosurePage() {
               <span
                 key={n}
                 style={{
-                  padding: "6px 10px",
+                  padding: "var(--space-1h) var(--space-2h)",
                   border: "1px solid var(--border)",
                   borderRadius: "var(--radius-pill)",
                   fontSize: "var(--fs-10)",
                   color: "var(--fg-muted)",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 6,
+                  gap: "var(--space-1h)",
                   background: "var(--bg)",
                 }}
               >

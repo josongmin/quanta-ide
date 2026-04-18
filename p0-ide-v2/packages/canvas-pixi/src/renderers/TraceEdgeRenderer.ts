@@ -5,6 +5,7 @@ import type {
   Viewport,
   FileNode,
 } from "@quanta/canvas-engine";
+import { FLOW_CYAN } from "./shared/colors";
 
 // Dynamic trace-edge overlay. Separate from EdgeStaticRenderer because the
 // visual vocabulary is categorically different:
@@ -36,7 +37,7 @@ const DASH_SAMPLES_PER_CURVE = 24;
 const TRACE_DASH: readonly [number, number] = [10, 4];
 
 /** Source-end colour (cyan-400). */
-const COLOR_SOURCE = 0x22d3ee;
+const COLOR_SOURCE = FLOW_CYAN;
 /** Sink-end colour (magenta-500). */
 const COLOR_SINK = 0xec4899;
 

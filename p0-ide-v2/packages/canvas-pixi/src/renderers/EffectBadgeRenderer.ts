@@ -9,6 +9,7 @@ import type {
   Rect,
 } from "@quanta/canvas-engine";
 import { EFFECT_STYLE } from "@quanta/canvas-engine";
+import { NEUTRAL_GREY } from "./shared/colors";
 
 // Per-file effect chips rendered as a row below the card's bottom edge.
 // Each chip is a rounded rect + 2-3 letter ASCII glyph (no emoji). Readers
@@ -39,7 +40,7 @@ const CHIP_FONT = 9;
 const ROW_GAP_Y = 4;
 const MAX_CHIPS = 4;
 const OVERFLOW_GLYPH = "...";
-const OVERFLOW_COLOR = 0x6b7280;
+const OVERFLOW_COLOR = NEUTRAL_GREY;
 
 export class EffectBadgeRenderer {
   private container: Container;

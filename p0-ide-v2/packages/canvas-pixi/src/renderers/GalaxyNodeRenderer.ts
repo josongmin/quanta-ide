@@ -1,6 +1,6 @@
 import { Container } from "pixi.js";
 import type { FileNode, WorkspaceLayout, WorkspaceMetrics, ViewState, Viewport, FileLatency } from "@quanta/canvas-engine";
-import { latencyColor } from "@quanta/canvas-engine";
+import { latencyColor, mixHex } from "@quanta/canvas-engine";
 import { FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { type PickRect } from "./shared/SpatialPickIndex";
 import { RectNodeRenderer } from "./shared/RectNodeRenderer";
@@ -10,16 +10,6 @@ import { registerRenderer, type RendererHandle, type RenderContext } from "./sha
 // Cost-overlay tint strength, matches CityNodeRenderer's LATENCY_MIX_K so
 // the two tiers agree visually when the user scrolls between them.
 const LATENCY_MIX_K = 0.35;
-
-function mixHex(a: number, b: number, k: number): number {
-  const t = k < 0 ? 0 : k > 1 ? 1 : k;
-  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-  const r = ar + (br - ar) * t;
-  const g = ag + (bg - ag) * t;
-  const bx = ab + (bb - ab) * t;
-  return ((r | 0) << 16) | ((g | 0) << 8) | (bx | 0);
-}
 
 // Galaxy LOD (scale < 0.15): the whole codebase from far away. Each file card
 // is tens of CSS pixels — text would be unreadable. This renderer is stripped

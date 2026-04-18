@@ -121,7 +121,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
         justifyContent: "center",
         minWidth: 22,
         height: 22,
-        padding: "0 6px",
+        padding: "0 var(--space-1h)",
         fontFamily: "var(--font-mono)",
         fontSize: "var(--fs-10)",
         fontWeight: "var(--fw-semibold)",
@@ -130,7 +130,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
         border: "1px solid var(--border)",
         borderBottomWidth: 2,
         borderRadius: "var(--radius-xs)",
-        boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
+        boxShadow: "var(--shadow-xs)",
       }}
     >
       {children}
@@ -169,13 +169,13 @@ export function KeyboardShortcutsPage() {
       />
       <div className="demo-app__body">
         <div className="demo-sectionbar">
-          <div
+          <label
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: 8,
+              gap: "var(--space-2)",
               border: "1px solid var(--border)",
-              padding: "0 14px",
+              padding: "0 var(--space-3h)",
               height: 40,
               borderRadius: "var(--radius-md)",
               background: "var(--bg)",
@@ -183,14 +183,16 @@ export function KeyboardShortcutsPage() {
               fontSize: "var(--fs-sm)",
               flex: 1,
               maxWidth: 440,
+              cursor: "text",
             }}
           >
-            <Search size={16} strokeWidth={2} />
+            <Search size={16} strokeWidth={2} aria-hidden="true" />
             <input
               type="search"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search shortcuts"
+              aria-label="Search shortcuts"
               style={{
                 border: 0,
                 outline: "none",
@@ -203,18 +205,19 @@ export function KeyboardShortcutsPage() {
               }}
             />
             <span
+              aria-hidden="true"
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: "var(--fs-10)",
                 color: "var(--fg-subtle)",
-                padding: "2px 6px",
+                padding: "var(--space-1) var(--space-1h)",
                 borderRadius: "var(--radius-xs)",
                 border: "1px solid var(--border)",
               }}
             >
               ⌘ /
             </span>
-          </div>
+          </label>
           <span className="demo-sectionbar__spacer" />
           <div className="demo-billing-toggle" style={{ marginBottom: 0 }}>
             {(["macOS", "Windows"] as Platform[]).map((p) => (
@@ -222,6 +225,7 @@ export function KeyboardShortcutsPage() {
                 key={p}
                 type="button"
                 className={platform === p ? "is-active" : ""}
+                aria-pressed={platform === p}
                 onClick={() => setPlatform(p)}
               >
                 {p}
@@ -270,10 +274,11 @@ export function KeyboardShortcutsPage() {
                   }}
                 >
                   <span
+                    aria-hidden="true"
                     style={{
                       width: 24,
                       height: 24,
-                      borderRadius: 6,
+                      borderRadius: "var(--radius-md)",
                       background: "var(--bg-muted)",
                       display: "inline-flex",
                       alignItems: "center",
@@ -329,7 +334,7 @@ export function KeyboardShortcutsPage() {
                       <span style={{ fontSize: "var(--fs-sm)", color: "var(--fg)" }}>
                         {item.label}
                       </span>
-                      <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <span style={{ display: "inline-flex", gap: "var(--space-1)", flexWrap: "wrap", justifyContent: "flex-end" }}>
                         {item.keys.map((k, ki) => (
                           <Kbd key={ki}>{keyForPlatform(k, platform)}</Kbd>
                         ))}

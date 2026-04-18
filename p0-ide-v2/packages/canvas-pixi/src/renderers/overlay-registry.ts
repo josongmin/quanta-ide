@@ -12,6 +12,7 @@ import type {
   FileEdge,
   Trace,
   ClusterEdge,
+  FileEffects,
 } from "@quanta/canvas-engine";
 import { EdgeStaticRenderer } from "./EdgeStaticRenderer";
 import { EdgeOverlayRenderer } from "./EdgeOverlayRenderer";
@@ -20,6 +21,7 @@ import { ClusterEdgeRenderer } from "./ClusterEdgeRenderer";
 import { SCCBubbleRenderer } from "./SCCBubbleRenderer";
 import { StartHereBadgeRenderer } from "./StartHereBadgeRenderer";
 import { PresenceRingRenderer, type AgentPresenceInput } from "./PresenceRingRenderer";
+import { EffectBadgeRenderer } from "./EffectBadgeRenderer";
 
 // Overlay registry.
 // -------------------------------------------------------------------
@@ -47,7 +49,8 @@ export type OverlayId =
   | "sccBubble"
   | "startHereBadge"
   | "presenceRing"
-  | "traceEdge";
+  | "traceEdge"
+  | "effectBadge";
 
 export interface OverlayRenderCtx {
   visible: WorkspaceView;
@@ -88,6 +91,10 @@ export interface OverlayRenderCtx {
   // Presence.
   agentPresence?: readonly AgentPresenceInput[];
   showAgentPresence: boolean;
+
+  // Per-file side-effect chips.
+  effects?: Record<string, FileEffects>;
+  showEffectBadges: boolean;
 }
 
 export interface OverlayHandle {
@@ -234,6 +241,21 @@ register("traceEdge", (world) => {
   };
 });
 
+register("effectBadge", (world) => {
+  const r = new EffectBadgeRenderer(world);
+  return {
+    update(ctx) {
+      if (ctx.showEffectBadges && ctx.effects) {
+        r.build(ctx.visible.files, ctx.effects, ctx.layout, ctx.viewport, ctx.lod);
+      } else {
+        r.clear();
+      }
+    },
+    clear() { r.clear(); },
+    destroy() { r.destroy(); },
+  };
+});
+
 // --- RendererStack ---------------------------------------------------
 
 /**
@@ -248,10 +270,6 @@ export class RendererStack {
     for (const [id, factory] of OVERLAY_REGISTRY) {
       this.handles.set(id, factory(world));
     }
-  }
-
-  get(id: OverlayId): OverlayHandle | undefined {
-    return this.handles.get(id);
   }
 
   update(ctx: OverlayRenderCtx): void {

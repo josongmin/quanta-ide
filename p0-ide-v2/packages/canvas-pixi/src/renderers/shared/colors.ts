@@ -79,11 +79,11 @@ export const SELECTION_ACCENT = 0x4f46e5;
 
 // Signal-count / taint accent — matches RISK_TEXT.high because a positive
 // signal count is itself a risk indicator and users expect the two to agree.
-export const SIGNAL_ACCENT = 0xdc2626;
+export const SIGNAL_ACCENT = SAFETY_RED;
 
 // Architecture-violation halo drawn around offending file cards. Same hue
 // as SIGNAL_ACCENT by design — both say "this needs attention".
-export const VIOLATION_HALO = 0xdc2626;
+export const VIOLATION_HALO = VIOLATION_RED;
 
 // Cross-graph / cross-repo join edges (safety-yellow).
 export const CROSS_GRAPH_ACCENT = 0xfacc15;
@@ -100,7 +100,7 @@ export const DESIGN_TOKENS = {
   signalAccent: SIGNAL_ACCENT,
   violationHalo: VIOLATION_HALO,
   crossGraph: CROSS_GRAPH_ACCENT,
-  riskHigh: RISK_TEXT.high,
+  riskHigh: RISK_HIGH_RED,
   riskMedium: RISK_TEXT.medium,
   riskLow: RISK_TEXT.low,
 } as const;
@@ -126,36 +126,36 @@ export interface EdgeStyle {
 // safety, purple for impact. `call` is the structural archetype; `dataflow`
 // for flow; `taint-propagation` for safety; `impact` for impact.
 export const LAYER_STYLE: Record<EdgeLayer, EdgeStyle> = {
-  structural: { color: 0x6b7280, alpha: 0.45, baseWidth: 0.6 },
-  flow:       { color: 0x22d3ee, alpha: 0.60, baseWidth: 0.7 },
-  safety:     { color: 0xdc2626, alpha: 0.85, baseWidth: 1.0 },
-  impact:     { color: 0xa855f7, alpha: 0.80, baseWidth: 1.0 },
+  structural: { color: NEUTRAL_GREY, alpha: 0.45, baseWidth: 0.6 },
+  flow:       { color: FLOW_CYAN,    alpha: 0.60, baseWidth: 0.7 },
+  safety:     { color: SAFETY_RED,   alpha: 0.85, baseWidth: 1.0 },
+  impact:     { color: 0xa855f7,     alpha: 0.80, baseWidth: 1.0 },
 };
 
 export const KIND_STYLE: Partial<Record<EdgeKind, EdgeStyle>> = {
   // structural
-  import:               { color: 0x9ca3af, alpha: 0.35, baseWidth: 0.5 },
-  call:                 { color: 0x6b7280, alpha: 0.45, baseWidth: 0.6 },
-  reference:            { color: 0x9ca3af, alpha: 0.25, baseWidth: 0.4, dash: [3, 3] },
-  inheritance:          { color: 0x93c5fd, alpha: 0.55, baseWidth: 0.7 },
-  cfg:                  { color: 0x6b7280, alpha: 0.30, baseWidth: 0.4 },
+  import:               { color: 0x9ca3af,    alpha: 0.35, baseWidth: 0.5 },
+  call:                 { color: NEUTRAL_GREY, alpha: 0.45, baseWidth: 0.6 },
+  reference:            { color: 0x9ca3af,    alpha: 0.25, baseWidth: 0.4, dash: [3, 3] },
+  inheritance:          { color: 0x93c5fd,    alpha: 0.55, baseWidth: 0.7 },
+  cfg:                  { color: NEUTRAL_GREY, alpha: 0.30, baseWidth: 0.4 },
   // flow
-  dataflow:             { color: 0x22d3ee, alpha: 0.60, baseWidth: 0.7 },
-  effect:               { color: 0x14b8a6, alpha: 0.55, baseWidth: 0.6, dash: [2, 2] },
-  pdg:                  { color: 0x6366f1, alpha: 0.55, baseWidth: 0.6 },
-  alias:                { color: 0xa78bfa, alpha: 0.50, baseWidth: 0.5, dash: [1, 2] },
+  dataflow:             { color: FLOW_CYAN,   alpha: 0.60, baseWidth: 0.7 },
+  effect:               { color: 0x14b8a6,    alpha: 0.55, baseWidth: 0.6, dash: [2, 2] },
+  pdg:                  { color: 0x6366f1,    alpha: 0.55, baseWidth: 0.6 },
+  alias:                { color: 0xa78bfa,    alpha: 0.50, baseWidth: 0.5, dash: [1, 2] },
   // safety
-  "taint-propagation":  { color: 0xdc2626, alpha: 0.85, baseWidth: 1.0 },
-  sanitizer:            { color: 0x16a34a, alpha: 0.80, baseWidth: 0.9 },
-  race:                 { color: 0xec4899, alpha: 0.80, baseWidth: 0.9 },
-  cycle:                { color: 0xea580c, alpha: 0.85, baseWidth: 1.0 },
-  finding:              { color: 0xb91c1c, alpha: 0.90, baseWidth: 1.1 },
+  "taint-propagation":  { color: SAFETY_RED,  alpha: 0.85, baseWidth: 1.0 },
+  sanitizer:            { color: 0x16a34a,    alpha: 0.80, baseWidth: 0.9 },
+  race:                 { color: 0xec4899,    alpha: 0.80, baseWidth: 0.9 },
+  cycle:                { color: CYCLE_ORANGE, alpha: 0.85, baseWidth: 1.0 },
+  finding:              { color: 0xb91c1c,    alpha: 0.90, baseWidth: 1.1 },
   // impact
-  impact:               { color: 0xa855f7, alpha: 0.80, baseWidth: 1.0 },
-  blast:                { color: 0xf59e0b, alpha: 0.75, baseWidth: 0.9 },
-  diff:                 { color: 0x8b5cf6, alpha: 0.75, baseWidth: 0.8 },
-  dependency:           { color: 0x3b82f6, alpha: 0.75, baseWidth: 0.8 },
-  witness:              { color: 0xfacc15, alpha: 0.90, baseWidth: 1.1 },
+  impact:               { color: 0xa855f7,    alpha: 0.80, baseWidth: 1.0 },
+  blast:                { color: 0xf59e0b,    alpha: 0.75, baseWidth: 0.9 },
+  diff:                 { color: 0x8b5cf6,    alpha: 0.75, baseWidth: 0.8 },
+  dependency:           { color: 0x3b82f6,    alpha: 0.75, baseWidth: 0.8 },
+  witness:              { color: 0xfacc15,    alpha: 0.90, baseWidth: 1.1 },
 };
 
 // Severity rank used both here (critical bump) and by the renderer's

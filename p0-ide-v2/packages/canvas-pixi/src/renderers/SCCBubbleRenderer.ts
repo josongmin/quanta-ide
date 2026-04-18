@@ -1,5 +1,6 @@
 import { Graphics, Container, Text } from "pixi.js";
 import type { Rect, Viewport } from "@quanta/canvas-engine";
+import { CYCLE_ORANGE } from "./shared/colors";
 
 // Strongly-connected-component bubble renderer. Wraps each cycle (≥2 members)
 // in a soft orange rounded-rect so cycles are obvious at any zoom above
@@ -19,7 +20,7 @@ const PADDING = 12;
 const CORNER_RADIUS = 16;
 const FILL_COLOR = 0xf97316;   // orange-500
 const FILL_ALPHA = 0.10;
-const STROKE_COLOR = 0xea580c; // orange-600
+const STROKE_COLOR = CYCLE_ORANGE; // orange-600
 const STROKE_ALPHA = 0.55;
 const LABEL_MIN_SCALE = 0.3;   // below this, labels clutter the galaxy view
 
@@ -97,7 +98,7 @@ export class SCCBubbleRenderer {
           fontFamily: "system-ui, sans-serif",
           fontSize: 11,
           fontWeight: "600",
-          fill: 0xea580c,
+          fill: CYCLE_ORANGE,
         },
       });
       label.eventMode = "none";

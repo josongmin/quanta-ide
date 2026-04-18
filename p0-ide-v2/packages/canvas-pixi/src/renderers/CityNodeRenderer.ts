@@ -1,6 +1,6 @@
 import { BitmapText, Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import type { FileNode, WorkspaceLayout, ViewState, Viewport, FileLatency, Rect } from "@quanta/canvas-engine";
-import { elevationFromRisk, latencyColor } from "@quanta/canvas-engine";
+import { elevationFromRisk, latencyColor, mixHex } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, CITY_MONO_FONT_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
@@ -36,26 +36,6 @@ const HEADER_H = 32;
 const FN_H = 22;
 const FN_GAP = 2;
 const FN_PAD_X = 8;
-
-function mixToBlack(hex: number, k: number): number {
-  const t = 1 - k;
-  const r = ((hex >> 16) & 0xff) * t;
-  const g = ((hex >> 8) & 0xff) * t;
-  const b = (hex & 0xff) * t;
-  return ((r | 0) << 16) | ((g | 0) << 8) | (b | 0);
-}
-
-// Linear RGB mix — mirrors GLSL `mix(a, b, k)`. Used by the cost overlay to
-// tint risk-coloured card fills toward the latency colour.
-function mixHex(a: number, b: number, k: number): number {
-  const t = k < 0 ? 0 : k > 1 ? 1 : k;
-  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
-  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
-  const r = ar + (br - ar) * t;
-  const g = ag + (bg - ag) * t;
-  const bx = ab + (bb - ab) * t;
-  return ((r | 0) << 16) | ((g | 0) << 8) | (bx | 0);
-}
 
 // Cost-overlay tint factor: how far to drift the risk fill toward the
 // latency colour. 0.35 keeps the risk hue readable while the latency shift
@@ -383,7 +363,7 @@ export class CityNodeRenderer {
     data[o + 3] = card.h;
     unpackHexInto(instance.fillColor, data, o + 4, instance.fillAlpha);
     const tintK = Math.min(0.5, elevation / 160);
-    const bColor = tintK > 0 ? mixToBlack(instance.selBorder, tintK) : instance.selBorder;
+    const bColor = tintK > 0 ? mixHex(instance.selBorder, 0x000000, tintK) : instance.selBorder;
     unpackHexInto(bColor, data, o + 8, instance.borderAlpha);
     data[o + 12] = bw;
     data[o + 13] = 6;

@@ -1,7 +1,8 @@
 import type { WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import type { SerializedLayout, SerializedAggregates } from "@quanta/canvas-worker";
 import { deserializeLayout, deserializeAggregates, serializeLayout } from "@quanta/canvas-worker";
-import { workspaceCanvasStore } from "../store/workspace-canvas-store";
+import { sceneStore } from "../store/scene-store";
+import { viewportStore } from "../store/viewport-store";
 
 let worker: Worker | null = null;
 
@@ -53,16 +54,16 @@ function handleMessage(event: MessageEvent) {
       }
       const layout = deserializeLayout(msg.payload as SerializedLayout);
       const wasElk = msg.stage === "elk";
-      workspaceCanvasStore.setLayout(layout);
-      workspaceCanvasStore.setWorkerState("workerLayout", false);
-      if (wasElk) workspaceCanvasStore.setLayoutProgress("elk-done");
+      sceneStore.setLayout(layout);
+      sceneStore.setWorkerState("workerLayout", false);
+      if (wasElk) sceneStore.setLayoutProgress("elk-done");
       // Auto-fit viewport — only on the FIRST layout to avoid stomping user
       // pan/zoom when ELK follows grid. The `layoutProgress` stage tells us
       // which payload this is.
-      const progress = workspaceCanvasStore.getState().layoutProgress;
+      const progress = sceneStore.getState().layoutProgress;
       const isFirstLayout = !wasElk && progress.stage !== "grid-ready" && progress.stage !== "elk-running";
       if (isFirstLayout || msg.stage === "grid") {
-        const vp = workspaceCanvasStore.getState().viewport;
+        const vp = viewportStore.getState().viewport;
         const { w: graphW, h: graphH } = layout.totalBounds;
         if (graphW > 0 && graphH > 0 && vp.width > 0 && vp.height > 0) {
           // Bounds matched to useCanvasViewport MIN/MAX_SCALE so auto-fit can
@@ -70,7 +71,7 @@ function handleMessage(event: MessageEvent) {
           const scale = Math.min(2.5, Math.max(0.001, Math.min(vp.width / graphW, vp.height / graphH) * 0.9));
           const x = (vp.width - graphW * scale) / 2;
           const y = (vp.height - graphH * scale) / 2;
-          workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+          viewportStore.setViewport({ ...vp, x, y, scale });
         }
       }
       break;
@@ -78,7 +79,7 @@ function handleMessage(event: MessageEvent) {
     case "LAYOUT_PROGRESS": {
       const stage = msg.stage as "grid-ready" | "elk-start" | "elk-skipped" | "elk-failed";
       const storeStage = stage === "elk-start" ? "elk-running" : stage;
-      workspaceCanvasStore.setLayoutProgress(storeStage, {
+      sceneStore.setLayoutProgress(storeStage, {
         filesCount: msg.filesCount,
         elapsedMs: msg.elapsedMs,
       });
@@ -93,11 +94,11 @@ function handleMessage(event: MessageEvent) {
         return;
       }
       const aggregates = deserializeAggregates(msg.payload as SerializedAggregates);
-      const currentLayout = workspaceCanvasStore.getState().layout;
+      const currentLayout = sceneStore.getState().layout;
       if (currentLayout) {
-        workspaceCanvasStore.setLayout({ ...currentLayout, aggregates });
+        sceneStore.setLayout({ ...currentLayout, aggregates });
       }
-      workspaceCanvasStore.setWorkerState("workerAggregates", false);
+      sceneStore.setWorkerState("workerAggregates", false);
       break;
     }
     case "GEOMETRY_READY": {
@@ -105,7 +106,7 @@ function handleMessage(event: MessageEvent) {
         console.log("[worker-bridge] stale GEOMETRY_READY dropped", msg.id, "!=", currentGeometryRequestId);
         return;
       }
-      workspaceCanvasStore.setWorkerState("workerGeometry", false);
+      sceneStore.setWorkerState("workerGeometry", false);
       break;
     }
     case "WORKER_ERROR": {
@@ -114,10 +115,10 @@ function handleMessage(event: MessageEvent) {
       // off so the UI doesn't sit on a spinner forever.
       const message = msg.message ?? "Unknown worker error";
       console.error("[canvas-worker] error:", message);
-      workspaceCanvasStore.setLayoutProgress("worker-error", { error: message });
-      workspaceCanvasStore.setWorkerState("workerLayout", false);
-      workspaceCanvasStore.setWorkerState("workerAggregates", false);
-      workspaceCanvasStore.setWorkerState("workerGeometry", false);
+      sceneStore.setLayoutProgress("worker-error", { error: message });
+      sceneStore.setWorkerState("workerLayout", false);
+      sceneStore.setWorkerState("workerAggregates", false);
+      sceneStore.setWorkerState("workerGeometry", false);
       break;
     }
   }
@@ -126,21 +127,21 @@ function handleMessage(event: MessageEvent) {
 export function requestLayout(graph: WorkspaceGraph, strategy: "grid" | "grid-then-elk" = "grid-then-elk") {
   const id = `layout-${Date.now()}`;
   currentLayoutRequestId = id;
-  workspaceCanvasStore.setWorkerState("workerLayout", true);
+  sceneStore.setWorkerState("workerLayout", true);
   getWorker().postMessage({ type: "BUILD_LAYOUT", id, payload: { graph, strategy } });
 }
 
 export function requestAggregates(graph: WorkspaceGraph) {
   const id = `agg-${Date.now()}`;
   currentAggregatesRequestId = id;
-  workspaceCanvasStore.setWorkerState("workerAggregates", true);
+  sceneStore.setWorkerState("workerAggregates", true);
   getWorker().postMessage({ type: "BUILD_AGGREGATES", id, payload: { graph } });
 }
 
 export function requestEdgeGeometry(graph: WorkspaceGraph, layout: WorkspaceLayout) {
   const id = `geom-${Date.now()}`;
   currentGeometryRequestId = id;
-  workspaceCanvasStore.setWorkerState("workerGeometry", true);
+  sceneStore.setWorkerState("workerGeometry", true);
   getWorker().postMessage({
     type: "BUILD_EDGE_GEOMETRY",
     id,

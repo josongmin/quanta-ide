@@ -64,7 +64,10 @@ export function ContactSalesPage() {
           }}
         >
           {/* ─── Left: Form ─── */}
-          <section style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}
+          >
             <div>
               <div
                 style={{
@@ -98,18 +101,18 @@ export function ContactSalesPage() {
               }}
             >
               <div className="demo-field">
-                <label className="demo-field__label">First name</label>
-                <input className="demo-input" defaultValue="June" />
+                <label className="demo-field__label" htmlFor="cs-first">First name</label>
+                <input id="cs-first" className="demo-input" defaultValue="June" />
               </div>
               <div className="demo-field">
-                <label className="demo-field__label">Last name</label>
-                <input className="demo-input" defaultValue="Huh" />
+                <label className="demo-field__label" htmlFor="cs-last">Last name</label>
+                <input id="cs-last" className="demo-input" defaultValue="Huh" />
               </div>
             </div>
 
             <div className="demo-field">
-              <label className="demo-field__label">Work email</label>
-              <input className="demo-input" type="email" defaultValue="june@mercator.co" />
+              <label className="demo-field__label" htmlFor="cs-email">Work email</label>
+              <input id="cs-email" className="demo-input" type="email" defaultValue="june@mercator.co" />
             </div>
 
             <div
@@ -120,12 +123,12 @@ export function ContactSalesPage() {
               }}
             >
               <div className="demo-field">
-                <label className="demo-field__label">Company name</label>
-                <input className="demo-input" defaultValue="Mercator" />
+                <label className="demo-field__label" htmlFor="cs-company">Company name</label>
+                <input id="cs-company" className="demo-input" defaultValue="Mercator" />
               </div>
               <div className="demo-field">
-                <label className="demo-field__label">Company website</label>
-                <input className="demo-input" defaultValue="https://mercator.co" />
+                <label className="demo-field__label" htmlFor="cs-website">Company website</label>
+                <input id="cs-website" className="demo-input" defaultValue="https://mercator.co" />
               </div>
             </div>
 
@@ -137,8 +140,9 @@ export function ContactSalesPage() {
               }}
             >
               <div className="demo-field">
-                <label className="demo-field__label">Team size</label>
+                <label className="demo-field__label" htmlFor="cs-teamsize">Team size</label>
                 <select
+                  id="cs-teamsize"
                   className="demo-select"
                   value={teamSize}
                   onChange={(e) => setTeamSize(e.target.value)}
@@ -151,8 +155,9 @@ export function ContactSalesPage() {
                 </select>
               </div>
               <div className="demo-field">
-                <label className="demo-field__label">Industry</label>
+                <label className="demo-field__label" htmlFor="cs-industry">Industry</label>
                 <select
+                  id="cs-industry"
                   className="demo-select"
                   value={industry}
                   onChange={(e) => setIndustry(e.target.value)}
@@ -175,7 +180,7 @@ export function ContactSalesPage() {
                   display: "flex",
                   flexWrap: "wrap",
                   gap: "var(--space-2)",
-                  marginTop: 4,
+                  marginTop: "var(--space-1)",
                 }}
               >
                 {INTERESTS.map((opt) => {
@@ -188,8 +193,8 @@ export function ContactSalesPage() {
                         position: "relative",
                         display: "inline-flex",
                         alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
+                        gap: "var(--space-1h)",
+                        padding: "var(--space-1h) var(--space-3)",
                         border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
                         background: selected ? "var(--bg-accent-subtle)" : "var(--bg)",
                         color: selected ? "var(--accent)" : "var(--fg)",
@@ -224,18 +229,19 @@ export function ContactSalesPage() {
               }}
             >
               <div className="demo-field">
-                <label className="demo-field__label">Estimated go-live</label>
-                <input className="demo-input" type="month" defaultValue="2026-09" />
+                <label className="demo-field__label" htmlFor="cs-golive">Estimated go-live</label>
+                <input id="cs-golive" className="demo-input" type="month" defaultValue="2026-09" />
               </div>
               <div className="demo-field">
-                <label className="demo-field__label">Headquarters</label>
-                <input className="demo-input" defaultValue="Seoul, KR" />
+                <label className="demo-field__label" htmlFor="cs-hq">Headquarters</label>
+                <input id="cs-hq" className="demo-input" defaultValue="Seoul, KR" />
               </div>
             </div>
 
             <div className="demo-field">
-              <label className="demo-field__label">Message</label>
+              <label className="demo-field__label" htmlFor="cs-message">Message</label>
               <textarea
+                id="cs-message"
                 className="demo-textarea"
                 rows={4}
                 defaultValue="We're evaluating Quanta for our core platform monorepo (~1.2M LOC). Main goals: policy enforcement across 28 services, SOC2 evidence pipeline, and on-prem deployment for our EU region."
@@ -266,7 +272,7 @@ export function ContactSalesPage() {
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      gap: 6,
+                      gap: "var(--space-1h)",
                       fontSize: "var(--fs-xs)",
                       color: "var(--fg-muted)",
                       cursor: "pointer",
@@ -289,7 +295,7 @@ export function ContactSalesPage() {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: 8,
+                gap: "var(--space-2)",
                 fontSize: "var(--fs-xs)",
                 color: "var(--fg-muted)",
                 cursor: "pointer",
@@ -311,14 +317,14 @@ export function ContactSalesPage() {
                 marginTop: "var(--space-2)",
               }}
             >
-              <button className="demo-btn demo-btn--primary">
+              <button type="submit" className="demo-btn demo-btn--primary">
                 Book a call <ArrowRight size={13} strokeWidth={1.8} />
               </button>
               <span style={{ fontSize: "var(--fs-10)", color: "var(--fg-subtle)" }}>
                 By submitting you agree to our Terms & Privacy.
               </span>
             </div>
-          </section>
+          </form>
 
           {/* ─── Right: Trust rail ─── */}
           <aside style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
@@ -354,7 +360,7 @@ export function ContactSalesPage() {
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 10,
+                  gap: "var(--space-2h)",
                   marginTop: "var(--space-1h)",
                 }}
               >
@@ -404,7 +410,7 @@ export function ContactSalesPage() {
                       letterSpacing: "0.1em",
                       textTransform: "uppercase",
                       color: "var(--fg-subtle)",
-                      marginTop: 2,
+                      marginTop: "var(--space-0h)",
                     }}
                   >
                     {m.k}
@@ -431,7 +437,7 @@ export function ContactSalesPage() {
                   marginBottom: "var(--space-2h)",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 6,
+                  gap: "var(--space-1h)",
                 }}
               >
                 <ShieldCheck size={12} strokeWidth={2} />
@@ -448,7 +454,7 @@ export function ContactSalesPage() {
                   <span
                     key={b}
                     style={{
-                      padding: "6px 12px",
+                      padding: "var(--space-1h) var(--space-3)",
                       border: "1px solid var(--border)",
                       borderRadius: "var(--radius-pill)",
                       fontSize: "var(--fs-10)",
@@ -480,7 +486,7 @@ export function ContactSalesPage() {
                 borderRadius: "var(--radius-md)",
                 display: "flex",
                 alignItems: "center",
-                gap: 10,
+                gap: "var(--space-2h)",
                 background: "var(--bg-subtle)",
               }}
             >

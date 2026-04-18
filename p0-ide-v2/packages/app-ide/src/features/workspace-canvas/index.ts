@@ -1,10 +1,5 @@
 export { MultiFileCanvas } from "./components/MultiFileCanvas";
 
-// Deprecated monolithic facade — kept for existing callers. New code
-// should import from the focused stores below.
-export { useWorkspaceCanvas } from "./store/workspace-canvas-store";
-export { workspaceCanvasStore } from "./store/workspace-canvas-store";
-
 // Focused stores.
 export { viewportStore, useViewportStore } from "./store/viewport-store";
 export { sceneStore, useSceneStore } from "./store/scene-store";
