@@ -5,10 +5,16 @@ import {
   type FeatureDescriptor,
 } from "../../lib/feature-registry";
 import {
+  applyPreset,
+  inferActivePreset,
+  listPresets,
+} from "../../lib/feature-presets";
+import {
   featureFlagsStore,
   useFeatureFlags,
 } from "../../store/feature-flags-store";
 import { ThemeChipRow } from "../ThemeSwitcher";
+import { toastStore } from "@quanta/shell/stores/toast-store";
 
 const CATEGORY_LABEL: Record<FeatureCategory, string> = {
   collab: "협업",
@@ -56,6 +62,12 @@ export function FeaturesSection() {
       .filter(g => g.features.length > 0);
   }, []);
 
+  const presets = useMemo(() => listPresets(), []);
+  // inferActivePreset reads the flags store; re-computed whenever `flags`
+  // changes because we also select `flags` above (useSyncExternalStore
+  // notifies on every flag edit).
+  const activePreset = useMemo(() => inferActivePreset(), [flags]);
+
   const total = Object.keys(flags).length;
   const enabled = Object.values(flags).filter(Boolean).length;
 
@@ -66,6 +78,32 @@ export function FeaturesSection() {
         <span className="ws-debug__v ws-debug__v--hl">
           {enabled} / {total}
         </span>
+      </div>
+
+      <div className="ws-debug__divider">
+        퀵 프리셋
+      </div>
+      <div className="ws-debug__lod" style={{ gap: 2, flexWrap: "wrap" }}>
+        {presets.map(p => (
+          <button
+            key={p.id}
+            type="button"
+            className={`ws-debug__chip${activePreset === p.id ? " is-on" : ""}`}
+            onClick={() => {
+              applyPreset(p.id);
+              // 2s toast per U2 spec — shorter than default 4s.
+              toastStore.push({
+                kind: "info",
+                title: `프리셋 적용: ${p.label}`,
+                detail: p.description,
+                ttlMs: 2000,
+              });
+            }}
+            title={p.description}
+          >
+            {p.label}
+          </button>
+        ))}
       </div>
 
       <div className="ws-debug__divider">

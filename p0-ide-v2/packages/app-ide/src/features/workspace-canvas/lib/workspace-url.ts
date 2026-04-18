@@ -28,6 +28,13 @@ export interface WorkspaceUrlState {
     k?: number;
   };
   inspectedEvidenceId?: string | null;
+  /**
+   * Optional feature-preset id (see `feature-presets.ts`). When set, the
+   * URL decoder applies the preset before reading individual flag fields,
+   * so preset-based shares stay small ("?ws=...preset=reviewer" instead
+   * of 50+ booleans).
+   */
+  preset?: string;
 }
 
 const CURRENT_VERSION: 1 = 1;

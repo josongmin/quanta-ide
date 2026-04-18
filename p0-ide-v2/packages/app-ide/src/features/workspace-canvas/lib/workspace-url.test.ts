@@ -79,4 +79,15 @@ describe("workspace-url", () => {
     expect(decoded).toEqual(state);
     expect(decoded?.selectedFileId).toBeUndefined();
   });
+
+  it("round-trips a preset id", () => {
+    const state: WorkspaceUrlState = {
+      version: 1,
+      preset: "reviewer",
+    };
+    const encoded = encodeWorkspaceState(state);
+    const decoded = decodeWorkspaceState(encoded);
+    expect(decoded).toEqual(state);
+    expect(decoded?.preset).toBe("reviewer");
+  });
 });

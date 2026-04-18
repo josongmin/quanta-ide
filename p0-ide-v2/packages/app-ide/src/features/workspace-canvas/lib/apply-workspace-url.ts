@@ -3,9 +3,18 @@ import { uxSettingsStore } from "../store/ux-settings-store";
 import { debugSettingsStore } from "../store/debug-settings-store";
 import { viewportStore } from "../store/viewport-store";
 import { interactionStore } from "../store/interaction-store";
+import { applyPreset, inferActivePreset } from "./feature-presets";
 import type { WorkspaceUrlState } from "./workspace-url";
 
 export function applyWorkspaceUrlState(state: WorkspaceUrlState): void {
+  // Preset (if present) is applied FIRST so that any individual flag
+  // fields encoded alongside it can override on top. In the common case
+  // (encoder used compaction) no individual flag fields exist and the
+  // preset alone restores the flag set.
+  if (typeof state.preset === "string" && state.preset.length > 0) {
+    applyPreset(state.preset);
+  }
+
   if (state.viewport) {
     const vp = viewportStore.getState().viewport;
     viewportStore.setViewport({
@@ -144,6 +153,15 @@ export function captureWorkspaceUrlState(): WorkspaceUrlState {
       k: interaction.pathQuery.k,
     };
   }
+
+  // Feature-preset compaction: if the current flag state matches a
+  // registered preset exactly, stash only the preset id. Individual flag
+  // fields are not stored on WorkspaceUrlState today (flags live in
+  // localStorage) so compaction currently just adds the `preset` hint —
+  // it remains useful for restoring share-link recipients whose local
+  // flag state differs from the sender's.
+  const activePreset = inferActivePreset();
+  if (activePreset) out.preset = activePreset;
 
   return out;
 }
