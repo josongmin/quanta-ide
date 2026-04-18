@@ -1,16 +1,30 @@
-import { rankStartHere } from "@quanta/canvas-engine";
-import type { WorkspaceGraph, WorkspaceLayout, WorkspaceMetrics } from "@quanta/canvas-engine";
+import { rankStartHere, diffSnapshots } from "@quanta/canvas-engine";
+import type {
+  FileEdge,
+  GraphHistory,
+  GraphSnapshot,
+  WorkspaceGraph,
+  WorkspaceLayout,
+  WorkspaceMetrics,
+} from "@quanta/canvas-engine";
 import type { Sticky } from "../store/stickies-store";
 import type {
   AiService,
   Anomaly,
   AnomalyKind,
   AnomalySeverity,
+  AttributeRegressionInput,
+  AttributeRegressionResult,
   ClusterStickiesResult,
   DetectAnomaliesResult,
   GenerateTourResult,
+  NarrateCommitInput,
+  NarrateCommitResult,
   NlToDslContext,
   NlToDslResult,
+  PredictFutureInput,
+  PredictFutureResult,
+  RegressionCandidate,
   StickyCluster,
   TourStep,
 } from "./ai-service";
@@ -477,6 +491,398 @@ export const ANOMALY_KINDS: readonly AnomalyKind[] = [
   "owner-drift",
 ] as const;
 
+// ── Temporal helpers ─────────────────────────────────────────────────
+//
+// The mock synthesizes commit SHAs from (snapshotIndex × timestamp) so
+// its values line up with MockHistorySource. Callers pass SHAs through
+// from either source and we look them up either by direct
+// `snap.commitSha` (if the snapshot carried one) or by recomputing the
+// same deterministic hash.
+
+const MOCK_AI_AUTHORS = ["alice", "bob", "charlie", "dana"] as const;
+
+function mockShortShaFor(index: number, timestamp: number): string {
+  const n = (index * 2654435761) ^ (timestamp | 0);
+  return (n >>> 0).toString(16).padStart(8, "0").slice(0, 7);
+}
+
+function mockLongShaFor(index: number, timestamp: number): string {
+  const head = mockShortShaFor(index, timestamp);
+  let acc = (index + 1) * 2246822519;
+  const parts: string[] = [head];
+  for (let i = 0; i < 5; i++) {
+    acc = (acc ^ (acc << 13)) >>> 0;
+    acc = (acc ^ (acc >>> 17)) >>> 0;
+    acc = (acc ^ (acc << 5)) >>> 0;
+    parts.push((acc >>> 0).toString(16).padStart(8, "0"));
+  }
+  return parts.join("").slice(0, 40);
+}
+
+function snapshotShas(history: GraphHistory): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < history.snapshots.length; i++) {
+    const snap = history.snapshots[i];
+    out.push(snap.commitSha ?? mockLongShaFor(i, snap.timestamp));
+  }
+  return out;
+}
+
+function snapshotIndexForSha(history: GraphHistory, sha: string): number {
+  const shas = snapshotShas(history);
+  for (let i = 0; i < shas.length; i++) {
+    if (shas[i] === sha) return i;
+  }
+  return -1;
+}
+
+function filesTouchedAt(
+  history: GraphHistory,
+  index: number,
+  edgeById: ReadonlyMap<string, FileEdge>,
+): string[] {
+  const snap = history.snapshots[index];
+  if (!snap) return [];
+  if (index === 0) {
+    // Seed snapshot — collect touched files from its absolute set.
+    const edgeIds = snap.edgeIds ?? snap.added ?? [];
+    return uniqueFilesForEdges(edgeIds, edgeById);
+  }
+  if (snap.added || snap.removed) {
+    const ids = [...(snap.added ?? []), ...(snap.removed ?? [])];
+    return uniqueFilesForEdges(ids, edgeById);
+  }
+  if (snap.edgeIds) {
+    const diff = diffSnapshots(history, index - 1, index);
+    return uniqueFilesForEdges([...diff.added, ...diff.removed], edgeById);
+  }
+  return [];
+}
+
+function uniqueFilesForEdges(
+  edgeIds: readonly string[],
+  edgeById: ReadonlyMap<string, FileEdge>,
+): string[] {
+  const set = new Set<string>();
+  for (const id of edgeIds) {
+    const e = edgeById.get(id);
+    if (!e) continue;
+    set.add(e.from);
+    set.add(e.to);
+  }
+  return [...set].sort();
+}
+
+function fuzzyFileMatchScore(fileId: string, testName: string, log: string): number {
+  const path = fileId.toLowerCase();
+  const name = path.split("/").pop() ?? path;
+  const stem = name.replace(/\.[a-z0-9]+$/, "");
+  const hay: string[] = [path, name, stem];
+  const tokens = tokenizeForMatch(`${testName} ${log}`);
+  if (tokens.length === 0) return 0;
+  let hits = 0;
+  for (const t of tokens) {
+    for (const h of hay) {
+      if (h.includes(t)) { hits++; break; }
+    }
+  }
+  return hits;
+}
+
+function tokenizeForMatch(s: string): string[] {
+  const raw = s.toLowerCase().match(/[a-z][a-z0-9_-]{2,}/g);
+  if (!raw) return [];
+  const out: string[] = [];
+  for (const t of raw) {
+    if (STOPWORDS.has(t)) continue;
+    out.push(t);
+  }
+  return out;
+}
+
+function basenameFor(fileId: string): string {
+  const i = fileId.lastIndexOf("/");
+  return i >= 0 ? fileId.slice(i + 1) : fileId;
+}
+
+// ── attributeRegression ──────────────────────────────────────────────
+
+async function attributeRegression(input: AttributeRegressionInput): Promise<AttributeRegressionResult> {
+  await wait(FAKE_LATENCY_MS);
+  const { testName, failureLog, graph, history } = input;
+  const snaps = history.snapshots;
+  if (snaps.length === 0) {
+    return { candidateCommits: [], affectedFileIds: [], narration: "No history — nothing to attribute." };
+  }
+  const edgeById = new Map<string, FileEdge>();
+  for (const e of graph.fileEdges) edgeById.set(e.id, e);
+  const shas = snapshotShas(history);
+
+  const fileRelevance = new Map<string, number>();
+  for (const f of graph.files) {
+    const s = fuzzyFileMatchScore(f.id, testName, failureLog);
+    if (s > 0) fileRelevance.set(f.id, s);
+  }
+
+  const lookAheadMax = Math.min(snaps.length, 20);
+  const scored: {
+    index: number;
+    score: number;
+    matchedFiles: string[];
+    touchedCount: number;
+  }[] = [];
+  for (let k = 0; k < lookAheadMax; k++) {
+    const index = snaps.length - 1 - k;
+    if (index <= 0) break;
+    const touched = filesTouchedAt(history, index, edgeById);
+    if (touched.length === 0) continue;
+    let matchScore = 0;
+    const matched: string[] = [];
+    for (const fid of touched) {
+      const rel = fileRelevance.get(fid);
+      if (!rel) continue;
+      matchScore += rel;
+      matched.push(fid);
+    }
+    if (matchScore === 0) continue;
+    const recency = Math.pow(0.85, k);
+    scored.push({
+      index,
+      score: matchScore * recency,
+      matchedFiles: matched.sort(),
+      touchedCount: touched.length,
+    });
+  }
+
+  if (scored.length === 0) {
+    for (let k = 0; k < lookAheadMax && scored.length < 3; k++) {
+      const index = snaps.length - 1 - k;
+      if (index <= 0) break;
+      const touched = filesTouchedAt(history, index, edgeById);
+      if (touched.length === 0) continue;
+      scored.push({
+        index,
+        score: Math.pow(0.85, k),
+        matchedFiles: [],
+        touchedCount: touched.length,
+      });
+    }
+  }
+
+  scored.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.index - a.index;
+  });
+  const top = scored.slice(0, 3);
+  const totalScore = top.reduce((acc, t) => acc + t.score, 0);
+
+  const candidateCommits: RegressionCandidate[] = top.map(t => {
+    const snap = snaps[t.index];
+    const confidence = totalScore > 0
+      ? Number((t.score / totalScore).toFixed(3))
+      : Number((1 / top.length).toFixed(3));
+    const matched = t.matchedFiles.slice(0, 2).map(basenameFor).join(", ");
+    const reason = t.matchedFiles.length > 0
+      ? `Touched ${t.touchedCount} file${t.touchedCount === 1 ? "" : "s"} including ${matched}`
+      : `Touched ${t.touchedCount} file${t.touchedCount === 1 ? "" : "s"} at ${snap.label}`;
+    return { sha: shas[t.index], confidence, reason };
+  });
+
+  const affected = new Set<string>();
+  for (const t of top) for (const f of t.matchedFiles) affected.add(f);
+
+  const narration = buildAttributionNarration(testName, top, snaps);
+
+  return {
+    candidateCommits,
+    affectedFileIds: [...affected].sort(),
+    narration,
+  };
+}
+
+function buildAttributionNarration(
+  testName: string,
+  top: readonly { index: number; matchedFiles: string[] }[],
+  snaps: readonly GraphSnapshot[],
+): string {
+  if (top.length === 0) {
+    return `No commits in the last 20 snapshots touched files relevant to "${testName || "this failure"}".`;
+  }
+  const first = top[0];
+  const head = testName
+    ? `For "${testName}", `
+    : "For the failure log supplied, ";
+  const headSnap = snaps[first.index];
+  const lead = first.matchedFiles.length > 0
+    ? `the top candidate is ${headSnap.label} — touching ${first.matchedFiles.slice(0, 2).map(basenameFor).join(" and ")}.`
+    : `the newest non-empty commit (${headSnap.label}) is flagged as the likely source.`;
+  const rest = top.length > 1
+    ? ` Back-up candidates: ${top.slice(1).map(t => snaps[t.index].label).join(", ")}.`
+    : "";
+  return `${head}${lead}${rest} Walk the list from top — the confidence bars reflect how strongly each commit overlaps the failure signal.`;
+}
+
+// ── predictFuture ────────────────────────────────────────────────────
+
+async function predictFuture(input: PredictFutureInput): Promise<PredictFutureResult> {
+  await wait(FAKE_LATENCY_MS);
+  const { graph, history, horizonDays } = input;
+  const snaps = history.snapshots;
+  const horizon = Math.max(1, Math.round(horizonDays));
+
+  if (snaps.length < 2) {
+    return {
+      expectedNewFiles: 0,
+      expectedNewEdges: 0,
+      expectedNewCycles: [],
+      hottestFilesForecast: [],
+      narration: "Need at least 2 snapshots to project a trend.",
+    };
+  }
+
+  const days: number[] = [];
+  const edgeCounts: number[] = [];
+  const firstTs = snaps[0].timestamp;
+  const edgeById = new Map<string, FileEdge>();
+  for (const e of graph.fileEdges) edgeById.set(e.id, e);
+  let acc = 0;
+  for (let i = 0; i < snaps.length; i++) {
+    if (i === 0) {
+      acc = (snaps[0].edgeIds ?? snaps[0].added ?? []).length;
+    } else {
+      const d = diffSnapshots(history, i - 1, i);
+      acc += d.added.size - d.removed.size;
+    }
+    const dayOffset = Math.round((snaps[i].timestamp - firstTs) / 86_400_000);
+    days.push(dayOffset);
+    edgeCounts.push(Math.max(0, acc));
+  }
+
+  const slope = ols(days, edgeCounts);
+  const lastEdges = edgeCounts[edgeCounts.length - 1];
+  const projectedEdges = lastEdges + slope * horizon;
+  const expectedNewEdges = Math.max(0, Math.round(projectedEdges - lastEdges));
+
+  const density = graph.files.length > 0 ? graph.fileEdges.length / graph.files.length : 1;
+  const expectedNewFiles = Math.min(20, Math.max(0, Math.round(expectedNewEdges / Math.max(1, density))));
+
+  const churn = new Map<string, number>();
+  const deltaWindowStart = Math.max(1, snaps.length - 3);
+  for (let i = deltaWindowStart; i < snaps.length; i++) {
+    const d = diffSnapshots(history, i - 1, i);
+    for (const eid of [...d.added, ...d.removed]) {
+      const edge = edgeById.get(eid);
+      if (!edge) continue;
+      churn.set(edge.from, (churn.get(edge.from) ?? 0) + 1);
+      churn.set(edge.to, (churn.get(edge.to) ?? 0) + 1);
+    }
+  }
+  const ranked = [...churn.entries()].sort((a, b) => {
+    if (b[1] !== a[1]) return b[1] - a[1];
+    return a[0] < b[0] ? -1 : 1;
+  });
+  const expectedNewCycles = ranked.slice(0, 5).map(([fid]) => fid);
+  const hottestFilesForecast = ranked.slice(0, 8).map(([fid]) => fid);
+
+  const slopePerDay = slope.toFixed(2);
+  const narration =
+    `In the next ${horizon}d at the current rate (~${slopePerDay} edges/day), ` +
+    `expect +${expectedNewEdges} edges and ~+${expectedNewFiles} files. ` +
+    (expectedNewCycles.length > 0
+      ? `${expectedNewCycles.length} file${expectedNewCycles.length === 1 ? "" : "s"} are gaining edges fast and may form cycles.`
+      : `No files stand out as cycle-risk over the last 3 commits.`);
+
+  return {
+    expectedNewFiles,
+    expectedNewEdges,
+    expectedNewCycles,
+    hottestFilesForecast,
+    narration,
+  };
+}
+
+function ols(xs: readonly number[], ys: readonly number[]): number {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 2) return 0;
+  let sx = 0, sy = 0;
+  for (let i = 0; i < n; i++) { sx += xs[i]; sy += ys[i]; }
+  const mx = sx / n;
+  const my = sy / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx;
+    num += dx * (ys[i] - my);
+    den += dx * dx;
+  }
+  return den === 0 ? 0 : num / den;
+}
+
+// ── narrateCommit ────────────────────────────────────────────────────
+
+async function narrateCommit(input: NarrateCommitInput): Promise<NarrateCommitResult> {
+  await wait(FAKE_LATENCY_MS);
+  const { sha, graph, history } = input;
+  const index = snapshotIndexForSha(history, sha);
+  if (index < 0) {
+    return {
+      summary: `No snapshot found for ${sha.slice(0, 7)}.`,
+      highlights: [],
+    };
+  }
+  const snap = history.snapshots[index];
+  const edgeById = new Map<string, FileEdge>();
+  for (const e of graph.fileEdges) edgeById.set(e.id, e);
+
+  const touched = filesTouchedAt(history, index, edgeById);
+  const byFileCount = new Map<string, number>();
+  let addedCount = 0;
+  let removedCount = 0;
+  const deltaIds: string[] = [];
+  if (index === 0) {
+    addedCount = (snap.edgeIds ?? snap.added ?? []).length;
+    for (const id of snap.edgeIds ?? snap.added ?? []) deltaIds.push(id);
+  } else {
+    const d = diffSnapshots(history, index - 1, index);
+    addedCount = d.added.size;
+    removedCount = d.removed.size;
+    for (const id of d.added) deltaIds.push(id);
+    for (const id of d.removed) deltaIds.push(id);
+  }
+  for (const id of deltaIds) {
+    const edge = edgeById.get(id);
+    if (!edge) continue;
+    byFileCount.set(edge.from, (byFileCount.get(edge.from) ?? 0) + 1);
+    byFileCount.set(edge.to, (byFileCount.get(edge.to) ?? 0) + 1);
+  }
+  const top3 = [...byFileCount.entries()]
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return a[0] < b[0] ? -1 : 1;
+    })
+    .slice(0, 3);
+
+  const author = MOCK_AI_AUTHORS[index % MOCK_AI_AUTHORS.length];
+  const dateLabel = new Date(snap.timestamp).toISOString().slice(0, 10);
+  const summary =
+    `${snap.label} (${sha.slice(0, 7)}) — ${author} on ${dateLabel}: ` +
+    `this commit added ${addedCount} edge${addedCount === 1 ? "" : "s"}, ` +
+    `removed ${removedCount} edge${removedCount === 1 ? "" : "s"} across ${touched.length} file${touched.length === 1 ? "" : "s"}.`;
+
+  const highlights: string[] = [];
+  for (const [fid, n] of top3) {
+    highlights.push(`${basenameFor(fid)} · ${n} edge${n === 1 ? "" : "s"}`);
+  }
+  const extra = touched.length - top3.length;
+  if (extra > 0) {
+    highlights.push(`+${extra} more file${extra === 1 ? "" : "s"}`);
+  }
+  if (highlights.length === 0) {
+    highlights.push("no detectable edge-level changes");
+  }
+
+  return { summary, highlights };
+}
+
 /**
  * Factory — every consumer of AiService should resolve through this (or
  * a sibling real factory) so the contract stays the only coupling point
@@ -488,5 +894,26 @@ export function createMockAiService(): AiService {
     clusterStickies,
     generateTour,
     detectAnomalies,
+    attributeRegression,
+    predictFuture,
+    narrateCommit,
   };
+}
+
+// Exported helpers — the UI components use these to resolve the sha
+// for a given snapshot without re-deriving the algorithm. Keeps the
+// mock the sole owner of "which sha maps to which snapshot".
+export function mockShaForSnapshot(history: GraphHistory, snapshotIndex: number): string | null {
+  const snap = history.snapshots[snapshotIndex];
+  if (!snap) return null;
+  return snap.commitSha ?? mockLongShaFor(snapshotIndex, snap.timestamp);
+}
+
+export function mockSnapshotIndexForSha(history: GraphHistory, sha: string): number {
+  return snapshotIndexForSha(history, sha);
+}
+
+export function mockAuthorForSnapshot(snapshotIndex: number): string {
+  const n = MOCK_AI_AUTHORS.length;
+  return MOCK_AI_AUTHORS[((snapshotIndex % n) + n) % n];
 }

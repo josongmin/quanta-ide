@@ -91,7 +91,7 @@ export function ReferralsPage() {
           </div>
         </div>
 
-        <div className="demo-grid-3" style={{ marginBottom: 16 }}>
+        <div className="demo-grid-3" style={{ marginTop: "var(--space-3)", marginBottom: "var(--space-3)" }}>
           <div className="demo-stat">
             <div className="demo-stat__label">Credits earned</div>
             <div className="demo-stat__value">$120</div>
@@ -188,7 +188,7 @@ export function ReferralsPage() {
           </div>
         </div>
 
-        <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-subtle)", marginTop: 4 }}>
+        <div style={{ fontSize: "var(--fs-xs)", color: "var(--fg-subtle)", marginTop: "var(--space-3)" }}>
           Credits are non-transferable and expire 12 months after issue. See the full{" "}
           <button className="demo-link" onClick={() => nav.navigate("legal.terms")}>
             referral terms

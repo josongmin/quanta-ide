@@ -12,6 +12,106 @@ function bars(n: number, seed: number) {
   return out;
 }
 
+type Severity = "ok" | "warn" | "danger";
+
+function severityFor(pct: number): Severity {
+  if (pct >= 90) return "danger";
+  if (pct >= 75) return "warn";
+  return "ok";
+}
+
+interface QuotaItem {
+  label: string;
+  used: number;
+  total: number;
+  unit: string;
+  pct: number;
+}
+
+function QuotaList({ items }: { items: QuotaItem[] }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      {items.map((it, i) => {
+        const sev = severityFor(it.pct);
+        const fill =
+          sev === "danger" ? "var(--danger)" :
+          sev === "warn"   ? "var(--warn)" :
+          "var(--fg)";
+        const pctColor =
+          sev === "danger" ? "var(--danger)" :
+          sev === "warn"   ? "var(--warn)" :
+          "var(--fg-subtle)";
+
+        return (
+          <div
+            key={it.label}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "180px minmax(0,1fr) 140px",
+              gap: 16,
+              alignItems: "center",
+              padding: "12px 0",
+              borderTop: i === 0 ? "none" : "1px dashed var(--border)",
+              fontSize: "var(--fs-xs)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span>{it.label}</span>
+              {sev !== "ok" && (
+                <span
+                  aria-hidden
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: 999,
+                    background: fill,
+                  }}
+                />
+              )}
+            </div>
+            <div
+              style={{
+                position: "relative",
+                height: 4,
+                background: "var(--bg-muted)",
+                borderRadius: 999,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: `${it.pct}%`,
+                  background: fill,
+                  borderRadius: 999,
+                  transition: "width 0.2s ease, background 0.2s ease",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                justifyContent: "flex-end",
+                gap: 8,
+                fontFamily: "var(--font-mono)",
+              }}
+            >
+              <span style={{ color: pctColor, fontWeight: "var(--fw-semibold)" }}>
+                {it.pct}%
+              </span>
+              <span style={{ color: "var(--fg-subtle)", fontSize: "var(--fs-10)" }}>
+                {it.used}{it.unit} / {it.total}{it.unit}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function UsagePage() {
   const tokens = bars(14, 42);
   const minutes = bars(14, 99);
@@ -57,23 +157,14 @@ export function UsagePage() {
             </div>
           </header>
           <div className="demo-block__body">
-            <div style={{ display: "grid", gridTemplateColumns: "200px minmax(0,1fr) 100px", gap: 12, alignItems: "center", fontSize: "var(--fs-xs)" }}>
-              <div>AI tokens</div>
-              <div className="demo-progress demo-progress--accent"><div className="demo-progress__bar"><div className="demo-progress__fill" style={{ width: "71%" }} /></div></div>
-              <div className="is-num" style={{ fontFamily: "var(--font-mono)", textAlign: "right" }}>1.42M / 2M</div>
-
-              <div style={{ marginTop: 8 }}>Analysis minutes</div>
-              <div className="demo-progress" style={{ marginTop: 8 }}><div className="demo-progress__bar"><div className="demo-progress__fill" style={{ width: "41%" }} /></div></div>
-              <div className="is-num" style={{ fontFamily: "var(--font-mono)", textAlign: "right", marginTop: 8 }}>8.2k / 20k</div>
-
-              <div style={{ marginTop: 8 }}>Seats</div>
-              <div className="demo-progress demo-progress--warn" style={{ marginTop: 8 }}><div className="demo-progress__bar"><div className="demo-progress__fill" style={{ width: "48%" }} /></div></div>
-              <div className="is-num" style={{ fontFamily: "var(--font-mono)", textAlign: "right", marginTop: 8 }}>12 / 25</div>
-
-              <div style={{ marginTop: 8 }}>Webhook deliveries</div>
-              <div className="demo-progress demo-progress--danger" style={{ marginTop: 8 }}><div className="demo-progress__bar"><div className="demo-progress__fill" style={{ width: "93%" }} /></div></div>
-              <div className="is-num" style={{ fontFamily: "var(--font-mono)", textAlign: "right", marginTop: 8 }}>46.7k / 50k</div>
-            </div>
+            <QuotaList
+              items={[
+                { label: "AI tokens",          used: 1.42, total: 2,  unit: "M", pct: 71 },
+                { label: "Analysis minutes",   used: 8.2,  total: 20, unit: "k", pct: 41 },
+                { label: "Seats",              used: 12,   total: 25, unit: "",  pct: 48 },
+                { label: "Webhook deliveries", used: 46.7, total: 50, unit: "k", pct: 93 },
+              ]}
+            />
           </div>
         </div>
 

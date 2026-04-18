@@ -1,4 +1,9 @@
-import type { WorkspaceGraph, WorkspaceLayout, WorkspaceMetrics } from "@quanta/canvas-engine";
+import type {
+  GraphHistory,
+  WorkspaceGraph,
+  WorkspaceLayout,
+  WorkspaceMetrics,
+} from "@quanta/canvas-engine";
 import type { Sticky } from "../store/stickies-store";
 
 // AiService — contract for AI-assisted helpers surfaced in the workspace
@@ -63,9 +68,79 @@ export interface DetectAnomaliesResult {
   anomalies: Anomaly[];
 }
 
+// ── Temporal / advanced AI (T4) ──────────────────────────────────────
+//
+// These surfaces reason over the commit history attached to a
+// WorkspaceGraph. All three methods are deterministic-by-input for
+// the mock implementation — tests pin the contract by feeding small
+// hand-rolled histories and asserting specific commit attribution
+// or prediction numbers.
+
+export interface RegressionCandidate {
+  /** Full commit sha returned by the history source. */
+  sha: string;
+  /** 0..1 — relative confidence across the candidate set. */
+  confidence: number;
+  /** Human-readable "why this commit" sentence. */
+  reason: string;
+}
+
+export interface AttributeRegressionInput {
+  /** Free-form test name (e.g. `"AuthService › rejects expired token"`). */
+  testName: string;
+  /** Raw failure log — used for heuristic keyword matches. */
+  failureLog: string;
+  graph: WorkspaceGraph;
+  history: GraphHistory;
+}
+
+export interface AttributeRegressionResult {
+  candidateCommits: readonly RegressionCandidate[];
+  /** File ids the top-ranked candidates touched — drives the UI highlight. */
+  affectedFileIds: readonly string[];
+  /** 2-3 sentence narrative that chains the top candidates. */
+  narration: string;
+}
+
+export interface PredictFutureInput {
+  graph: WorkspaceGraph;
+  history: GraphHistory;
+  /** Forecast horizon, in days. */
+  horizonDays: number;
+}
+
+export interface PredictFutureResult {
+  /** Predicted file-count delta over the horizon (non-negative integer). */
+  expectedNewFiles: number;
+  /** Predicted edge-count delta over the horizon. */
+  expectedNewEdges: number;
+  /** File ids likely to form new cycles — sorted descending by strength. */
+  expectedNewCycles: readonly string[];
+  /** File ids predicted to become hotspots (high-coupling / high-risk). */
+  hottestFilesForecast: readonly string[];
+  narration: string;
+}
+
+export interface NarrateCommitInput {
+  sha: string;
+  graph: WorkspaceGraph;
+  history: GraphHistory;
+}
+
+export interface NarrateCommitResult {
+  summary: string;
+  /** Bullet-list highlights (top-3 changed files, delta counts, ...). */
+  highlights: readonly string[];
+}
+
 export interface AiService {
   naturalLanguageToDsl(query: string, context: NlToDslContext): Promise<NlToDslResult>;
   clusterStickies(stickies: readonly Sticky[]): Promise<ClusterStickiesResult>;
   generateTour(graph: WorkspaceGraph, layout: WorkspaceLayout): Promise<GenerateTourResult>;
   detectAnomalies(graph: WorkspaceGraph, metrics: WorkspaceMetrics): Promise<DetectAnomaliesResult>;
+
+  // Temporal-aware helpers — all additive, never rename / reorder above.
+  attributeRegression(input: AttributeRegressionInput): Promise<AttributeRegressionResult>;
+  predictFuture(input: PredictFutureInput): Promise<PredictFutureResult>;
+  narrateCommit(input: NarrateCommitInput): Promise<NarrateCommitResult>;
 }

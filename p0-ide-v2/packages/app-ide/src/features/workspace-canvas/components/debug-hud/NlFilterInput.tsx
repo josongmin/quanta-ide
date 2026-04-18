@@ -79,7 +79,7 @@ export function NlFilterInput({ edgeKinds, edgeLayers, fileIds, onSwitchToDsl }:
           type="text"
           className="ws-debug__input"
           value={draft}
-          placeholder="ask in english... (⌘/ to switch to DSL)"
+          placeholder="자연어로 질문... (⌘/ 로 DSL 전환)"
           onChange={e => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
           disabled={loading}
@@ -92,9 +92,9 @@ export function NlFilterInput({ edgeKinds, edgeLayers, fileIds, onSwitchToDsl }:
           className="ws-debug__chip"
           onClick={() => void submit()}
           disabled={loading || draft.trim().length === 0}
-          title="Translate to DSL"
+          title="DSL 로 변환"
         >
-          {loading ? "…" : "ask"}
+          {loading ? "…" : "질문"}
         </button>
       </div>
       {error && (
@@ -105,23 +105,23 @@ export function NlFilterInput({ edgeKinds, edgeLayers, fileIds, onSwitchToDsl }:
       {last && !loading && (
         <div style={{ marginTop: 4, fontSize: 10, opacity: 0.85 }}>
           <div>
-            <span style={{ opacity: 0.7 }}>dsl: </span>
-            <code>{last.dsl || "(empty)"}</code>
+            <span style={{ opacity: 0.7 }}>DSL: </span>
+            <code>{last.dsl || "(비어 있음)"}</code>
           </div>
           <div>
-            <span style={{ opacity: 0.7 }}>confidence: </span>
+            <span style={{ opacity: 0.7 }}>신뢰도: </span>
             <span style={{ color: last.confidence >= 0.7 ? "#22c55e" : "#eab308" }}>
               {(last.confidence * 100).toFixed(0)}%
             </span>
           </div>
           <div style={{ opacity: 0.75 }}>{last.explanation}</div>
           {last.dsl !== currentDsl && (
-            <div style={{ opacity: 0.6 }}>(dsl has been edited since)</div>
+            <div style={{ opacity: 0.6 }}>(이후 DSL 이 편집됨)</div>
           )}
         </div>
       )}
       <div className="ws-debug__hint" style={{ fontSize: 10, opacity: 0.6 }}>
-        e.g. "taint flows to DB", "safety edges in auth", "critical severity"
+        예: "DB 로 흐르는 오염", "auth 의 안전성 엣지", "심각도 높음"
       </div>
     </div>
   );

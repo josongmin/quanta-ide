@@ -149,33 +149,33 @@ export function SceneSection() {
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">scale</span>
+        <span className="ws-debug__k">스케일</span>
         <span className="ws-debug__v">{(viewport.scale * 100).toFixed(2)}%</span>
 
-        <span className="ws-debug__k">viewport</span>
+        <span className="ws-debug__k">뷰포트</span>
         <span className="ws-debug__v">
           {Math.round(viewport.x)}, {Math.round(viewport.y)} · {viewport.width}×{viewport.height}
         </span>
 
-        <span className="ws-debug__k">layout</span>
+        <span className="ws-debug__k">레이아웃</span>
         <span className="ws-debug__v">
           {tb ? `${Math.round(tb.w).toLocaleString()}×${Math.round(tb.h).toLocaleString()}` : "—"}
         </span>
 
-        <span className="ws-debug__k">worker-rtt</span>
+        <span className="ws-debug__k">워커 RTT</span>
         <span className="ws-debug__v">
           {layoutProgress.lastUpdateMs > 0
             ? `${Math.round(layoutProgress.lastUpdateMs)}ms`
             : "—"}
         </span>
 
-        <span className="ws-debug__k">files</span>
+        <span className="ws-debug__k">파일</span>
         <span className="ws-debug__v">
           {visible ? `${visible.files.length.toLocaleString()} / ${graph?.files.length.toLocaleString() ?? 0}` : "—"}
           {visible && graph && ` (${scenePct(visible.files.length, graph.files.length)}%)`}
         </span>
 
-        <span className="ws-debug__k">edges</span>
+        <span className="ws-debug__k">엣지</span>
         <span className="ws-debug__v">
           {visible ? `${visible.edges.length.toLocaleString()} / ${graph?.fileEdges.length.toLocaleString() ?? 0}` : "—"}
         </span>
@@ -191,23 +191,23 @@ export function SceneSection() {
           />
         ))}
 
-        <span className="ws-debug__k">clusters</span>
+        <span className="ws-debug__k">클러스터</span>
         <span className="ws-debug__v">
           {clusterTotal > 0 ? `${clusterVisible} / ${clusterTotal}` : "—"}
         </span>
 
-        <span className="ws-debug__k">superclusters</span>
+        <span className="ws-debug__k">슈퍼클러스터</span>
         <span className="ws-debug__v">
           {superTotal > 0 ? `${superVisible} / ${superTotal}` : "—"}
         </span>
 
-        <span className="ws-debug__k">scene</span>
+        <span className="ws-debug__k">씬 종류</span>
         <span className="ws-debug__v">
-          {superclusters ? "supercluster" : clusters ? "cluster" : visible ? "file" : "—"}
+          {superclusters ? "슈퍼클러스터" : clusters ? "클러스터" : visible ? "파일" : "—"}
         </span>
       </div>
 
-      <div className="ws-debug__divider">layers</div>
+      <div className="ws-debug__divider">레이어</div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
         {EDGE_LAYERS.map(layer => (
           <button
@@ -222,7 +222,7 @@ export function SceneSection() {
         ))}
       </div>
       <div className="ws-debug__row" style={{ alignItems: "center" }}>
-        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>min severity</span>
+        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>최소 심각도</span>
         <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
           {EDGE_SEVERITIES.map(sev => (
             <button
@@ -230,7 +230,7 @@ export function SceneSection() {
               type="button"
               className={`ws-debug__chip${edgeMinSeverity === sev ? " is-on" : ""}`}
               onClick={() => renderSettingsStore.setEdgeMinSeverity(sev)}
-              title={`min severity: ${sev}`}
+              title={`최소 심각도: ${sev}`}
             >
               {sev}
             </button>
@@ -238,14 +238,14 @@ export function SceneSection() {
         </div>
       </div>
 
-      <div className="ws-debug__divider">render toggles</div>
+      <div className="ws-debug__divider">렌더링 토글</div>
       <label className="ws-debug__row">
         <input
           type="checkbox"
           checked={showEdges}
           onChange={e => renderSettingsStore.setShowEdges(e.target.checked)}
         />
-        <span>edges (all)</span>
+        <span>엣지 (전체)</span>
       </label>
       <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
         {EDGE_KINDS.map(k => (
@@ -263,7 +263,7 @@ export function SceneSection() {
       </div>
 
       <div className="ws-debug__row" style={{ alignItems: "center" }}>
-        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>edge width</span>
+        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>엣지 두께</span>
         <input
           type="range"
           min={0.25}
@@ -284,7 +284,7 @@ export function SceneSection() {
           checked={showGridBg}
           onChange={e => uxSettingsStore.setShowGridBg(e.target.checked)}
         />
-        <span>grid bg</span>
+        <span>그리드 배경</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -292,7 +292,7 @@ export function SceneSection() {
           checked={showHitLayers}
           onChange={e => uxSettingsStore.setShowHitLayers(e.target.checked)}
         />
-        <span>hit layers</span>
+        <span>히트 레이어</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -300,7 +300,7 @@ export function SceneSection() {
           checked={freezeScene}
           onChange={e => debugSettingsStore.setFreezeScene(e.target.checked)}
         />
-        <span>freeze scene</span>
+        <span>씬 고정</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -308,7 +308,7 @@ export function SceneSection() {
           checked={showHeatmap}
           onChange={e => uxSettingsStore.setShowHeatmap(e.target.checked)}
         />
-        <span>minimap heatmap</span>
+        <span>미니맵 히트맵</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -316,7 +316,7 @@ export function SceneSection() {
           checked={elevationMode}
           onChange={e => renderSettingsStore.setElevationMode(e.target.checked)}
         />
-        <span>elevation mode (3D)</span>
+        <span>고도 모드 (3D)</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -324,7 +324,7 @@ export function SceneSection() {
           checked={showBlameGutter}
           onChange={e => renderSettingsStore.setShowBlameGutter(e.target.checked)}
         />
-        <span>blame gutter (ground)</span>
+        <span>블레임 거터 (그라운드)</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -332,7 +332,7 @@ export function SceneSection() {
           checked={showEffectBadges}
           onChange={e => renderSettingsStore.setShowEffectBadges(e.target.checked)}
         />
-        <span>effect badges (chips)</span>
+        <span>이펙트 배지 (칩)</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -340,17 +340,17 @@ export function SceneSection() {
           checked={showLatencyOverlay}
           onChange={e => renderSettingsStore.setShowLatencyOverlay(e.target.checked)}
         />
-        <span>cost overlay (p95 tint)</span>
+        <span>비용 오버레이 (p95 틴트)</span>
       </label>
 
-      <div className="ws-debug__divider">overlays</div>
+      <div className="ws-debug__divider">오버레이</div>
       <label className="ws-debug__row">
         <input
           type="checkbox"
           checked={showSccBubbles}
           onChange={e => renderSettingsStore.setShowSccBubbles(e.target.checked)}
         />
-        <span>cycle bubbles (SCC)</span>
+        <span>사이클 버블 (SCC)</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -358,7 +358,7 @@ export function SceneSection() {
           checked={showStartHereBadges}
           onChange={e => renderSettingsStore.setShowStartHereBadges(e.target.checked)}
         />
-        <span>start-here badges</span>
+        <span>시작점 배지</span>
       </label>
       <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
         {([3, 5, 10] as const).map(n => (
@@ -368,7 +368,7 @@ export function SceneSection() {
             className={`ws-debug__chip${startHereTopN === n ? " is-on" : ""}`}
             onClick={() => renderSettingsStore.setStartHereTopN(n)}
             disabled={!showStartHereBadges}
-            title={`top-${n}`}
+            title={`상위 ${n}`}
           >
             top-{n}
           </button>
@@ -380,7 +380,7 @@ export function SceneSection() {
           checked={showClusterEdges}
           onChange={e => renderSettingsStore.setShowClusterEdges(e.target.checked)}
         />
-        <span>cluster super-edges</span>
+        <span>클러스터 슈퍼 엣지</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -388,17 +388,17 @@ export function SceneSection() {
           checked={showAgentPresence}
           onChange={e => renderSettingsStore.setShowAgentPresence(e.target.checked)}
         />
-        <span>agent presence rings</span>
+        <span>에이전트 프레즌스 링</span>
       </label>
 
-      <div className="ws-debug__divider">focus</div>
+      <div className="ws-debug__divider">포커스</div>
       <label className="ws-debug__row">
         <input
           type="checkbox"
           checked={focusMode === "on"}
           onChange={e => interactionStore.setFocusMode(e.target.checked ? "on" : "off")}
         />
-        <span>focus mode</span>
+        <span>포커스 모드</span>
       </label>
       <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
         {([1, 2] as const).map(h => (
@@ -408,14 +408,14 @@ export function SceneSection() {
             className={`ws-debug__chip${focusHops === h ? " is-on" : ""}`}
             onClick={() => interactionStore.setFocusHops(h)}
             disabled={focusMode !== "on"}
-            title={`${h}-hop`}
+            title={`${h}-홉`}
           >
             {h}-hop
           </button>
         ))}
       </div>
       <div className="ws-debug__row" style={{ alignItems: "center" }}>
-        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>dim opacity</span>
+        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>흐림 투명도</span>
         <input
           type="range"
           min={0}
@@ -435,7 +435,7 @@ export function SceneSection() {
 
 
       <div className="ws-debug__divider">
-        arch violations
+        아키텍처 위반
         {archViolations && archViolations.edgeIds.length > 0 && (
           <span style={{ color: "#f87171" }}> · {archViolations.edgeIds.length}</span>
         )}
@@ -446,7 +446,7 @@ export function SceneSection() {
           checked={highlightArchViolations}
           onChange={e => renderSettingsStore.setHighlightArchViolations(e.target.checked)}
         />
-        <span>highlight violating edges</span>
+        <span>위반 엣지 강조</span>
       </label>
       {archViolations && Object.keys(archViolations.byPair).length > 0 && (
         <div className="ws-debug__grid">
@@ -463,14 +463,14 @@ export function SceneSection() {
         </div>
       )}
 
-      <div className="ws-debug__divider">cross-graph edges</div>
+      <div className="ws-debug__divider">크로스 그래프 엣지</div>
       <label className="ws-debug__row">
         <input
           type="checkbox"
           checked={showCrossGraphEdges}
           onChange={e => renderSettingsStore.setShowCrossGraphEdges(e.target.checked)}
         />
-        <span>show cross-graph edges</span>
+        <span>크로스 그래프 엣지 표시</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -478,35 +478,35 @@ export function SceneSection() {
           checked={highlightCrossGraph}
           onChange={e => renderSettingsStore.setHighlightCrossGraph(e.target.checked)}
         />
-        <span>highlight cross-graph (gold overlay)</span>
+        <span>크로스 그래프 강조 (골드 오버레이)</span>
       </label>
 
       <div className="ws-debug__divider">
-        path query {pathQuery && <span style={{ color: "#7dd3fc" }}>· active</span>}
+        경로 질의 {pathQuery && <span style={{ color: "#7dd3fc" }}>· 활성</span>}
       </div>
       {pathQuery ? (
         <>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">src</span>
+            <span className="ws-debug__k">출발</span>
             <span className="ws-debug__v" title={pathQuery.sourceFileId}>
               {basename(pathQuery.sourceFileId)}
             </span>
-            <span className="ws-debug__k">→ dst</span>
+            <span className="ws-debug__k">→ 도착</span>
             <span className="ws-debug__v" title={pathQuery.targetFileId}>
               {basename(pathQuery.targetFileId)}
             </span>
-            <span className="ws-debug__k">mode</span>
+            <span className="ws-debug__k">모드</span>
             <span className="ws-debug__v">{pathQuery.mode}</span>
-            <span className="ws-debug__k">paths</span>
+            <span className="ws-debug__k">경로 수</span>
             <span className="ws-debug__v">
               {pathResult ? pathResult.paths.length : 0}
               {pathResult?.truncated && (
-                <span style={{ color: "#f87171", marginLeft: 4 }}>· truncated</span>
+                <span style={{ color: "#f87171", marginLeft: 4 }}>· 잘림</span>
               )}
             </span>
             {pathResult && pathResult.paths.length > 0 && (
               <>
-                <span className="ws-debug__k">hops</span>
+                <span className="ws-debug__k">홉</span>
                 <span className="ws-debug__v">
                   {Math.min(...pathResult.paths.map(p => p.cost))}
                   {pathResult.paths.length > 1 && `..${Math.max(...pathResult.paths.map(p => p.cost))}`}
@@ -520,12 +520,12 @@ export function SceneSection() {
             style={{ marginTop: 4, width: "100%" }}
             onClick={() => interactionStore.clearPathQuery()}
           >
-            clear
+            비우기
           </button>
         </>
       ) : (
         <div className="ws-debug__hint">
-          shift+click second file after selecting one to query a shortest path.
+          파일 하나 선택 후 두 번째 파일을 Shift+클릭하면 최단 경로를 질의합니다.
         </div>
       )}
 
@@ -543,16 +543,16 @@ export function SceneSection() {
 
       <EmbedsSection />
 
-      <div className="ws-debug__divider">viewport</div>
+      <div className="ws-debug__divider">뷰포트</div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
-        <button type="button" className="ws-debug__chip" onClick={resetViewport} title="x=0,y=0,scale=1">
-          reset
+        <button type="button" className="ws-debug__chip" onClick={resetViewport} title="x=0, y=0, 스케일=1">
+          초기화
         </button>
-        <button type="button" className="ws-debug__chip" onClick={centerViewport} title="center pan">
-          center
+        <button type="button" className="ws-debug__chip" onClick={centerViewport} title="팬 중앙 정렬">
+          중앙
         </button>
-        <button type="button" className="ws-debug__chip" onClick={copyViewportToClipboard} title="copy x,y,scale">
-          copy
+        <button type="button" className="ws-debug__chip" onClick={copyViewportToClipboard} title="x, y, 스케일 복사">
+          복사
         </button>
       </div>
 
@@ -580,21 +580,21 @@ function ShareSection() {
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        flashToast("copied!");
+        flashToast("복사됨!");
       } else {
-        window.prompt("copy share link", url);
-        flashToast("copy manually");
+        window.prompt("공유 링크 복사", url);
+        flashToast("직접 복사");
       }
     } catch {
-      window.prompt("copy share link", url);
-      flashToast("copy manually");
+      window.prompt("공유 링크 복사", url);
+      flashToast("직접 복사");
     }
   };
 
   const importFromClipboard = async () => {
     try {
       if (!navigator.clipboard?.readText) {
-        flashToast("clipboard unavailable");
+        flashToast("클립보드 사용 불가");
         return;
       }
       const raw = await navigator.clipboard.readText();
@@ -604,50 +604,50 @@ function ShareSection() {
       if (match) encoded = match[1] ?? "";
       const state = decodeWorkspaceState(encoded);
       if (!state) {
-        flashToast("invalid link");
+        flashToast("잘못된 링크");
         return;
       }
       applyWorkspaceUrlState(state);
-      flashToast("applied!");
+      flashToast("적용됨!");
     } catch {
-      flashToast("clipboard error");
+      flashToast("클립보드 오류");
     }
   };
 
   const resetAll = () => {
     resetWorkspaceUrlState();
-    flashToast("reset");
+    flashToast("초기화됨");
   };
 
   return (
     <>
       <div className="ws-debug__divider">
-        share {toast && <span style={{ color: "#7dd3fc" }}>· {toast}</span>}
+        공유 {toast && <span style={{ color: "#7dd3fc" }}>· {toast}</span>}
       </div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
         <button
           type="button"
           className="ws-debug__chip"
           onClick={copyShareLink}
-          title="encode state + write to clipboard"
+          title="상태 인코딩 후 클립보드에 복사"
         >
-          copy share link
+          공유 링크 복사
         </button>
         <button
           type="button"
           className="ws-debug__chip"
           onClick={importFromClipboard}
-          title="read clipboard + apply"
+          title="클립보드 읽어 적용"
         >
-          import
+          가져오기
         </button>
         <button
           type="button"
           className="ws-debug__chip"
           onClick={resetAll}
-          title="reset to defaults"
+          title="기본값으로 초기화"
         >
-          reset
+          초기화
         </button>
       </div>
       <label className="ws-debug__row">
@@ -656,7 +656,7 @@ function ShareSection() {
           checked={autoSyncUrl}
           onChange={e => uxSettingsStore.setAutoSyncUrl(e.target.checked)}
         />
-        <span>auto-sync URL</span>
+        <span>URL 자동 동기화</span>
       </label>
     </>
   );

@@ -38,45 +38,45 @@ export function LodSection() {
   const upDist = lodTierCfg.upThreshold - scale;
   const downDist = scale - lodTierCfg.downThreshold;
   const nearestLabel = upDist >= 0 && upDist < downDist
-    ? `+${upDist.toFixed(3)} → up`
+    ? `+${upDist.toFixed(3)} → 상향`
     : downDist >= 0
-      ? `-${downDist.toFixed(3)} → down`
-      : "in-band";
+      ? `-${downDist.toFixed(3)} → 하향`
+      : "범위 내";
 
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">lod</span>
+        <span className="ws-debug__k">LOD</span>
         <span className="ws-debug__v ws-debug__v--hl">{lod}</span>
 
-        <span className="ws-debug__k">effective</span>
+        <span className="ws-debug__k">실효 단계</span>
         <span className="ws-debug__v">
           {effectiveTier}
           {effectiveTier !== lod && (
-            <span style={{ opacity: 0.55, marginLeft: 4 }}>(fallback)</span>
+            <span style={{ opacity: 0.55, marginLeft: 4 }}>(대체)</span>
           )}
         </span>
 
-        <span className="ws-debug__k">renderer</span>
+        <span className="ws-debug__k">렌더러</span>
         <span className="ws-debug__v">{activeTierCfg.rendererKind}</span>
 
-        <span className="ws-debug__k">tier band</span>
+        <span className="ws-debug__k">단계 범위</span>
         <span className="ws-debug__v">
           {lodTierCfg.downThreshold.toFixed(3)} – {lodTierCfg.upThreshold.toFixed(3)}
         </span>
 
-        <span className="ws-debug__k">next</span>
+        <span className="ws-debug__k">다음 전환</span>
         <span className="ws-debug__v">{nearestLabel}</span>
 
-        <span className="ws-debug__k">tier flags</span>
+        <span className="ws-debug__k">단계 플래그</span>
         <span className="ws-debug__v">
-          {activeTierCfg.showEdges !== false ? "edges " : ""}
-          {activeTierCfg.showLabels !== false ? "labels " : ""}
+          {activeTierCfg.showEdges !== false ? "엣지 " : ""}
+          {activeTierCfg.showLabels !== false ? "라벨 " : ""}
           {activeTierCfg.fallback ? `↘${activeTierCfg.fallback}` : ""}
         </span>
       </div>
 
-      <div className="ws-debug__divider">force lod</div>
+      <div className="ws-debug__divider">LOD 강제</div>
       <div className="ws-debug__lod">
         {LOD_CHOICES.map(v => {
           const isActive = v !== "auto" && v === effectiveTier;
@@ -86,7 +86,7 @@ export function LodSection() {
               type="button"
               className={`ws-debug__chip${forceLod === v ? " is-on" : ""}`}
               onClick={() => debugSettingsStore.setForceLod(v)}
-              title={v === "auto" ? "follow viewport scale" : `${v}${isActive ? " · active" : ""}`}
+              title={v === "auto" ? "뷰포트 스케일 따라감" : `${v}${isActive ? " · 활성" : ""}`}
             >
               {isActive && <span style={{ marginRight: 3 }}>●</span>}
               {LOD_SHORT[v]}

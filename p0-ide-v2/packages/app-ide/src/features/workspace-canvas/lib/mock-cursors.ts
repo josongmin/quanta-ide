@@ -3,9 +3,11 @@ import { sceneStore } from "../store/scene-store";
 
 // Mock cursor driver — spawns two fake viewers ("viewer-a" / "viewer-b") that
 // random-walk across the world and occasionally snap onto a real file's rect.
-// Tick rate is ~50ms so the DOM cursor layer can interpolate smoothly.
+// Tick rate is throttled to keep the main thread cheap; the cursor DOM layer
+// should rely on CSS transitions to smooth the larger steps between ticks.
 
-const TICK_MS = 50;
+// perf: was 50ms (20Hz); raised to 500ms (2Hz) to reduce main-thread tax.
+const TICK_MS = 500;
 const STEP = 12;          // world-units per tick (max component delta)
 const SNAP_PROBABILITY = 0.005;
 

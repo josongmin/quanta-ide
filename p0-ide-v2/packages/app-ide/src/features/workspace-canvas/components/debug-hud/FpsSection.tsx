@@ -137,39 +137,39 @@ export function FpsSection() {
 
   return (
     <>
-      <span className="ws-debug__k">fps</span>
+      <span className="ws-debug__k">FPS</span>
       <span className="ws-debug__v" style={fpsColor ? { color: fpsColor } : undefined}>{fps}</span>
 
-      <span className="ws-debug__k">frame p50/p95</span>
+      <span className="ws-debug__k">프레임 p50/p95</span>
       <span className="ws-debug__v">
         {frameStats.p50 > 0 ? `${frameStats.p50.toFixed(1)} / ${frameStats.p95.toFixed(1)}ms` : "—"}
       </span>
 
-      <span className="ws-debug__k" title="frames ≥ 33ms over last 120">jank</span>
+      <span className="ws-debug__k" title="최근 120 프레임 중 33ms 이상">끊김</span>
       <span className="ws-debug__v">
         {frameStats.longCount > 0
           ? `${frameStats.longCount} (${frameStats.longPct.toFixed(0)}%)`
           : "0"}
       </span>
 
-      <span className="ws-debug__k">draws</span>
+      <span className="ws-debug__k">드로우 콜</span>
       <span className="ws-debug__v">
         {drawCalls !== null ? drawCalls.toLocaleString() : "—"}
       </span>
 
-      <span className="ws-debug__k">textures</span>
+      <span className="ws-debug__k">텍스처</span>
       <span className="ws-debug__v">
         {mem.textures !== null ? mem.textures.toLocaleString() : "—"}
       </span>
 
-      <span className="ws-debug__k">buffers</span>
+      <span className="ws-debug__k">버퍼</span>
       <span className="ws-debug__v">
         {mem.buffers !== null ? mem.buffers.toLocaleString() : "—"}
       </span>
 
       {heap && (
         <>
-          <span className="ws-debug__k">heap</span>
+          <span className="ws-debug__k">힙</span>
           <span className="ws-debug__v" title={`${fmtBytes(heap.used)} / ${fmtBytes(heap.limit)}`}>
             {fmtBytes(heap.used)} ({((heap.used / heap.limit) * 100).toFixed(0)}%)
           </span>
@@ -178,15 +178,15 @@ export function FpsSection() {
 
       {universe && universe.breakdown.total > 0 && (
         <>
-          <span className="ws-debug__k" title="estimated bytes owned by Code Universe data structures (graph+layout+ground). Excludes GPU buffers and worker heaps.">universe</span>
+          <span className="ws-debug__k" title="Code Universe 데이터 구조(그래프+레이아웃+그라운드)가 차지하는 추정 바이트. GPU 버퍼와 워커 힙은 제외.">유니버스</span>
           <span
             className="ws-debug__v"
             title={
-              `graph:  ${fmtBytes(universe.breakdown.graph)}\n` +
-              `layout: ${fmtBytes(universe.breakdown.layout)}\n` +
-              `scenes: ${fmtBytes(universe.breakdown.visibleScene + universe.breakdown.clusterScene + universe.breakdown.superclusterScene)}\n` +
-              `ground: ${fmtBytes(universe.breakdown.groundData)}  (${universe.counts.groundEntries} files)\n` +
-              (heap ? `≈ ${((universe.breakdown.total / heap.used) * 100).toFixed(0)}% of heap` : "")
+              `그래프:  ${fmtBytes(universe.breakdown.graph)}\n` +
+              `레이아웃: ${fmtBytes(universe.breakdown.layout)}\n` +
+              `씬: ${fmtBytes(universe.breakdown.visibleScene + universe.breakdown.clusterScene + universe.breakdown.superclusterScene)}\n` +
+              `그라운드: ${fmtBytes(universe.breakdown.groundData)}  (파일 ${universe.counts.groundEntries}개)\n` +
+              (heap ? `힙의 약 ${((universe.breakdown.total / heap.used) * 100).toFixed(0)}%` : "")
             }
           >
             {fmtBytes(universe.breakdown.total)}

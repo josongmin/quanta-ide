@@ -5,7 +5,7 @@ import { useFeature } from "../../store/feature-flags-store";
 
 function preview(body: string): string {
   const t = body.trim();
-  if (t.length === 0) return "(empty)";
+  if (t.length === 0) return "(비어 있음)";
   return t.length > 48 ? t.slice(0, 45) + "…" : t;
 }
 
@@ -29,9 +29,9 @@ export function CommentsSection() {
   if (!enabled) {
     return (
       <>
-        <div className="ws-debug__divider">comments</div>
+        <div className="ws-debug__divider">댓글</div>
         <div className="ws-debug__hint">
-          enable <code>collab.comments</code> in features to use threads.
+          스레드를 사용하려면 기능에서 <code>collab.comments</code> 를 활성화하세요.
         </div>
       </>
     );
@@ -40,13 +40,13 @@ export function CommentsSection() {
   return (
     <>
       <div className="ws-debug__divider">
-        comments ({threads.length})
+        댓글 ({threads.length})
         {unresolved.length < threads.length && (
-          <span style={{ color: "#22c55e" }}> · {threads.length - unresolved.length} done</span>
+          <span style={{ color: "#22c55e" }}> · {threads.length - unresolved.length} 해결됨</span>
         )}
       </div>
       {unresolved.length === 0 ? (
-        <div className="ws-debug__hint">no open threads.</div>
+        <div className="ws-debug__hint">열린 스레드가 없습니다.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
           {unresolved.slice(0, 8).map(t => {
@@ -59,7 +59,7 @@ export function CommentsSection() {
                   panToWorld(t.posX, t.posY);
                   commentsStore.setOpen(t.id);
                 }}
-                title={last?.body ?? "(empty)"}
+                title={last?.body ?? "(비어 있음)"}
               >
                 <span
                   className="ws-debug__sticky-dot"
@@ -76,7 +76,7 @@ export function CommentsSection() {
                   checked={t.resolved}
                   onClick={e => e.stopPropagation()}
                   onChange={() => commentsStore.toggleResolved(t.id)}
-                  title="resolve"
+                  title="해결"
                 />
               </div>
             );

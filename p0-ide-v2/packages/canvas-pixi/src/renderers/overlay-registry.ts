@@ -120,6 +120,13 @@ function register(id: OverlayId, factory: OverlayFactory): void {
 
 register("edgeStatic", (world) => {
   const r = new EdgeStaticRenderer(world);
+  // LODs where edges are never drawn. Mirrors EDGE_SKIP_LODS inside the
+  // renderer — we short-circuit here too so coarse-tier frames skip the
+  // build() work entirely (no array copy of ctx.visible.edges, no
+  // opts-object allocation). The renderer still owns the final authority
+  // (it also applies hysteresis), but this dispatch-side gate keeps the
+  // hot path cheap when we're definitely above the edge-draw regime.
+  const EDGE_SKIP_LODS: ReadonlySet<string> = new Set(["supergalaxy", "universe"]);
   // EdgeStaticRenderer has no public `clear()` — the next `update` call
   // with `showEdges=false` or empty `visible.edges` naturally blanks the
   // shared Graphics via its internal `redraw()`. A standalone clear() is
@@ -127,8 +134,20 @@ register("edgeStatic", (world) => {
   // scene changes.
   return {
     update(ctx) {
-      const edges = ctx.showEdges ? ctx.visible.edges : [];
-      r.build(edges, ctx.layout, ctx.edgeCache, ctx.viewport, {
+      // Early dispatch-side LOD gate. Renderer.build() with an empty
+      // edge list would still run its redraw bookkeeping — giving it
+      // the same signal via a direct build([], …) call lets its
+      // internal skip path (gfx.clear + bail) fire without allocating
+      // a visible-edges snapshot. The renderer's own hysteresis runs
+      // against opts.lod, so we preserve lod in both branches.
+      if (!ctx.showEdges || EDGE_SKIP_LODS.has(ctx.lod)) {
+        r.build([], ctx.layout, ctx.edgeCache, ctx.viewport, {
+          lod: ctx.lod,
+          fileById: ctx.fileLookup,
+        });
+        return;
+      }
+      r.build(ctx.visible.edges, ctx.layout, ctx.edgeCache, ctx.viewport, {
         kindFilter: ctx.edgeKinds,
         layerFilter: ctx.edgeLayers as Record<EdgeLayer, boolean> | undefined,
         minSeverity: ctx.edgeMinSeverity,

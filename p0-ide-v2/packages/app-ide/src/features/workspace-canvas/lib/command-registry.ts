@@ -186,6 +186,46 @@ export function seedCommands(ctx: CommandSeedContext): readonly Command[] {
     run: () => themeStore.cycle(),
   });
 
+  // Temporal AI surfaces (T4) — each command dispatches the window-level
+  // toggle custom event the panel listens for; only registered when the
+  // corresponding feature is enabled.
+  out.push({
+    id: "action.temporal.regressionHunt",
+    label: "Open regression hunt",
+    category: "actions",
+    keywords: ["ai", "test", "failure", "bisect", "attribution"],
+    when: () => featureFlagsStore.isEnabled("temporal.regressionHunt"),
+    run: () => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("temporal-hunt-toggle", { detail: true }));
+      }
+    },
+  });
+  out.push({
+    id: "action.temporal.prReplay",
+    label: "Replay a PR / commit range",
+    category: "actions",
+    keywords: ["ai", "pr", "replay", "narration"],
+    when: () => featureFlagsStore.isEnabled("temporal.prReplay"),
+    run: () => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("temporal-prreplay-toggle", { detail: true }));
+      }
+    },
+  });
+  out.push({
+    id: "action.temporal.bisectGame",
+    label: "Start bisect game",
+    category: "actions",
+    keywords: ["ai", "bisect", "game", "debug"],
+    when: () => featureFlagsStore.isEnabled("temporal.bisectGame"),
+    run: () => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("temporal-bisect-toggle", { detail: true }));
+      }
+    },
+  });
+
   // Files --------------------------------------------------------------
   const files = ctx.graph?.files ?? [];
   for (const f of files) {

@@ -36,8 +36,8 @@ export function DangerZonePage() {
           </header>
         </div>
 
-        <div className="demo-block" style={{ borderColor: "var(--border-danger-subtle)" }}>
-          <header className="demo-block__head" style={{ background: "var(--bg-danger-subtle)", borderBottom: "1px solid var(--border-danger-subtle)" }}>
+        <div className="demo-block">
+          <header className="demo-block__head">
             <AlertTriangle size={16} strokeWidth={2} style={{ color: "var(--danger)" }} />
             <div>
               <div className="demo-block__title" style={{ color: "var(--danger)" }}>Delete account</div>
@@ -48,7 +48,7 @@ export function DangerZonePage() {
             <p style={{ fontSize: "var(--fs-sm)", color: "var(--fg-muted)", marginTop: 0 }}>
               Type <code style={{ background: "var(--bg-muted)", padding: "1px 6px", borderRadius: 4 }}>DELETE</code> to confirm.
             </p>
-            <div className="demo-danger-confirm">
+            <div className="demo-danger-confirm" style={{ background: "transparent", border: "none", padding: 0 }}>
               <input
                 value={text}
                 onChange={(e) => setText(e.target.value)}

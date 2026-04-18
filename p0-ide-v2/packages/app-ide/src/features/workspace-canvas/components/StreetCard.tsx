@@ -14,6 +14,12 @@ interface StreetCardProps {
   latency?: FileLatency;
   showEffectBadges?: boolean;
   showLatencyOverlay?: boolean;
+  /**
+   * Optional background tint hex (`#rrggbb`). Used by
+   * temporal.authorFootprint to color the card by dominant author at
+   * the active commit. Wins over the latency tint when both are set.
+   */
+  authorTint?: string;
   onSelect: (id: string) => void;
 }
 
@@ -42,6 +48,7 @@ function cpxColor(cpx: number): string {
 function StreetCardImpl({
   file, rect, isSelected, elevationMode = false,
   effects, latency, showEffectBadges = true, showLatencyOverlay = false,
+  authorTint,
   onSelect,
 }: StreetCardProps) {
   const HEADER_H = 32;
@@ -60,7 +67,11 @@ function StreetCardImpl({
     ? hexFromInt(latencyColor(latency.p95))
     : null;
   const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, height: rect.h };
-  if (latencyTint) {
+  if (authorTint) {
+    // Author tint wins over latency — they'd otherwise fight for the
+    // same background slot. Latency overlay keeps its footer glyph.
+    style.background = `color-mix(in srgb, ${authorTint} 28%, var(--bg))`;
+  } else if (latencyTint) {
     style.background = `color-mix(in srgb, ${latencyTint} 22%, var(--bg))`;
   }
   if (elevation > 0) {
@@ -162,5 +173,6 @@ export const StreetCard = memo(
     prev.latency === next.latency &&
     prev.showEffectBadges === next.showEffectBadges &&
     prev.showLatencyOverlay === next.showLatencyOverlay &&
+    prev.authorTint === next.authorTint &&
     prev.onSelect === next.onSelect,
 );

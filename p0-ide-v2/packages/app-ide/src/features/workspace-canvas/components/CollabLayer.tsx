@@ -30,12 +30,10 @@ export function CollabLayer({ transform, scale, layout, graph }: Props) {
   const reactionsOn = useFeature("collab.reactions");
   const followOn = useFeature("collab.follow");
 
-  // Mock cursors driver — only runs while the feature flag is on.
-  useEffect(() => {
-    if (!cursorsOn) return;
-    const stop = startMockCursors();
-    return () => stop();
-  }, [cursorsOn]);
+  // Mock cursors driver — hard-disabled while we chase the canvas perf regression.
+  // Re-enable by restoring `startMockCursors()` once frame-stall RCA is resolved.
+  void startMockCursors;
+  void cursorsOn;
 
   // Follow-mode tracker — when a follow target is set, pan the viewport to
   // keep its cursor centered on every tick.

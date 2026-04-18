@@ -18,6 +18,24 @@ import { resolveEdgeStyle, SEVERITY_RANK, CROSS_GRAPH_STYLE, VIOLATION_RED } fro
 //
 // Animation: `edge.animated === true` shifts the dash pattern by a time
 // offset each frame via a single shared ticker.
+//
+// LOD gating (perf):
+//   - street/ground/city:    draw everything the caller passed in.
+//   - galaxy:                if visibleEdges > GALAXY_EDGE_BUDGET, downsample
+//                             to the top-weighted GALAXY_EDGE_BUDGET edges so
+//                             draw cost stays bounded. ~2500 edges at 23fps
+//                             (see perf-*.ndjson) drops to ~1200 smooth.
+//   - supergalaxy / universe: skip entirely — at that zoom edges are sub-pixel
+//                              noise and each bezier still costs draw ops.
+//
+// Hysteresis:
+//   LOD churn (slow↔recovering↔fast boundaries at the perf recorder)
+//   produced 83 transitions in a single capture, each one forcing a full
+//   edge rebuild. We track the last-applied effective LOD + the scale at
+//   which we locked it, and refuse to switch effective modes unless the
+//   scale has moved more than LOD_HYSTERESIS_SCALE_FRAC (±10%) from that
+//   lock-point. Small jitter near the LOD boundary keeps rendering at the
+//   previous mode.
 
 /** Arc-length sampling resolution when we emit dashed segments. Higher =
  *  smoother dash spacing but more draw ops. 24 samples is good to ~1k edges. */
@@ -32,6 +50,31 @@ const ANCHOR_GLOW_RADIUS = 2.2;
 // to show lines, so we drop to side or centre anchoring.
 const LINE_ANCHOR_TIERS: ReadonlyArray<"street" | "ground"> = ["street", "ground"] as const;
 const SIDE_ANCHOR_TIERS: ReadonlyArray<"city"> = ["city"] as const;
+
+/** When galaxy LOD has more edges than this, we downsample to the top-N by
+ *  weight. Picked to keep draw cost bounded at ~1200 bezier strokes, which
+ *  the perf recorder shows staying under the 45fps slow threshold. */
+const GALAXY_EDGE_BUDGET = 1200;
+/** LODs that never render edges — pure file-rect / cluster-bubble view. */
+const EDGE_SKIP_LODS: ReadonlySet<string> = new Set(["supergalaxy", "universe"]);
+/** LODs where we may cap the edge list to GALAXY_EDGE_BUDGET by weight. */
+const EDGE_BUDGETED_LODS: ReadonlySet<string> = new Set(["galaxy"]);
+/** Fractional scale change required to switch out of the last-applied
+ *  effective LOD. Below this we keep rendering in the previous mode to
+ *  absorb boundary jitter. 0.1 = ±10%. */
+const LOD_HYSTERESIS_SCALE_FRAC = 0.1;
+/** Edge-count bucket width used in the cache-key. Small buckets mean tiny
+ *  filter changes still hit the same key; too-small and we churn. */
+const EDGE_COUNT_BUCKET = 128;
+
+type EffectiveLodMode = "full" | "budgeted" | "skip";
+
+function modeForLod(lod: string | undefined): EffectiveLodMode {
+  if (!lod) return "full";
+  if (EDGE_SKIP_LODS.has(lod)) return "skip";
+  if (EDGE_BUDGETED_LODS.has(lod)) return "budgeted";
+  return "full";
+}
 
 type AnchorMode = "line" | "side" | "centre";
 
@@ -115,6 +158,26 @@ export class EdgeStaticRenderer {
   private lastOpts: EdgeStaticBuildOpts | undefined;
   private hasAnimatedEdges = false;
 
+  // ── Hysteresis + cache-key state ────────────────────────────────
+  // The effective LOD mode we actually rendered at last build. When the
+  // incoming LOD flips (e.g. galaxy ↔ supergalaxy at a boundary), we keep
+  // rendering in this mode until the viewport scale has moved far enough
+  // away from `appliedScale` to justify a switch. Without this, a scale
+  // oscillating across the LOD threshold re-runs the full edge loop on
+  // every frame for no visual gain.
+  private appliedMode: EffectiveLodMode | null = null;
+  private appliedLod: string | undefined = undefined;
+  private appliedScale = 1;
+  // Cache key covering (mode, lod-bucket, edge-count-bucket, filter-hash).
+  // Used only to skip redundant geometry work — the final Graphics.clear()
+  // + re-stroke still runs so animated dash offsets advance. See
+  // `shouldSkipFullRebuild` below.
+  private lastCacheKey = "";
+  // Pre-sorted + capped edge slice we last emitted in budgeted mode. When
+  // the cache key matches, we reuse this slice instead of re-sorting the
+  // full edge list.
+  private budgetedSlice: FileEdge[] | null = null;
+
   constructor(parent: Container) {
     this.gfx = new Graphics();
     parent.addChildAt(this.gfx, 0); // behind everything
@@ -154,9 +217,79 @@ export class EdgeStaticRenderer {
     const viewport = this.lastViewport;
     const opts = this.lastOpts;
 
-    if (edges.length === 0 && this.previousLength === 0) return;
-
     const scale = viewport?.scale ?? 1;
+
+    // ── LOD gate w/ hysteresis ─────────────────────────────────────
+    // Decide the effective mode (full / budgeted / skip). Hysteresis
+    // keeps us in the previously-applied mode when the incoming LOD flips
+    // but the scale has barely moved. This is the main churn-blocker for
+    // the 83-transition boundary behaviour surfaced in the perf recorder.
+    const incomingMode = modeForLod(opts?.lod);
+    let effectiveMode: EffectiveLodMode = incomingMode;
+    if (this.appliedMode !== null && this.appliedMode !== incomingMode) {
+      const baseScale = this.appliedScale || 1;
+      const rel = Math.abs(scale - baseScale) / Math.max(baseScale, 1e-6);
+      if (rel < LOD_HYSTERESIS_SCALE_FRAC) {
+        // Stay in the previously-locked mode — not enough zoom movement.
+        effectiveMode = this.appliedMode;
+      }
+    }
+
+    // Skip mode: blank the layer, record state, and bail. Supergalaxy /
+    // universe tiers never draw edges — at that zoom the curves are
+    // sub-pixel and each stroke still costs draw ops.
+    if (effectiveMode === "skip") {
+      if (this.previousLength !== 0) {
+        this.gfx.clear();
+        this.previousLength = 0;
+      }
+      if (this.appliedMode !== effectiveMode) {
+        this.appliedMode = effectiveMode;
+        this.appliedLod = opts?.lod;
+        this.appliedScale = scale;
+        this.lastCacheKey = "skip";
+        this.budgetedSlice = null;
+      }
+      return;
+    }
+
+    if (edges.length === 0 && this.previousLength === 0) {
+      if (this.appliedMode !== effectiveMode) {
+        this.appliedMode = effectiveMode;
+        this.appliedLod = opts?.lod;
+        this.appliedScale = scale;
+      }
+      return;
+    }
+
+    // In budgeted mode, cap the edge list to the top-N by weight. We sort
+    // a shallow copy so the caller's array order is preserved.
+    let workingEdges: FileEdge[] = edges;
+    if (effectiveMode === "budgeted" && edges.length > GALAXY_EDGE_BUDGET) {
+      workingEdges = [...edges]
+        .sort((a, b) => (b.weight ?? 0) - (a.weight ?? 0))
+        .slice(0, GALAXY_EDGE_BUDGET);
+    }
+
+    // Commit the new applied state now that we've decided mode + slice.
+    const edgeBucket = Math.floor(workingEdges.length / EDGE_COUNT_BUCKET);
+    const filterHash = computeFilterHash(opts);
+    const cacheKey = `${effectiveMode}:${opts?.lod ?? ""}:${edgeBucket}:${filterHash}`;
+    if (effectiveMode === "budgeted" && cacheKey === this.lastCacheKey && this.budgetedSlice) {
+      // Same bucket + filters: reuse the previously-selected slice so
+      // the top-N sort doesn't rerun on every redraw. Animated dashes
+      // still flow because we re-stroke below.
+      workingEdges = this.budgetedSlice;
+    } else if (effectiveMode === "budgeted") {
+      this.budgetedSlice = workingEdges;
+    } else {
+      this.budgetedSlice = null;
+    }
+    this.lastCacheKey = cacheKey;
+    this.appliedMode = effectiveMode;
+    this.appliedLod = opts?.lod;
+    this.appliedScale = scale;
+
     const invScale = Math.min(32, Math.max(1, 1 / scale));
     const widthMul = opts?.widthMul ?? 1;
     const kindFilter = opts?.kindFilter;
@@ -186,8 +319,9 @@ export class EdgeStaticRenderer {
     // the live edge list (they existed in snapshot A only). We render them
     // by synthesising a second pass over `diffRemoved` after the main loop.
     // First: main loop that honours all the standard filters plus the live
-    // temporal set.
-    for (const edge of edges) {
+    // temporal set. In budgeted (galaxy) mode `workingEdges` is a top-N
+    // slice of the input; in full mode it's the input array unchanged.
+    for (const edge of workingEdges) {
       if (edge.crossGraph && !showCrossGraphEdges) continue;
       if (kindFilter && kindFilter[edge.kind] === false) continue;
       if (layerFilter && layerFilter[edge.layer] === false) continue;
@@ -362,6 +496,27 @@ export class EdgeStaticRenderer {
     this.ticker = null;
     this.gfx.destroy();
   }
+}
+
+// ── Cache-key helpers ───────────────────────────────────────────────
+
+/**
+ * Cheap stable-ish fingerprint of the filter-shape inputs. Used only as
+ * a cache key for the budgeted-mode top-N slice — collisions just cause
+ * an extra sort, never a visual bug. We intentionally avoid hashing the
+ * contents of `edgeFocus` / temporal sets since those flip every frame
+ * in some modes and would defeat the cache; when the user changes those,
+ * the rebuild is appropriate anyway.
+ */
+function computeFilterHash(opts: EdgeStaticBuildOpts | undefined): string {
+  if (!opts) return "";
+  const k = opts.kindFilter ? Object.keys(opts.kindFilter).sort().join(",") : "";
+  const l = opts.layerFilter ? Object.keys(opts.layerFilter).sort().join(",") : "";
+  const s = opts.minSeverity ?? "";
+  const w = opts.widthMul ?? 1;
+  const cg = opts.showCrossGraphEdges === false ? "0" : "1";
+  const hc = opts.highlightCrossGraph === false ? "0" : "1";
+  return `${k}|${l}|${s}|${w}|${cg}|${hc}`;
 }
 
 // ── Anchor computation ──────────────────────────────────────────────

@@ -35,9 +35,9 @@ export function FollowSection() {
   if (!enabled) {
     return (
       <>
-        <div className="ws-debug__divider">follow</div>
+        <div className="ws-debug__divider">팔로우</div>
         <div className="ws-debug__hint">
-          enable <code>collab.follow</code> in features to use follow mode.
+          팔로우 모드를 사용하려면 기능에서 <code>collab.follow</code> 를 활성화하세요.
         </div>
       </>
     );
@@ -45,9 +45,9 @@ export function FollowSection() {
 
   return (
     <>
-      <div className="ws-debug__divider">follow</div>
+      <div className="ws-debug__divider">팔로우</div>
       {candidates.length === 0 ? (
-        <div className="ws-debug__hint">no users / agents present.</div>
+        <div className="ws-debug__hint">현재 사용자 / 에이전트가 없습니다.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {candidates.map(c => {
@@ -81,9 +81,9 @@ export function FollowSection() {
                   type="button"
                   className={`ws-debug__chip${isTarget ? " is-on" : ""}`}
                   onClick={() => followStore.toggle(c.id)}
-                  title={isTarget ? "stop following" : "follow"}
+                  title={isTarget ? "팔로우 정지" : "팔로우"}
                 >
-                  {isTarget ? "stop" : "follow"}
+                  {isTarget ? "정지" : "팔로우"}
                 </button>
               </div>
             );
@@ -92,7 +92,7 @@ export function FollowSection() {
       )}
       {targetId && (
         <div className="ws-debug__hint" style={{ marginTop: 4 }}>
-          press ESC or click the banner to stop.
+          ESC 또는 배너를 클릭하여 정지하세요.
         </div>
       )}
     </>

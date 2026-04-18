@@ -48,9 +48,9 @@ export function ReviewSection() {
 function DisabledNote({ id }: { id: string }) {
   return (
     <div className="ws-debug__grid">
-      <span className="ws-debug__k">status</span>
+      <span className="ws-debug__k">상태</span>
       <span className="ws-debug__v" style={{ opacity: 0.6 }}>
-        {id} — feature off
+        {id} — 기능 비활성
       </span>
     </div>
   );
@@ -69,19 +69,19 @@ function VotingBlock({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="ws-debug__divider">Voting tally</div>
+      <div className="ws-debug__divider">투표 집계</div>
       {!enabled ? (
         <DisabledNote id="review.voting" />
       ) : (
         <>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">total votes</span>
+            <span className="ws-debug__k">전체 투표</span>
             <span className="ws-debug__v ws-debug__v--hl">{votes.length}</span>
           </div>
           {tally.length === 0 && (
             <div className="ws-debug__grid">
-              <span className="ws-debug__k">tally</span>
-              <span className="ws-debug__v" style={{ opacity: 0.6 }}>— no votes yet —</span>
+              <span className="ws-debug__k">집계</span>
+              <span className="ws-debug__v" style={{ opacity: 0.6 }}>— 아직 투표 없음 —</span>
             </div>
           )}
           {tally.map(t => (
@@ -98,8 +98,8 @@ function VotingBlock({ enabled }: { enabled: boolean }) {
                 type="button"
                 className="ws-debug__chip"
                 onClick={() => votingStore.reset()}
-                title="Clear all votes"
-              >clear votes</button>
+                title="모든 투표 비우기"
+              >투표 비우기</button>
             </div>
           )}
         </>
@@ -120,19 +120,19 @@ function PokerBlock({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="ws-debug__divider">Estimation poker</div>
+      <div className="ws-debug__divider">추정 포커</div>
       {!enabled ? (
         <DisabledNote id="review.poker" />
       ) : (
         <>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">files</span>
+            <span className="ws-debug__k">파일</span>
             <span className="ws-debug__v ws-debug__v--hl">{fileIds.length}</span>
           </div>
           {fileIds.length === 0 && (
             <div className="ws-debug__grid">
-              <span className="ws-debug__k">stats</span>
-              <span className="ws-debug__v" style={{ opacity: 0.6 }}>— no estimates —</span>
+              <span className="ws-debug__k">통계</span>
+              <span className="ws-debug__v" style={{ opacity: 0.6 }}>— 추정값 없음 —</span>
             </div>
           )}
           {fileIds.slice(0, 5).map(id => {
@@ -156,8 +156,8 @@ function PokerBlock({ enabled }: { enabled: boolean }) {
                 type="button"
                 className="ws-debug__chip"
                 onClick={() => estimationStore.reset()}
-                title="Clear all estimates"
-              >clear estimates</button>
+                title="모든 추정값 비우기"
+              >추정값 비우기</button>
             </div>
           )}
         </>
@@ -173,30 +173,30 @@ function TimerBlock({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="ws-debug__divider">Session timer</div>
+      <div className="ws-debug__divider">세션 타이머</div>
       {!enabled ? (
         <DisabledNote id="review.timer" />
       ) : (
         <>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">remaining</span>
+            <span className="ws-debug__k">남은 시간</span>
             <span className="ws-debug__v ws-debug__v--hl">{formatMmSs(remaining)}</span>
           </div>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">state</span>
-            <span className="ws-debug__v">{running ? "running" : remaining === 0 ? "finished" : "paused"}</span>
+            <span className="ws-debug__k">상태</span>
+            <span className="ws-debug__v">{running ? "실행 중" : remaining === 0 ? "완료" : "일시 정지"}</span>
           </div>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">preset</span>
+            <span className="ws-debug__k">프리셋</span>
             <span className="ws-debug__v">{formatMmSs(initial)}</span>
           </div>
           <div className="ws-debug__lod" style={{ gap: 2 }}>
             {running ? (
-              <button type="button" className="ws-debug__chip" onClick={() => timerStore.pause()}>pause</button>
+              <button type="button" className="ws-debug__chip" onClick={() => timerStore.pause()}>일시 정지</button>
             ) : (
-              <button type="button" className="ws-debug__chip" onClick={() => timerStore.start()}>start</button>
+              <button type="button" className="ws-debug__chip" onClick={() => timerStore.start()}>시작</button>
             )}
-            <button type="button" className="ws-debug__chip" onClick={() => timerStore.reset()}>reset</button>
+            <button type="button" className="ws-debug__chip" onClick={() => timerStore.reset()}>초기화</button>
           </div>
         </>
       )}
@@ -209,23 +209,23 @@ function RetroBlock({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="ws-debug__divider">Retrospective</div>
+      <div className="ws-debug__divider">회고</div>
       {!enabled ? (
         <DisabledNote id="review.retrospective" />
       ) : (
         <>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">panel</span>
-            <span className="ws-debug__v">{visible ? "visible" : "hidden"}</span>
+            <span className="ws-debug__k">패널</span>
+            <span className="ws-debug__v">{visible ? "표시" : "숨김"}</span>
           </div>
           <div className="ws-debug__lod" style={{ gap: 2 }}>
             <button
               type="button"
               className={`ws-debug__chip${visible ? " is-on" : ""}`}
               onClick={() => retroStore.toggle()}
-              title="Toggle retrospective overlay"
+              title="회고 오버레이 토글"
             >
-              {visible ? "hide retro" : "show retro"}
+              {visible ? "회고 숨기기" : "회고 표시"}
             </button>
           </div>
         </>

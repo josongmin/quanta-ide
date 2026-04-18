@@ -11,17 +11,19 @@ import { AgentsSection } from "./debug-hud/AgentsSection";
 import { FeaturesSection } from "./debug-hud/FeaturesSection";
 import { FollowSection } from "./debug-hud/FollowSection";
 import { ReviewSection } from "./debug-hud/ReviewSection";
+import { ActionTerrainSection } from "./debug-hud/ActionTerrainSection";
 
-type Tab = "fps" | "lod" | "scene" | "perf" | "graph" | "agents" | "features" | "review";
+type Tab = "fps" | "lod" | "scene" | "perf" | "graph" | "agents" | "features" | "review" | "terrain";
 const TABS: readonly { id: Tab; label: string }[] = [
-  { id: "fps", label: "fps" },
-  { id: "lod", label: "lod" },
-  { id: "scene", label: "scene" },
-  { id: "perf", label: "perf" },
-  { id: "graph", label: "graph" },
-  { id: "agents", label: "agents" },
-  { id: "features", label: "features" },
-  { id: "review", label: "review" },
+  { id: "fps", label: "FPS" },
+  { id: "lod", label: "LOD" },
+  { id: "scene", label: "씬" },
+  { id: "perf", label: "성능" },
+  { id: "graph", label: "그래프" },
+  { id: "agents", label: "에이전트" },
+  { id: "features", label: "기능" },
+  { id: "review", label: "리뷰" },
+  { id: "terrain", label: "지형" },
 ] as const;
 
 // Floating corner overlay for development/debugging. Surfaces the LOD, scale,
@@ -73,9 +75,9 @@ export function DebugHud() {
         type="button"
         className={WS_CLASSES.debugToggle}
         onClick={() => debugSettingsStore.toggleDebugHud()}
-        title="Show debug HUD (⌘⇧D)"
+        title="디버그 패널 표시 (⌘⇧D)"
       >
-        debug
+        디버그
       </button>
     );
   }
@@ -83,11 +85,11 @@ export function DebugHud() {
   return (
     <div ref={panelRef} className={WS_CLASSES.debug}>
       <div className={WS_CLASSES.debugHeader}>
-        <span>debug</span>
+        <span>디버그</span>
         <button
           type="button"
           className={WS_CLASSES.debugClose}
-          title="Hide (⌘⇧D)"
+          title="숨기기 (⌘⇧D)"
           onClick={() => debugSettingsStore.toggleDebugHud()}
         >×</button>
       </div>
@@ -128,6 +130,7 @@ export function DebugHud() {
         )}
         {tab === "features" && <FeaturesSection />}
         {tab === "review" && <ReviewSection />}
+        {tab === "terrain" && <ActionTerrainSection />}
       </div>
     </div>
   );
