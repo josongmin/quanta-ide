@@ -22,6 +22,20 @@ export const RISK_THRESHOLD_MEDIUM = 40;
 export const COMPLEXITY_THRESHOLD_HIGH = 10;
 export const COMPLEXITY_THRESHOLD_MEDIUM = 5;
 
+// Semantic red-600 aliases — same hex today (0xdc2626), but each name
+// tracks a distinct concern so design can diverge one without touching
+// the others.
+export const SAFETY_RED = 0xdc2626;
+export const VIOLATION_RED = 0xdc2626;
+export const RISK_HIGH_RED = 0xdc2626;
+
+// Shared neutral / flow / cycle hues — each previously duplicated across
+// three or more renderers. Naming here means a design tweak lands in one
+// place.
+export const NEUTRAL_GREY = 0x6b7280;
+export const FLOW_CYAN = 0x22d3ee;
+export const CYCLE_ORANGE = 0xea580c;
+
 // File-level risk palette — used by galaxy + city card backgrounds and
 // borders, plus the city-level risk-score text colour.
 export const RISK_FILL = {
@@ -37,7 +51,7 @@ export const RISK_BORDER = {
 } as const;
 
 export const RISK_TEXT = {
-  high: 0xdc2626,
+  high: RISK_HIGH_RED,
   medium: 0xd97706,
   low: 0x16a34a,
 } as const;
