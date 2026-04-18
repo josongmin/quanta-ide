@@ -76,39 +76,23 @@ export function LodSection() {
         </span>
       </div>
 
-      <div className="ws-debug__divider">tier ladder</div>
-      <div className="ws-debug__lod" style={{ gap: 2 }}>
-        {[...LOD_TIERS].map(t => {
-          const inBand = scale >= t.downThreshold && scale < t.upThreshold;
-          const isActive = t.name === effectiveTier;
-          const bg = isActive ? "var(--ws-debug-accent, #4f46e5)" : inBand ? "#334155" : undefined;
+      <div className="ws-debug__divider">force lod</div>
+      <div className="ws-debug__lod">
+        {LOD_CHOICES.map(v => {
+          const isActive = v !== "auto" && v === effectiveTier;
           return (
             <button
-              key={t.name}
+              key={v}
               type="button"
-              className={`ws-debug__chip${isActive ? " is-on" : ""}`}
-              style={bg ? { background: bg, color: "#fff" } : undefined}
-              onClick={() => settingsStore.setForceLod(t.name)}
-              title={`${t.name}: ${t.downThreshold}–${t.upThreshold}`}
+              className={`ws-debug__chip${forceLod === v ? " is-on" : ""}`}
+              onClick={() => settingsStore.setForceLod(v)}
+              title={v === "auto" ? "follow viewport scale" : `${v}${isActive ? " · active" : ""}`}
             >
-              {t.name.slice(0, 3)}
+              {isActive && <span style={{ marginRight: 3 }}>●</span>}
+              {LOD_SHORT[v]}
             </button>
           );
         })}
-      </div>
-
-      <div className="ws-debug__divider">force lod</div>
-      <div className="ws-debug__lod">
-        {LOD_CHOICES.map(v => (
-          <button
-            key={v}
-            type="button"
-            className={`ws-debug__chip${forceLod === v ? " is-on" : ""}`}
-            onClick={() => settingsStore.setForceLod(v)}
-          >
-            {LOD_SHORT[v]}
-          </button>
-        ))}
       </div>
     </>
   );

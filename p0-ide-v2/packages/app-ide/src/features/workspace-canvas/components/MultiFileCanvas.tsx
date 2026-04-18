@@ -28,9 +28,21 @@ export function MultiFileCanvas({ graph }: Props) {
   const domLayerRef  = useRef<HTMLDivElement>(null);
   const { panBy, zoomAt, fitToGraph, setContainerSize, transform, viewport } = useCanvasViewport();
 
+  // Drag vs click disambiguation: the outer div owns pan, while Pixi emits
+  // `pointertap` from the same pointerup. Without a guard, dragging a module
+  // also fires a click (cluster zoom / file select) at release. We count pixel
+  // movement between mousedown and the trailing click, and suppress clicks
+  // that follow a real drag.
+  const dragDistance = useRef(0);
+  const CLICK_SLOP_PX = 5;
+  const wasDragGesture = () => dragDistance.current > CLICK_SLOP_PX;
+
   // Stable callbacks so memoized cards don't re-render when unrelated state
   // changes. Store references don't change across renders.
-  const selectFile = useCallback((id: string) => interactionStore.selectFile(id), []);
+  const selectFile = useCallback((id: string) => {
+    if (wasDragGesture()) return;
+    interactionStore.selectFile(id);
+  }, []);
   const hoverFile = useCallback((id: string | null) => interactionStore.hoverFile(id), []);
   // Reads the current value from the settings store at click time so we
   // don't need `showEdges` in deps — keeps this callback referentially
@@ -135,7 +147,7 @@ export function MultiFileCanvas({ graph }: Props) {
       if (e.ctrlKey || e.metaKey) {
         // Zoom deltas accumulate too — multiple wheel ticks in one frame
         // collapse into one zoomAt call with summed delta around the last cursor.
-        const delta = e.deltaY * -0.008;
+        const delta = e.deltaY * -0.02;
         const px = e.clientX - rect.left;
         const py = e.clientY - rect.top;
         if (pendingZoom.current) {
@@ -167,13 +179,17 @@ export function MultiFileCanvas({ graph }: Props) {
     if ((e.target as HTMLElement).closest("button,a,.file-card")) return;
     e.preventDefault();
     dragging.current = true;
+    dragDistance.current = 0;
     lastMouse.current = { x: e.clientX, y: e.clientY };
   }, []);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragging.current) return;
-    pendingPan.current.dx += e.clientX - lastMouse.current.x;
-    pendingPan.current.dy += e.clientY - lastMouse.current.y;
+    const dx = e.clientX - lastMouse.current.x;
+    const dy = e.clientY - lastMouse.current.y;
+    dragDistance.current += Math.abs(dx) + Math.abs(dy);
+    pendingPan.current.dx += dx;
+    pendingPan.current.dy += dy;
     lastMouse.current = { x: e.clientX, y: e.clientY };
     scheduleFlush();
   }, [scheduleFlush]);
@@ -192,6 +208,7 @@ export function MultiFileCanvas({ graph }: Props) {
   // referentially stable (important: PixiStage stores the ref inside a
   // useEffect([]) init path).
   const onClusterClick = useCallback((clusterId: string) => {
+    if (wasDragGesture()) return;
     const layout = sceneStore.getState().layout;
     const rect = layout?.clusterRects?.get(clusterId)
       ?? layout?.clusters?.find(c => c.id === clusterId)?.rect;
@@ -214,6 +231,7 @@ export function MultiFileCanvas({ graph }: Props) {
   // layout.superclusters. Referentially stable so PixiStage's init-path ref
   // capture doesn't churn.
   const onSuperclusterClick = useCallback((superclusterId: string) => {
+    if (wasDragGesture()) return;
     const layout = sceneStore.getState().layout;
     const rect = layout?.superclusters?.find(c => c.id === superclusterId)?.rect;
     if (!rect) return;

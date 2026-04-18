@@ -10,7 +10,8 @@ export type TabApp =
   | "scenario"
   | "reviews"
   | "policy"
-  | "settings";
+  | "settings"
+  | "demo";
 
 /** Superset: every surface the shell can render, including non-tab pages. */
 export type AppKind = TabApp | "home";

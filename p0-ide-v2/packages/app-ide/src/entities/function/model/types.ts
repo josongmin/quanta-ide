@@ -14,4 +14,12 @@ export interface FunctionHeader {
   dead?: boolean;
   riskScore: number;
   budgetPct?: number;
+  /** God-method/class signal (>N fields, >M responsibilities). */
+  god?: boolean;
+  /** % of mutations caught by tests (0-100). Lower = weaker. */
+  mutationScore?: number;
+  /** True if function logic is complex enough to warrant property tests. */
+  propertyGap?: boolean;
+  /** True if associated tests have non-deterministic pass rate. */
+  flaky?: boolean;
 }

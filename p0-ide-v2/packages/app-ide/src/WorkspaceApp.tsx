@@ -106,6 +106,14 @@ export function WorkspaceApp(props: WorkspaceAppProps) {
     }
   };
 
+  // Auto-load the default preset on first mount so the canvas opens with
+  // a real repo instead of the built-in SAMPLE_GRAPH.
+  useEffect(() => {
+    const preset = REPO_PRESETS[0];
+    void load(preset.path, preset.exts, preset.max);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ESC collapses the loader bar (useful while inspecting the canvas).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

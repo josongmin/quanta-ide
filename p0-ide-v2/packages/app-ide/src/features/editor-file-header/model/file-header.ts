@@ -17,6 +17,7 @@ class FileHeaderWidget extends WidgetType {
 
   constructor(readonly file: FileFacts) {
     super();
+    const drift = file.apiDrift;
     this._sig = signature(
       file.name,
       file.riskScore,
@@ -30,6 +31,11 @@ class FileHeaderWidget extends WidgetType {
       file.incidents.length,
       file.owner,
       file.lastModified,
+      file.cycleCount,
+      file.busFactor,
+      file.godScore,
+      drift?.added, drift?.removed, drift?.deprecated, drift?.bumpHint,
+      file.llmSignals?.length,
     );
   }
 
@@ -90,6 +96,42 @@ class FileHeaderWidget extends WidgetType {
 
     if (this.file.incidents.length > 0) {
       chips.push(createChip({ ico: "match", value: this.file.incidents.length, kind: "bad" }));
+    }
+
+    // ── Structural integrity signals ──
+    if (this.file.cycleCount && this.file.cycleCount > 0) {
+      chips.push(createChip({ ico: "cycle", value: this.file.cycleCount, kind: "warn" }));
+    }
+
+    if (this.file.godScore != null && this.file.godScore >= 70) {
+      chips.push(createChip({ ico: "god", value: this.file.godScore, kind: "bad" }));
+    }
+
+    // ── Knowledge / ownership signals ──
+    if (this.file.busFactor === 1) {
+      chips.push(createChip({ ico: "silo", value: "1", kind: "warn" }));
+    }
+
+    // ── API surface drift ──
+    if (this.file.apiDrift) {
+      const d = this.file.apiDrift;
+      const summary = `+${d.added}/-${d.removed}`;
+      const isMajor = d.bumpHint === "major";
+      chips.push(createChip({
+        ico: "api",
+        value: summary,
+        sub: d.bumpHint,
+        kind: isMajor ? "bad" : "warn",
+      }));
+    }
+
+    // ── LLM-specific risks (count) ──
+    if (this.file.llmSignals && this.file.llmSignals.length > 0) {
+      chips.push(createChip({
+        ico: "llm",
+        value: this.file.llmSignals.length,
+        kind: "bad",
+      }));
     }
 
     chips.push(createMeta(`${this.file.owner} · ${this.file.lastModified}`));

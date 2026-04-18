@@ -16,6 +16,10 @@ import {
 function isNotable(h: FunctionHeader): boolean {
   if (h.dead) return true;
   if (h.taint) return true;
+  if (h.god) return true;
+  if (h.flaky) return true;
+  if (h.propertyGap) return true;
+  if (h.mutationScore != null && h.mutationScore < 50) return true;
   if (h.riskScore >= RISK_NOTABLE) return true;
   if (h.blast >= 10) return true;
   if (h.complexity >= 7) return true;
@@ -34,6 +38,7 @@ class FnHeaderWidget extends WidgetType {
       h.line, h.name, h.kind, indent,
       h.blast, h.blastCritical, h.complexity, h.bigO,
       h.tests, h.taint, h.dead, h.riskScore, h.budgetPct,
+      h.god, h.mutationScore, h.propertyGap, h.flaky,
     );
   }
 
@@ -104,6 +109,29 @@ class FnHeaderWidget extends WidgetType {
       // Label-only chip — omit `ico` so we get
       // `<span class="cm-chip-bar__chip is-muted">dead</span>` (pre-refactor shape).
       chips.push(createChip({ value: "dead", kind: "muted" }));
+    }
+
+    // ── Code-quality signals ──
+    if (this.h.god) {
+      chips.push(createChip({ value: "god", kind: "bad" }));
+    }
+
+    // ── Test-quality signals ──
+    if (this.h.mutationScore != null) {
+      chips.push(createChip({
+        ico: "mut",
+        value: `${this.h.mutationScore}%`,
+        kind: this.h.mutationScore < 50 ? "bad"
+            : this.h.mutationScore < 75 ? "warn" : "default",
+      }));
+    }
+
+    if (this.h.propertyGap) {
+      chips.push(createChip({ value: "prop", kind: "muted" }));
+    }
+
+    if (this.h.flaky) {
+      chips.push(createChip({ value: "flaky", kind: "warn" }));
     }
 
     // Risk pill carries the `cm-chip-bar__risk` class (its own padding/

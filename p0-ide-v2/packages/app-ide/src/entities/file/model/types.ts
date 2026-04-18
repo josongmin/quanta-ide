@@ -9,6 +9,8 @@ import type { BlastTarget } from "@quanta/app-ide/entities/blast";
 import type { Incident } from "@quanta/app-ide/entities/incident";
 import type { BehaviorDiffChunk } from "@quanta/app-ide/entities/behavior";
 import type { OwnershipEntry } from "@quanta/app-ide/entities/ownership";
+import type { ApiDrift } from "@quanta/app-ide/entities/api-surface";
+import type { LLMSignal } from "@quanta/app-ide/entities/llm-signal";
 
 export interface NextHopTarget {
   name: string;
@@ -42,4 +44,14 @@ export interface FileFacts {
   ownership: OwnershipEntry[];
   /** Maps external node ID → reachable next-hop targets for progressive expansion. */
   nextHops?: Record<string, NextHopTarget[]>;
+  /** Number of cyclic-dep groups this file participates in. */
+  cycleCount?: number;
+  /** # of unique authors in last 90d (1 = knowledge silo / bus factor 1). */
+  busFactor?: number;
+  /** 0-100 responsibility overload score (god-class signal). */
+  godScore?: number;
+  /** Public API surface change since baseline. */
+  apiDrift?: ApiDrift;
+  /** LLM-specific risk signals detected in this file. */
+  llmSignals?: LLMSignal[];
 }

@@ -558,6 +558,20 @@
 .cm-gm--taint-sink:hover,
 .cm-activeLineGutter .cm-gm--taint-sink { color: var(--danger); background: var(--bg-danger-subtle); }
 
+.cm-gm--cycle      { color: color-mix(in srgb, var(--accent) 60%, var(--fg-muted)); }
+.cm-gm--silo       { color: color-mix(in srgb, var(--warn) 55%, var(--fg-muted)); }
+.cm-gm--god        { color: color-mix(in srgb, var(--danger) 55%, var(--fg-muted)); }
+.cm-gm--flaky      { color: color-mix(in srgb, var(--fg-subtle) 80%, transparent); }
+
+.cm-gm--cycle:hover,
+.cm-activeLineGutter .cm-gm--cycle { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.cm-gm--silo:hover,
+.cm-activeLineGutter .cm-gm--silo { color: var(--warn); background: var(--bg-warn-subtle); }
+.cm-gm--god:hover,
+.cm-activeLineGutter .cm-gm--god { color: var(--danger); background: var(--bg-danger-subtle); }
+.cm-gm--flaky:hover,
+.cm-activeLineGutter .cm-gm--flaky { color: var(--fg); background: var(--bg-muted); }
+
 .cm-gm:hover,
 .cm-activeLineGutter .cm-gm { color: var(--fg); }
 

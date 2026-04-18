@@ -6,7 +6,11 @@ export type GutterGlyph =
   | "arch-violation"
   | "dead"
   | "typestate"
-  | "incident-match";
+  | "incident-match"
+  | "cycle"
+  | "silo"
+  | "god"
+  | "flaky";
 
 export interface GutterMark {
   line: number;

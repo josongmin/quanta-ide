@@ -1279,6 +1279,94 @@ def _verify_replay_token(supplied: str, expected: str) -> bool:
 def _persist_trace(trace: List[TraceEntry]) -> None:
     # SANITIZER HINT: validate_trace(trace) belongs above this line
     postgres.exec("INSERT INTO traces VALUES ($1)", trace)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# LLM Reasoning Risks Catalog (OWASP-LLM mapping)
+# ──────────────────────────────────────────────────────────────────
+# Risks specific to model-driven code paths — surfaced because this
+# orchestrator chains analysis ports and LLM completions.
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ── scenario: prompt injection (user input → prompt verbatim) ────
+# OWASP LLM01
+def _build_prompt(request: Request) -> str:
+    return f"""You are a code reviewer.
+User asked: {request.ctx['question']}            # ← prompt injection
+Respond in JSON."""
+
+
+# ── scenario: model output trust (LLM JSON used as SQL) ──────────
+# OWASP LLM02
+def _resolve_action(response: str) -> Any:
+    parsed = json.loads(response)                # ← unvalidated parse
+    return postgres.exec(parsed["query"])        # ← model output → SQL
+
+
+# ── scenario: token budget overrun (unbounded chain depth) ───────
+# OWASP LLM10
+def _chain_steps(steps: List[Step]) -> str:
+    out = ""
+    for step in steps:                           # ← unbounded loop
+        out += llm.generate(out + step.prompt)   # ← growing context
+    return out
+
+
+# ── scenario: cache poisoning (cache key omits user/tenant) ──────
+# OWASP LLM03
+_LLM_CACHE: Dict[str, str] = {}
+
+def _cached_completion(prompt: str, user_id: str) -> str:
+    if prompt in _LLM_CACHE:                     # ← key ignores user_id
+        return _LLM_CACHE[prompt]
+    out = llm.generate(prompt)
+    _LLM_CACHE[prompt] = out
+    return out
+
+
+# ── scenario: hallucination floor (no confidence check) ──────────
+# OWASP LLM09
+def _act_on_response(resp: ModelResponse) -> Action:
+    # MISSING: if resp.confidence < CONFIDENCE_FLOOR: raise LowConfidence
+    return Action.from_dict(resp.payload)        # ← confidence ignored
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Concurrency & Async Catalog
+# ──────────────────────────────────────────────────────────────────
+# Patterns that race, deadlock, or block the event loop.
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ── scenario: async/sync boundary (sync I/O inside async fn) ─────
+async def _emit_telemetry(event: dict) -> None:
+    requests.post("https://telemetry.io", json=event)  # ← blocks loop
+
+
+# ── scenario: lock inversion (A→B vs B→A path → deadlock) ────────
+_lock_a = threading.Lock()
+_lock_b = threading.Lock()
+
+def _path_one() -> None:
+    with _lock_a:                                # ← A then B
+        with _lock_b:
+            pass
+
+def _path_two() -> None:
+    with _lock_b:                                # ← B then A → deadlock
+        with _lock_a:
+            pass
+
+
+# ── scenario: shared mutable state (module dict, no lock) ────────
+_REQUEST_REGISTRY: Dict[str, Request] = {}      # ← shared mutable
+
+def _register(req: Request) -> None:
+    _REQUEST_REGISTRY[req.id] = req              # ← no lock — race
+
+def _drop(req_id: str) -> None:
+    _REQUEST_REGISTRY.pop(req_id, None)          # ← race partner
 `;
 
 export const ORCHESTRATOR: FileFacts = {
@@ -1289,7 +1377,7 @@ export const ORCHESTRATOR: FileFacts = {
   taintCount: 2,
   cpxMax: 9,
   cpxBudgetPct: 91,
-  archViolations: 0,
+  archViolations: 5,  // matches gutter arch-violation glyphs at L64,65,1220,1240,1273
   deadCount: 1,
   riskScore: 78,
   lastModified: "2w",
@@ -1297,6 +1385,19 @@ export const ORCHESTRATOR: FileFacts = {
   ownership: [
     { author: "@songmin", pct: 81, role: "primary" },
     { author: "@devops-bot", pct: 19, role: "contributor" },
+  ],
+
+  // ── Structural-integrity / quality / LLM signals ──────────────────
+  cycleCount: 2,            // orchestrator ↔ infra.experience_store ↔ orchestrator (and 1 more)
+  busFactor: 1,             // only @songmin has touched core paths in 90d
+  godScore: 78,             // DeepReasoningOrchestrator carries too many responsibilities
+  apiDrift: { added: 3, removed: 1, deprecated: 2, bumpHint: "minor" },
+  llmSignals: [
+    { kind: "prompt-injection",     line: 1294, owasp: "LLM01", detail: "request.ctx['question'] interpolated into f-string prompt" },
+    { kind: "model-output-trust",   line: 1302, owasp: "LLM02", detail: "json.loads(response) → postgres.exec" },
+    { kind: "token-budget-overrun", line: 1310, owasp: "LLM10", detail: "growing context across unbounded loop" },
+    { kind: "cache-poisoning",      line: 1319, owasp: "LLM03", detail: "cache key is prompt only — user_id ignored" },
+    { kind: "hallucination-floor",  line: 1330, owasp: "LLM09", detail: "Action.from_dict(payload) without confidence check" },
   ],
 
   symbols: [
@@ -1609,6 +1710,8 @@ export const ORCHESTRATOR: FileFacts = {
       owner: "@songmin",
       riskScore: 78,
       budgetPct: 91,
+      god: true,                    // 18 methods, 9 fields, 6 responsibilities
+      mutationScore: 12,            // tests barely catch any mutation
     },
     {
       line: 500,
@@ -1634,6 +1737,9 @@ export const ORCHESTRATOR: FileFacts = {
       taint: "sink",
       riskScore: 78,
       budgetPct: 91,
+      mutationScore: 18,            // weak — most mutations slip through
+      propertyGap: true,            // complex inputs, only example tests
+      flaky: true,                  // intermittent timeout failures in CI
     },
     {
       line: 589,
@@ -1762,12 +1868,135 @@ export const ORCHESTRATOR: FileFacts = {
       owner: "@songmin",
       riskScore: 50,
     },
+    // ── LLM Reasoning Risks Catalog (Python L1290+) ──────────────────
+    {
+      line: 1292,
+      name: "_build_prompt",
+      kind: "function",
+      blast: 2,
+      complexity: 1,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      taint: "sink",
+      riskScore: 72,
+    },
+    {
+      line: 1300,
+      name: "_resolve_action",
+      kind: "function",
+      blast: 3,
+      complexity: 2,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      taint: "sink",
+      riskScore: 81,
+      propertyGap: true,
+    },
+    {
+      line: 1307,
+      name: "_chain_steps",
+      kind: "function",
+      blast: 2,
+      complexity: 2,
+      bigO: "O(n²)",                // unbounded growing context
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 68,
+      budgetPct: 92,                // chain depth not capped
+    },
+    {
+      line: 1318,
+      name: "_cached_completion",
+      kind: "function",
+      blast: 4,
+      complexity: 3,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 64,
+    },
+    {
+      line: 1328,
+      name: "_act_on_response",
+      kind: "function",
+      blast: 5,
+      complexity: 1,
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 60,
+      propertyGap: true,            // confidence threshold logic missing
+    },
+    // ── Concurrency Catalog (Python L1340+) ──────────────────────────
+    {
+      line: 1341,
+      name: "_emit_telemetry",
+      kind: "function",
+      blast: 2,
+      complexity: 1,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 58,                // sync I/O in async fn
+      flaky: true,
+    },
+    {
+      line: 1349,
+      name: "_path_one",
+      kind: "function",
+      blast: 2,
+      complexity: 1,
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 65,                // potential deadlock via lock inversion
+    },
+    {
+      line: 1354,
+      name: "_path_two",
+      kind: "function",
+      blast: 2,
+      complexity: 1,
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 65,
+    },
+    {
+      line: 1363,
+      name: "_register",
+      kind: "function",
+      blast: 6,
+      complexity: 1,
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 54,                // shared mutable state, no lock
+      mutationScore: 8,
+    },
+    {
+      line: 1368,
+      name: "_drop",
+      kind: "function",
+      blast: 4,
+      complexity: 1,
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 52,
+      mutationScore: 8,
+    },
   ],
 
   gutter: [
-    // ── Existing scenarios (aligned to actual source lines) ──────────
+    // ── Early-line glyph samples (every glyph type visible in <400 lines) ──
     { line: 64, glyph: "arch-violation", title: "infra import: ExperienceStore (domain→infra violation)" },
     { line: 65, glyph: "arch-violation", title: "infra import: postgres (domain→infra violation)" },
+    { line: 78, glyph: "dead", title: "dead constant: TEMP_FEATURE_FLAG — unused since 1mo" },
+    { line: 79, glyph: "dead", title: "dead constant: _LEGACY_RETRY_COUNT — referenced only by OldRetryPolicy" },
+    { line: 234, glyph: "typestate", title: "typestate: cache lifecycle (init → get/put → evict)" },
+    { line: 272, glyph: "incident-match", title: "matches incident #112: cache stats race condition (hits/misses non-atomic)" },
+    { line: 307, glyph: "dead", title: "dead class: OldRetryPolicy — superseded by RetryPolicy" },
+    { line: 358, glyph: "taint-source", title: "taint source: request entry point" },
+    { line: 370, glyph: "taint-sanitized", title: "sanitizer: validate_trace() — schema check before sink" },
+    // ── Main orchestrator (lines 484+) ────────────────────────────────
     { line: 524, glyph: "taint-source", title: "taint source: request.ctx (user input)" },
     { line: 549, glyph: "taint-sink", title: "taint sink: _store.save(trace) — unvalidated" },
     { line: 549, glyph: "incident-match", title: "matches incident #47 (2024-11-15): same source→sink shape" },
@@ -1789,6 +2018,22 @@ export const ORCHESTRATOR: FileFacts = {
     { line: 1268, glyph: "taint-sink", title: "SQLi sink: raw query passed to postgres.exec" },
     { line: 1273, glyph: "arch-violation", title: "timing attack: == on secret token (use compare_digest)" },
     { line: 1278, glyph: "taint-sanitized", title: "sanitizer hint: validate_trace() should run here" },
+    // ── Structural-integrity glyphs (cycle / silo / god) ────────────
+    { line: 64, glyph: "cycle", title: "cycle: orchestrator → infra.experience_store → orchestrator" },
+    { line: 484, glyph: "god", title: "god class: 18 methods, 9 fields, 6 responsibilities" },
+    { line: 484, glyph: "silo", title: "bus factor 1: only @songmin has touched core paths in 90d" },
+    // ── LLM Reasoning Risks Catalog (Python L1290+) ─────────────────
+    { line: 1294, glyph: "taint-sink", title: "LLM01 prompt injection: ctx['question'] → f-string prompt" },
+    { line: 1302, glyph: "taint-sink", title: "LLM02 model output trust: json.loads(response) → postgres.exec" },
+    { line: 1310, glyph: "arch-violation", title: "LLM10 token budget overrun: growing context across unbounded loop" },
+    { line: 1319, glyph: "incident-match", title: "LLM03 cache poisoning: matches incident #93 (cross-tenant LLM cache leak)" },
+    { line: 1330, glyph: "arch-violation", title: "LLM09 hallucination: Action.from_dict(payload) without confidence check" },
+    // ── Concurrency & Async Catalog (Python L1340+) ─────────────────
+    { line: 1342, glyph: "arch-violation", title: "async/sync boundary: sync requests.post() inside async fn — blocks event loop" },
+    { line: 1342, glyph: "flaky", title: "intermittent telemetry timeouts in CI" },
+    { line: 1350, glyph: "typestate", title: "lock acquisition order: A→B in _path_one" },
+    { line: 1355, glyph: "typestate", title: "lock acquisition order: B→A in _path_two — potential deadlock with _path_one" },
+    { line: 1361, glyph: "typestate", title: "shared mutable state: module-level dict mutated from multiple paths, no lock" },
   ],
 
   minimap: [
