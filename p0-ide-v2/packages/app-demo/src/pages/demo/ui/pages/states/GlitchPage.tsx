@@ -187,134 +187,147 @@ const LOGO_ROWS = [
 ];
 const LOGO_PAL: Palette = { Q: "#1a1a1a" };
 
-function PixelScene() {
-  const trees: Array<{ x: number; y: number; palette: Palette; px: number }> = [
-    { x: 6, y: 88, palette: TREE_PAL_DK, px: 2 },
-    { x: 32, y: 92, palette: TREE_PAL_MD, px: 2 },
-    { x: 58, y: 90, palette: TREE_PAL_DK, px: 2 },
-    { x: 248, y: 92, palette: TREE_PAL_MD, px: 2 },
-    { x: 278, y: 88, palette: TREE_PAL_DK, px: 2 },
-    { x: 302, y: 94, palette: TREE_PAL_MD, px: 2 },
-  ];
-
-  const bigTreeLeft = { x: 10, y: 112, palette: TREE_PAL_DK, px: 4 };
-  const bigTreeRight = { x: 276, y: 116, palette: TREE_PAL_DK, px: 4 };
-
-  const flowers: Array<{ x: number; y: number; pal: Palette }> = [
-    { x: 54, y: 166, pal: FLOWER_PAL(P.flower1) },
-    { x: 72, y: 170, pal: FLOWER_PAL(P.flower2) },
-    { x: 96, y: 168, pal: FLOWER_PAL(P.flower3) },
-    { x: 118, y: 172, pal: FLOWER_PAL(P.flower1) },
-    { x: 148, y: 170, pal: FLOWER_PAL(P.flower4) },
-    { x: 178, y: 172, pal: FLOWER_PAL(P.flower2) },
-    { x: 210, y: 170, pal: FLOWER_PAL(P.flower1) },
-    { x: 240, y: 172, pal: FLOWER_PAL(P.flower3) },
-    { x: 266, y: 170, pal: FLOWER_PAL(P.flower2) },
-    { x: 290, y: 172, pal: FLOWER_PAL(P.flower1) },
-  ];
-
-  const bushes: Array<{ x: number; y: number }> = [
-    { x: 82, y: 160 },
-    { x: 158, y: 162 },
-    { x: 254, y: 160 },
+function SkyScene() {
+  const forestLine: Array<{ x: number; y: number; palette: Palette; px: number }> = [
+    { x: 4, y: 82, palette: TREE_PAL_DK, px: 1 },
+    { x: 14, y: 84, palette: TREE_PAL_MD, px: 1 },
+    { x: 26, y: 82, palette: TREE_PAL_DK, px: 1 },
+    { x: 44, y: 84, palette: TREE_PAL_MD, px: 1 },
+    { x: 116, y: 82, palette: TREE_PAL_MD, px: 1 },
+    { x: 132, y: 84, palette: TREE_PAL_DK, px: 1 },
+    { x: 186, y: 84, palette: TREE_PAL_DK, px: 1 },
+    { x: 196, y: 82, palette: TREE_PAL_MD, px: 1 },
+    { x: 252, y: 82, palette: TREE_PAL_MD, px: 1 },
+    { x: 264, y: 84, palette: TREE_PAL_DK, px: 1 },
+    { x: 292, y: 82, palette: TREE_PAL_DK, px: 1 },
+    { x: 304, y: 84, palette: TREE_PAL_MD, px: 1 },
   ];
 
   return (
     <svg
-      viewBox="0 0 320 180"
-      width="100%"
-      height="100%"
+      viewBox="0 0 320 100"
       preserveAspectRatio="xMidYMax slice"
       shapeRendering="crispEdges"
-      style={{ display: "block", position: "absolute", inset: 0 }}
+      className="glitch-svg"
       aria-hidden
     >
-      {/* sky bands */}
-      <rect x="0" y="0" width="320" height="60" fill={P.sky1} />
-      <rect x="0" y="60" width="320" height="30" fill={P.sky2} />
-      <rect x="0" y="90" width="320" height="20" fill={P.sky3} />
-
       {/* sun */}
-      <Sprite x={252} y={16} rows={SUN_ROWS} palette={SUN_PAL} px={2} />
+      <Sprite x={268} y={8} rows={SUN_ROWS} palette={SUN_PAL} px={2} />
 
       {/* clouds */}
-      <Sprite x={22} y={18} rows={CLOUD_ROWS} palette={CLOUD_PAL} px={2} />
-      <Sprite x={102} y={8} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
-      <Sprite x={180} y={38} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
+      <Sprite x={24} y={10} rows={CLOUD_ROWS} palette={CLOUD_PAL} px={2} />
+      <Sprite x={102} y={2} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
+      <Sprite x={196} y={22} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
+      <Sprite x={150} y={34} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={1} />
 
       {/* back mountains */}
       <polygon
-        points="0,92 28,72 52,86 84,62 112,88 146,70 178,86 208,66 240,84 272,74 300,88 320,80 320,110 0,110"
+        points="0,60 28,40 52,54 84,28 112,56 146,36 178,54 208,32 240,52 272,40 300,56 320,46 320,100 0,100"
         fill={P.mntFar}
       />
       {/* front mountains */}
       <polygon
-        points="-4,100 24,84 52,96 86,74 110,92 140,82 168,96 196,78 228,94 262,82 296,98 320,92 320,112 -4,112"
+        points="-4,70 24,52 52,66 86,40 110,62 140,50 168,66 196,44 228,64 262,50 296,68 320,60 320,100 -4,100"
         fill={P.mntNear}
       />
-      {/* snow caps on front peaks */}
-      <polygon points="82,76 86,74 90,76 92,80 80,80" fill={P.snow} />
-      <polygon points="192,80 196,78 200,80 202,84 190,84" fill={P.snow} />
+      {/* snow caps */}
+      <polygon points="82,44 86,40 90,44 92,48 80,48" fill={P.snow} />
+      <polygon points="192,48 196,44 200,48 202,52 190,52" fill={P.snow} />
       {/* mountain shadow */}
       <polygon
-        points="-4,112 24,96 52,108 86,86 110,104 140,94 168,108 196,90 228,106 262,94 296,110 320,104 320,114 -4,114"
+        points="-4,100 24,84 52,94 86,62 110,90 140,72 168,94 196,66 228,92 262,72 296,94 320,86 320,100 -4,100"
         fill={P.mntShade}
-        opacity={0.35}
+        opacity={0.3}
       />
 
-      {/* rainbow: stacked arc strips clipped by a rect */}
+      {/* rainbow */}
       <defs>
         <clipPath id="glitch-rainbow-clip">
-          <rect x="70" y="50" width="180" height="80" />
+          <rect x="66" y="28" width="188" height="72" />
         </clipPath>
       </defs>
       <g clipPath="url(#glitch-rainbow-clip)">
-        <circle cx="160" cy="130" r="72" fill="none" stroke={P.rainbowA} strokeWidth="4" />
-        <circle cx="160" cy="130" r="68" fill="none" stroke={P.rainbowB} strokeWidth="4" />
-        <circle cx="160" cy="130" r="64" fill="none" stroke={P.rainbowC} strokeWidth="4" />
-        <circle cx="160" cy="130" r="60" fill="none" stroke={P.rainbowD} strokeWidth="4" />
-        <circle cx="160" cy="130" r="56" fill="none" stroke={P.rainbowE} strokeWidth="4" />
-        <circle cx="160" cy="130" r="52" fill="none" stroke={P.rainbowF} strokeWidth="4" />
+        <circle cx="160" cy="100" r="60" fill="none" stroke={P.rainbowA} strokeWidth="4" />
+        <circle cx="160" cy="100" r="56" fill="none" stroke={P.rainbowB} strokeWidth="4" />
+        <circle cx="160" cy="100" r="52" fill="none" stroke={P.rainbowC} strokeWidth="4" />
+        <circle cx="160" cy="100" r="48" fill="none" stroke={P.rainbowD} strokeWidth="4" />
+        <circle cx="160" cy="100" r="44" fill="none" stroke={P.rainbowE} strokeWidth="4" />
+        <circle cx="160" cy="100" r="40" fill="none" stroke={P.rainbowF} strokeWidth="4" />
       </g>
 
       {/* floating islands */}
-      <g>
-        <Sprite x={200} y={50} rows={ISLAND_ROWS} palette={ISLAND_PAL} px={2} />
-        <Sprite x={218} y={44} rows={TREE_ROWS} palette={TREE_PAL_MD} px={2} />
-      </g>
-      <g>
-        <Sprite x={96} y={68} rows={ISLAND_SM_ROWS} palette={ISLAND_PAL} px={2} />
-        <Sprite x={102} y={62} rows={TREE_ROWS} palette={TREE_PAL_DK} px={1} />
-      </g>
+      <Sprite x={200} y={30} rows={ISLAND_ROWS} palette={ISLAND_PAL} px={2} />
+      <Sprite x={218} y={24} rows={TREE_ROWS} palette={TREE_PAL_MD} px={2} />
+      <Sprite x={96} y={48} rows={ISLAND_SM_ROWS} palette={ISLAND_PAL} px={2} />
+      <Sprite x={102} y={42} rows={TREE_ROWS} palette={TREE_PAL_DK} px={1} />
 
-      {/* forest line silhouettes */}
-      {trees.map((t, i) => (
-        <Sprite key={`bt-${i}`} x={t.x} y={t.y} rows={TREE_ROWS} palette={t.palette} px={t.px} />
+      {/* forest silhouettes near horizon */}
+      {forestLine.map((t, i) => (
+        <Sprite key={`fst-${i}`} x={t.x} y={t.y} rows={TREE_ROWS} palette={t.palette} px={t.px} />
       ))}
 
-      {/* ground */}
-      <rect x="0" y="132" width="320" height="48" fill={P.grass} />
-      <rect x="0" y="130" width="320" height="2" fill={P.grassShade} />
+      {/* big trees at the horizon — trunks reach the very bottom */}
+      <Sprite x={8} y={62} rows={TREE_ROWS} palette={TREE_PAL_DK} px={4} />
+      <Sprite x={280} y={64} rows={TREE_ROWS} palette={TREE_PAL_DK} px={4} />
+    </svg>
+  );
+}
+
+function GroundScene() {
+  const flowers: Array<{ x: number; y: number; pal: Palette }> = [
+    { x: 14, y: 40, pal: FLOWER_PAL(P.flower1) },
+    { x: 32, y: 46, pal: FLOWER_PAL(P.flower2) },
+    { x: 60, y: 42, pal: FLOWER_PAL(P.flower3) },
+    { x: 78, y: 48, pal: FLOWER_PAL(P.flower1) },
+    { x: 108, y: 44, pal: FLOWER_PAL(P.flower4) },
+    { x: 166, y: 48, pal: FLOWER_PAL(P.flower2) },
+    { x: 180, y: 42, pal: FLOWER_PAL(P.flower1) },
+    { x: 232, y: 46, pal: FLOWER_PAL(P.flower3) },
+    { x: 244, y: 42, pal: FLOWER_PAL(P.flower2) },
+    { x: 270, y: 48, pal: FLOWER_PAL(P.flower1) },
+    { x: 288, y: 44, pal: FLOWER_PAL(P.flower4) },
+    { x: 308, y: 40, pal: FLOWER_PAL(P.flower3) },
+  ];
+
+  return (
+    <svg
+      viewBox="0 0 320 60"
+      preserveAspectRatio="xMidYMin slice"
+      shapeRendering="crispEdges"
+      className="glitch-svg"
+      aria-hidden
+    >
+      {/* grass shade band at horizon */}
+      <rect x="0" y="0" width="320" height="2" fill={P.grassShade} />
+
       {/* grass tufts */}
       <g fill={P.grassShade}>
-        {Array.from({ length: 40 }).map((_, i) => (
-          <rect key={`tuft-${i}`} x={(i * 8 + 3) % 320} y={140 + ((i * 13) % 32)} width={2} height={2} />
+        {Array.from({ length: 56 }).map((_, i) => (
+          <rect
+            key={`tuft-${i}`}
+            x={(i * 6 + 3) % 320}
+            y={3 + ((i * 13) % 8)}
+            width={2}
+            height={2}
+          />
         ))}
       </g>
       <g fill={P.grassDark}>
-        {Array.from({ length: 30 }).map((_, i) => (
-          <rect key={`tuftd-${i}`} x={(i * 11 + 7) % 320} y={150 + ((i * 7) % 24)} width={2} height={2} />
+        {Array.from({ length: 40 }).map((_, i) => (
+          <rect
+            key={`tuftd-${i}`}
+            x={(i * 11 + 5) % 320}
+            y={14 + ((i * 7) % 36)}
+            width={2}
+            height={2}
+          />
         ))}
       </g>
 
-      {/* big foreground trees */}
-      <Sprite {...bigTreeLeft} rows={TREE_ROWS} />
-      <Sprite {...bigTreeRight} rows={TREE_ROWS} />
-
       {/* bushes */}
-      {bushes.map((b, i) => (
-        <Sprite key={`b-${i}`} x={b.x} y={b.y} rows={BUSH_ROWS} palette={BUSH_PAL} px={2} />
-      ))}
+      <Sprite x={54} y={22} rows={BUSH_ROWS} palette={BUSH_PAL} px={2} />
+      <Sprite x={228} y={24} rows={BUSH_ROWS} palette={BUSH_PAL} px={2} />
+      <Sprite x={294} y={22} rows={BUSH_ROWS} palette={BUSH_PAL} px={2} />
 
       {/* flowers */}
       {flowers.map((f, i) => (
@@ -322,12 +335,12 @@ function PixelScene() {
       ))}
 
       {/* pig */}
-      <Sprite x={138} y={156} rows={PIG_ROWS} palette={PIG_PAL} px={2} />
+      <Sprite x={110} y={28} rows={PIG_ROWS} palette={PIG_PAL} px={3} />
       {/* chicken */}
-      <Sprite x={196} y={158} rows={HEN_ROWS} palette={HEN_PAL} px={2} />
+      <Sprite x={180} y={28} rows={HEN_ROWS} palette={HEN_PAL} px={3} />
 
-      {/* tiny Quanta mark stamped bottom-right */}
-      <Sprite x={298} y={162} rows={LOGO_ROWS} palette={LOGO_PAL} px={1} />
+      {/* tiny Quanta mark */}
+      <Sprite x={302} y={48} rows={LOGO_ROWS} palette={LOGO_PAL} px={1} />
     </svg>
   );
 }
@@ -337,10 +350,13 @@ export function GlitchPage() {
   return (
     <div className="glitch-page">
       <style>{GLITCH_CSS}</style>
-      <div className="glitch-scene">
-        <PixelScene />
-        <div className="glitch-scanlines" aria-hidden />
+      <div className="glitch-sky-layer" aria-hidden>
+        <SkyScene />
       </div>
+      <div className="glitch-ground-layer" aria-hidden>
+        <GroundScene />
+      </div>
+      <div className="glitch-scanlines" aria-hidden />
 
       <div className="glitch-overlay">
         <div className="glitch-card">
@@ -409,19 +425,51 @@ export function GlitchPage() {
 
 const GLITCH_CSS = `
 .glitch-page {
-  position: relative;
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
   min-height: 100%;
   overflow: hidden;
-  background: #bfe9f5;
+  background: linear-gradient(
+    to bottom,
+    #bfe9f5 0%,
+    #bfe9f5 28%,
+    #d1eff5 50%,
+    #e7f6f7 62%,
+    #e7f6f7 65%,
+    #7cc26a 65%,
+    #7cc26a 82%,
+    #5aa352 100%
+  );
   image-rendering: pixelated;
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 
-.glitch-scene {
+.glitch-sky-layer,
+.glitch-ground-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+.glitch-sky-layer {
+  top: 0;
+  height: 65%;
+  overflow: hidden;
+}
+.glitch-ground-layer {
+  bottom: 0;
+  height: 35%;
+  overflow: hidden;
+}
+
+.glitch-svg {
   position: absolute;
   inset: 0;
-  pointer-events: none;
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .glitch-scanlines {
@@ -439,18 +487,18 @@ const GLITCH_CSS = `
 }
 
 .glitch-overlay {
-  position: relative;
-  z-index: 1;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100%;
-  padding: 40px 16px;
+  padding: clamp(16px, 4vw, 48px);
+  overflow: auto;
 }
 
 .glitch-card {
-  width: 100%;
-  max-width: 520px;
+  width: min(560px, 92vw);
   background: #fafaf7;
   color: #1a1a1a;
   border: 2px solid #111;
@@ -458,7 +506,7 @@ const GLITCH_CSS = `
     4px 0 0 #111,
     0 4px 0 #111,
     4px 4px 0 #111,
-    8px 8px 0 rgba(17, 17, 17, 0.25);
+    10px 10px 0 rgba(17, 17, 17, 0.28);
   position: relative;
 }
 
@@ -535,7 +583,7 @@ const GLITCH_CSS = `
 .glitch-card__heading {
   position: relative;
   margin: 0 0 10px 0;
-  font-size: 22px;
+  font-size: clamp(20px, 2.4vw, 28px);
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.15;

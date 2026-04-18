@@ -101,6 +101,13 @@ export interface PresenceProps {
   showAgentPresence?: boolean;
 }
 
+export interface ActionTerrainProps {
+  enabled?: boolean;
+  bars?: readonly import("../renderers/iso/IsoTerrainRenderer").IsoTerrainBar[];
+  cone?: import("../renderers/iso/IsoConeRenderer").IsoConeInput | null;
+  isoConfig?: import("../renderers/iso/iso-projection").IsoConfig;
+}
+
 export interface SceneProps {
   visible: WorkspaceView;
   /** Populated only at supergalaxy LOD. One box per cluster. */
@@ -121,6 +128,7 @@ export interface PixiStageProps {
   temporal: TemporalProps;
   trace: TraceProps;
   presence: PresenceProps;
+  actionTerrain?: ActionTerrainProps;
 
   /** Master toggle for multi-graph gold cross-overlay. */
   highlightCrossGraph?: boolean;
@@ -171,6 +179,7 @@ export function PixiStage({
   temporal,
   trace,
   presence,
+  actionTerrain,
   highlightCrossGraph,
   elevationMode = false,
   effects,
@@ -189,6 +198,10 @@ export function PixiStage({
   const { temporalEdgeSet, diffAdded, diffRemoved } = temporal;
   const { activeTrace, traceEdgeSet } = trace;
   const { agentPresence, showAgentPresence = true } = presence;
+  const actionTerrainEnabled = actionTerrain?.enabled ?? false;
+  const actionTerrainBars = actionTerrain?.bars;
+  const actionTerrainCone = actionTerrain?.cone ?? null;
+  const actionTerrainIsoConfig = actionTerrain?.isoConfig;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<Application | null>(null);
@@ -531,6 +544,10 @@ export function PixiStage({
       showAgentPresence,
       effects,
       showEffectBadges,
+      actionTerrainEnabled,
+      actionTerrainBars,
+      actionTerrainCone,
+      actionTerrainIsoConfig,
     };
     stack.update(ctx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -544,6 +561,7 @@ export function PixiStage({
     clusterEdgesToRender, sccBubblesAllowed, startHereAllowed, startHereTopN,
     activeTrace, agentPresence, showAgentPresence,
     effects, showEffectBadges,
+    actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoConfig,
   ]);
 
   return (

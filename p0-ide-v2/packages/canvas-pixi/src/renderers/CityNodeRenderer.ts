@@ -92,6 +92,20 @@ interface FrameCtx {
   maxY: number;
 }
 
+// BitmapText style setters trigger atlas re-lookup and re-layout inside Pixi
+// even when the new value equals the old one — walking thousands of labels
+// per frame, this turns into one of the biggest allocators in a dev-build.
+// Guarded assignment is the cheapest fix: TypeScript's own narrowing lets
+// V8 inline both branches. Colour fills are compared numerically because
+// .style.fill may also accept colour objects; we only ever write numbers
+// here so number-equality is sufficient.
+function setFontSize(bt: BitmapText, size: number): void {
+  if (bt.style.fontSize !== size) bt.style.fontSize = size;
+}
+function setFill(bt: BitmapText, color: number): void {
+  if (bt.style.fill !== color) bt.style.fill = color;
+}
+
 // Per-file render-state cache used as a dirty-flag. If every field in this
 // snapshot matches the one from the previous frame, the file's label text
 // and risk/complexity colours haven't changed — we can skip the text-mutation
@@ -142,28 +156,25 @@ export class CityNodeRenderer {
   // then LRU-rotates (cursor wraps and overwrites oldest entries).
   private pools: Map<string, TextPool> = new Map();
 
-  // Per-file dirty-flag cache. Most frames in city LOD are pure pan/zoom —
-  // FileNode content doesn't mutate between frames, only the camera does.
-  // When the snapshot for a file matches, we reuse the cached label strings
-  // verbatim (string comparison on BitmapText.text is a cheap early-out
-  // inside Pixi; but skipping the re-allocation of `"..." + slice(-18)` and
-  // `loc.toLocaleString() + " lines"` is the real win).
+  // Per-file dirty-flag cache. In city LOD most frames are pan/zoom — the
+  // FileNode content itself isn't mutating, only the camera. Comparing the
+  // current snapshot against the cached one lets us skip the expensive
+  // label-formatting (string concat + substring + toLocaleString) and the
+  // BitmapText setter chain (text / style.fontSize / style.fill each force
+  // an atlas/layout invalidation in Pixi) when nothing changed.
   private labelCache: Map<string, FileLabelSnapshot> = new Map();
 
-  // Pooled pick-rect objects so we don't allocate a fresh `{x,y,w,h,id}`
-  // per file per frame. SpatialPickIndex.load walks the array it's given
-  // and does its own copy into RBush internals — we can safely recycle.
+  // Pool-allocated pick rects. Pre-grown to the visible-file count so the
+  // hot loop can overwrite existing `{x,y,w,h,id}` slots in place instead
+  // of pushing a fresh object literal per file per frame.
   private pickRectsCapacity = 0;
 
-  // Shadow-pass dirty hash: numeric rolling hash of (id, elevation, card
-  // geometry) over every elevated file in this frame. When identical across
-  // frames, we skip `shadowLayer.clear()` + per-file `roundRect()` entirely
-  // — the existing Graphics stays valid since card rects are world-space
-  // and the world Container is what's being panned/zoomed.
+  // Rolling hash of (id, elevation, card geometry) for the last frame's
+  // elevated set. Shadow layer only needs re-painting when the hash or the
+  // elevated-file count changes — pan/zoom leaves both invariant because
+  // card rects are world-space and the parent Container handles the view
+  // transform.
   private lastShadowHash = 0;
-  // Snapshot cache of which files were elevated last frame, so we can also
-  // invalidate when the elevation set changes (adding/removing a file keeps
-  // per-file hash the same if positions match, but the *count* differs).
   private lastShadowCount = 0;
 
   private onClickFile?: (fileId: string) => void;
@@ -307,9 +318,11 @@ export class CityNodeRenderer {
     this.rectMesh.ensureCapacity(rectUpper);
 
     const data = this.rectMesh.view();
-    this.pickRects.length = 0;
+    // Pre-grow pick-rect pool so the loop can overwrite slots in place
+    // instead of allocating a new `{x,y,w,h,id}` object per file per frame.
+    this.ensurePickRectCapacity(files.length);
+    let pickCount = 0;
     this.releaseAllText();
-    this.shadowLayer.clear();
 
     const frame: FrameCtx = {
       data,
@@ -323,6 +336,13 @@ export class CityNodeRenderer {
       maxY: -Infinity,
     };
 
+    // Accumulate a rolling hash over elevated cards. If the hash and count
+    // match last frame's, we can skip the whole shadow-pass (clear + N
+    // roundRect() calls) because the previous Graphics still reflects the
+    // same scene — pan/zoom is handled at the Container level.
+    let shadowHash = 0;
+    let shadowCount = 0;
+
     for (const file of files) {
       const rect = layout.fileRects.get(file.id);
       if (!rect) continue;
@@ -331,21 +351,60 @@ export class CityNodeRenderer {
       const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
       const card = this.computeCardRect(rect, elevation);
 
-      this.updateShadow(card, elevation);
+      if (elevation > 0) {
+        // Bitwise-OR-with-zero coerces to i32, keeping the hash numeric
+        // (no intermediate strings). Collision risk is irrelevant — a
+        // false-negative only costs one wasted shadow redraw.
+        shadowHash = (shadowHash * 31 + ((card.x | 0) ^ ((card.y | 0) << 1))) | 0;
+        shadowHash = (shadowHash * 31 + ((card.w | 0) ^ ((card.h | 0) << 1))) | 0;
+        shadowHash = (shadowHash * 31 + (elevation | 0)) | 0;
+        shadowCount++;
+      }
+
       this.updateCardShell(frame, card, instance, elevation);
       this.updateHeader(frame, file, card, instance);
       this.updateFunctionBlocks(frame, file, card);
       this.updateFooter(frame, file, card);
 
-      this.pickRects.push({ x: card.x, y: card.y, w: card.w, h: card.h, id: file.id });
+      // Overwrite in place — slot is guaranteed to exist thanks to
+      // ensurePickRectCapacity.
+      const slot = this.pickRects[pickCount++];
+      slot.x = card.x;
+      slot.y = card.y;
+      slot.w = card.w;
+      slot.h = card.h;
+      slot.id = file.id;
+
       if (card.x < frame.minX) frame.minX = card.x;
       if (card.y < frame.minY) frame.minY = card.y;
       if (card.x + card.w > frame.maxX) frame.maxX = card.x + card.w;
       if (card.y + card.h > frame.maxY) frame.maxY = card.y + card.h;
     }
 
+    // Truncate logical length — entries past pickCount are retained but
+    // invisible to SpatialPickIndex.load. Next frame we'll overwrite them
+    // if the visible set grows again.
+    this.pickRects.length = pickCount;
+
+    // Re-paint shadow layer only when elevated-card set has changed.
+    if (shadowHash !== this.lastShadowHash || shadowCount !== this.lastShadowCount) {
+      this.shadowLayer.clear();
+      if (elevationMode && shadowCount > 0) {
+        for (const file of files) {
+          const rect = layout.fileRects.get(file.id);
+          if (!rect) continue;
+          const elevation = elevationFromRisk(file.riskScore);
+          if (elevation <= 0) continue;
+          const card = this.computeCardRect(rect, elevation);
+          this.updateShadow(card, elevation);
+        }
+      }
+      this.lastShadowHash = shadowHash;
+      this.lastShadowCount = shadowCount;
+    }
+
     this.hitLayer.clear();
-    if (this.pickRects.length > 0) {
+    if (pickCount > 0) {
       this.hitLayer
         .rect(frame.minX, frame.minY, frame.maxX - frame.minX, frame.maxY - frame.minY)
         .fill({ color: 0x000000, alpha: 0.001 });
@@ -353,6 +412,104 @@ export class CityNodeRenderer {
 
     this.rectMesh.setInstanceCount(frame.ri);
     this.pickIndex.load(this.pickRects, "city");
+  }
+
+  // Pre-size the pick-rect pool to at least `n` slots. Each new slot is a
+  // freshly-minted mutable object so the inner loop can overwrite fields
+  // rather than pushing fresh literals. pickRectsCapacity never shrinks —
+  // PixiStage holds the renderer for the lifetime of the bundle.
+  private ensurePickRectCapacity(n: number): void {
+    while (this.pickRectsCapacity < n) {
+      this.pickRects.push({ x: 0, y: 0, w: 0, h: 0, id: "" });
+      this.pickRectsCapacity++;
+    }
+    // Expose all allocated slots so indexed writes land on live entries;
+    // `update()` trims logical length at the end of the frame.
+    if (this.pickRects.length < this.pickRectsCapacity) {
+      this.pickRects.length = this.pickRectsCapacity;
+    }
+  }
+
+  // Build (or reuse) the per-file label snapshot. Returns the cached snapshot
+  // object so callers can pull pre-formatted strings when `dirty === false`.
+  // Mutates the cache in place to avoid re-allocating the snapshot every
+  // frame — the same entry is mutated for each file.id on clean frames too,
+  // just without the string-formatting branch.
+  private getLabelSnapshot(file: FileNode, showFunctionLabels: boolean): { snap: FileLabelSnapshot; dirty: boolean } {
+    let snap = this.labelCache.get(file.id);
+    const fnCount = file.functions.length;
+    // Cheap fn-signature: count + first function's name. Good enough because
+    // a real invalidation (someone editing a file) almost always changes
+    // function count or the top function; cosmetic changes lower down take
+    // one frame to appear, which is invisible to a user panning around.
+    const fnSig = fnCount > 0 ? fnCount + "|" + file.functions[0].name : "0";
+
+    if (snap
+      && snap.name === file.name
+      && snap.riskScore === file.riskScore
+      && snap.loc === file.loc
+      && snap.taintCount === file.signals.taintCount
+      && snap.fnCount === fnCount
+      && snap.fnSig === fnSig
+      && snap.showFunctionLabels === showFunctionLabels
+    ) {
+      return { snap, dirty: false };
+    }
+
+    if (!snap) {
+      snap = {
+        name: "",
+        nameLen: 0,
+        riskScore: -1,
+        loc: -1,
+        taintCount: -1,
+        fnCount: -1,
+        fnSig: "",
+        showFunctionLabels,
+        nameLabel: "",
+        scoreLabel: "",
+        locLabel: "",
+        taintLabel: "",
+        fnLabels: [],
+        fnSigLabels: [],
+      };
+      this.labelCache.set(file.id, snap);
+    }
+
+    snap.name = file.name;
+    snap.nameLen = file.name.length;
+    snap.riskScore = file.riskScore;
+    snap.loc = file.loc;
+    snap.taintCount = file.signals.taintCount;
+    snap.fnCount = fnCount;
+    snap.fnSig = fnSig;
+    snap.showFunctionLabels = showFunctionLabels;
+
+    // Pre-format label strings. These are the allocations we were paying
+    // per-frame before the cache; now they fire only on actual content
+    // change.
+    snap.nameLabel = file.name.length > 20 ? "…" + file.name.slice(-18) : file.name;
+    snap.scoreLabel = String(file.riskScore);
+    snap.locLabel = file.loc.toLocaleString() + " lines";
+    snap.taintLabel = file.signals.taintCount > 0 ? "⚡ " + file.signals.taintCount : "";
+
+    // Per-function labels. Cached lazily — only build if we'll actually draw
+    // function labels at the current zoom, since dirty state is already
+    // distinguished by `showFunctionLabels`.
+    if (showFunctionLabels) {
+      if (snap.fnLabels.length < fnCount) snap.fnLabels.length = fnCount;
+      if (snap.fnSigLabels.length < fnCount) snap.fnSigLabels.length = fnCount;
+      for (let k = 0; k < fnCount; k++) {
+        const fn = file.functions[k];
+        snap.fnLabels[k] = fn.name.length > 22 ? fn.name.slice(0, 21) + "…" : fn.name;
+        snap.fnSigLabels[k] = fn.signalCount > 0 ? String(fn.signalCount) : null;
+      }
+      // Trim trailing stale slots if the function count shrank.
+      snap.fnLabels.length = fnCount;
+      snap.fnSigLabels.length = fnCount;
+    }
+
+    return { snap, dirty: true };
   }
 
   private resolveInstance(
@@ -450,18 +607,22 @@ export class CityNodeRenderer {
 
     if (!frame.showLabels) return;
 
+    const { snap } = this.getLabelSnapshot(file, frame.showFunctionLabels);
+
     const nameLabel = this.acquireText(CITY_FONT_NAME);
-    nameLabel.text = file.name.length > 20 ? "…" + file.name.slice(-18) : file.name;
-    nameLabel.style.fontSize = 11;
-    nameLabel.style.fill = 0x1a1a2e;
+    // BitmapText.text setter rebuilds glyph geometry on *every* assignment,
+    // even if the string is identical — guard at call site.
+    if (nameLabel.text !== snap.nameLabel) nameLabel.text = snap.nameLabel;
+    setFontSize(nameLabel, 11);
+    setFill(nameLabel, 0x1a1a2e);
     nameLabel.scale.set(invScale);
     nameLabel.x = card.x + 8 * invScale;
     nameLabel.y = card.y + 7 * invScale;
 
     const scoreLabel = this.acquireText(CITY_FONT_BOLD_NAME);
-    scoreLabel.text = String(file.riskScore);
-    scoreLabel.style.fontSize = 10;
-    scoreLabel.style.fill = riskText(file.riskScore);
+    if (scoreLabel.text !== snap.scoreLabel) scoreLabel.text = snap.scoreLabel;
+    setFontSize(scoreLabel, 10);
+    setFill(scoreLabel, riskText(file.riskScore));
     scoreLabel.scale.set(invScale);
     scoreLabel.x = card.x + card.w - scoreLabel.width - 8 * invScale;
     scoreLabel.y = card.y + 8 * invScale;
@@ -475,6 +636,10 @@ export class CityNodeRenderer {
     const fnW = card.w - FN_PAD_X * 2 * invScale;
     const fnH = FN_H * invScale;
     const fnSlots = Math.min(file.functions.length, maxFns);
+
+    const snap = showFunctionLabels
+      ? this.getLabelSnapshot(file, showFunctionLabels).snap
+      : null;
 
     for (let k = 0; k < fnSlots; k++) {
       if (fnY + fnH > card.y + card.h - 4) break;
@@ -493,20 +658,22 @@ export class CityNodeRenderer {
       data[o + 13] = 3 * invScale;
       frame.ri++;
 
-      if (showFunctionLabels) {
+      if (snap) {
         const fnLabel = this.acquireText(CITY_MONO_FONT_NAME);
-        fnLabel.text = fn.name.length > 22 ? fn.name.slice(0, 21) + "…" : fn.name;
-        fnLabel.style.fontSize = 9;
-        fnLabel.style.fill = 0x333333;
+        const txt = snap.fnLabels[k] ?? "";
+        if (fnLabel.text !== txt) fnLabel.text = txt;
+        setFontSize(fnLabel, 9);
+        setFill(fnLabel, 0x333333);
         fnLabel.scale.set(invScale);
         fnLabel.x = fnX + 6 * invScale;
         fnLabel.y = fnY + 6 * invScale;
 
-        if (fn.signalCount > 0) {
+        const sigTxt = snap.fnSigLabels[k];
+        if (sigTxt !== null && sigTxt !== undefined) {
           const sigLabel = this.acquireText(CITY_FONT_BOLD_NAME);
-          sigLabel.text = String(fn.signalCount);
-          sigLabel.style.fontSize = 9;
-          sigLabel.style.fill = SIGNAL_ACCENT;
+          if (sigLabel.text !== sigTxt) sigLabel.text = sigTxt;
+          setFontSize(sigLabel, 9);
+          setFill(sigLabel, SIGNAL_ACCENT);
           sigLabel.scale.set(invScale);
           sigLabel.x = fnX + fnW - 16 * invScale;
           sigLabel.y = fnY + 6 * invScale;
@@ -521,19 +688,21 @@ export class CityNodeRenderer {
     if (!frame.showLabels) return;
     const { invScale } = frame;
 
+    const { snap } = this.getLabelSnapshot(file, frame.showFunctionLabels);
+
     const locLabel = this.acquireText(CITY_FONT_NAME);
-    locLabel.text = `${file.loc.toLocaleString()} lines`;
-    locLabel.style.fontSize = 9;
-    locLabel.style.fill = 0x888888;
+    if (locLabel.text !== snap.locLabel) locLabel.text = snap.locLabel;
+    setFontSize(locLabel, 9);
+    setFill(locLabel, 0x888888);
     locLabel.scale.set(invScale);
     locLabel.x = card.x + 8 * invScale;
     locLabel.y = card.y + card.h - 18 * invScale;
 
     if (file.signals.taintCount > 0) {
       const taintLabel = this.acquireText(CITY_FONT_NAME);
-      taintLabel.text = `⚡ ${file.signals.taintCount}`;
-      taintLabel.style.fontSize = 9;
-      taintLabel.style.fill = SIGNAL_ACCENT;
+      if (taintLabel.text !== snap.taintLabel) taintLabel.text = snap.taintLabel;
+      setFontSize(taintLabel, 9);
+      setFill(taintLabel, SIGNAL_ACCENT);
       taintLabel.scale.set(invScale);
       taintLabel.x = card.x + 8 * invScale;
       taintLabel.y = card.y + 34 * invScale;
@@ -548,15 +717,24 @@ export class CityNodeRenderer {
     this.hitLayer.clear();
     this.shadowLayer.clear();
     this.pickRects.length = 0;
+    this.pickRectsCapacity = 0;
     this.pickIndex.clear();
     this.releaseAllText();
+    // Invalidate dirty-flag caches so the next city frame recomputes from
+    // scratch — the scene genuinely regenerated, per-file snapshots from a
+    // previous tier may no longer reflect what's about to be drawn.
+    this.labelCache.clear();
+    this.lastShadowHash = 0;
+    this.lastShadowCount = 0;
   }
 
   destroy(): void {
     this.rectMesh.destroy();
     this.pickIndex.clear();
     this.pickRects.length = 0;
+    this.pickRectsCapacity = 0;
     this.pools.clear();
+    this.labelCache.clear();
     this.container.destroy({ children: true });
   }
 }

@@ -22,6 +22,8 @@ import { SCCBubbleRenderer } from "./SCCBubbleRenderer";
 import { StartHereBadgeRenderer } from "./StartHereBadgeRenderer";
 import { PresenceRingRenderer, type AgentPresenceInput } from "./PresenceRingRenderer";
 import { EffectBadgeRenderer } from "./EffectBadgeRenderer";
+import { IsoTerrainRenderer } from "./iso/IsoTerrainRenderer";
+import { IsoConeRenderer } from "./iso/IsoConeRenderer";
 
 // Overlay registry.
 // -------------------------------------------------------------------
@@ -50,7 +52,9 @@ export type OverlayId =
   | "startHereBadge"
   | "presenceRing"
   | "traceEdge"
-  | "effectBadge";
+  | "effectBadge"
+  | "isoTerrain"
+  | "isoCone";
 
 export interface OverlayRenderCtx {
   visible: WorkspaceView;
@@ -95,6 +99,13 @@ export interface OverlayRenderCtx {
   // Per-file side-effect chips.
   effects?: Record<string, FileEffects>;
   showEffectBadges: boolean;
+
+  // Action-terrain iso overlay (optional — parent flips this when the
+  // iso mode is active AND its feature flag is on).
+  actionTerrainEnabled?: boolean;
+  actionTerrainBars?: readonly import("./iso/IsoTerrainRenderer").IsoTerrainBar[];
+  actionTerrainCone?: import("./iso/IsoConeRenderer").IsoConeInput | null;
+  actionTerrainIsoConfig?: import("./iso/iso-projection").IsoConfig;
 }
 
 export interface OverlayHandle {
@@ -266,6 +277,36 @@ register("effectBadge", (world) => {
     update(ctx) {
       if (ctx.showEffectBadges && ctx.effects) {
         r.build(ctx.visible.files, ctx.effects, ctx.layout, ctx.viewport, ctx.lod);
+      } else {
+        r.clear();
+      }
+    },
+    clear() { r.clear(); },
+    destroy() { r.destroy(); },
+  };
+});
+
+register("isoTerrain", (world) => {
+  const r = new IsoTerrainRenderer(world);
+  return {
+    update(ctx) {
+      if (ctx.actionTerrainEnabled && ctx.actionTerrainBars && ctx.actionTerrainBars.length > 0) {
+        r.build(ctx.actionTerrainBars, ctx.actionTerrainIsoConfig);
+      } else {
+        r.clear();
+      }
+    },
+    clear() { r.clear(); },
+    destroy() { r.destroy(); },
+  };
+});
+
+register("isoCone", (world) => {
+  const r = new IsoConeRenderer(world);
+  return {
+    update(ctx) {
+      if (ctx.actionTerrainEnabled && ctx.actionTerrainCone) {
+        r.build(ctx.actionTerrainCone, ctx.actionTerrainIsoConfig);
       } else {
         r.clear();
       }

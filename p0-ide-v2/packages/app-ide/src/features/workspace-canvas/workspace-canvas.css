@@ -33,6 +33,12 @@
   /* Per-user cursor/presence colors (Batch 1 — collab). */
   --ws-user-a: #7dd3fc;
   --ws-user-b: #fb7185;
+
+  /* Refactor ROI — terrain color ramp (cold → warm → hot). */
+  --ws-roi-cold: #22c55e;
+  --ws-roi-warm: #facc15;
+  --ws-roi-hot:  #ef4444;
+  --ws-roi-panel-bg: color-mix(in srgb, var(--ws-hud-bg) 94%, transparent);
 }
 
 .workspace-canvas {
@@ -3879,3 +3885,326 @@
 }
 .ws-slack__author { font-weight: 600; color: #1f2937; }
 .ws-slack__foot { font-size: 10px; color: #94a3b8; }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Action Terrain — isometric refactor-ROI mode
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* When iso mode is on, dim the 2D DOM card layer so extruded bars dominate.
+   Pointer events stay so cards still respond to click/hover for selection. */
+.workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer {
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+.workspace-canvas[data-action-terrain="off"] .workspace-canvas__dom-layer {
+  transition: opacity 120ms ease;
+}
+
+/* Floating toggle (bottom-left corner above the pages tab bar). */
+.ws-action-terrain-toggle-wrap {
+  position: absolute;
+  left: 12px;
+  bottom: 56px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 4;
+  pointer-events: auto;
+}
+.ws-action-terrain-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--ws-hud-bg);
+  color: var(--ws-hud-fg);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.ws-action-terrain-toggle:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+}
+.ws-action-terrain-toggle[aria-pressed="true"] {
+  background: var(--ws-selection-accent);
+  border-color: var(--ws-selection-accent);
+  color: #fff;
+}
+.ws-action-terrain-toggle__icon {
+  font-size: 10px;
+  opacity: 0.85;
+}
+.ws-action-terrain-toggle__slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--ws-hud-bg);
+  color: var(--ws-hud-fg-muted);
+  font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ws-action-terrain-toggle__slider input[type="range"] {
+  width: 80px;
+}
+.ws-action-terrain-toggle__value {
+  font-variant-numeric: tabular-nums;
+  color: var(--ws-hud-fg);
+  font-weight: 600;
+  min-width: 34px;
+  text-align: right;
+}
+
+/* Right-side panel. Sits below the inspector tray; becomes the primary
+   reading surface when iso mode is on. */
+.ws-roi-panel {
+  position: absolute;
+  right: 12px;
+  top: 76px;
+  width: 320px;
+  max-height: calc(100vh - 160px);
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--ws-roi-panel-bg, var(--ws-hud-bg));
+  color: var(--ws-hud-fg);
+  font-size: 12px;
+  overflow-y: auto;
+  z-index: 4;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  backdrop-filter: blur(6px);
+}
+.ws-roi-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ws-roi-panel__title {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+.ws-roi-panel__count {
+  color: var(--ws-hud-fg-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.ws-roi-panel__sim-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+}
+.ws-roi-panel__sim-nums {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.ws-roi-panel__cone-dir {
+  display: inline-flex;
+  gap: 4px;
+}
+.ws-roi-panel__chip {
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--ws-hud-fg-muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.ws-roi-panel__chip.is-on {
+  background: var(--ws-selection-accent);
+  border-color: var(--ws-selection-accent);
+  color: #fff;
+}
+
+.ws-roi-panel__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-roi-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto auto;
+  gap: 4px 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  align-items: center;
+}
+.ws-roi-row--selected {
+  background: rgba(var(--ws-selection-accent-rgb), 0.18);
+  outline: 1px solid rgba(var(--ws-selection-accent-rgb), 0.5);
+}
+.ws-roi-row__main {
+  all: unset;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 26px 1fr 28px 60px;
+  align-items: center;
+  gap: 6px;
+  grid-column: 1 / 2;
+}
+.ws-roi-row__rank {
+  color: var(--ws-hud-fg-subtle);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 11px;
+}
+.ws-roi-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.ws-roi-row__score {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ws-roi-hot);
+  font-weight: 600;
+}
+.ws-roi-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.ws-roi-bar__fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--ws-roi-cold), var(--ws-roi-warm), var(--ws-roi-hot));
+}
+.ws-roi-component-mini {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 14px;
+  grid-column: 1 / 2;
+}
+.ws-roi-component-mini__bar {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  position: relative;
+  overflow: hidden;
+}
+.ws-roi-component-mini__fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--ws-hud-accent);
+}
+.ws-roi-row__expand {
+  all: unset;
+  cursor: pointer;
+  color: var(--ws-hud-accent);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  justify-self: end;
+}
+.ws-roi-row__plans {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  grid-column: 1 / 3;
+}
+.ws-roi-plan-card {
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-roi-plan-card--active {
+  background: rgba(var(--ws-selection-accent-rgb), 0.14);
+  border-color: rgba(var(--ws-selection-accent-rgb), 0.5);
+}
+.ws-roi-plan-card__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ws-roi-plan-kind-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--ws-hud-accent);
+  color: #0b1220;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ws-roi-plan-card__title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ws-roi-plan-card__rationale {
+  margin: 0;
+  color: var(--ws-hud-fg-muted);
+  line-height: 1.4;
+  font-size: 11px;
+}
+.ws-roi-plan-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ws-hud-fg-soft);
+  font-variant-numeric: tabular-nums;
+}
+.ws-roi-plan-card__sim {
+  all: unset;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: var(--ws-hud-fg);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ws-roi-plan-card__sim.is-on {
+  background: var(--ws-selection-accent);
+  border-color: var(--ws-selection-accent);
+  color: #fff;
+}
+
+.ws-roi-sim-delta--improved { color: var(--ws-roi-cold); font-weight: 600; }
+.ws-roi-sim-delta--worse    { color: var(--ws-roi-hot);  font-weight: 600; }

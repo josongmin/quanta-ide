@@ -11,6 +11,7 @@ import {
   useGlobalKeybinds,
   isCmdK,
   isCmdShiftT,
+  isCmdShiftA,
   type GlobalKeybind,
 } from "../hooks/use-keyboard-shortcuts";
 import { useSmoothCamera } from "../hooks/use-smooth-camera";
@@ -64,6 +65,14 @@ import { RefactorPreviewOverlay } from "./RefactorPreviewOverlay";
 import { PrReplayLauncher } from "./PrReplayLauncher";
 import { BisectGame } from "./BisectGame";
 import { AuthorFootprintLegend, computeAuthorTints } from "./AuthorFootprintOverlay";
+import { ActionTerrainLayer } from "./action-terrain/ActionTerrainLayer";
+import { RefactorBacklogPanel } from "./action-terrain/RefactorBacklogPanel";
+import { ActionTerrainToggle } from "./action-terrain/ActionTerrainToggle";
+import {
+  actionTerrainStore,
+  useActionTerrainRender,
+  useActionTerrainStore,
+} from "../store/action-terrain-store";
 
 const EMPTY_TINT_MAP: ReadonlyMap<string, string> = new Map();
 
@@ -116,6 +125,9 @@ export function MultiFileCanvas({ graph }: Props) {
   const showEffectBadges  = useRenderSettings(s => s.showEffectBadges);
   const showLatencyOverlay = useRenderSettings(s => s.showLatencyOverlay);
   const agentPresence     = usePresenceStore(s => s.agents);
+
+  const actionTerrainMode  = useActionTerrainStore(s => s.mode);
+  const actionTerrainRender = useActionTerrainRender(s => s);
 
   const { edgeFocus, edgePredicate, edgeViolations } =
     useEdgeFocusLogic(graph, layout, viewState);
@@ -255,6 +267,14 @@ export function MultiFileCanvas({ graph }: Props) {
         themeStore.cycle();
       },
     },
+    {
+      label: "Toggle Action Terrain",
+      match: isCmdShiftA,
+      handler: () => {
+        if (!featureFlagsStore.isEnabled("action-terrain.mode")) return;
+        actionTerrainStore.toggleMode();
+      },
+    },
   ]), []);
   useGlobalKeybinds(keybinds);
 
@@ -349,6 +369,7 @@ export function MultiFileCanvas({ graph }: Props) {
     <div
       ref={containerRef}
       className="workspace-canvas"
+      data-action-terrain={actionTerrainMode ? "on" : "off"}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
@@ -393,6 +414,12 @@ export function MultiFileCanvas({ graph }: Props) {
           temporal={{ temporalEdgeSet, diffAdded, diffRemoved }}
           trace={{ activeTrace, traceEdgeSet }}
           presence={{ agentPresence, showAgentPresence }}
+          actionTerrain={{
+            enabled: actionTerrainRender.enabled,
+            bars: actionTerrainRender.bars,
+            cone: actionTerrainRender.cone,
+            isoConfig: actionTerrainRender.isoConfig,
+          }}
           highlightCrossGraph={highlightCrossGraph}
           elevationMode={elevationMode}
           effects={graph.effects}
@@ -497,6 +524,9 @@ export function MultiFileCanvas({ graph }: Props) {
       <PrReplayLauncher />
       <BisectGame />
       <AuthorFootprintLegend history={graph.history} />
+      <ActionTerrainLayer />
+      <ActionTerrainToggle />
+      <RefactorBacklogPanel />
     </div>
   );
 }

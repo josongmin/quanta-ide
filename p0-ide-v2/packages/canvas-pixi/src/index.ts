@@ -1,5 +1,8 @@
 export { PixiStage } from "./stage/PixiStage";
-export type { PixiStageProps } from "./stage/PixiStage";
+export type { PixiStageProps, ActionTerrainProps } from "./stage/PixiStage";
+export type { IsoTerrainBar } from "./renderers/iso/IsoTerrainRenderer";
+export type { IsoConeInput, IsoConeRing } from "./renderers/iso/IsoConeRenderer";
+export type { IsoConfig } from "./renderers/iso/iso-projection";
 export { getPixiDebugHook } from "./debug/pixi-debug-hook";
 export type { PixiDebugHook } from "./debug/pixi-debug-hook";
 // Design-token palettes — consumed by HUD legends that preview edge style

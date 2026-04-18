@@ -135,10 +135,10 @@ function extractEdges(fileId: string, src: string, known: Set<string>): FileEdge
 }
 
 // ── Synthetic edge augmentation (demo variety) ────────────────────────
-// The scanner above only emits `import` edges. For the demo we synthesize
-// call / reference / dataflow / taint-propagation / blast / cycle / impact
-// edges on top of the import graph so the new renderer has every EdgeLayer
-// to show. The analyzer in production will replace all of this.
+// The scanner above only emits `import` edges. Each additional EdgeKind
+// has its own distinct criterion so a reader can tell, just from *where*
+// edges appear, which relation is being drawn. See the per-kind rules
+// below. The analyzer in production will replace all of this.
 
 function mkEdge(
   from: string,
@@ -156,12 +156,106 @@ function mkEdge(
   };
 }
 
-// Deterministic indexing (prime offsets) keeps edge synthesis stable across
-// dev-server reloads so fast-refresh doesn't flicker the graph.
-function synthesizeEdges(files: FileNode[], imports: FileEdge[]): FileEdge[] {
+// BFS reachability with max hop bound.
+function reachableWithin(
+  adj: Map<string, string[]>, start: string, maxHops: number,
+): Set<string> {
+  const seen = new Set<string>();
+  const frontier: Array<[string, number]> = [[start, 0]];
+  while (frontier.length > 0) {
+    const [n, d] = frontier.shift()!;
+    if (d >= maxHops) continue;
+    for (const next of adj.get(n) ?? []) {
+      if (seen.has(next) || next === start) continue;
+      seen.add(next);
+      frontier.push([next, d + 1]);
+    }
+  }
+  return seen;
+}
+
+// Tarjan's SCC. Iterative to avoid stack-overflow on wide graphs.
+function tarjanSccs(nodes: string[], adj: Map<string, string[]>): string[][] {
+  const index = new Map<string, number>();
+  const low = new Map<string, number>();
+  const onStack = new Set<string>();
+  const stack: string[] = [];
+  const sccs: string[][] = [];
+  let counter = 0;
+
+  for (const root of nodes) {
+    if (index.has(root)) continue;
+    // Iterative emulation of the recursive strongConnect.
+    const work: Array<{ v: string; it: Iterator<string> }> = [];
+    index.set(root, counter);
+    low.set(root, counter);
+    counter++;
+    stack.push(root);
+    onStack.add(root);
+    work.push({ v: root, it: (adj.get(root) ?? [])[Symbol.iterator]() });
+
+    while (work.length > 0) {
+      const top = work[work.length - 1];
+      const next = top.it.next();
+      if (next.done) {
+        if (low.get(top.v) === index.get(top.v)) {
+          const scc: string[] = [];
+          while (true) {
+            const w = stack.pop()!;
+            onStack.delete(w);
+            scc.push(w);
+            if (w === top.v) break;
+          }
+          sccs.push(scc);
+        }
+        work.pop();
+        if (work.length > 0) {
+          const parent = work[work.length - 1].v;
+          low.set(parent, Math.min(low.get(parent)!, low.get(top.v)!));
+        }
+        continue;
+      }
+      const w = next.value;
+      if (!index.has(w)) {
+        index.set(w, counter);
+        low.set(w, counter);
+        counter++;
+        stack.push(w);
+        onStack.add(w);
+        work.push({ v: w, it: (adj.get(w) ?? [])[Symbol.iterator]() });
+      } else if (onStack.has(w)) {
+        low.set(top.v, Math.min(low.get(top.v)!, index.get(w)!));
+      }
+    }
+  }
+  return sccs;
+}
+
+/**
+ * Derive per-kind edges with distinct criteria so the reader can *see* what
+ * each line type means:
+ *
+ *   import             — real `from "..."` resolution (in extractEdges)
+ *   call               — A imports B AND A's source invokes one of B's exported
+ *                        function names as a call site (`name(` syntax)
+ *   reference          — the N most-imported "hub" files → each of their
+ *                        dependents (util-like fan-in pattern)
+ *   dataflow           — 2-hop transitive closure of the import graph that
+ *                        isn't already a direct import (A→B→C emits A→C)
+ *   taint-propagation  — files with io/net effects → files reachable within
+ *                        ≤2 import hops that have db/env effects (source→sink)
+ *   blast              — top-3 highest-risk files → their direct dependents
+ *                        (what breaks when the risky file changes)
+ *   cycle              — real SCCs of size ≥ 2 in the import graph
+ *   impact             — file with the most functions → its direct dependents
+ *                        (signature change fan-out)
+ */
+function synthesizeEdges(
+  files: FileNode[],
+  imports: FileEdge[],
+  sources: Record<string, string>,
+): FileEdge[] {
   if (files.length === 0) return [];
-  const N = files.length;
-  const ids = files.map(f => f.id);
   const byId = new Map(files.map(f => [f.id, f]));
   const out: FileEdge[] = [];
   const seen = new Set<string>(imports.map(e => `${e.kind}:${e.from}→${e.to}`));
@@ -172,10 +266,6 @@ function synthesizeEdges(files: FileNode[], imports: FileEdge[]): FileEdge[] {
     out.push(e);
   };
 
-  // Pick a deterministic function from a file given a stride index. Used to
-  // give synthesized edges a believable line anchor — the street/ground
-  // renderer lights up a dot at this line position on the card edge so the
-  // reader sees exactly which symbol originates the relation.
   const pickFn = (fileId: string, stride: number) => {
     const f = byId.get(fileId);
     if (!f || f.functions.length === 0) return undefined;
@@ -195,76 +285,144 @@ function synthesizeEdges(files: FileNode[], imports: FileEdge[]): FileEdge[] {
     });
   };
 
-  // Files that look function-heavy → good "call" sources. Files in adapter
-  // or util layer → good "reference" sources. Deterministic pick-by-index.
-  const fnHeavy = files.filter(f => f.functions.length >= 4).map(f => f.id);
-  const utils   = files.filter(f => f.layer === "util" || f.layer === "adapter").map(f => f.id);
-
-  // ── Structural: call edges (~0.4 * N) between function-heavy files ──
-  const callCount = Math.max(2, Math.floor(N * 0.4));
-  for (let i = 0; i < callCount && fnHeavy.length >= 2; i++) {
-    const a = fnHeavy[i % fnHeavy.length];
-    const b = fnHeavy[(i * 3 + 1) % fnHeavy.length];
-    push(withAnchors(a, b, "call", i, i + 1, { weight: 1.1, confidence: 0.9 }));
+  // ── Adjacency from the real import graph ──────────────────────────
+  const fwd = new Map<string, string[]>(); // from → [to]
+  const rev = new Map<string, string[]>(); // to   → [from]
+  for (const e of imports) {
+    const f = fwd.get(e.from); if (f) f.push(e.to); else fwd.set(e.from, [e.to]);
+    const r = rev.get(e.to);   if (r) r.push(e.from); else rev.set(e.to, [e.from]);
   }
+  const importPair = new Set(imports.map(e => `${e.from}→${e.to}`));
 
-  // ── Structural: reference edges (~0.15 * N, lower weight) ──────────
-  const refCount = Math.max(1, Math.floor(N * 0.15));
-  for (let i = 0; i < refCount && ids.length >= 2; i++) {
-    const a = ids[(i * 5) % N];
-    const b = utils.length ? utils[i % utils.length] : ids[(i * 5 + 3) % N];
-    push(withAnchors(a, b, "reference", i + 2, i + 5, { weight: 0.6, confidence: 0.75 }));
-  }
-
-  // ── Flow: dataflow edges (~0.15 * N) between adjacent packages ────
-  const flowCount = Math.max(1, Math.floor(N * 0.15));
-  for (let i = 0; i < flowCount && ids.length >= 2; i++) {
-    const a = ids[(i * 7) % N];
-    const b = ids[(i * 7 + 2) % N];
-    push(withAnchors(a, b, "dataflow", i + 1, i + 4, { weight: 0.9, confidence: 0.7, animated: true }));
-  }
-
-  // ── Safety: taint-propagation (~0.05 * N, severity=high) ──────────
-  const taintCount = Math.max(1, Math.ceil(N * 0.05));
-  for (let i = 0; i < taintCount && ids.length >= 2; i++) {
-    const a = ids[(i * 11) % N];
-    const b = ids[(i * 11 + 5) % N];
-    push(withAnchors(a, b, "taint-propagation", i, i + 2, {
-      weight: 1.2,
-      severity: "high",
-      confidence: 0.85,
-      animated: true,
-      evidenceId: `proof:taint-${i}`,
+  // ── call: A imports B AND A's source invokes a B-exported function ──
+  // Exact line from the regex hit so the street-tier glow dot lands at
+  // the call site, not a generic "first function" fallback.
+  for (const e of imports) {
+    const target = byId.get(e.to);
+    const src = sources[e.from];
+    if (!target || !src || target.functions.length === 0) continue;
+    let hit: { line: number; name: string; toLine: number } | null = null;
+    for (const fn of target.functions) {
+      const re = new RegExp(`\\b${fn.name}\\s*\\(`);
+      const m = re.exec(src);
+      if (m && m.index !== undefined) {
+        const line = src.slice(0, m.index).split("\n").length;
+        hit = { line, name: fn.name, toLine: fn.startLine };
+        break;
+      }
+    }
+    if (!hit) continue;
+    push(mkEdge(e.from, e.to, "call", {
+      weight: 1.1, confidence: 0.9,
+      fromLine: hit.line, fromSymbol: hit.name,
+      toLine: hit.toLine, toSymbol: hit.name,
     }));
   }
 
-  // ── Safety: blast (severity=critical) — pick the highest-risk files ─
-  const byRisk = [...files].sort((a, b) => b.riskScore - a.riskScore).slice(0, 4);
-  for (let i = 0; i < byRisk.length - 1; i++) {
-    push(withAnchors(byRisk[i].id, byRisk[i + 1].id, "blast", i, i + 3, {
-      weight: 1.4,
-      severity: "critical",
-      confidence: 0.95,
-      evidenceId: `proof:blast-${i}`,
-    }));
+  // ── reference: top-3 most-imported "hub" files → their dependents ──
+  // These look like util / core-types files. Reference edges fan *into*
+  // the hub from many dependents, distinct from call's one-to-one shape.
+  const hubs = [...rev.entries()]
+    .filter(([, consumers]) => consumers.length >= 2)
+    .sort((a, b) => b[1].length - a[1].length)
+    .slice(0, 3)
+    .map(([id]) => id);
+  for (const hub of hubs) {
+    const consumers = rev.get(hub) ?? [];
+    for (let i = 0; i < consumers.length; i++) {
+      push(withAnchors(consumers[i], hub, "reference", i, i + 1, {
+        weight: 0.6, confidence: 0.75,
+      }));
+    }
   }
 
-  // ── Safety: cycle edges — synthesize a 2-file cycle if possible ───
-  for (let i = 0; i < Math.min(2, imports.length); i++) {
-    const imp = imports[i];
-    push(withAnchors(imp.to, imp.from, "cycle", i, i + 1, {
-      weight: 1.0,
-      severity: "medium",
-      confidence: 0.8,
-    }));
+  // ── dataflow: 2-hop transitive closure, excluding direct imports ───
+  // Capped so a dense graph doesn't drown the canvas in N² lines.
+  const DATAFLOW_CAP = 30;
+  let flowCount = 0;
+  outer: for (const [a, mids] of fwd) {
+    for (const mid of mids) {
+      const cs = fwd.get(mid);
+      if (!cs) continue;
+      for (const c of cs) {
+        if (c === a) continue;
+        if (importPair.has(`${a}→${c}`)) continue;
+        push(withAnchors(a, c, "dataflow", 0, 3, {
+          weight: 0.9, confidence: 0.7, animated: true,
+        }));
+        flowCount++;
+        if (flowCount >= DATAFLOW_CAP) break outer;
+      }
+    }
   }
 
-  // ── Impact: 2-4 edges from the highest-risk file (simulated change) ─
-  if (byRisk.length > 0) {
-    const origin = byRisk[0].id;
-    const impactTargets = ids.filter(id => id !== origin).slice(0, 3);
-    for (let i = 0; i < impactTargets.length; i++) {
-      push(withAnchors(origin, impactTargets[i], "impact", 0, i + 2, {
+  // ── taint-propagation: io/net source → db/env sink within ≤2 hops ──
+  // Effects are inferred from file id (see inferEffectsForId). This makes
+  // taint edges appear along real import paths out of I/O boundaries and
+  // into storage/config — the shape a real taint analyzer would draw.
+  const isSource = (id: string): boolean => {
+    const e = inferEffectsForId(id);
+    return e.includes("io") || e.includes("net");
+  };
+  const isSink = (id: string): boolean => {
+    const e = inferEffectsForId(id);
+    return e.includes("db") || e.includes("env");
+  };
+  const TAINT_CAP = 10;
+  let taintIdx = 0;
+  taintLoop: for (const f of files) {
+    if (!isSource(f.id)) continue;
+    const reach = reachableWithin(fwd, f.id, 2);
+    for (const r of reach) {
+      if (!isSink(r)) continue;
+      push(withAnchors(f.id, r, "taint-propagation", taintIdx, taintIdx + 2, {
+        weight: 1.2, severity: "high", confidence: 0.85, animated: true,
+        evidenceId: `proof:taint-${taintIdx}`,
+      }));
+      taintIdx++;
+      if (taintIdx >= TAINT_CAP) break taintLoop;
+    }
+  }
+
+  // ── blast: top-3 risk files → their direct dependents (rev-imports) ─
+  const byRisk = [...files].sort((a, b) => b.riskScore - a.riskScore).slice(0, 3);
+  let blastIdx = 0;
+  for (const epicenter of byRisk) {
+    const deps = rev.get(epicenter.id) ?? [];
+    for (let i = 0; i < Math.min(deps.length, 4); i++) {
+      push(withAnchors(epicenter.id, deps[i], "blast", 0, i + 1, {
+        weight: 1.4,
+        severity: blastIdx === 0 ? "critical" : "high",
+        confidence: 0.95,
+        evidenceId: `proof:blast-${blastIdx}`,
+      }));
+      blastIdx++;
+    }
+  }
+
+  // ── cycle: real SCCs of size ≥ 2 in the import graph ──────────────
+  const CYCLE_CAP = 6;
+  const sccs = tarjanSccs(files.map(f => f.id), fwd);
+  let cycleIdx = 0;
+  sccLoop: for (const scc of sccs) {
+    if (scc.length < 2) continue;
+    for (let i = 0; i < scc.length; i++) {
+      const a = scc[i];
+      const b = scc[(i + 1) % scc.length];
+      push(withAnchors(a, b, "cycle", cycleIdx, cycleIdx + 1, {
+        weight: 1.0, severity: "medium", confidence: 0.8,
+      }));
+      cycleIdx++;
+      if (cycleIdx >= CYCLE_CAP) break sccLoop;
+    }
+  }
+
+  // ── impact: file with most functions → its direct dependents ──────
+  const hotFile = [...files].sort((a, b) => b.functions.length - a.functions.length)[0];
+  if (hotFile) {
+    const deps = rev.get(hotFile.id) ?? [];
+    for (let i = 0; i < Math.min(deps.length, 4); i++) {
+      push(withAnchors(hotFile.id, deps[i], "impact", 0, i + 2, {
         weight: 1.0,
         severity: i === 0 ? "high" : "medium",
         confidence: 0.7,
@@ -705,7 +863,7 @@ function build(): { graph: WorkspaceGraph; sources: Record<string, string> } {
 
   const known = new Set(files.map(f => f.id));
   const imports: FileEdge[] = files.flatMap(f => extractEdges(f.id, sources[f.id] ?? "", known));
-  const synthetic = synthesizeEdges(files, imports);
+  const synthetic = synthesizeEdges(files, imports, sources);
   const fileEdges: FileEdge[] = [...imports, ...synthetic];
   const proofs = synthesizeProofs(fileEdges, files.map(f => f.id));
   const history = synthesizeHistory(fileEdges);
