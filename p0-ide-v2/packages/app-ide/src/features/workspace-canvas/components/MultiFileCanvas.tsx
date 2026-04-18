@@ -87,7 +87,7 @@ export function MultiFileCanvas({ graph }: Props) {
 
   const {
     onMouseDown, onMouseMove, onMouseUp,
-    selectFile, hoverFile,
+    selectFile: rawSelectFile, hoverFile,
     onClusterClick, onSuperclusterClick,
     onZoomIn, onZoomOut,
   } = useCanvasInteractions({
@@ -99,6 +99,19 @@ export function MultiFileCanvas({ graph }: Props) {
     viewportWidth: viewport.width,
     viewportHeight: viewport.height,
   });
+
+  // Dev Mode capture hook — when the user holds M and clicks a file we
+  // route the selection into the measure state machine instead of the
+  // normal selection path. Stored on a ref so the wrapper below stays
+  // referentially stable.
+  const devModeApiRef = useRef<DevModeLayerApi | null>(null);
+  const onDevModeReady = useCallback((api: DevModeLayerApi) => {
+    devModeApiRef.current = api;
+  }, []);
+  const selectFile = useCallback((fileId: string) => {
+    if (devModeApiRef.current?.tryCaptureSelection(fileId)) return;
+    rawSelectFile(fileId);
+  }, [rawSelectFile]);
 
   // Pan/zoom transform — written imperatively to bypass React reconciliation
   // for the two hottest-changing DOM nodes (grid bg + DOM card layer). With
@@ -327,6 +340,7 @@ export function MultiFileCanvas({ graph }: Props) {
       <TimerMount />
       <DebugHud />
       <EvidencePanel />
+      <DevModeLayer onReady={onDevModeReady} />
     </div>
   );
 }

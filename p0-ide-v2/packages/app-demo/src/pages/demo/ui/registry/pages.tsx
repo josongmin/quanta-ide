@@ -49,6 +49,13 @@ import {
   Archive,
   Handshake,
   FileDigit,
+  FlaskConical,
+  UserCheck,
+  Ticket,
+  MessageSquare,
+  Search,
+  Terminal,
+  Package,
 } from "lucide-react";
 
 import { CatalogPage }             from "../pages/CatalogPage";
@@ -104,6 +111,14 @@ import { KeyboardShortcutsPage }   from "../pages/developers/KeyboardShortcutsPa
 import { ContactSalesPage }        from "../pages/legal/ContactSalesPage";
 import { SecurityDisclosurePage }  from "../pages/security/SecurityDisclosurePage";
 import { DataRetentionPage }       from "../pages/security/DataRetentionPage";
+import { CliInstallPage }          from "../pages/developers/CliInstallPage";
+import { SdkQuickstartPage }       from "../pages/developers/SdkQuickstartPage";
+import { PlaygroundPage }          from "../pages/developers/PlaygroundPage";
+import { SamlWizardPage }          from "../pages/security/SamlWizardPage";
+import { TicketListPage }          from "../pages/support/TicketListPage";
+import { TicketDetailPage }        from "../pages/support/TicketDetailPage";
+import { AutomationBuilderPage }   from "../pages/automation/AutomationBuilderPage";
+import { UniversalSearchPage }     from "../pages/search/UniversalSearchPage";
 
 import { iconOf } from "./icon";
 import type { CategoryId, DemoChrome, DemoPageMeta } from "./types";
@@ -162,6 +177,9 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("integrations.marketplace","integrations", "Marketplace",     "Connect GitHub, Slack, Jira, CI providers, and more.", Boxes,      "app",  MarketplacePage),
   meta("integrations.connected","integrations", "Connected apps",    "OAuth applications authorized to access the workspace.", Plug,    "app",  ConnectedAppsPage),
 
+  meta("developers.cli",     "developers",   "CLI install",         "One-liner install per platform with copy-ready commands.", Terminal,  "app",  CliInstallPage),
+  meta("developers.sdk",     "developers",   "SDK quickstart",      "Hello-world in TypeScript, Python, Go, Rust.",        Package,     "app",  SdkQuickstartPage),
+  meta("developers.playground","developers", "Engine playground",   "Sandbox: compose requests, hit Run, inspect responses.", FlaskConical, "app", PlaygroundPage),
   meta("developers.webhooks","developers",   "Webhook event catalog","Every event we emit with sample payloads and copy-curl.", Webhook,   "app",  WebhookCatalogPage),
   meta("developers.api",     "developers",   "API explorer",        "Stripe-style three-pane interactive API reference.",   Play,        "app",  ApiExplorerPage),
   meta("developers.shortcuts","developers",  "Keyboard shortcuts",  "Full cheatsheet with macOS/Windows toggle and search.", Keyboard,   "app",  KeyboardShortcutsPage),
@@ -171,6 +189,14 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("security.export",    "security",      "Data export",         "Machine-readable workspace archive (GDPR).",          Download,    "app",  DataExportPage),
   meta("security.retention", "security",      "Data retention",      "Per-category retention schedules with segmented controls.", Archive, "app",  DataRetentionPage),
   meta("security.disclosure","security",      "Responsible disclosure","Bounty tiers, scope, process, and hall of fame.",    ShieldAlert, "app",  SecurityDisclosurePage),
+  meta("security.saml",      "security",      "SAML SSO setup",      "Four-step wizard for connecting your IdP.",           UserCheck,   "app",  SamlWizardPage),
+
+  meta("support.tickets",    "support",       "Support tickets",     "Your open support conversations, filterable by status.", Ticket,    "app",  TicketListPage),
+  meta("support.ticket",     "support",       "Ticket detail",       "Conversation thread with reply composer and sidebar.",   MessageSquare, "app", TicketDetailPage),
+
+  meta("automation.builder", "automation",    "Automation builder",  "Visual trigger \u2192 filter \u2192 action rule composer.",       Workflow,  "app",  AutomationBuilderPage),
+
+  meta("search.universal",   "search",        "Universal search",    "Grouped results across code, members, policies, docs.",  Search,     "app",  UniversalSearchPage),
 
   meta("states.404",         "states",        "404 Not Found",       "Page-not-found full-screen template.",                 SearchX,     "full", NotFoundPage),
   meta("states.500",         "states",        "500 Server Error",    "Server error full-screen with incident ID.",          ServerCrash, "full", ServerErrorPage),

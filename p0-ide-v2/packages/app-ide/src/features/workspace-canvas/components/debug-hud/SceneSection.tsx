@@ -14,6 +14,7 @@ import {
 import { useUxSettings, uxSettingsStore } from "../../store/ux-settings-store";
 import { useDebugSettings, debugSettingsStore } from "../../store/debug-settings-store";
 import { stickiesStore, useStickiesStore, type Sticky } from "../../store/stickies-store";
+import { featureFlagsStore, useFeature } from "../../store/feature-flags-store";
 import { CommentsSection } from "./CommentsSection";
 import { buildShareUrl, decodeWorkspaceState } from "../../lib/workspace-url";
 import {
@@ -515,6 +516,8 @@ export function SceneSection() {
 
       <TemporalSection temporal={temporal} history={graph?.history} />
 
+      <DevModeSection />
+
       <StickiesSection />
 
       <CommentsSection />
@@ -897,6 +900,31 @@ function StickiesSection() {
           ))}
         </div>
       )}
+    </>
+  );
+}
+
+// ── Dev Mode section ────────────────────────────────────────────────
+// Small control surface for the Batch 2 features. The inspector has no
+// explicit toggle here — opening it is triggered by file selection, and
+// the feature flag itself is the on/off knob in the Features tab.
+function DevModeSection() {
+  const hoverSummary = useFeature("devmode.hoverSummary");
+  const measure = useFeature("devmode.measure");
+  return (
+    <>
+      <div className="ws-debug__divider">Dev mode</div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={hoverSummary}
+          onChange={e => featureFlagsStore.setFlag("devmode.hoverSummary", e.target.checked)}
+        />
+        <span>Hover summary</span>
+      </label>
+      <div className="ws-debug__hint">
+        Measure mode (M key){measure ? "" : " — disabled"}: hold M + click two files.
+      </div>
     </>
   );
 }

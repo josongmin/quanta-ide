@@ -2377,3 +2377,489 @@
   font-size: 10px;
   font-style: italic;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Review flows (Batch 4) — voting, poker, timer, retro, kanban
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* World-layer container mirrors the canvas transform so badges sit
+   in world coords. pointer-events:none on container → buttons restore. */
+.ws-review-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ws-review-layer > * { pointer-events: auto; }
+
+/* ── Voting dot ─────────────────────────────────────────────────── */
+.ws-review-vote {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #fff;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: transform 100ms ease, background 100ms ease;
+}
+.ws-review-vote:hover { transform: scale(1.1); }
+.ws-review-vote--mine { background: #dc2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25); }
+.ws-review-vote--empty {
+  background: rgba(100, 116, 139, 0.35);
+  border-color: rgba(255, 255, 255, 0.6);
+  opacity: 0;
+  color: #f1f5f9;
+  font-size: 12px;
+}
+.ws-review-layer .street-card:hover ~ .ws-review-vote--empty,
+.ws-review-vote--empty:hover { opacity: 1; }
+
+/* ── Poker chip ─────────────────────────────────────────────────── */
+.ws-review-poker {
+  position: absolute;
+  z-index: 3;
+}
+.ws-review-poker__chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 4px 8px;
+  background: #0f172a;
+  color: #f1f5f9;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 10px;
+  font-size: 11px;
+  font-family: system-ui, sans-serif;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.ws-review-poker__chip.is-open { background: #1e293b; border-color: #7dd3fc; }
+.ws-review-poker__label { font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+.ws-review-poker__value { font-size: 12px; font-weight: 700; color: #7dd3fc; }
+.ws-review-poker__count { font-size: 9px; color: #94a3b8; }
+.ws-review-poker__deck {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px;
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  z-index: 4;
+}
+.ws-review-poker__card {
+  width: 30px;
+  height: 40px;
+  background: #1e293b;
+  color: #f1f5f9;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.ws-review-poker__card:hover { background: #334155; border-color: #7dd3fc; }
+.ws-review-poker__card.is-mine { background: #7dd3fc; color: #0f172a; border-color: #38bdf8; }
+.ws-review-poker__clear {
+  width: 100%;
+  margin-top: 2px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 10px;
+  padding: 4px;
+}
+.ws-review-poker__clear:hover { color: #f87171; }
+
+/* ── Session timer widget ───────────────────────────────────────── */
+.ws-session-timer {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--ws-hud-bg);
+  color: var(--ws-hud-fg);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  font-family: system-ui, sans-serif;
+  z-index: 10;
+}
+.ws-session-timer--running { border-color: rgba(125, 211, 252, 0.6); }
+.ws-session-timer--flash {
+  animation: ws-timer-flash 0.6s ease 0s 3;
+  border-color: #ef4444;
+}
+@keyframes ws-timer-flash {
+  0%, 100% { background: var(--ws-hud-bg); }
+  50% { background: rgba(239, 68, 68, 0.6); }
+}
+.ws-session-timer__display {
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ws-hud-accent);
+  letter-spacing: 0.03em;
+  min-width: 60px;
+  text-align: center;
+}
+.ws-session-timer--flash .ws-session-timer__display { color: #fca5a5; }
+.ws-session-timer__controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ws-session-timer__chip,
+.ws-session-timer__btn {
+  background: transparent;
+  color: var(--ws-hud-fg-soft);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ws-session-timer__chip:hover,
+.ws-session-timer__btn:hover { background: rgba(148, 163, 184, 0.15); }
+.ws-session-timer__chip.is-on {
+  background: rgba(125, 211, 252, 0.2);
+  border-color: rgba(125, 211, 252, 0.6);
+  color: var(--ws-hud-accent);
+}
+.ws-session-timer__btn--primary {
+  background: rgba(34, 197, 94, 0.25);
+  border-color: rgba(34, 197, 94, 0.6);
+  color: #bbf7d0;
+}
+.ws-session-timer__btn--primary:hover { background: rgba(34, 197, 94, 0.4); }
+.ws-session-timer__input {
+  width: 44px;
+  background: transparent;
+  color: var(--ws-hud-fg);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  -moz-appearance: textfield;
+}
+.ws-session-timer__input::-webkit-inner-spin-button,
+.ws-session-timer__input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ── Retrospective panel ────────────────────────────────────────── */
+.ws-retro {
+  position: absolute;
+  top: 64px;
+  right: 16px;
+  width: 460px;
+  max-height: calc(100% - 96px);
+  display: flex;
+  flex-direction: column;
+  background: var(--ws-hud-bg);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  color: var(--ws-hud-fg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+  z-index: 9;
+}
+.ws-retro__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.ws-retro__title { font-weight: 600; flex: 1; font-size: 12px; letter-spacing: 0.03em; }
+.ws-retro__btn {
+  background: transparent;
+  color: var(--ws-hud-fg-soft);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ws-retro__btn:hover { background: rgba(148, 163, 184, 0.15); }
+.ws-retro__btn--close {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+.ws-retro__columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  padding: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+.ws-retro__col {
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 8px;
+  padding: 6px;
+  gap: 4px;
+}
+.ws-retro__col.is-dragover {
+  border-style: solid;
+  box-shadow: inset 0 0 0 2px rgba(125, 211, 252, 0.6);
+}
+.ws-retro__col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ws-hud-fg);
+  padding: 2px 4px;
+}
+.ws-retro__col-count {
+  color: var(--ws-hud-fg-muted);
+  font-size: 10px;
+  font-weight: 400;
+}
+.ws-retro__col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-retro__empty {
+  font-size: 10px;
+  color: var(--ws-hud-fg-muted);
+  text-align: center;
+  padding: 8px 0;
+  font-style: italic;
+}
+.ws-retro__card {
+  padding: 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  color: #0f172a;
+  cursor: grab;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ws-retro__card:active { cursor: grabbing; }
+.ws-retro__card.is-resolved { opacity: 0.55; }
+.ws-retro__card.is-resolved .ws-retro__card-text { text-decoration: line-through; }
+.ws-retro__card--yellow { background: var(--ws-sticky-yellow); }
+.ws-retro__card--pink { background: var(--ws-sticky-pink); }
+.ws-retro__card--green { background: var(--ws-sticky-green); }
+.ws-retro__card--blue { background: var(--ws-sticky-blue); }
+.ws-retro__card--lilac { background: var(--ws-sticky-lilac); }
+.ws-retro__card-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.35;
+}
+.ws-retro__card-empty { opacity: 0.4; font-style: italic; }
+.ws-retro__card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 9px;
+  opacity: 0.7;
+}
+.ws-retro__card-author { font-family: "SF Mono", ui-monospace, Menlo, monospace; }
+.ws-retro__card-actions { display: flex; gap: 2px; }
+.ws-retro__card-actions button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 3px;
+  color: #0f172a;
+}
+.ws-retro__card-actions button:hover { background: rgba(15, 23, 42, 0.15); }
+.ws-retro__card-textarea {
+  width: 100%;
+  min-height: 60px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  resize: vertical;
+  color: #0f172a;
+}
+.ws-retro__add {
+  background: transparent;
+  color: var(--ws-hud-fg-muted);
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ws-retro__add:hover { background: rgba(148, 163, 184, 0.15); color: var(--ws-hud-fg); }
+
+/* ── Kanban overlay ─────────────────────────────────────────────── */
+.ws-kanban {
+  position: absolute;
+  inset: 8px;
+  display: flex;
+  flex-direction: column;
+  background: var(--ws-hud-bg);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  color: var(--ws-hud-fg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  font-family: system-ui, sans-serif;
+  overflow: hidden;
+  z-index: 8;
+}
+.ws-kanban__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.ws-kanban__title { font-weight: 600; font-size: 13px; }
+.ws-kanban__meta { font-size: 11px; color: var(--ws-hud-fg-muted); flex: 1; }
+.ws-kanban__warn { color: #f59e0b; margin-left: 4px; }
+.ws-kanban__close {
+  background: transparent;
+  color: var(--ws-hud-fg-soft);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.ws-kanban__close:hover { background: rgba(148, 163, 184, 0.15); }
+.ws-kanban__columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px;
+  flex: 1;
+  overflow: hidden;
+}
+.ws-kanban__col {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.6);
+}
+.ws-kanban__col.is-dragover { box-shadow: inset 0 0 0 3px rgba(125, 211, 252, 0.5); }
+.ws-kanban__col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+.ws-kanban__col-count {
+  background: rgba(15, 23, 42, 0.35);
+  color: #f1f5f9;
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 10px;
+}
+.ws-kanban__col-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ws-kanban__empty {
+  font-size: 11px;
+  color: var(--ws-hud-fg-muted);
+  text-align: center;
+  padding: 16px;
+  font-style: italic;
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+}
+.ws-kanban__card {
+  background: #1e293b;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 6px;
+  padding: 8px;
+  cursor: grab;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+.ws-kanban__card:hover { background: #334155; border-color: #7dd3fc; }
+.ws-kanban__card:active { cursor: grabbing; }
+.ws-kanban__card.is-dragging { opacity: 0.5; }
+.ws-kanban__card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ws-hud-fg);
+  margin-bottom: 4px;
+  word-break: break-all;
+}
+.ws-kanban__card-meta {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--ws-hud-fg-muted);
+  flex-wrap: wrap;
+}
+.ws-kanban__card-layer {
+  background: rgba(148, 163, 184, 0.15);
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 9px;
+}
+.ws-kanban__card-risk {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 600;
+}

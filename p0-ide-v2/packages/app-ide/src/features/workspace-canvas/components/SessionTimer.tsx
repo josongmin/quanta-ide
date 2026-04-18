@@ -128,7 +128,7 @@ export function SessionTimer() {
       className={cls}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
-      onMouseDown={onPointerDown}
+      onMouseDown={e => e.stopPropagation()}
     >
       <div className="ws-session-timer__display" title="mm:ss remaining">
         {formatMmSs(remainingSec)}
