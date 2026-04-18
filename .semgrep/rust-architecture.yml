@@ -11,7 +11,7 @@ rules:
       - pattern-regex: "crate::application::"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/domain/"
+        - "/desktop/src-tauri/src/domain/"
     message: >
       HEXAGONAL VIOLATION: domain layer must not import from application layer.
       Domain is the innermost ring — it knows nothing about use-cases or services.
@@ -24,7 +24,7 @@ rules:
       - pattern-regex: "crate::infrastructure::"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/domain/"
+        - "/desktop/src-tauri/src/domain/"
     message: >
       HEXAGONAL VIOLATION: domain layer must not import from infrastructure.
       Domain defines ports (traits); infrastructure implements them.
@@ -37,7 +37,7 @@ rules:
       - pattern-regex: "crate::adapter::"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/domain/"
+        - "/desktop/src-tauri/src/domain/"
     message: >
       HEXAGONAL VIOLATION: domain layer must not import from adapter layer.
     languages: [rust]
@@ -49,7 +49,7 @@ rules:
       - pattern-regex: "crate::infrastructure::"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/application/"
+        - "/desktop/src-tauri/src/application/"
     message: >
       HEXAGONAL VIOLATION: application layer must not import from infrastructure.
       Application depends on domain ports (traits), not concrete implementations.
@@ -63,7 +63,7 @@ rules:
       - pattern-regex: "crate::adapter::"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/application/"
+        - "/desktop/src-tauri/src/application/"
     message: >
       HEXAGONAL VIOLATION: application layer must not import from adapter layer.
     languages: [rust]
@@ -75,7 +75,7 @@ rules:
       - pattern-regex: "crate::adapter::"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/infrastructure/"
+        - "/desktop/src-tauri/src/infrastructure/"
     message: >
       HEXAGONAL VIOLATION: infrastructure must not import from adapter layer.
       Both are outer-ring — they should be independent.
@@ -92,7 +92,7 @@ rules:
       - pattern-regex: "tauri::"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/domain/"
+        - "/desktop/src-tauri/src/domain/"
     message: >
       FRAMEWORK LEAKAGE: domain layer must not depend on Tauri.
       Domain is pure business logic — zero framework dependencies.
@@ -107,8 +107,8 @@ rules:
       - pattern-regex: "#\\[derive\\(.*Deserialize"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/domain/model/"
-        - "/p0-ide/src-tauri/src/domain/port/"
+        - "/desktop/src-tauri/src/domain/model/"
+        - "/desktop/src-tauri/src/domain/port/"
     message: >
       FRAMEWORK LEAKAGE: domain models and ports must not derive Serde.
       Use DTOs in the application layer to cross serialisation boundaries.
@@ -122,7 +122,7 @@ rules:
       - pattern-regex: "#\\[tauri::command\\]"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/application/"
+        - "/desktop/src-tauri/src/application/"
     message: >
       FRAMEWORK LEAKAGE: application layer must not depend on Tauri.
       Tauri commands belong in the adapter layer (adapter/tauri_cmd/).
@@ -137,10 +137,10 @@ rules:
     pattern-regex: "#\\[tauri::command\\]"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/"
+        - "/desktop/src-tauri/src/"
       exclude:
-        - "/p0-ide/src-tauri/src/adapter/"
-        - "/p0-ide/src-tauri/src/lib.rs"
+        - "/desktop/src-tauri/src/adapter/"
+        - "/desktop/src-tauri/src/lib.rs"
     message: >
       SOLID/SRP VIOLATION: #[tauri::command] must only appear in adapter/tauri_cmd/.
       Commands are driving adapters — keep them in the adapter layer.
@@ -155,9 +155,9 @@ rules:
     pattern-regex: "println!\\("
     paths:
       include:
-        - "/p0-ide/src-tauri/src/"
+        - "/desktop/src-tauri/src/"
       exclude:
-        - "/p0-ide/src-tauri/src/main.rs"
+        - "/desktop/src-tauri/src/main.rs"
     message: >
       Use the `log` crate (info!, debug!, warn!, error!) instead of println!.
       println! bypasses structured logging and pollutes stdout.
@@ -168,7 +168,7 @@ rules:
     pattern-regex: "eprintln!\\("
     paths:
       include:
-        - "/p0-ide/src-tauri/src/"
+        - "/desktop/src-tauri/src/"
     message: >
       Use the `log` crate (warn!, error!) instead of eprintln!.
     languages: [rust]
@@ -178,9 +178,9 @@ rules:
     pattern-regex: "std::process::exit"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/"
+        - "/desktop/src-tauri/src/"
       exclude:
-        - "/p0-ide/src-tauri/src/main.rs"
+        - "/desktop/src-tauri/src/main.rs"
     message: >
       Do not call std::process::exit outside main.rs.
       Return errors upward and let the composition root decide.
@@ -191,7 +191,7 @@ rules:
     pattern-regex: "Box<dyn"
     paths:
       include:
-        - "/p0-ide/src-tauri/src/domain/"
+        - "/desktop/src-tauri/src/domain/"
     message: >
       Prefer generics + trait bounds over Box<dyn> in the domain layer.
       Dynamic dispatch is an infrastructure concern, not a domain concern.

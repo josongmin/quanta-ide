@@ -1,0 +1,13 @@
+# Quanta desktop (Tauri) — web UI is built from `p0-ide-v2/` (see `src-tauri/tauri.conf.json`).
+
+dev:
+    pnpm tauri:dev
+
+build:
+    pnpm tauri:build
+
+validate:
+    pnpm tauri:validate
+
+install:
+    pnpm install

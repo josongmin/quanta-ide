@@ -19,7 +19,7 @@ vite.config.*.timestamp-*
 
 # Rust / Tauri
 **/target/
-p0-ide/src-tauri/gen/
+desktop/src-tauri/gen/
 **/*.rs.bk
 **/*.rlib
 

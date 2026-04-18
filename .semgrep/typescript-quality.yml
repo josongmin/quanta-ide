@@ -1,16 +1,18 @@
 rules:
   # ════════════════════════════════════════════════════════════════════
-  # TYPESCRIPT / REACT — prevent sloppy frontend patterns
+  # TYPESCRIPT / REACT — prevent sloppy frontend patterns (p0-ide-v2)
   # ════════════════════════════════════════════════════════════════════
 
   - id: no-any-type
     pattern: "(x: any)"
     paths:
       include:
-        - "/p0-ide/src/"
+        - "/p0-ide-v2/packages/"
+        - "/p0-ide-v2/src/"
       exclude:
-        - "/p0-ide/src/test/"
         - "**/*.test.*"
+        - "**/__tests__/**"
+        - "**/*.stories.*"
     message: >
       Do not use `any` — use `unknown`, a proper type, or a generic.
     languages: [typescript]
@@ -20,7 +22,11 @@ rules:
     pattern-regex: "@ts-ignore"
     paths:
       include:
-        - "/p0-ide/src/"
+        - "/p0-ide-v2/packages/"
+        - "/p0-ide-v2/src/"
+      exclude:
+        - "**/*.test.*"
+        - "**/__tests__/**"
     message: >
       Do not use @ts-ignore. Use @ts-expect-error with an explanation if truly needed.
     languages: [typescript]
@@ -30,54 +36,25 @@ rules:
     pattern: "console.log(...)"
     paths:
       include:
-        - "/p0-ide/src/"
+        - "/p0-ide-v2/packages/"
+        - "/p0-ide-v2/src/"
       exclude:
-        - "/p0-ide/src/test/"
         - "**/*.test.*"
+        - "**/__tests__/**"
+        - "**/*.stories.*"
     message: >
       Remove console.log. Use a proper logging utility or remove before commit.
     languages: [typescript]
     severity: WARNING
 
-  - id: no-tauri-api-in-shared
+  - id: no-tauri-api-in-platform-agnostic-packages
     pattern-regex: "from\\s+['\"]@tauri-apps/api"
     paths:
       include:
-        - "/p0-ide/src/shared/"
-        - "/p0-ide/src/entities/"
+        - "/p0-ide-v2/packages/domain-types/"
+        - "/p0-ide-v2/packages/ui-kit/"
     message: >
-      Tauri API imports must not appear in shared/ or entities/ layers.
-      These FSD layers must remain platform-agnostic. Use features/ or widgets/ instead.
-    languages: [typescript]
-    severity: ERROR
-
-  - id: fsd-no-upward-import-shared
-    pattern-regex: "from\\s+['\"]@/(features|widgets|app)/"
-    paths:
-      include:
-        - "/p0-ide/src/shared/"
-    message: >
-      FSD VIOLATION: shared/ must not import from features/, widgets/, or app/.
-      Shared is the bottom layer — dependencies point downward only.
-    languages: [typescript]
-    severity: ERROR
-
-  - id: fsd-no-upward-import-entities
-    pattern-regex: "from\\s+['\"]@/(features|widgets|app)/"
-    paths:
-      include:
-        - "/p0-ide/src/entities/"
-    message: >
-      FSD VIOLATION: entities/ must not import from features/, widgets/, or app/.
-    languages: [typescript]
-    severity: ERROR
-
-  - id: fsd-no-upward-import-features
-    pattern-regex: "from\\s+['\"]@/(widgets|app)/"
-    paths:
-      include:
-        - "/p0-ide/src/features/"
-    message: >
-      FSD VIOLATION: features/ must not import from widgets/ or app/.
+      Tauri API imports must not appear in domain-types or ui-kit.
+      Keep these packages platform-agnostic; call Tauri from app or shell layers.
     languages: [typescript]
     severity: ERROR

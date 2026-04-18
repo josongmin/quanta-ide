@@ -6,7 +6,7 @@
 
 ## Context
 
-The Tauri desktop app (`p0-ide/src-tauri/tauri.conf.json`) ships a Content Security Policy that controls which resources the WebView can load. The previous CSP had two weaknesses:
+The Tauri desktop app (`desktop/src-tauri/tauri.conf.json`) ships a Content Security Policy that controls which resources the WebView can load. The previous CSP had two weaknesses:
 
 1. **External origins allowed** -- `https://fonts.googleapis.com` and `https://fonts.gstatic.com` were permitted in `style-src` and `font-src`. A desktop IDE should bundle all assets locally; allowing external origins expands the attack surface (DNS hijack, CDN compromise, exfiltration vector via font request).
 2. **Missing deny directives** -- `object-src`, `frame-src`, `base-uri`, and `form-action` were unspecified, inheriting from `default-src 'self'` where applicable. Explicit `'none'` is stronger because it survives future `default-src` edits and makes intent clear to auditors.

@@ -45,7 +45,13 @@
       "@quanta/app-policy": ["packages/app-policy/src"],
       "@quanta/app-policy/*": ["packages/app-policy/src/*"],
       "@quanta/ui-kit": ["packages/ui-kit/src"],
-      "@quanta/ui-kit/*": ["packages/ui-kit/src/*"]
+      "@quanta/ui-kit/*": ["packages/ui-kit/src/*"],
+      "@quanta/canvas-engine": ["packages/canvas-engine/src"],
+      "@quanta/canvas-engine/*": ["packages/canvas-engine/src/*"],
+      "@quanta/canvas-worker": ["packages/canvas-worker/src"],
+      "@quanta/canvas-worker/*": ["packages/canvas-worker/src/*"],
+      "@quanta/canvas-pixi": ["packages/canvas-pixi/src"],
+      "@quanta/canvas-pixi/*": ["packages/canvas-pixi/src/*"]
     }
   },
   "include": ["src", "packages/*/src"]

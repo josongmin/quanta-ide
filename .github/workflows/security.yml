@@ -4,14 +4,16 @@ on:
   push:
     branches: [main, master]
     paths:
-      - "p0-ide/**"
+      - "desktop/**"
+      - "p0-ide-v2/**"
       - ".github/workflows/security.yml"
       - ".semgrepignore"
       - ".semgrep/**"
       - ".gitleaks.toml"
   pull_request:
     paths:
-      - "p0-ide/**"
+      - "desktop/**"
+      - "p0-ide-v2/**"
       - ".github/workflows/**"
       - ".semgrepignore"
       - ".semgrep/**"
@@ -79,7 +81,7 @@ jobs:
     timeout-minutes: 30
     defaults:
       run:
-        working-directory: p0-ide/src-tauri
+        working-directory: desktop/src-tauri
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,7 +91,7 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: p0-ide/src-tauri
+          workspaces: desktop/src-tauri
       - name: Format check
         run: cargo fmt -- --check
       - name: Clippy (deny warnings)
@@ -123,7 +125,7 @@ jobs:
     timeout-minutes: 10
     defaults:
       run:
-        working-directory: p0-ide
+        working-directory: p0-ide-v2
     steps:
       - uses: actions/checkout@v4
         with:
@@ -135,7 +137,7 @@ jobs:
         with:
           node-version: "22"
           cache: pnpm
-          cache-dependency-path: p0-ide/pnpm-lock.yaml
+          cache-dependency-path: p0-ide-v2/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - name: Audit (high+)
         run: pnpm audit --audit-level=high

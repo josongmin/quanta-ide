@@ -1,0 +1,63 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Workspace Canvas — multi-file 2D canvas
+   ═══════════════════════════════════════════════════════════════════ */
+
+.workspace-canvas {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-subtle);
+  cursor: grab;
+}
+
+.workspace-canvas:active {
+  cursor: grabbing;
+}
+
+.workspace-canvas--loading {
+  cursor: default;
+}
+
+/* Shared transform layer for DOM nodes */
+.workspace-canvas__dom-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  contain: layout style;
+}
+
+/* ── File card (Galaxy / City placeholder) ──────────────────────── */
+.file-card {
+  position: absolute;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 80ms ease;
+}
+
+.file-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.file-card__header {
+  padding: 8px 10px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-card__body {
+  padding: 8px 10px;
+  font-size: 10px;
+  color: var(--fg-subtle);
+}

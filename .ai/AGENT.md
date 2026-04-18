@@ -4,47 +4,54 @@ Single source of truth for AI assistants (Cursor, Claude Code, Codex, etc.) work
 
 ## Layout
 
-- **Frontend:** `p0-ide/` — Vite + React + TypeScript (`package.json` name: `quanta-ide`).
-- **Backend (Tauri):** `p0-ide/src-tauri/` — Rust, edition 2024, hexagonal architecture.
-- **App URL (dev):** `http://localhost:5173/ide/` — SPA `base` is `/ide/` (see `p0-ide/vite.config.ts`).
+- **Frontend:** `p0-ide-v2/` — pnpm workspace, Vite + React + TypeScript (`package.json` name: `quanta-ide-v2`).
+- **Desktop (Tauri):** `desktop/src-tauri/` — Rust, edition 2024, hexagonal shell. The WebView loads the UI built from `p0-ide-v2` (see `desktop/src-tauri/tauri.conf.json`).
+- **App URL (dev, web):** `http://localhost:5174/ide/` — SPA `base` is `/ide/` when not running under Tauri (see `p0-ide-v2/vite.config.ts`).
 - **CI / security:** `.github/workflows/` at repo root; Semgrep, Gitleaks, CodeQL, Dependabot.
 - **Custom Semgrep rules:** `.semgrep/` — architecture and quality enforcement.
 
-## Commands (run from `p0-ide/` unless noted)
+## Commands
+
+Use **pnpm** only; `packageManager` is pinned in `p0-ide-v2/package.json` and `desktop/package.json`.
+
+### `p0-ide-v2/` (web app)
 
 | Task | Command |
 |------|---------|
 | Install | `pnpm install` |
-| Dev server (web) | `pnpm dev` or `just dev` |
-| Dev server (Tauri) | `pnpm tauri:dev` |
+| Dev server | `pnpm dev` |
 | Lint (TS) | `pnpm lint` |
+| Typecheck | `pnpm typecheck` |
+| Tests | `pnpm test` |
+| Gate (type + lint + test) | `pnpm validate` |
+| Build (web) | `pnpm build` |
+| E2E | `pnpm e2e` |
+
+### `desktop/` (Tauri)
+
+| Task | Command |
+|------|---------|
+| Install | `pnpm install` |
+| Dev (Tauri + web) | `pnpm tauri:dev` |
 | Lint (Rust) | `pnpm tauri:clippy` |
 | Format check (Rust) | `pnpm tauri:fmt` |
-| Typecheck | `pnpm typecheck` |
-| Tests (TS) | `pnpm test` |
 | Tests (Rust) | `pnpm tauri:test` |
-| Gate (TS: type + lint + test) | `pnpm validate` |
 | Gate (Rust: fmt + clippy + test) | `pnpm tauri:validate` |
-| Full gate (+ build + coverage) | `pnpm validate:full` |
-| Semgrep (local) | `semgrep scan --config .semgrep/ .` |
-| Dependency audit | `pnpm security:audit` |
-| Build (web) | `pnpm build` |
-| Build (Tauri) | `pnpm tauri:build` |
+| Build (desktop bundle) | `pnpm tauri:build` |
 
-Use **pnpm** only; `packageManager` is pinned in `p0-ide/package.json`.
+### Repo-wide
+
+| Task | Command |
+|------|---------|
+| Semgrep (local) | `semgrep scan --config .semgrep/ .` |
+| Dependency audit (frontend) | `pnpm audit --audit-level=high` (from `p0-ide-v2/`) |
 
 ## Frontend code style
 
-- Match existing patterns: FSD-style layers under `p0-ide/src/` (`app/`, `widgets/`, `features/`, `entities/`, `shared/`).
-- **FSD dependency rule (enforced by Semgrep):**
-  - `shared/` → imports nothing above it
-  - `entities/` → may import `shared/`
-  - `features/` → may import `entities/`, `shared/`
-  - `widgets/` → may import `features/`, `entities/`, `shared/`
-  - `app/` → may import anything
-- **No `@tauri-apps/api` in `shared/` or `entities/`** — platform-agnostic layers.
-- ESLint is strict (type-checked TS, React, a11y, import-x). Fix new violations; do not weaken config.
-- Path alias: `@/*` → `p0-ide/src/*`.
+- Code lives in `p0-ide-v2/packages/<name>/src/` (monorepo). Match the style of the nearest package: co-locate `widgets/`, `features/`, `entities/`, `pages/` where that package uses them.
+- **No `@tauri-apps/api` in `packages/domain-types/` or `packages/ui-kit/`** — Semgrep enforces platform-agnostic boundaries there; call Tauri from app or shell code.
+- ESLint is strict (type-checked TS, React, a11y). Fix new violations; do not weaken config.
+- Path aliases are defined in `p0-ide-v2/vite.config.ts` (`@quanta/*`).
 
 ## Rust / Tauri code style
 
@@ -113,7 +120,7 @@ Violations are **blocked by Semgrep** (`.semgrep/rust-architecture.yml`):
 **This is a real product — a Software Intelligence Platform ("코드를 이해하는 인프라").**
 The IDE is the delivery surface for the engine's signals (taint flow, blast radius, behavior diff, typestate, incident DNA, ownership, cost, dead code, arch rules).
 
-Current `mock-engine.ts` and `mock-*.ts` files hold **stand-in data wired to real UI contracts** — the shapes represent what the engine will emit. Treat the types as the contract: when backend endpoints come online, swap the mock module for a live source without touching UI code. Don't soften lint/security findings in mock files unless asked.
+`mock.ts` / `*.mock.ts` fixtures under `p0-ide-v2/packages/*/src/` hold **stand-in data wired to real UI contracts** — the shapes represent what the engine will emit. Treat the types as the contract: when backend endpoints come online, swap the mock module for a live source without touching UI code. Don't soften lint/security findings in mock files unless asked.
 
 ### v2 IDE — overlay layers (p0-ide-v2)
 
@@ -122,7 +129,7 @@ Current `mock-engine.ts` and `mock-*.ts` files hold **stand-in data wired to rea
 - **L3 inspector modes** — Overview / Flow / Blast / Incidents / Behavior / Ownership, driven by `focus-store`
 - **L4 active** — `⌘⇧S` simulate change, `⌘E` ask agent with auto-injected context, `⌘1–6` switch inspector mode
 
-Engine data flows through `src/entities/engine/` (types + mock source + focus store). Widgets read from the entity layer; never hard-code facts inside widgets.
+Engine-facing types and mocks live under `packages/app-ide/src/entities/` (and related packages). Inspector mode and flow UI read from stores such as `packages/app-ide/src/stores/focus-store/`; widgets should not hard-code facts that belong in entities or engine payloads.
 
 ## AI agent — things you must NOT do
 
@@ -133,8 +140,8 @@ Engine data flows through `src/entities/engine/` (types + mock source + focus st
 5. **Never create empty placeholder modules.** No "for future use" code. Write code when you need it.
 6. **Never use `println!`/`dbg!`/`unwrap` in production paths.** Use `log` crate. Propagate errors with `?`.
 7. **Never bypass the composition root.** All DI wiring happens in `lib.rs::run()`. Don't instantiate infrastructure types inside services.
-8. **Never import upward in FSD layers.** `shared` → nothing above. `features` → nothing above `entities`.
-9. **Never commit with Clippy warnings.** Run `pnpm tauri:validate` before considering Rust work done.
+8. **Never import upward across package boundaries** in ways that create cycles or bypass the public API of a package. Prefer explicit exports from package `index.ts` files.
+9. **Never commit with Clippy warnings.** Run `pnpm tauri:validate` from `desktop/` before considering Rust work done.
 10. **Never commit `@ts-ignore`.** Use `@ts-expect-error` with explanation if truly necessary.
 
 ## Docs split

@@ -25,7 +25,7 @@ storybook-static/
 .vite/
 vite.config.*.timestamp-*
 
-# --- Rust / Cargo (Tauri lives under p0-ide/src-tauri/) ---
+# --- Rust / Cargo (Tauri lives under desktop/src-tauri/) ---
 **/target/
 **/*.rs.bk
 **/*.rlib
@@ -33,7 +33,7 @@ vite.config.*.timestamp-*
 *.profdata
 
 # --- Tauri codegen (re-generated on build) ---
-p0-ide/src-tauri/gen/
+desktop/src-tauri/gen/
 
 # --- Environment & secrets (never commit) ---
 .env

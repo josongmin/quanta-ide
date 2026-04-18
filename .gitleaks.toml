@@ -7,11 +7,13 @@ useDefault = true
 [[allowlists]]
 description = "IDE mock / fixture sources (not production secrets)"
 paths = [
-  '''p0-ide/src/app/ide/mock-charge.tsx''',
-  '''p0-ide/src/app/ide/mock-ledger.tsx''',
-  '''p0-ide/src/app/ide/mock-refund-lines.tsx''',
-  '''p0-ide/src/app/ide/mock-pr.ts''',
-  '''p0-ide/src/app/ide/mock.ts''',
-  '''p0-ide/src/app/ide/mock-fixes.tsx''',
-  '''p0-ide/src/app/ide/mock-file-inspector.ts''',
+  '''p0-ide-v2/packages/app-ide/src/entities/file/api/mock.ts''',
+  '''p0-ide-v2/packages/app-ide/src/entities/quanta/api/mock.ts''',
+  '''p0-ide-v2/packages/app-ide/src/entities/agent-chat/api/mock.ts''',
+  '''p0-ide-v2/packages/app-ide/src/entities/output/api/mock.ts''',
+  '''p0-ide-v2/packages/app-ide/src/entities/problem/api/mock.ts''',
+  '''p0-ide-v2/packages/app-ide/src/entities/terminal/api/mock.ts''',
+  '''p0-ide-v2/packages/app-ide/src/entities/watcher/api/mock.ts''',
+  '''p0-ide-v2/packages/app-agent/src/entities/agent/api/mock.ts''',
+  '''p0-ide-v2/packages/app-pr/src/entities/pr/api/mock.ts''',
 ]

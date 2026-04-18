@@ -1,0 +1,19 @@
+{
+  "name": "quanta-desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:clippy": "cd src-tauri && cargo clippy --all-targets -- -D warnings",
+    "tauri:fmt": "cd src-tauri && cargo fmt -- --check",
+    "tauri:test": "cd src-tauri && cargo test",
+    "tauri:validate": "pnpm tauri:fmt && pnpm tauri:clippy && pnpm tauri:test"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.10.1"
+  }
+}

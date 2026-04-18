@@ -1,4 +1,4 @@
-export type ViewMode = "code" | "canvas" | "security-rules";
+export type ViewMode = "code" | "canvas" | "security-rules" | "workspace";
 
 export interface ViewModeState {
   viewMode: ViewMode;
