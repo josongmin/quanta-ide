@@ -9,9 +9,13 @@ import { useInteractionStore, interactionStore, type TemporalMode } from "../../
 import {
   useRenderSettings,
   renderSettingsStore,
+  ALL_EDGE_KINDS,
+  type EdgeKind,
   type EdgeLayer,
   type EdgeSeverity,
 } from "../../store/render-settings-store";
+import { KIND_STYLE, LAYER_STYLE } from "@quanta/canvas-pixi";
+import { deriveEdgeLayer } from "@quanta/canvas-engine";
 import { useUxSettings, uxSettingsStore } from "../../store/ux-settings-store";
 import { useDebugSettings, debugSettingsStore } from "../../store/debug-settings-store";
 import { stickiesStore, useStickiesStore, type Sticky } from "../../store/stickies-store";
@@ -39,6 +43,28 @@ import {
 
 const EDGE_LAYERS: readonly EdgeLayer[] = ["structural", "flow", "safety", "impact"] as const;
 const EDGE_SEVERITIES: readonly EdgeSeverity[] = ["low", "medium", "high", "critical"] as const;
+
+// Short labels that fit in a debug chip without truncating the kind's
+// meaning past the point of recognition. `taint-propagation` → `taint`
+// is the only lossy shortening; everything else is just compact.
+const KIND_LABEL: Record<EdgeKind, string> = {
+  import: "import", call: "call", reference: "ref", cfg: "cfg", inheritance: "inherit",
+  dataflow: "dataflow", effect: "effect", pdg: "pdg", alias: "alias",
+  "taint-propagation": "taint", sanitizer: "sanitize", race: "race", cycle: "cycle", finding: "finding",
+  blast: "blast", impact: "impact", diff: "diff", dependency: "dep", witness: "witness",
+};
+
+function kindColorHex(kind: EdgeKind): string {
+  const style = KIND_STYLE[kind] ?? LAYER_STYLE[deriveEdgeLayer(kind)];
+  return "#" + style.color.toString(16).padStart(6, "0");
+}
+
+const KINDS_BY_LAYER: Record<EdgeLayer, readonly EdgeKind[]> = {
+  structural: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "structural"),
+  flow: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "flow"),
+  safety: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "safety"),
+  impact: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "impact"),
+};
 
 function scenePct(n: number, total: number): number {
   return total > 0 ? Math.round((n / total) * 100) : 0;
@@ -100,6 +126,7 @@ export function SceneSection() {
   const showHitLayers = useUxSettings(s => s.showHitLayers);
   const showHeatmap = useUxSettings(s => s.showHeatmap);
   const showBlameGutter = useRenderSettings(s => s.showBlameGutter);
+  const edgeKinds = useRenderSettings(s => s.edgeKinds);
   const edgeLayers = useRenderSettings(s => s.edgeLayers);
   const showSccBubbles = useRenderSettings(s => s.showSccBubbles);
   const showStartHereBadges = useRenderSettings(s => s.showStartHereBadges);
@@ -244,6 +271,55 @@ export function SceneSection() {
         />
         <span>엣지 (전체)</span>
       </label>
+      {EDGE_LAYERS.map(layer => {
+        const kinds = KINDS_BY_LAYER[layer];
+        const allOn = kinds.every(k => edgeKinds[k]);
+        const allOff = kinds.every(k => !edgeKinds[k]);
+        return (
+          <div key={layer} style={{ marginLeft: 20 }}>
+            <div className="ws-debug__row" style={{ alignItems: "center", opacity: 0.7, fontSize: 11 }}>
+              <span style={{ flex: 1 }}>{layer}</span>
+              <button
+                type="button"
+                className="ws-debug__chip"
+                onClick={() => {
+                  const next = !allOn;
+                  for (const k of kinds) renderSettingsStore.setEdgeKind(k, next);
+                }}
+                disabled={!showEdges}
+                title={allOn ? "이 레이어의 kind 전부 끄기" : "이 레이어의 kind 전부 켜기"}
+              >
+                {allOn ? "all off" : allOff ? "all on" : "all on"}
+              </button>
+            </div>
+            <div className="ws-debug__lod" style={{ gap: 2, flexWrap: "wrap" }}>
+              {kinds.map(k => (
+                <button
+                  key={k}
+                  type="button"
+                  className={`ws-debug__chip${edgeKinds[k] ? " is-on" : ""}`}
+                  onClick={() => renderSettingsStore.setEdgeKind(k, !edgeKinds[k])}
+                  title={k}
+                  disabled={!showEdges}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 2,
+                      background: kindColorHex(k),
+                      flex: "0 0 8px",
+                    }}
+                  />
+                  {KIND_LABEL[k]}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
 
       <div className="ws-debug__row" style={{ alignItems: "center" }}>
         <span style={{ flex: "0 0 82px", opacity: 0.75 }}>엣지 두께</span>

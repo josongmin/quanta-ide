@@ -92,6 +92,41 @@ interface FrameCtx {
   maxY: number;
 }
 
+// Per-file render-state cache used as a dirty-flag. If every field in this
+// snapshot matches the one from the previous frame, the file's label text
+// and risk/complexity colours haven't changed — we can skip the text-mutation
+// and string-formatting work entirely (the instanced rect mesh still needs
+// its slot written, but that's a plain Float32Array write, not a setter).
+//
+// NOTE: position-related fields (card.x/y/w/h, invScale, showLabels) are
+// *intentionally excluded* — those change every pan/zoom frame, and the
+// labels themselves don't need re-computed text when only geometry shifts.
+// We re-apply x/y/scale each frame regardless; the dirty flag only gates
+// the expensive path (new text string, style.fontSize setter, style.fill
+// setter — all of which trigger BitmapText invalidation inside Pixi).
+interface FileLabelSnapshot {
+  name: string;
+  nameLen: number;
+  riskScore: number;
+  loc: number;
+  taintCount: number;
+  fnCount: number;
+  // Function signature hash — counts + first N names concatenated. We don't
+  // need a perfect hash: if two distinct function sets collide here it only
+  // means we miss one dirty-invalidation, and the label text stays one frame
+  // stale. Acceptable for a render-only cache.
+  fnSig: string;
+  showFunctionLabels: boolean;
+  // Cached pre-computed label strings — reused when snapshot matches.
+  nameLabel: string;
+  scoreLabel: string;
+  locLabel: string;
+  taintLabel: string;
+  // Cached fn text per slot (matches fnSlots from last dirty pass).
+  fnLabels: string[];
+  fnSigLabels: (string | null)[];
+}
+
 export class CityNodeRenderer {
   private container: Container;
   private rectMesh: InstancedRectMesh;           // card bgs + function blocks
@@ -106,6 +141,30 @@ export class CityNodeRenderer {
   // Text pool keyed by font name. Each pool grows until TEXT_POOL_CAP_PER_FONT,
   // then LRU-rotates (cursor wraps and overwrites oldest entries).
   private pools: Map<string, TextPool> = new Map();
+
+  // Per-file dirty-flag cache. Most frames in city LOD are pure pan/zoom —
+  // FileNode content doesn't mutate between frames, only the camera does.
+  // When the snapshot for a file matches, we reuse the cached label strings
+  // verbatim (string comparison on BitmapText.text is a cheap early-out
+  // inside Pixi; but skipping the re-allocation of `"..." + slice(-18)` and
+  // `loc.toLocaleString() + " lines"` is the real win).
+  private labelCache: Map<string, FileLabelSnapshot> = new Map();
+
+  // Pooled pick-rect objects so we don't allocate a fresh `{x,y,w,h,id}`
+  // per file per frame. SpatialPickIndex.load walks the array it's given
+  // and does its own copy into RBush internals — we can safely recycle.
+  private pickRectsCapacity = 0;
+
+  // Shadow-pass dirty hash: numeric rolling hash of (id, elevation, card
+  // geometry) over every elevated file in this frame. When identical across
+  // frames, we skip `shadowLayer.clear()` + per-file `roundRect()` entirely
+  // — the existing Graphics stays valid since card rects are world-space
+  // and the world Container is what's being panned/zoomed.
+  private lastShadowHash = 0;
+  // Snapshot cache of which files were elevated last frame, so we can also
+  // invalidate when the elevation set changes (adding/removing a file keeps
+  // per-file hash the same if positions match, but the *count* differs).
+  private lastShadowCount = 0;
 
   private onClickFile?: (fileId: string) => void;
   private onHoverFile?: (fileId: string | null) => void;

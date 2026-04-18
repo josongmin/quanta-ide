@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import type { EdgeLayer, EdgeSeverity } from "@quanta/canvas-engine";
+import type { EdgeKind, EdgeLayer, EdgeSeverity } from "@quanta/canvas-engine";
 
 // Render settings store.
 // -------------------------------------------------------------------
@@ -8,8 +8,20 @@ import type { EdgeLayer, EdgeSeverity } from "@quanta/canvas-engine";
 // Changing a render knob should NOT wake UX / debug subscribers; the
 // three-file split keeps each fat subscriber set narrow.
 
-export type EdgeKind = "import" | "taint-propagation" | "blast";
-export type { EdgeLayer, EdgeSeverity };
+export type { EdgeKind, EdgeLayer, EdgeSeverity };
+
+export const ALL_EDGE_KINDS: readonly EdgeKind[] = [
+  "import", "call", "reference", "cfg", "inheritance",
+  "dataflow", "effect", "pdg", "alias",
+  "taint-propagation", "sanitizer", "race", "cycle", "finding",
+  "blast", "impact", "diff", "dependency", "witness",
+];
+
+function allKindsOn(): Record<EdgeKind, boolean> {
+  const out = {} as Record<EdgeKind, boolean>;
+  for (const k of ALL_EDGE_KINDS) out[k] = true;
+  return out;
+}
 
 export interface RenderSettingsState {
   showEdges: boolean;
@@ -40,7 +52,7 @@ export interface RenderSettingsState {
 
 let state: RenderSettingsState = {
   showEdges: true,
-  edgeKinds: { import: true, "taint-propagation": true, blast: true },
+  edgeKinds: allKindsOn(),
   edgeLayers: { structural: true, flow: true, safety: true, impact: true },
   edgeMinSeverity: "low",
   edgeWidthMul: 1,

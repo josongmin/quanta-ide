@@ -173,7 +173,17 @@ function GroundCardImpl({
           <div className="ground-card__placeholder">—</div>
         )}
         {!loading && data?.source && (
-          <pre className="ground-card__source">{data.source}</pre>
+          <pre className="ground-card__source">
+            {highlightedLines
+              ? highlightedLines.map((line, i) => (
+                  <div key={i} className="ground-card__line">
+                    {line.map(([cls, text], j) => (
+                      <span key={j} className={`hl hl--${cls}`}>{text}</span>
+                    ))}
+                  </div>
+                ))
+              : data.source}
+          </pre>
         )}
       </div>
     </div>

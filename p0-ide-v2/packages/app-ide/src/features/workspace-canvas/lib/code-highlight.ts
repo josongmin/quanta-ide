@@ -40,7 +40,7 @@ export interface Lang {
   lineComment?: string;
   /** Extra single-line comment prefix (e.g. `//` AND `#` in some hybrids). */
   lineComment2?: string;
-  /** Whether `/* … */` block comments are supported. */
+  /** Whether slash-star block comments are supported. */
   blockComment?: boolean;
   /** Single quotes delimit strings (vs. chars). */
   singleQuoteString?: boolean;
