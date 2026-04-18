@@ -11,7 +11,11 @@ import {
 // force-disabled remotely by calling `setFlag(id, false)` from a kill-switch
 // (e.g., analyzer reports the feature broke in a particular repo).
 
-const STORAGE_KEY = "quanta.canvas.featureFlags.v1";
+// Bumped v1 → v2 when the default loadout changed (most Batch 1–7 features
+// flipped OFF by default). Old persisted flags would otherwise shadow the new
+// minimal defaults for returning users. The legacy key is cleared on read.
+const STORAGE_KEY = "quanta.canvas.featureFlags.v2";
+const LEGACY_STORAGE_KEYS = ["quanta.canvas.featureFlags.v1"] as const;
 
 type FlagsShape = Record<string, boolean>;
 
@@ -23,9 +27,11 @@ function seedFlags(): FlagsShape {
 
 function readPersisted(): FlagsShape | null {
   try {
-    const raw = typeof localStorage === "undefined"
-      ? null
-      : localStorage.getItem(STORAGE_KEY);
+    if (typeof localStorage === "undefined") return null;
+    // Drop any legacy keys so they never come back. This lets a schema bump
+    // cleanly invalidate stale user overrides without needing a migration.
+    for (const k of LEGACY_STORAGE_KEYS) localStorage.removeItem(k);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;

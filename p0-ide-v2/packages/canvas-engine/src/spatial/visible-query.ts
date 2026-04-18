@@ -26,6 +26,13 @@ interface SpatialCache {
    *  graph reference changes under a stable layout (rare but possible when
    *  callers swap graph data while reusing a layout), we rebuild lazily. */
   graphRef: WorkspaceGraph;
+  /** Scratch bitset for "is fileId visible?" membership tests during the
+   *  comments filter. **Per-cache** (and therefore per-layout) so multiple
+   *  canvases / graphs querying concurrently don't clobber each other's
+   *  membership state. Reused across frames — `.fill(0)` at the top of
+   *  each `buildVisibleQuery` call. Grows in place via
+   *  `ensureBitsetCapacity`; never shrinks. */
+  visibleFileBitset: Uint8Array;
 }
 
 // WeakMap: auto-invalidates when layout object is GC'd

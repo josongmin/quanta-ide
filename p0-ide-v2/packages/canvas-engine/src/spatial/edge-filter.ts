@@ -2,12 +2,16 @@ import RBush from "rbush";
 import type { BezierRoute } from "../layout/types";
 
 interface EdgeBBoxItem {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-  edgeId: string;
+  readonly minX: number;
+  readonly minY: number;
+  readonly maxX: number;
+  readonly maxY: number;
+  readonly edgeId: string;
 }
+
+// Internal mutable variant — see file-index.ts for rationale. rbush mutates
+// bbox fields only during `load()`; external consumers receive readonly views.
+type MutableEdgeBBoxItem = { -readonly [K in keyof EdgeBBoxItem]: EdgeBBoxItem[K] };
 
 function bezierBBox(route: BezierRoute): { minX: number; minY: number; maxX: number; maxY: number } {
   const xs = [route.x1, route.cx1, route.cx2, route.x2];
@@ -25,7 +29,7 @@ export class EdgeFilter {
 
   load(edgeIds: string[], edgeRoutes: Map<string, BezierRoute>): void {
     this.tree.clear();
-    const items: EdgeBBoxItem[] = [];
+    const items: MutableEdgeBBoxItem[] = [];
     for (const edgeId of edgeIds) {
       const route = edgeRoutes.get(edgeId);
       if (!route) continue;
@@ -49,7 +53,7 @@ export class EdgeFilter {
    * Hot-path variant — returns the raw bbox items (each carries `edgeId`)
    * so callers can skip the extra `.map()` allocation.
    */
-  queryItems(viewport: { x: number; y: number; w: number; h: number }): ReadonlyArray<EdgeBBoxItem> {
+  queryItems(viewport: { x: number; y: number; w: number; h: number }): ReadonlyArray<Readonly<EdgeBBoxItem>> {
     return this.tree.search({
       minX: viewport.x,
       minY: viewport.y,

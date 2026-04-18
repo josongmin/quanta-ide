@@ -14,6 +14,7 @@ import {
   SIGNAL_ACCENT,
 } from "./shared/colors";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
+import { setFontSize, setFill, setText } from "./shared/pixi-guards";
 
 // City LOD: zoomed in enough to see the file card, its header, and (when
 // zoomed far enough) per-function blocks. The old renderer called
@@ -95,16 +96,8 @@ interface FrameCtx {
 // BitmapText style setters trigger atlas re-lookup and re-layout inside Pixi
 // even when the new value equals the old one — walking thousands of labels
 // per frame, this turns into one of the biggest allocators in a dev-build.
-// Guarded assignment is the cheapest fix: TypeScript's own narrowing lets
-// V8 inline both branches. Colour fills are compared numerically because
-// .style.fill may also accept colour objects; we only ever write numbers
-// here so number-equality is sufficient.
-function setFontSize(bt: BitmapText, size: number): void {
-  if (bt.style.fontSize !== size) bt.style.fontSize = size;
-}
-function setFill(bt: BitmapText, color: number): void {
-  if (bt.style.fill !== color) bt.style.fill = color;
-}
+// Guarded assignment is the cheapest fix; see shared/pixi-guards.ts for the
+// canonical implementations used across every renderer.
 
 // Per-file render-state cache used as a dirty-flag. If every field in this
 // snapshot matches the one from the previous frame, the file's label text
@@ -611,8 +604,8 @@ export class CityNodeRenderer {
 
     const nameLabel = this.acquireText(CITY_FONT_NAME);
     // BitmapText.text setter rebuilds glyph geometry on *every* assignment,
-    // even if the string is identical — guard at call site.
-    if (nameLabel.text !== snap.nameLabel) nameLabel.text = snap.nameLabel;
+    // even if the string is identical — guard at call site via setText.
+    setText(nameLabel, snap.nameLabel);
     setFontSize(nameLabel, 11);
     setFill(nameLabel, 0x1a1a2e);
     nameLabel.scale.set(invScale);
@@ -620,7 +613,7 @@ export class CityNodeRenderer {
     nameLabel.y = card.y + 7 * invScale;
 
     const scoreLabel = this.acquireText(CITY_FONT_BOLD_NAME);
-    if (scoreLabel.text !== snap.scoreLabel) scoreLabel.text = snap.scoreLabel;
+    setText(scoreLabel, snap.scoreLabel);
     setFontSize(scoreLabel, 10);
     setFill(scoreLabel, riskText(file.riskScore));
     scoreLabel.scale.set(invScale);
@@ -661,7 +654,7 @@ export class CityNodeRenderer {
       if (snap) {
         const fnLabel = this.acquireText(CITY_MONO_FONT_NAME);
         const txt = snap.fnLabels[k] ?? "";
-        if (fnLabel.text !== txt) fnLabel.text = txt;
+        setText(fnLabel, txt);
         setFontSize(fnLabel, 9);
         setFill(fnLabel, 0x333333);
         fnLabel.scale.set(invScale);
@@ -671,7 +664,7 @@ export class CityNodeRenderer {
         const sigTxt = snap.fnSigLabels[k];
         if (sigTxt !== null && sigTxt !== undefined) {
           const sigLabel = this.acquireText(CITY_FONT_BOLD_NAME);
-          if (sigLabel.text !== sigTxt) sigLabel.text = sigTxt;
+          setText(sigLabel, sigTxt);
           setFontSize(sigLabel, 9);
           setFill(sigLabel, SIGNAL_ACCENT);
           sigLabel.scale.set(invScale);
@@ -691,7 +684,7 @@ export class CityNodeRenderer {
     const { snap } = this.getLabelSnapshot(file, frame.showFunctionLabels);
 
     const locLabel = this.acquireText(CITY_FONT_NAME);
-    if (locLabel.text !== snap.locLabel) locLabel.text = snap.locLabel;
+    setText(locLabel, snap.locLabel);
     setFontSize(locLabel, 9);
     setFill(locLabel, 0x888888);
     locLabel.scale.set(invScale);
@@ -700,7 +693,7 @@ export class CityNodeRenderer {
 
     if (file.signals.taintCount > 0) {
       const taintLabel = this.acquireText(CITY_FONT_NAME);
-      if (taintLabel.text !== snap.taintLabel) taintLabel.text = snap.taintLabel;
+      setText(taintLabel, snap.taintLabel);
       setFontSize(taintLabel, 9);
       setFill(taintLabel, SIGNAL_ACCENT);
       taintLabel.scale.set(invScale);

@@ -48,6 +48,17 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
   // Last-frame cost-overlay flag. Flipping it changes every file's colour,
   // so we must force the full rebuild path even if the id set is unchanged.
   private prevShowLatency = false;
+  // Last-frame metrics reference. `writeRow` reads `metrics.perFile.get(id)?.degree`
+  // to scale hub rects — if the upstream swaps the metrics object (canvas-engine
+  // rebuilds a fresh `Map` on every recompute, see graph/metrics.ts) but the
+  // visible id set is unchanged, the partial path would otherwise leave 4998/5000
+  // rows with stale scale. Identity compare is sufficient because computeMetrics
+  // always returns a new object (never mutates in place).
+  private prevMetricsRef: WorkspaceMetrics | null = null;
+  // Last-frame latency record. Even when `showLatencyOverlay` flag is stable,
+  // the per-file p95 numbers inside `latency` can change; partial path would
+  // miss that. Same identity-compare rationale as metrics.
+  private prevLatencyRef: Record<string, FileLatency> | null = null;
 
   // Pool of PickRect slots reused across frames. renderInstance returns a
   // slot from here instead of `{ x, y, w, h, id }` — on a full 5000-file
@@ -179,7 +190,22 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     const selectionChanged = selection !== this.prevSelectedFileId || hover !== this.prevHoveredFileId;
 
     const overlayChanged = showLatencyOverlay !== this.prevShowLatency;
-    if (idsKey === this.prevFileIdsKey && selectionChanged && !overlayChanged && this.prevInstanceCount > 0) {
+    // Metrics / latency identity must be stable for partial path: writeRow
+    // reads per-file degree (metrics) and per-file p95 (latency) to compute
+    // scale + tint. If either ref changed we cannot safely skip 4998/5000
+    // rows — every row might need a new scale/colour. Cheap ref compare;
+    // canvas-engine recomputes produce fresh objects, so this catches all
+    // real changes without a hash walk.
+    const metricsChanged = metrics !== this.prevMetricsRef;
+    const latencyChanged = latency !== this.prevLatencyRef;
+    if (
+      idsKey === this.prevFileIdsKey &&
+      selectionChanged &&
+      !overlayChanged &&
+      !metricsChanged &&
+      !latencyChanged &&
+      this.prevInstanceCount > 0
+    ) {
       // Partial path: the visible file set is unchanged; only the selection
       // or hover flipped. Rewrite at most 2 rows (old + new) instead of the
       // whole buffer (for 5000 files, that's ~10 bytes of writes instead of
@@ -212,6 +238,10 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     this.prevSelectedFileId = selection;
     this.prevHoveredFileId = hover;
     this.prevShowLatency = showLatencyOverlay;
+    // Record identity of inputs that `writeRow` reads beyond files+layout.
+    // The partial path re-enters only if these are strictly the same object.
+    this.prevMetricsRef = metrics;
+    this.prevLatencyRef = latency;
   }
 
   // Partial rewrite: only the affected instance rows (old selection, new
@@ -275,11 +305,18 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     this.prevHoveredFileId = null;
     this.prevInstanceCount = 0;
     this.pickRectCursor = 0;
+    // Drop identity refs so the next update() cannot accidentally enter the
+    // partial path against a pre-clear metrics/latency object.
+    this.prevMetricsRef = null;
+    this.prevLatencyRef = null;
+    this.prevShowLatency = false;
   }
 
   override destroy(): void {
     this.fileIdToInstanceIdx.clear();
     this.pickRectPool.reset();
+    this.prevMetricsRef = null;
+    this.prevLatencyRef = null;
     super.destroy();
   }
 }

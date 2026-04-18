@@ -119,9 +119,9 @@ export class ClusterNodeRenderer {
     const cached = this.colorCache.get(id);
     if (cached !== undefined) return cached;
     // Stable hash → HSV-ish hue band. We want clusters of the same crate to
-    // look related when the user zooms in/out quickly.
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+    // look related when the user zooms in/out quickly. Route through the
+    // canonical hashStringStep so every renderer folds strings identically.
+    const h = hashStringStep(0, id);
     const hue = (h & 0xffff) / 0xffff; // 0..1
     // Map hue into a soft pastel (HSL with high L, moderate S)
     const color = hslToRgb(hue, 0.45, 0.85);
@@ -170,7 +170,10 @@ export class ClusterNodeRenderer {
     if (clusters.length === 0) {
       this.rectMesh.setInstanceCount(0);
       this.hitLayer.clear();
-      this.pickRectsPool.slots.length = 0;
+      // Use the pool's canonical reset() rather than poking .slots.length
+      // directly — direct truncation leaves capacity intact, which would
+      // leave stale slot objects unreachable on the next grow() call.
+      this.pickRectsPool.reset();
       this.pickIndex.clear();
       this.releaseLabels();
       this.lastHitHash = 0;
@@ -257,7 +260,7 @@ export class ClusterNodeRenderer {
   clear(): void {
     this.rectMesh.setInstanceCount(0);
     this.hitLayer.clear();
-    this.pickRectsPool.slots.length = 0;
+    this.pickRectsPool.reset();
     this.pickIndex.clear();
     this.labelPoolCursor = 0;
     this.releaseLabels();

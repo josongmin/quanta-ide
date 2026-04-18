@@ -152,9 +152,9 @@ export class SuperclusterNodeRenderer {
     if (cached !== undefined) return cached;
     // Stable hash → palette index. Same hashing scheme as ClusterNodeRenderer
     // so paired renderings (if we ever show both tiers in a cross-fade) give
-    // visually coherent colour choices.
-    let h = 0;
-    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+    // visually coherent colour choices. Routed through hashStringStep so the
+    // two renderers agree byte-for-byte on the fold.
+    const h = hashStringStep(0, id);
     const idx = Math.abs(h) % SUPERCLUSTER_PALETTE.length;
     const fill = SUPERCLUSTER_PALETTE[idx];
     // Darker sibling (ΔL = 0.2) reads as a border without being harsh.
@@ -209,7 +209,10 @@ export class SuperclusterNodeRenderer {
     if (superclusters.length === 0) {
       this.rectMesh.setInstanceCount(0);
       this.hitLayer.clear();
-      this.pickRectsPool.slots.length = 0;
+      // Use the pool's canonical reset() rather than poking .slots.length
+      // directly — direct truncation leaves capacity intact, which would
+      // leave stale slot objects unreachable on the next grow() call.
+      this.pickRectsPool.reset();
       this.pickIndex.clear();
       this.releaseLabels();
       this.lastHitHash = 0;
@@ -297,7 +300,7 @@ export class SuperclusterNodeRenderer {
   clear(): void {
     this.rectMesh.setInstanceCount(0);
     this.hitLayer.clear();
-    this.pickRectsPool.slots.length = 0;
+    this.pickRectsPool.reset();
     this.pickIndex.clear();
     this.labelPoolCursor = 0;
     this.releaseLabels();

@@ -544,11 +544,11 @@ function MinecraftCreeper() {
     return () => el.removeEventListener("animationiteration", reroll);
   }, []);
 
-  const style: CSSProperties = {
+  const style = {
     bottom: `${pos.y}%`,
-    transform: `scale(${pos.scale})`,
     zIndex: Math.round(pos.scale * 4),
-  };
+    ["--depth-scale" as string]: pos.scale,
+  } as CSSProperties;
 
   return (
     <div
@@ -1163,7 +1163,13 @@ const GLITCH_CSS = `
   height: 160px;
   perspective: 700px;
   pointer-events: none;
+  transform-origin: bottom center;
   animation: mc-march 26s linear infinite;
+}
+.mc-steve[data-mode="idle"],
+.mc-steve[data-mode="look"],
+.mc-steve[data-mode="dance"] {
+  animation-play-state: paused;
 }
 @keyframes mc-march {
   0%   { left: -10%; }
@@ -1214,6 +1220,28 @@ const GLITCH_CSS = `
   50%      { transform: rotateX(-6deg) rotateY(-28deg) translateY(-2px); }
 }
 
+/* Look mode — body rotates side to side, scanning surroundings */
+.mc-steve[data-mode="look"] .mc-steve__rig {
+  animation: mc-rig-look 2.6s ease-in-out infinite;
+}
+@keyframes mc-rig-look {
+  0%, 100% { transform: rotateX(-6deg) rotateY(-55deg) translateY(0); }
+  25%      { transform: rotateX(-6deg) rotateY(-55deg) translateY(-1px); }
+  50%      { transform: rotateX(-6deg) rotateY(15deg)  translateY(0); }
+  75%      { transform: rotateX(-6deg) rotateY(15deg)  translateY(-1px); }
+}
+
+/* Dance mode — rig twists and sways */
+.mc-steve[data-mode="dance"] .mc-steve__rig {
+  animation: mc-rig-dance 0.45s ease-in-out infinite;
+}
+@keyframes mc-rig-dance {
+  0%, 100% { transform: rotateX(-6deg) rotateY(-42deg) rotateZ(-4deg) translateY(0); }
+  25%      { transform: rotateX(-4deg) rotateY(-18deg) rotateZ(3deg)  translateY(-4px); }
+  50%      { transform: rotateX(-6deg) rotateY(4deg)   rotateZ(4deg)  translateY(0); }
+  75%      { transform: rotateX(-4deg) rotateY(-18deg) rotateZ(-3deg) translateY(-4px); }
+}
+
 /* --- Generic cube scaffolding --- */
 .mc-cube {
   position: absolute;
@@ -1262,12 +1290,71 @@ const GLITCH_CSS = `
     5px 0 0 #2050a0,
     15px 0 0 #fff,
     20px 0 0 #2050a0;
+  animation: mc-blink 5.4s steps(1) infinite;
 }
+@keyframes mc-blink {
+  0%, 92%, 96%, 100% {
+    height: 5px;
+    top: 20px;
+    background: #fff;
+    box-shadow: 5px 0 0 #2050a0, 15px 0 0 #fff, 20px 0 0 #2050a0;
+  }
+  93%, 95% {
+    height: 1px;
+    top: 22px;
+    background: #6a3420;
+    box-shadow: 5px 0 0 #6a3420, 15px 0 0 #6a3420, 20px 0 0 #6a3420;
+  }
+}
+
 .mc-head__mouth {
   position: absolute;
   top: 30px; left: 12px;
   width: 16px; height: 3px;
   background: #6a3420;
+  animation: mc-expr 7.3s linear infinite;
+}
+@keyframes mc-expr {
+  0%, 38% {
+    width: 16px; height: 3px;
+    top: 30px; left: 12px;
+    border-radius: 0;
+    background: #6a3420;
+  }
+  42%, 53% {
+    width: 14px; height: 5px;
+    top: 30px; left: 13px;
+    border-radius: 0 0 8px 8px;
+    background: #6a3420;
+  }
+  57%, 72% {
+    width: 16px; height: 3px;
+    top: 30px; left: 12px;
+    border-radius: 0;
+    background: #6a3420;
+  }
+  78%, 88% {
+    width: 6px; height: 6px;
+    top: 29px; left: 17px;
+    border-radius: 50%;
+    background: #2a1410;
+  }
+  93%, 97% {
+    width: 10px; height: 3px;
+    top: 31px; left: 15px;
+    border-radius: 8px 8px 0 0;
+    background: #6a3420;
+  }
+}
+
+/* Head slight tilt while idling */
+.mc-steve[data-mode="idle"] .mc-head {
+  animation: mc-head-idle 3.6s ease-in-out infinite;
+  transform-style: preserve-3d;
+}
+@keyframes mc-head-idle {
+  0%, 100% { transform: rotateY(-10deg); }
+  50%      { transform: rotateY(12deg); }
 }
 
 /* --- Body (8x12x4 MC => 40x60x20 px) --- */
@@ -1302,6 +1389,27 @@ const GLITCH_CSS = `
   50%      { transform: rotateX(35deg); }
 }
 
+/* Idle / look — freeze arms mid-stride so he's just standing there */
+.mc-steve[data-mode="idle"] .mc-arm--left,
+.mc-steve[data-mode="idle"] .mc-arm--right,
+.mc-steve[data-mode="look"] .mc-arm--left,
+.mc-steve[data-mode="look"] .mc-arm--right {
+  animation: none;
+  transform: rotateX(0);
+}
+
+/* Dance — arms up, waving */
+.mc-steve[data-mode="dance"] .mc-arm--left  { animation: mc-dance-arm-a 0.45s ease-in-out infinite; }
+.mc-steve[data-mode="dance"] .mc-arm--right { animation: mc-dance-arm-b 0.45s ease-in-out infinite; }
+@keyframes mc-dance-arm-a {
+  0%, 100% { transform: rotateX(160deg) rotateZ(-18deg); }
+  50%      { transform: rotateX(175deg) rotateZ(8deg); }
+}
+@keyframes mc-dance-arm-b {
+  0%, 100% { transform: rotateX(175deg) rotateZ(18deg); }
+  50%      { transform: rotateX(160deg) rotateZ(-8deg); }
+}
+
 .mc-limb {
   --w: 20px; --h: 60px; --d: 20px;
   width: var(--w); height: var(--h);
@@ -1330,6 +1438,16 @@ const GLITCH_CSS = `
 .mc-leg--left  { left: 0;   transform-origin: 50% 0 50%; animation: mc-swing-b 0.6s ease-in-out infinite; }
 .mc-leg--right { left: 20px; transform-origin: 50% 0 50%; animation: mc-swing-a 0.6s ease-in-out infinite; }
 
+.mc-steve[data-mode="idle"] .mc-leg--left,
+.mc-steve[data-mode="idle"] .mc-leg--right,
+.mc-steve[data-mode="look"] .mc-leg--left,
+.mc-steve[data-mode="look"] .mc-leg--right,
+.mc-steve[data-mode="dance"] .mc-leg--left,
+.mc-steve[data-mode="dance"] .mc-leg--right {
+  animation: none;
+  transform: rotateX(0);
+}
+
 .mc-leg .mc-limb--leg .mc-face--front,
 .mc-leg .mc-limb--leg .mc-face--back   { background: #384080; }
 .mc-leg .mc-limb--leg .mc-face--left,
@@ -1351,17 +1469,19 @@ const GLITCH_CSS = `
   perspective: 700px;
   pointer-events: none;
   opacity: 0;
+  transform-origin: bottom center;
+  --depth-scale: 1;
   animation: mc-creeper-enter 34s linear infinite;
   animation-delay: 12s;
 }
 @keyframes mc-creeper-enter {
-  0%, 3%       { opacity: 0; left: 108%; }
-  4%           { opacity: 1; left: 106%; }
-  48%          { opacity: 1; left: 32%; }
-  52%          { opacity: 1; left: 32%; transform: translateY(-4px); }
-  53%, 57%     { opacity: 1; transform: translateY(-4px) scale(1.12); filter: saturate(3) brightness(1.3); }
-  60%          { opacity: 0; transform: scale(1.8); filter: brightness(3) blur(4px); }
-  61%, 100%    { opacity: 0; left: -10%; }
+  0%, 3%       { opacity: 0; left: 108%; transform: scale(var(--depth-scale)); }
+  4%           { opacity: 1; left: 106%; transform: scale(var(--depth-scale)); }
+  48%          { opacity: 1; left: 32%;  transform: scale(var(--depth-scale)); }
+  52%          { opacity: 1; left: 32%;  transform: scale(var(--depth-scale)) translateY(-4px); }
+  53%, 57%     { opacity: 1;             transform: scale(calc(var(--depth-scale) * 1.12)) translateY(-4px); filter: saturate(3) brightness(1.3); }
+  60%          { opacity: 0;             transform: scale(calc(var(--depth-scale) * 1.8)); filter: brightness(3) blur(4px); }
+  61%, 100%    { opacity: 0; left: -10%; transform: scale(var(--depth-scale)); }
 }
 
 .mc-creeper__rig {
@@ -1462,6 +1582,11 @@ const GLITCH_CSS = `
   .anim-pig, .anim-chicken, .glitch-apparition, .glitch-band,
   .mc-steve, .mc-steve__spin, .mc-steve__rig,
   .mc-arm--left, .mc-arm--right, .mc-leg--left, .mc-leg--right,
+  .mc-head, .mc-head__eyes, .mc-head__mouth,
+  .mc-steve[data-mode="look"] .mc-steve__rig,
+  .mc-steve[data-mode="dance"] .mc-steve__rig,
+  .mc-steve[data-mode="dance"] .mc-arm--left,
+  .mc-steve[data-mode="dance"] .mc-arm--right,
   .mc-creeper, .mc-creeper__rig, .mc-creeper__leg,
   .glitch-card__heading::before, .glitch-card__heading::after {
     animation: none !important;

@@ -169,6 +169,7 @@ export function FloatingPanel({
             className="float-panel__collapse"
             data-no-drag
             onClick={() => setCollapsed(c => !c)}
+            aria-expanded={!collapsed}
             aria-label={collapsed ? "펼치기" : "축소"}
             title={collapsed ? "펼치기" : "축소"}
           >

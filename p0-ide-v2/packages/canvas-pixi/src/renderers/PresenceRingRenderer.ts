@@ -101,6 +101,10 @@ export class PresenceRingRenderer {
     this.lastMembershipCount = 0;
     this.lastPulseBucket = -1;
     this.lastInvScaleBucket = -1;
+    // Without resetting the label-visibility flag, a subsequent tier that
+    // re-enters with the same membership hash but a toggled showLabels
+    // state would short-circuit the redraw branch in the stale direction.
+    this.lastShowLabels = false;
   }
 
   destroy(): void {
@@ -114,7 +118,10 @@ export class PresenceRingRenderer {
   private tick = (t: Ticker) => {
     if (this.lastPresence.length === 0 || !this.lastRectById) return;
     this.pulsePhase += (t.deltaMS / 1000) * PULSE_HZ * Math.PI * 2;
-    if (this.pulsePhase > Math.PI * 2) this.pulsePhase -= Math.PI * 2;
+    // Modulo (not `if (… > 2π) -= 2π`) handles the edge case where the tab
+    // comes back from background with a deltaMS spanning many cycles —
+    // a single subtract would leave the phase arbitrarily far past 2π.
+    this.pulsePhase = ((this.pulsePhase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     this.redraw();
   };
 
@@ -126,7 +133,11 @@ export class PresenceRingRenderer {
       count++;
       h = hashStringStep(h, p.agentId);
       h = hashStringStep(h, p.focusFileId);
-      h = hashStep(h, p.activity.charCodeAt(0));
+      // Use the full-string fold — `charCodeAt(0)` collides whenever two
+      // activities start with the same letter (e.g. could be extended to
+      // include `analyzing` vs `archiving` in future). hashStringStep is
+      // the canonical path for every string field in this file.
+      h = hashStringStep(h, p.activity);
       // Staleness is binary (age > STALE_MS), so collapse to 0/1. If an
       // agent *crosses* the staleness threshold, the hash flips and we
       // redraw. Within either state the alpha is constant.

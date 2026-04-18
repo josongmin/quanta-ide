@@ -64,15 +64,24 @@ export function hashStringStep(acc: number, s: string): number {
 
 // Pool of small mutable record slots. Pre-grows to `n` entries so the hot
 // loop can overwrite fields on existing objects instead of pushing fresh
-// `{...}` literals per frame. Capacity never shrinks — renderers are held
-// for the lifetime of the LOD tier, and peak visible set is a decent
-// estimate of steady-state working size.
+// `{...}` literals per frame. Capacity never shrinks under the frame
+// protocol — renderers are held for the lifetime of the LOD tier, and peak
+// visible set is a decent estimate of steady-state working size.
 //
-// Callers must call `grow(n)` up-front, then index into `.slots[0..n-1]` to
-// mutate fields, then set `.slots.length = used` to truncate the logical
-// length passed downstream (e.g. to SpatialPickIndex.load). On the next
-// frame calling `grow(m)` again re-extends `.slots.length` to capacity so
-// indexed writes remain valid even if the logical length shrank below it.
+// Frame protocol (two — and only two — supported reset paths):
+//
+//   1. `reset()` — drops *both* logical length and capacity to zero. Use
+//      when the renderer is draining (clear(), destroy(), or empty-input
+//      early-return). DO NOT hand-write `pool.slots.length = 0` instead:
+//      that leaves `capacity` stale, so the next `grow(n)` returns without
+//      re-exposing the allocated entries and indexed writes silently land
+//      on stale slots.
+//
+//   2. `grow(n)` + overwrite `.slots[0..n-1]` + `.slots.length = used` —
+//      the hot-path pattern. grow() re-exposes all allocated slots so
+//      indexed writes are safe; the caller then truncates the logical
+//      length passed downstream (e.g. to SpatialPickIndex.load). Next
+//      frame's grow() re-extends `.slots.length` to capacity again.
 export interface GrowingPool<T> {
   slots: T[];
   capacity: number;

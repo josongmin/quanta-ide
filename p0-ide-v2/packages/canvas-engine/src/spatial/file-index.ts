@@ -2,19 +2,25 @@ import RBush from "rbush";
 import type { Rect } from "../graph/types";
 
 interface FileBBoxItem {
-  minX: number;
-  minY: number;
-  maxX: number;
-  maxY: number;
-  fileId: string;
+  readonly minX: number;
+  readonly minY: number;
+  readonly maxX: number;
+  readonly maxY: number;
+  readonly fileId: string;
 }
+
+// Internal mutable variant used only at insertion time. rbush writes the
+// bbox fields once during `load()` and treats them as frozen afterwards;
+// we expose `FileBBoxItem` (all-readonly) to consumers via `queryItems()`
+// so external code can't accidentally mutate rbush's leaf references.
+type MutableFileBBoxItem = { -readonly [K in keyof FileBBoxItem]: FileBBoxItem[K] };
 
 export class FileIndex {
   private tree = new RBush<FileBBoxItem>();
 
   load(fileRects: Map<string, Rect>): void {
     this.tree.clear();
-    const items: FileBBoxItem[] = [];
+    const items: MutableFileBBoxItem[] = [];
     for (const [fileId, rect] of fileRects) {
       items.push({
         minX: rect.x,
@@ -45,7 +51,7 @@ export class FileIndex {
    *
    * Items returned are **read-only** — do not mutate.
    */
-  queryItems(viewport: { x: number; y: number; w: number; h: number }): ReadonlyArray<FileBBoxItem> {
+  queryItems(viewport: { x: number; y: number; w: number; h: number }): ReadonlyArray<Readonly<FileBBoxItem>> {
     return this.tree.search({
       minX: viewport.x,
       minY: viewport.y,

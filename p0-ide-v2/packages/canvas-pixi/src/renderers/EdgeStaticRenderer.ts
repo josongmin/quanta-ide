@@ -202,6 +202,11 @@ export class EdgeStaticRenderer {
   // the cache key matches, we reuse this slice instead of re-sorting the
   // full edge list.
   private budgetedSlice: FileEdge[] | null = null;
+  // Identity of the raw `edges` array that seeded the current
+  // `budgetedSlice`. Without this, callers that rebuild the edge list
+  // (new array identity) but land in the same `cacheKey` bucket would
+  // keep rendering the stale slice. Reset in `clear()`.
+  private budgetedSliceSourceRef: readonly FileEdge[] | null = null;
 
   // ── Bundling cache ──────────────────────────────────────────────
   // Bundling is deterministic given (edges array identity, lod, folder
@@ -215,6 +220,23 @@ export class EdgeStaticRenderer {
   private bundleCacheLod: string | null = null;
   private bundledEdges: BundledEdge[] | null = null;
   private bundledFolderCenters: Map<string, { x: number; y: number }> | null = null;
+
+  // ── Cache-key identity tracking ─────────────────────────────────
+  // `ReadonlySet` inputs (focus.edgeIds, temporalEdgeSet, diffAdded, …) are
+  // tested by identity in `computeFilterHash`. This WeakMap assigns each
+  // set a stable numeric id the first time we see it so the hash stays
+  // short. Identity-compare assumes upstream callers create a new Set
+  // whenever membership changes — documented at `EdgeStaticBuildOpts` and
+  // asserted by the WorkspaceCanvas rebuild path (sets are immutable from
+  // selectors). A mutated-in-place set would alias in the cache; that's a
+  // caller contract violation, not something this class defends against.
+  private setIdRegistry: WeakMap<object, number> = new WeakMap();
+  private nextSetId = 1;
+  // `customPredicate` is a function — functions aren't WeakMap keys if we
+  // want content-stability, but identity is sufficient here: a rebuilt
+  // DSL predicate produces a new function reference.
+  private fnIdRegistry: WeakMap<object, number> = new WeakMap();
+  private nextFnId = 1;
 
   constructor(parent: Container) {
     this.gfx = new Graphics();
@@ -282,11 +304,22 @@ export class EdgeStaticRenderer {
         this.previousLength = 0;
       }
       if (this.appliedMode !== effectiveMode) {
+        // Mode transition: lock the hysteresis anchor to the scale at
+        // which we entered `skip`. `appliedScale` MUST NOT track the
+        // live scale while we stay in the same mode — see H6 below.
         this.appliedMode = effectiveMode;
         this.appliedScale = scale;
         this.lastCacheKey = "skip";
         this.budgetedSlice = null;
+        this.budgetedSliceSourceRef = null;
       }
+      // Bundle cache is stale once we stop drawing — free refs so the
+      // next non-skip frame recomputes from fresh inputs.
+      this.bundleCacheEdgesRef = null;
+      this.bundleCacheRectsRef = null;
+      this.bundleCacheLod = null;
+      this.bundledEdges = null;
+      this.bundledFolderCenters = null;
       return;
     }
 
@@ -295,6 +328,17 @@ export class EdgeStaticRenderer {
         this.appliedMode = effectiveMode;
         this.appliedScale = scale;
       }
+      // Empty input path: invalidate bundle cache so a subsequent
+      // non-empty render on a *new* edges array doesn't resurrect a
+      // stale bundled slice that happens to match by identity after
+      // array reuse upstream. See audit M (bundle cache cleanup).
+      this.bundleCacheEdgesRef = null;
+      this.bundleCacheRectsRef = null;
+      this.bundleCacheLod = null;
+      this.bundledEdges = null;
+      this.bundledFolderCenters = null;
+      this.budgetedSlice = null;
+      this.budgetedSliceSourceRef = null;
       return;
     }
 
@@ -358,21 +402,42 @@ export class EdgeStaticRenderer {
 
     // Commit the new applied state now that we've decided mode + slice.
     const edgeBucket = Math.floor(workingEdges.length / EDGE_COUNT_BUCKET);
-    const filterHash = computeFilterHash(opts);
+    const filterHash = this.computeFilterHash(opts);
     const cacheKey = `${effectiveMode}:${opts?.lod ?? ""}:${edgeBucket}:${filterHash}`;
-    if (effectiveMode === "budgeted" && cacheKey === this.lastCacheKey && this.budgetedSlice) {
-      // Same bucket + filters: reuse the previously-selected slice so
-      // the top-N sort doesn't rerun on every redraw. Animated dashes
-      // still flow because we re-stroke below.
+    // Budgeted-slice reuse requires BOTH cache-key hit AND the source
+    // `edges` array identity matching the one that seeded the slice.
+    // The bucket hash is by count only, so two different arrays with the
+    // same filter shape land in the same bucket — reusing the slice in
+    // that case renders stale content (H5). The identity check is the
+    // minimum correctness gate.
+    if (
+      effectiveMode === "budgeted"
+      && cacheKey === this.lastCacheKey
+      && this.budgetedSlice
+      && this.budgetedSliceSourceRef === edges
+    ) {
+      // Same source array + same bucket + same filters: reuse the
+      // previously-selected slice so the top-N sort doesn't rerun on
+      // every redraw. Animated dashes still flow because we re-stroke
+      // below.
       workingEdges = this.budgetedSlice;
     } else if (effectiveMode === "budgeted") {
       this.budgetedSlice = workingEdges as FileEdge[];
+      this.budgetedSliceSourceRef = edges;
     } else {
       this.budgetedSlice = null;
+      this.budgetedSliceSourceRef = null;
     }
     this.lastCacheKey = cacheKey;
-    this.appliedMode = effectiveMode;
-    this.appliedScale = scale;
+    // Hysteresis anchor (H6): `appliedScale` locks the scale at which we
+    // committed to a mode. Updating it on every redraw (stay branch
+    // included) causes slow zoom drift to never trip the 10% threshold
+    // — the anchor chases the viewport and the transition never fires.
+    // Only update the anchor when the effective mode actually changed.
+    if (this.appliedMode !== effectiveMode) {
+      this.appliedMode = effectiveMode;
+      this.appliedScale = scale;
+    }
 
     const invScale = Math.min(32, Math.max(1, 1 / scale));
     const widthMul = opts?.widthMul ?? 1;
@@ -743,15 +808,27 @@ function computeAnchors(args: {
 function drawDashedBezier(
   g: Graphics,
   x1: number, y1: number, cp1x: number, cp1y: number, cp2x: number, cp2y: number, x2: number, y2: number,
-  pattern: readonly [number, number],
+  pattern: readonly number[],
   offset: number,
   stroke: { color: number; alpha: number; width: number; cap: "round" | "butt" },
 ): void {
-  const [on, off] = pattern;
-  const period = on + off;
+  if (pattern.length < 2) return;
+  let period = 0;
+  for (const seg of pattern) period += seg;
   if (period <= 0) return;
-  // Sample bezier into polyline, accumulate arc length, emit segments whose
-  // running length lands inside "on" windows of the (offset + dist) modulo.
+
+  // Even indices = pen-down (on) segments, odd = pen-up (off) gaps. Longer
+  // arrays like [6, 2, 1, 2] encode dash-dot / dash-dot-dot silhouettes so
+  // kinds read distinctly at a glance — not just by hue.
+  const isPenDownAt = (distance: number): boolean => {
+    let t = ((distance % period) + period) % period;
+    for (let i = 0; i < pattern.length; i++) {
+      if (t < pattern[i]) return i % 2 === 0;
+      t -= pattern[i];
+    }
+    return false;
+  };
+
   const pts: { x: number; y: number }[] = new Array(DASH_SAMPLES_PER_CURVE + 1);
   for (let i = 0; i <= DASH_SAMPLES_PER_CURVE; i++) {
     const t = i / DASH_SAMPLES_PER_CURVE;
@@ -766,8 +843,7 @@ function drawDashedBezier(
     const prev = pts[i - 1];
     const cur = pts[i];
     const segLen = Math.hypot(cur.x - prev.x, cur.y - prev.y);
-    const startCycle = ((cumLen + offset) % period);
-    const isOn = startCycle < on;
+    const isOn = isPenDownAt(cumLen + offset);
     if (isOn) {
       if (!penDown) {
         g.moveTo(prev.x, prev.y);

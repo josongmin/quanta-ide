@@ -112,7 +112,12 @@ export class EffectBadgeRenderer {
       hash = hashStringStep(hash, file.id);
       hash = hashStep(hash, entry.effects.length);
       for (let i = 0; i < entry.effects.length; i++) {
-        hash = hashStep(hash, entry.effects[i].charCodeAt(0));
+        // Fold the full kind string — `charCodeAt(0)` would collide on any
+        // two EffectKinds starting with the same letter (e.g. `net`/`nop`
+        // style additions), and order swaps of same-first-letter kinds
+        // would hash identically. hashStringStep is the canonical path for
+        // every string field in the renderer suite.
+        hash = hashStringStep(hash, entry.effects[i]);
       }
     }
 

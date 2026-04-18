@@ -549,38 +549,6 @@ export function MultiFileCanvas({ graph }: Props) {
   );
 }
 
-// Adapter: engine-side ImpactCone (fileId-only graph) → renderer-side
-// IsoConeInput (world-coord positions). Resolves each fileId via
-// layout.fileRects; drops entries with no rect. Keeps MultiFileCanvas
-// agnostic of iso projection details — canvas-engine stays renderer-
-// independent, canvas-pixi stays data-agnostic.
-import type { WorkspaceLayout, ImpactCone } from "@quanta/canvas-engine";
-import type { IsoConeInput, IsoConeRing } from "@quanta/canvas-pixi";
-
-function toIsoConeInput(
-  cone: ImpactCone | null,
-  layout: WorkspaceLayout | null,
-): IsoConeInput | null {
-  if (!cone || !layout) return null;
-  const rootRect = layout.fileRects.get(cone.rootFileId);
-  if (!rootRect) return null;
-  const rings: IsoConeRing[] = [];
-  for (const ring of cone.rings) {
-    const nodes: Array<{ x: number; y: number; fileId: string }> = [];
-    for (const fileId of ring.fileIds) {
-      const r = layout.fileRects.get(fileId);
-      if (!r) continue;
-      nodes.push({ x: r.x + r.w / 2, y: r.y + r.h / 2, fileId });
-    }
-    rings.push({ depth: ring.depth, nodes });
-  }
-  return {
-    root: { x: rootRect.x + rootRect.w / 2, y: rootRect.y + rootRect.h / 2 },
-    rings,
-    direction: cone.direction,
-  };
-}
-
 // Feature-gated mount for the session timer widget. Rendered as a
 // separate component so the gate lookup doesn't re-run the canvas
 // body's memoization.
