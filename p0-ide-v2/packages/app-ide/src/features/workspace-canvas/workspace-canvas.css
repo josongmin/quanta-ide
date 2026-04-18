@@ -682,6 +682,34 @@
   cursor: pointer;
 }
 .ws-debug__row input { margin: 0; accent-color: var(--ws-hud-accent-strong); }
+.ws-debug__row--aligned { align-items: center; }
+.ws-debug__row-label { flex: 0 0 82px; opacity: 0.75; }
+.ws-debug__row-slider { flex: 1; }
+.ws-debug__row-value {
+  flex: 0 0 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ws-debug__row-chips { gap: 2px; flex: 1; }
+.ws-debug__roi-list { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
+.ws-debug__roi-bar {
+  flex: 0 0 58px;
+  height: 6px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  display: inline-block;
+}
+.ws-debug__roi-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--ws-roi-hot);
+}
+.ws-debug__roi-num {
+  flex: 0 0 30px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .ws-debug__lod {
   display: flex;
   gap: 3px;
@@ -4105,8 +4133,10 @@
 .ws-roi-row__score {
   text-align: right;
   font-variant-numeric: tabular-nums;
-  color: var(--ws-roi-hot);
   font-weight: 600;
+  /* Color is set inline per-row from the gradient — the default picks up
+     the warm mid-tone as a safe fallback when JS hasn't overridden it. */
+  color: var(--ws-roi-warm);
 }
 .ws-roi-bar {
   position: relative;
@@ -4128,12 +4158,19 @@
   grid-column: 1 / 2;
 }
 .ws-roi-component-mini__bar {
-  display: inline-block;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: help;
+}
+.ws-roi-component-mini__track {
+  position: relative;
+  display: block;
   width: 8px;
   height: 14px;
   border-radius: 1px;
   background: rgba(255, 255, 255, 0.06);
-  position: relative;
   overflow: hidden;
 }
 .ws-roi-component-mini__fill {
@@ -4142,6 +4179,13 @@
   left: 0;
   right: 0;
   background: var(--ws-hud-accent);
+}
+.ws-roi-component-mini__glyph {
+  font-size: 8px;
+  line-height: 1;
+  color: var(--ws-hud-fg-subtle);
+  font-weight: 700;
+  letter-spacing: 0.02em;
 }
 .ws-roi-row__expand {
   all: unset;
@@ -4186,7 +4230,7 @@
   padding: 1px 6px;
   border-radius: 10px;
   background: var(--ws-hud-accent);
-  color: #0b1220;
+  color: var(--ws-hud-surface);
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;

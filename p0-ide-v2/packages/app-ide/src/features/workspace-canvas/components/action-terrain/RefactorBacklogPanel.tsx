@@ -205,10 +205,12 @@ export function RefactorBacklogPanel() {
                       className="ws-roi-component-mini__bar"
                       title={`${COMPONENT_LABELS[k]}: ${Math.round(v)}`}
                     >
-                      <span
-                        className="ws-roi-component-mini__fill"
-                        style={{ height: `${Math.max(6, v)}%` }}
-                      />
+                      <span className="ws-roi-component-mini__track">
+                        <span
+                          className="ws-roi-component-mini__fill"
+                          style={{ height: `${Math.max(6, v)}%` }}
+                        />
+                      </span>
                       <span className="ws-roi-component-mini__glyph" aria-hidden>
                         {COMPONENT_GLYPH[k]}
                       </span>

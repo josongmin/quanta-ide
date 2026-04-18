@@ -17,7 +17,11 @@ export function ActionTerrainToggle() {
   if (!gate) return null;
 
   return (
-    <div className="ws-action-terrain-toggle-wrap">
+    <div
+      className="ws-action-terrain-toggle-wrap"
+      onMouseDownCapture={e => e.stopPropagation()}
+      onPointerDownCapture={e => e.stopPropagation()}
+    >
       <button
         type="button"
         className="ws-action-terrain-toggle"

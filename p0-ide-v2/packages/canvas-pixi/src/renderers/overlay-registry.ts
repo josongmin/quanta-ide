@@ -22,8 +22,9 @@ import { SCCBubbleRenderer } from "./SCCBubbleRenderer";
 import { StartHereBadgeRenderer } from "./StartHereBadgeRenderer";
 import { PresenceRingRenderer, type AgentPresenceInput } from "./PresenceRingRenderer";
 import { EffectBadgeRenderer } from "./EffectBadgeRenderer";
-import { IsoTerrainRenderer } from "./iso/IsoTerrainRenderer";
-import { IsoConeRenderer } from "./iso/IsoConeRenderer";
+import { IsoTerrainRenderer, type IsoTerrainBar } from "./iso/IsoTerrainRenderer";
+import { IsoConeRenderer, type IsoConeInput } from "./iso/IsoConeRenderer";
+import type { IsoConfig } from "./iso/iso-projection";
 
 // Overlay registry.
 // -------------------------------------------------------------------
@@ -100,12 +101,11 @@ export interface OverlayRenderCtx {
   effects?: Record<string, FileEffects>;
   showEffectBadges: boolean;
 
-  // Action-terrain iso overlay (optional — parent flips this when the
-  // iso mode is active AND its feature flag is on).
+  // Action-terrain iso overlay.
   actionTerrainEnabled?: boolean;
-  actionTerrainBars?: readonly import("./iso/IsoTerrainRenderer").IsoTerrainBar[];
-  actionTerrainCone?: import("./iso/IsoConeRenderer").IsoConeInput | null;
-  actionTerrainIsoConfig?: import("./iso/iso-projection").IsoConfig;
+  actionTerrainBars?: readonly IsoTerrainBar[];
+  actionTerrainCone?: IsoConeInput | null;
+  actionTerrainIsoConfig?: IsoConfig;
 }
 
 export interface OverlayHandle {

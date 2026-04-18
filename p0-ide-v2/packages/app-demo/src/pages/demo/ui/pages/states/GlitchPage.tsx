@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement } from "react";
 import { RefreshCw, Home, Compass, AlertTriangle } from "lucide-react";
 import { useDemoNav } from "../../DemoPage";
 
@@ -389,9 +389,68 @@ const APPARITIONS: readonly Apparition[] = [
   { emoji: "\u26A1",    top: "24%", left: "24%", dur: 9,  delay: 4,    size: 48 },
 ];
 
+type SteveMode = "walk" | "idle" | "look" | "dance";
+
+const SteveModeWeights: Array<{ mode: SteveMode; w: number }> = [
+  { mode: "idle",  w: 0.45 },
+  { mode: "look",  w: 0.30 },
+  { mode: "dance", w: 0.25 },
+];
+function pickSteveIdleMode(): SteveMode {
+  const r = Math.random();
+  let acc = 0;
+  for (const { mode, w } of SteveModeWeights) {
+    acc += w;
+    if (r < acc) return mode;
+  }
+  return "idle";
+}
+
 function MinecraftSteve() {
+  const [pos, setPos] = useState({ y: 8, scale: 1 });
+  const [mode, setMode] = useState<SteveMode>("walk");
+  const marchRef = useRef<HTMLDivElement>(null);
+
+  // Randomize Y + scale at the start of each march cycle (depth variation)
+  useEffect(() => {
+    const el = marchRef.current;
+    if (!el) return;
+    const reroll = () => {
+      const y = 2 + Math.random() * 26;      // 2% (foreground) — 28% (horizon)
+      const depth = 1 - (y - 2) / 26;        // 1 = close, 0 = far
+      const scale = 0.45 + depth * 0.95;     // 0.45 → 1.4
+      setPos({ y, scale });
+    };
+    reroll();
+    el.addEventListener("animationiteration", reroll);
+    return () => el.removeEventListener("animationiteration", reroll);
+  }, []);
+
+  // Random walk ↔ idle scheduler
+  useEffect(() => {
+    let id: number | undefined;
+    if (mode === "walk") {
+      id = window.setTimeout(() => setMode(pickSteveIdleMode()), 3800 + Math.random() * 6000);
+    } else {
+      id = window.setTimeout(() => setMode("walk"), 1500 + Math.random() * 3000);
+    }
+    return () => { if (id !== undefined) clearTimeout(id); };
+  }, [mode]);
+
+  const style: CSSProperties = {
+    bottom: `${pos.y}%`,
+    transform: `scale(${pos.scale})`,
+    zIndex: Math.round(pos.scale * 4),
+  };
+
   return (
-    <div className="mc-steve" aria-hidden>
+    <div
+      ref={marchRef}
+      className="mc-steve"
+      data-mode={mode}
+      style={style}
+      aria-hidden
+    >
       <div className="mc-steve__tag">not_steve</div>
       <div className="mc-steve__spin">
         <div className="mc-steve__rig">
@@ -468,8 +527,36 @@ function MinecraftSteve() {
 }
 
 function MinecraftCreeper() {
+  const [pos, setPos] = useState({ y: 6, scale: 1 });
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const reroll = () => {
+      const y = 3 + Math.random() * 22;
+      const depth = 1 - (y - 3) / 22;
+      const scale = 0.4 + depth * 0.9;
+      setPos({ y, scale });
+    };
+    reroll();
+    el.addEventListener("animationiteration", reroll);
+    return () => el.removeEventListener("animationiteration", reroll);
+  }, []);
+
+  const style: CSSProperties = {
+    bottom: `${pos.y}%`,
+    transform: `scale(${pos.scale})`,
+    zIndex: Math.round(pos.scale * 4),
+  };
+
   return (
-    <div className="mc-creeper" aria-hidden>
+    <div
+      ref={ref}
+      className="mc-creeper"
+      style={style}
+      aria-hidden
+    >
       <div className="mc-creeper__rig">
         {/* Creeper head */}
         <div className="mc-cube mc-creeper__head">

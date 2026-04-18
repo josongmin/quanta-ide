@@ -23,6 +23,9 @@ import { RENDERER_REGISTRY, type RendererHandle, type RenderContext } from "../r
 import { installCityFonts } from "../renderers/shared/BitmapFontAtlas";
 import type { AgentPresenceInput } from "../renderers/PresenceRingRenderer";
 import { RendererStack, type OverlayRenderCtx } from "../renderers/overlay-registry";
+import type { IsoTerrainBar } from "../renderers/iso/IsoTerrainRenderer";
+import type { IsoConeInput } from "../renderers/iso/IsoConeRenderer";
+import type { IsoConfig } from "../renderers/iso/iso-projection";
 
 // PixiStage
 // -------------------------------------------------------------------
@@ -103,9 +106,9 @@ export interface PresenceProps {
 
 export interface ActionTerrainProps {
   enabled?: boolean;
-  bars?: readonly import("../renderers/iso/IsoTerrainRenderer").IsoTerrainBar[];
-  cone?: import("../renderers/iso/IsoConeRenderer").IsoConeInput | null;
-  isoConfig?: import("../renderers/iso/iso-projection").IsoConfig;
+  bars?: readonly IsoTerrainBar[];
+  cone?: IsoConeInput | null;
+  isoConfig?: IsoConfig;
 }
 
 export interface SceneProps {
