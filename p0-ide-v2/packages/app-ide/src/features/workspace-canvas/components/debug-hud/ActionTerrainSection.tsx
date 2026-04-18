@@ -32,14 +32,14 @@ export function ActionTerrainSection() {
 
   return (
     <>
-      <div className="ws-debug__divider">action terrain</div>
+      <div className="ws-debug__divider">액션 지형</div>
       <label className="ws-debug__row">
         <input
           type="checkbox"
           checked={on}
           onChange={e => featureFlagsStore.setFlag("action-terrain.mode", e.target.checked)}
         />
-        <span>feature enabled</span>
+        <span>기능 활성</span>
       </label>
       <label className="ws-debug__row">
         <input
@@ -48,10 +48,10 @@ export function ActionTerrainSection() {
           disabled={!on}
           onChange={e => actionTerrainStore.setMode(e.target.checked)}
         />
-        <span>iso mode on (⌘⇧A)</span>
+        <span>아이소 모드 (⌘⇧A)</span>
       </label>
       <div className="ws-debug__row" style={{ alignItems: "center" }}>
-        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>height</span>
+        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>높이</span>
         <input
           type="range"
           min={ACTION_TERRAIN_HEIGHT_RANGE.min}
@@ -67,7 +67,7 @@ export function ActionTerrainSection() {
         </span>
       </div>
       <div className="ws-debug__row" style={{ alignItems: "center" }}>
-        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>cone dir</span>
+        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>콘 방향</span>
         <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
           {(["blast", "fix"] as const).map(d => (
             <button
@@ -77,19 +77,19 @@ export function ActionTerrainSection() {
               onClick={() => actionTerrainStore.setConeDirection(d)}
               disabled={!mode}
             >
-              {d}
+              {d === "blast" ? "영향 범위" : "수정 범위"}
             </button>
           ))}
         </div>
       </div>
 
       {!result.enabled ? (
-        <div className="ws-debug__hint">mode is off — toggle ⌘⇧A.</div>
+        <div className="ws-debug__hint">모드 비활성 — ⌘⇧A 로 토글하세요.</div>
       ) : top.length === 0 ? (
-        <div className="ws-debug__hint">no ROI scores yet (graph not loaded).</div>
+        <div className="ws-debug__hint">아직 ROI 점수가 없습니다 (그래프 미로드).</div>
       ) : (
         <>
-          <div className="ws-debug__divider">top-{top.length} ROI</div>
+          <div className="ws-debug__divider">상위 {top.length}개 ROI</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
             {top.map(s => (
               <div

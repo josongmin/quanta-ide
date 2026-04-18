@@ -6,6 +6,8 @@ export const WS_CLASSES = {
   debug: "ws-debug",
   debugHeader: "ws-debug__header",
   debugClose: "ws-debug__close",
+  debugGroups: "ws-debug__groups",
+  debugGroupTab: "ws-debug__group-tab",
   debugTabs: "ws-debug__tabs",
   debugTab: "ws-debug__tab",
   debugBody: "ws-debug__body",

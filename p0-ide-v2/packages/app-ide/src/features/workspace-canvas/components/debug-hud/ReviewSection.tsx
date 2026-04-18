@@ -245,21 +245,21 @@ function KanbanBlock({ enabled }: { enabled: boolean }) {
 
   return (
     <>
-      <div className="ws-debug__divider">Kanban</div>
+      <div className="ws-debug__divider">칸반</div>
       {!enabled ? (
         <DisabledNote id="review.kanban" />
       ) : (
         <>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">todo</span>
+            <span className="ws-debug__k">할 일</span>
             <span className="ws-debug__v ws-debug__v--hl">{counts.todo}</span>
           </div>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">in review</span>
+            <span className="ws-debug__k">리뷰 중</span>
             <span className="ws-debug__v ws-debug__v--hl">{counts.review}</span>
           </div>
           <div className="ws-debug__grid">
-            <span className="ws-debug__k">approved</span>
+            <span className="ws-debug__k">승인됨</span>
             <span className="ws-debug__v ws-debug__v--hl">{counts.approved}</span>
           </div>
           <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -267,17 +267,17 @@ function KanbanBlock({ enabled }: { enabled: boolean }) {
               type="button"
               className={`ws-debug__chip${visible ? " is-on" : ""}`}
               onClick={() => reviewStateStore.toggleKanban()}
-              title="Toggle kanban overlay"
+              title="칸반 오버레이 토글"
             >
-              {visible ? "exit kanban" : "enter kanban"}
+              {visible ? "칸반 나가기" : "칸반 열기"}
             </button>
             <button
               type="button"
               className="ws-debug__chip"
               onClick={() => reviewStateStore.reset()}
-              title="Clear all lane assignments"
+              title="모든 레인 배정 비우기"
             >
-              clear lanes
+              레인 비우기
             </button>
           </div>
         </>

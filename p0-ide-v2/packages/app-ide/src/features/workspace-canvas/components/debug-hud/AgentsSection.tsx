@@ -15,17 +15,17 @@ function basename(path: string): string {
 
 function formatAge(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
-  if (s < 60) return `${s}s ago`;
+  if (s < 60) return `${s}초 전`;
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  return `${Math.round(m / 60)}h ago`;
+  if (m < 60) return `${m}분 전`;
+  return `${Math.round(m / 60)}시간 전`;
 }
 
 const ACTIVITY_SHORT: Record<AgentActivity, string> = {
-  reading: "read",
-  editing: "edit",
-  analyzing: "scan",
-  idle: "idle",
+  reading: "읽는 중",
+  editing: "편집 중",
+  analyzing: "분석 중",
+  idle: "대기",
 };
 
 export function AgentsSection() {
@@ -52,12 +52,12 @@ export function AgentsSection() {
           checked={showAgentPresence}
           onChange={e => renderSettingsStore.setShowAgentPresence(e.target.checked)}
         />
-        <span>show presence rings</span>
+        <span>프레즌스 링 표시</span>
       </label>
 
-      <div className="ws-debug__divider">agents ({agents.length})</div>
+      <div className="ws-debug__divider">에이전트 ({agents.length})</div>
       {agents.length === 0 ? (
-        <div className="ws-debug__hint">no agents present.</div>
+        <div className="ws-debug__hint">현재 에이전트가 없습니다.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {agents.map(a => {
@@ -86,7 +86,7 @@ export function AgentsSection() {
                   cursor: a.focusFileId ? "pointer" : "default",
                   textAlign: "left",
                 }}
-                title={title ?? "no file"}
+                title={title ?? "파일 없음"}
               >
                 <span
                   style={{

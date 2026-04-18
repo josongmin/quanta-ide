@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDebugSettings, debugSettingsStore } from "../store/debug-settings-store";
 import { WS_CLASSES } from "../lib/css-classes";
+import { FloatingPanel } from "../../inspector-agent/ui/FloatingPanel";
 import { FpsSection } from "./debug-hud/FpsSection";
 import { LodSection } from "./debug-hud/LodSection";
 import { SceneSection } from "./debug-hud/SceneSection";
@@ -13,27 +14,37 @@ import { FollowSection } from "./debug-hud/FollowSection";
 import { ReviewSection } from "./debug-hud/ReviewSection";
 import { ActionTerrainSection } from "./debug-hud/ActionTerrainSection";
 
-type Tab = "fps" | "lod" | "scene" | "perf" | "graph" | "agents" | "features" | "review" | "terrain";
-const TABS: readonly { id: Tab; label: string }[] = [
-  { id: "fps", label: "FPS" },
-  { id: "lod", label: "LOD" },
-  { id: "scene", label: "씬" },
-  { id: "perf", label: "성능" },
-  { id: "graph", label: "그래프" },
-  { id: "agents", label: "에이전트" },
-  { id: "features", label: "기능" },
-  { id: "review", label: "리뷰" },
-  { id: "terrain", label: "지형" },
+// Panel is grouped into 4 top-level categories, each with a handful of sub-tabs.
+// Two-level nav beats a flat 9-tab strip for scanability and lets us drop
+// related sections into a single tab body without inventing more tabs.
+type Tab = "fps" | "lod" | "scene" | "graph" | "perf" | "agents" | "review" | "features" | "terrain";
+type GroupId = "status" | "perf" | "collab" | "features";
+
+const TAB_LABELS: Record<Tab, string> = {
+  fps: "FPS",
+  lod: "LOD",
+  scene: "씬",
+  graph: "그래프",
+  perf: "레코더/시뮬",
+  agents: "에이전트",
+  review: "리뷰",
+  features: "기능 플래그",
+  terrain: "액션 지형",
+};
+
+const GROUPS: readonly { id: GroupId; label: string; tabs: readonly Tab[] }[] = [
+  { id: "status", label: "상태", tabs: ["scene", "fps", "lod", "graph"] },
+  { id: "perf", label: "성능", tabs: ["perf"] },
+  { id: "collab", label: "협업", tabs: ["agents", "review"] },
+  { id: "features", label: "기능", tabs: ["features", "terrain"] },
 ] as const;
 
-// Floating corner overlay for development/debugging. Surfaces the LOD, scale,
-// viewport, scene counts, and a few render toggles. Not meant to ship to end
-// users — gate via `debugHudOpen` flag; hidden state is still reachable via
-// the store toggle action (wire Cmd+Shift+D from a global shortcut).
+// Floating, draggable, resizable debug panel. Collapses to its titlebar
+// when the user hits the chevron so it stops obscuring the canvas.
 
 export function DebugHud() {
   const open = useDebugSettings(s => s.debugHudOpen);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const [group, setGroup] = useState<GroupId>("status");
   const [tab, setTab] = useState<Tab>("scene");
 
   useEffect(() => {
@@ -47,27 +58,13 @@ export function DebugHud() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // The canvas pan/zoom handler is registered as a *native* `addEventListener`
-  // on the containing canvas element (not via React), so React's
-  // `onWheelCapture` synthetic-event `stopPropagation` does NOT prevent it
-  // from firing. We attach native capture-phase listeners on the HUD element
-  // directly and call `stopPropagation` there — that terminates the DOM
-  // capture/bubble walk before the canvas handler sees the event.
+  const groupDef = useMemo(() => GROUPS.find(g => g.id === group) ?? GROUPS[0], [group]);
+
+  // Keep tab inside the currently-selected group. If the user switches to a
+  // group that doesn't contain the active tab, fall back to the group's first.
   useEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    const stop = (e: Event) => { e.stopPropagation(); };
-    el.addEventListener("wheel", stop, { passive: false, capture: true });
-    el.addEventListener("pointerdown", stop, { capture: true });
-    el.addEventListener("mousedown", stop, { capture: true });
-    el.addEventListener("touchstart", stop, { capture: true, passive: false });
-    return () => {
-      el.removeEventListener("wheel", stop, { capture: true });
-      el.removeEventListener("pointerdown", stop, { capture: true });
-      el.removeEventListener("mousedown", stop, { capture: true });
-      el.removeEventListener("touchstart", stop, { capture: true });
-    };
-  }, [open]);
+    if (!groupDef.tabs.includes(tab)) setTab(groupDef.tabs[0]);
+  }, [group, groupDef, tab]);
 
   if (!open) {
     return (
@@ -83,27 +80,41 @@ export function DebugHud() {
   }
 
   return (
-    <div ref={panelRef} className={WS_CLASSES.debug}>
-      <div className={WS_CLASSES.debugHeader}>
-        <span>디버그</span>
-        <button
-          type="button"
-          className={WS_CLASSES.debugClose}
-          title="숨기기 (⌘⇧D)"
-          onClick={() => debugSettingsStore.toggleDebugHud()}
-        >×</button>
-      </div>
-      <div className={WS_CLASSES.debugTabs} role="tablist">
-        {TABS.map(t => (
+    <FloatingPanel
+      title="디버그 패널"
+      onClose={() => debugSettingsStore.toggleDebugHud()}
+      defaultWidth={440}
+      defaultHeight={600}
+      minWidth={360}
+      minHeight={240}
+      collapsible
+      variant="hud"
+    >
+      <div className={WS_CLASSES.debugGroups} role="tablist" aria-label="카테고리">
+        {GROUPS.map(g => (
           <button
-            key={t.id}
+            key={g.id}
             type="button"
             role="tab"
-            aria-selected={tab === t.id}
-            className={`${WS_CLASSES.debugTab}${tab === t.id ? " is-on" : ""}`}
-            onClick={() => setTab(t.id)}
+            aria-selected={group === g.id}
+            className={`${WS_CLASSES.debugGroupTab}${group === g.id ? " is-on" : ""}`}
+            onClick={() => setGroup(g.id)}
           >
-            {t.label}
+            {g.label}
+          </button>
+        ))}
+      </div>
+      <div className={WS_CLASSES.debugTabs} role="tablist" aria-label="서브 탭">
+        {groupDef.tabs.map(t => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            aria-selected={tab === t}
+            className={`${WS_CLASSES.debugTab}${tab === t ? " is-on" : ""}`}
+            onClick={() => setTab(t)}
+          >
+            {TAB_LABELS[t]}
           </button>
         ))}
       </div>
@@ -115,23 +126,23 @@ export function DebugHud() {
         )}
         {tab === "lod" && <LodSection />}
         {tab === "scene" && <SceneSection />}
+        {tab === "graph" && <GraphSection />}
         {tab === "perf" && (
           <>
             <RecorderControls />
             <SimulatorSection />
           </>
         )}
-        {tab === "graph" && <GraphSection />}
         {tab === "agents" && (
           <>
             <AgentsSection />
             <FollowSection />
           </>
         )}
-        {tab === "features" && <FeaturesSection />}
         {tab === "review" && <ReviewSection />}
+        {tab === "features" && <FeaturesSection />}
         {tab === "terrain" && <ActionTerrainSection />}
       </div>
-    </div>
+    </FloatingPanel>
   );
 }

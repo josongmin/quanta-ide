@@ -8,10 +8,20 @@ interface FloatingPanelProps {
   onClose: () => void;
   defaultWidth?: number;
   defaultHeight?: number;
+  /** Enable a collapse/expand toggle in the title bar. Collapsed panels show
+   *  only the title bar and disable resize. */
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  /** Minimum width/height overrides (defaults: 360×300). */
+  minWidth?: number;
+  minHeight?: number;
+  /** Visual variant. "hud" forces a dark slate palette regardless of app
+   *  theme — useful for debug/observability panels that overlay the canvas. */
+  variant?: "default" | "hud";
 }
 
-const MIN_W = 360;
-const MIN_H = 300;
+const DEFAULT_MIN_W = 360;
+const DEFAULT_MIN_H = 300;
 
 export function FloatingPanel({
   children,
@@ -19,12 +29,18 @@ export function FloatingPanel({
   onClose,
   defaultWidth = 460,
   defaultHeight = 640,
+  collapsible = false,
+  defaultCollapsed = false,
+  minWidth = DEFAULT_MIN_W,
+  minHeight = DEFAULT_MIN_H,
+  variant = "default",
 }: FloatingPanelProps) {
   const [pos, setPos] = useState(() => ({
     x: window.innerWidth - defaultWidth - 24,
     y: Math.max(48, (window.innerHeight - defaultHeight) / 2),
   }));
   const [size, setSize] = useState({ w: defaultWidth, h: defaultHeight });
+  const [collapsed, setCollapsed] = useState(collapsible && defaultCollapsed);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -86,10 +102,10 @@ export function FloatingPanel({
     let nx = x;
     let ny = y;
 
-    if (edge.includes("e")) nw = Math.max(MIN_W, w + dx);
-    if (edge.includes("w")) { nw = Math.max(MIN_W, w - dx); nx = x + (w - nw); }
-    if (edge.includes("s")) nh = Math.max(MIN_H, h + dy);
-    if (edge.includes("n")) { nh = Math.max(MIN_H, h - dy); ny = y + (h - nh); }
+    if (edge.includes("e")) nw = Math.max(minWidth, w + dx);
+    if (edge.includes("w")) { nw = Math.max(minWidth, w - dx); nx = x + (w - nw); }
+    if (edge.includes("s")) nh = Math.max(minHeight, h + dy);
+    if (edge.includes("n")) { nh = Math.max(minHeight, h - dy); ny = y + (h - nh); }
 
     setSize({ w: nw, h: nh });
     setPos({ x: nx, y: ny });
@@ -109,11 +125,35 @@ export function FloatingPanel({
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
+  /* ── Stop canvas pan/zoom while interacting with the panel ──
+   * The workspace canvas registers native (non-React) wheel/pointer handlers,
+   * so React's synthetic stopPropagation isn't enough. We attach native
+   * capture-phase listeners on the panel root and terminate the DOM walk
+   * before canvas handlers see the event. */
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return;
+    const stop = (e: Event) => { e.stopPropagation(); };
+    el.addEventListener("wheel", stop, { passive: false, capture: true });
+    el.addEventListener("pointerdown", stop, { capture: true });
+    el.addEventListener("mousedown", stop, { capture: true });
+    el.addEventListener("touchstart", stop, { capture: true, passive: false });
+    return () => {
+      el.removeEventListener("wheel", stop, { capture: true });
+      el.removeEventListener("pointerdown", stop, { capture: true });
+      el.removeEventListener("mousedown", stop, { capture: true });
+      el.removeEventListener("touchstart", stop, { capture: true });
+    };
+  }, []);
+
+  const widthStyle = size.w;
+  const heightStyle = collapsed ? undefined : size.h;
+
   return createPortal(
     <div
       ref={panelRef}
-      className="float-panel"
-      style={{ left: pos.x, top: pos.y, width: size.w, height: size.h }}
+      className={`float-panel${collapsed ? " is-collapsed" : ""}${variant === "hud" ? " float-panel--hud" : ""}`}
+      style={{ left: pos.x, top: pos.y, width: widthStyle, height: heightStyle }}
     >
       {/* Title bar */}
       <div
@@ -123,6 +163,22 @@ export function FloatingPanel({
         onPointerUp={onDragUp}
       >
         <span className="float-panel__title">{title}</span>
+        {collapsible && (
+          <button
+            type="button"
+            className="float-panel__collapse"
+            data-no-drag
+            onClick={() => setCollapsed(c => !c)}
+            aria-label={collapsed ? "펼치기" : "축소"}
+            title={collapsed ? "펼치기" : "축소"}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              {collapsed
+                ? <polyline points="6 9 12 15 18 9" />
+                : <polyline points="6 15 12 9 18 15" />}
+            </svg>
+          </button>
+        )}
         <button
           type="button"
           className="float-panel__close"
@@ -136,11 +192,11 @@ export function FloatingPanel({
         </button>
       </div>
 
-      {/* Content */}
-      <div className="float-panel__body">{children}</div>
+      {/* Content — hidden while collapsed so the panel shrinks to the titlebar. */}
+      {!collapsed && <div className="float-panel__body">{children}</div>}
 
-      {/* Resize edges */}
-      {(["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const).map((edge) => (
+      {/* Resize edges — disabled while collapsed; height is auto then. */}
+      {!collapsed && (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as const).map((edge) => (
         <div
           key={edge}
           className={`float-panel__edge float-panel__edge--${edge}`}

@@ -547,11 +547,42 @@
   flex-direction: column;
   overscroll-behavior: contain;
 }
+/* Top-level category bar: 4 groups (상태 / 성능 / 협업 / 기능). */
+.ws-debug__groups {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.05);
+}
+.ws-debug__group-tab {
+  flex: 1;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ws-hud-fg-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.ws-debug__group-tab:hover {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--ws-hud-fg);
+}
+.ws-debug__group-tab.is-on {
+  color: var(--ws-hud-surface);
+  background: var(--ws-hud-accent);
+  border-color: var(--ws-hud-accent-strong);
+}
+
 .ws-debug__tabs {
   display: flex;
   gap: 2px;
-  margin-bottom: 6px;
-  padding-bottom: 4px;
+  padding: 6px 8px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
 .ws-debug__tab {
@@ -580,7 +611,11 @@
   overflow-x: hidden;
   flex: 1 1 auto;
   min-height: 0;
-  padding-right: 4px;
+  padding: 8px 10px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--ws-hud-fg);
   scrollbar-width: thin;
   scrollbar-color: var(--ws-focus-dim) transparent;
 }

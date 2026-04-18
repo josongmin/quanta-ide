@@ -166,7 +166,6 @@ export class EdgeStaticRenderer {
   // oscillating across the LOD threshold re-runs the full edge loop on
   // every frame for no visual gain.
   private appliedMode: EffectiveLodMode | null = null;
-  private appliedLod: string | undefined = undefined;
   private appliedScale = 1;
   // Cache key covering (mode, lod-bucket, edge-count-bucket, filter-hash).
   // Used only to skip redundant geometry work — the final Graphics.clear()
@@ -245,7 +244,6 @@ export class EdgeStaticRenderer {
       }
       if (this.appliedMode !== effectiveMode) {
         this.appliedMode = effectiveMode;
-        this.appliedLod = opts?.lod;
         this.appliedScale = scale;
         this.lastCacheKey = "skip";
         this.budgetedSlice = null;
@@ -256,7 +254,6 @@ export class EdgeStaticRenderer {
     if (edges.length === 0 && this.previousLength === 0) {
       if (this.appliedMode !== effectiveMode) {
         this.appliedMode = effectiveMode;
-        this.appliedLod = opts?.lod;
         this.appliedScale = scale;
       }
       return;
@@ -287,7 +284,6 @@ export class EdgeStaticRenderer {
     }
     this.lastCacheKey = cacheKey;
     this.appliedMode = effectiveMode;
-    this.appliedLod = opts?.lod;
     this.appliedScale = scale;
 
     const invScale = Math.min(32, Math.max(1, 1 / scale));

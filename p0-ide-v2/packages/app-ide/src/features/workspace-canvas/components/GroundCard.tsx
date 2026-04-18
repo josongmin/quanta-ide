@@ -7,6 +7,7 @@ import { useSceneStore } from "../store/scene-store";
 import { useRenderSettings } from "../store/render-settings-store";
 import { useInteractionStore } from "../store/interaction-store";
 import { useFeature } from "../store/feature-flags-store";
+import { langFromFilename, tokenizeSource } from "../lib/code-highlight";
 
 interface GroundCardProps {
   file: FileNode;
@@ -78,6 +79,15 @@ function GroundCardImpl({
     return stripesFromBlame(effectiveBlame, now);
   }, [showBlameGutter, effectiveBlame, snapshotTimestamp]);
 
+  // Syntax highlighting — memoise per (source, filename) so pans, hovers,
+  // and blame-gutter flips don't re-tokenise. Language is picked from the
+  // file extension; unknown extensions degrade to plain-text tokens.
+  const highlightedLines = useMemo(() => {
+    if (!data?.source) return null;
+    const lang = langFromFilename(file.name);
+    return tokenizeSource(data.source, lang);
+  }, [data?.source, file.name]);
+
   const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
   const effectKinds = effects?.effects ?? [];
   const visibleEffects = showEffectBadges ? effectKinds.slice(0, 5) : [];
@@ -85,7 +95,14 @@ function GroundCardImpl({
   const latencyTint = showLatencyOverlay && latency
     ? hexFromInt(latencyColor(latency.p95))
     : null;
-  const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, height: rect.h };
+  // Use `minHeight` (not `height`): `rect.h` is computed by the layout pass
+  // and is authoritative for layout planning, but the user has asked for the
+  // full source to be visible even when it overflows the allocated height.
+  // Making the rect height a *minimum* lets the card grow vertically with its
+  // content; horizontal scroll inside `.ground-card__source` keeps long lines
+  // from widening the card. When the layout tier later sizes cards from real
+  // line counts, the two converge and `minHeight` becomes a no-op.
+  const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, minHeight: rect.h };
   if (authorTint) {
     style.background = `color-mix(in srgb, ${authorTint} 24%, var(--bg))`;
   } else if (latencyTint) {

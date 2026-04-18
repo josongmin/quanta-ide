@@ -6,15 +6,15 @@ export function RecorderControls() {
   const manual = perf.status.manual;
   const stateLabel = perf.status.capturing
     ? manual
-      ? `recording… ${perf.status.capturedFrames}f`
-      : "capturing…"
+      ? `녹화 중… ${perf.status.capturedFrames}프레임`
+      : "캡처 중…"
     : perf.status.enabled
-      ? "armed"
-      : "off";
+      ? "대기 중"
+      : "끔";
 
   return (
     <>
-      <div className="ws-debug__divider">perf recorder</div>
+      <div className="ws-debug__divider">성능 레코더</div>
       <label className="ws-debug__row">
         <input
           type="checkbox"
@@ -22,18 +22,18 @@ export function RecorderControls() {
           onChange={e => perf.setEnabled(e.target.checked)}
           disabled={manual}
         />
-        <span>auto-record on fps&lt;45</span>
+        <span>FPS&lt;45일 때 자동 녹화</span>
       </label>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">state</span>
+        <span className="ws-debug__k">상태</span>
         <span className={`ws-debug__v${perf.status.capturing ? " ws-debug__v--hl" : ""}`}>
           {stateLabel}
         </span>
-        <span className="ws-debug__k">dumps</span>
+        <span className="ws-debug__k">덤프</span>
         <span className="ws-debug__v">{perf.status.dumpsSent}</span>
         {perf.status.lastError && (
           <>
-            <span className="ws-debug__k">err</span>
+            <span className="ws-debug__k">오류</span>
             <span className="ws-debug__v" style={{ color: "#fca5a5" }}>{perf.status.lastError}</span>
           </>
         )}
@@ -54,10 +54,10 @@ export function RecorderControls() {
         }}
         onClick={manual ? perf.stopManual : perf.startManual}
         title={manual
-          ? "stop recording and dump (every frame since start, incl. memory + LOD + scene samples)"
-          : "start continuous recording — captures every frame until you stop"}
+          ? "녹화 정지 및 덤프 (시작 이후 모든 프레임, 메모리 + LOD + 씬 샘플 포함)"
+          : "연속 녹화 시작 — 정지할 때까지 모든 프레임을 캡처"}
       >
-        {manual ? "■ stop & dump" : "● start recording"}
+        {manual ? "■ 정지 및 덤프" : "● 녹화 시작"}
       </button>
       <button
         type="button"
@@ -65,9 +65,9 @@ export function RecorderControls() {
         style={{ marginTop: 4, width: "100%" }}
         onClick={perf.dumpNow}
         disabled={manual}
-        title="dump the last ~3s ring buffer without starting a manual capture"
+        title="수동 캡처 없이 최근 약 3초 링 버퍼를 덤프"
       >
-        dump ring (3s)
+        링 덤프 (3초)
       </button>
     </>
   );

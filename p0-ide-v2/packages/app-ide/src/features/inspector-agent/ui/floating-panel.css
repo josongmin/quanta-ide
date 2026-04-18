@@ -48,7 +48,8 @@
   white-space: nowrap;
 }
 
-.float-panel__close {
+.float-panel__close,
+.float-panel__collapse {
   appearance: none;
   cursor: pointer;
   width: 26px;
@@ -62,9 +63,33 @@
   color: var(--fg-subtle);
   transition: background 100ms ease, color 100ms ease;
 }
-.float-panel__close:hover {
+.float-panel__close:hover,
+.float-panel__collapse:hover {
   background: var(--bg-hover);
   color: var(--fg);
+}
+
+/* Collapsed: titlebar only, no resize. */
+.float-panel.is-collapsed {
+  height: auto !important;
+}
+.float-panel.is-collapsed .float-panel__titlebar {
+  border-bottom: none;
+}
+
+/* ── HUD variant — forces dark slate palette regardless of app theme ── */
+.float-panel--hud {
+  --bg: rgba(15, 23, 42, 0.96);
+  --bg-subtle: rgba(30, 41, 59, 0.98);
+  --bg-hover: rgba(148, 163, 184, 0.18);
+  --fg: #e5e7eb;
+  --fg-subtle: #94a3b8;
+  --border: rgba(148, 163, 184, 0.22);
+  color: #e5e7eb;
+  backdrop-filter: blur(6px);
+}
+.float-panel--hud .float-panel__titlebar {
+  background: rgba(30, 41, 59, 0.92);
 }
 
 /* ── Body ── */

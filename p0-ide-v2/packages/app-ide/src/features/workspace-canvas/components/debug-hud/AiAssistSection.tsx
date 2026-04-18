@@ -19,10 +19,10 @@ import type { Sticky } from "../../store/stickies-store";
 // doesn't disable its siblings.
 
 const ANOMALY_LABEL: Record<AnomalyKind, string> = {
-  "coupling-spike": "coupling spike",
-  "cycle-gone-hot": "cycle hot",
-  "unreachable": "unreachable",
-  "owner-drift": "owner drift",
+  "coupling-spike": "결합도 급증",
+  "cycle-gone-hot": "순환 과열",
+  "unreachable": "도달 불가",
+  "owner-drift": "소유자 이탈",
 };
 
 export function AiAssistSection() {
@@ -34,7 +34,7 @@ export function AiAssistSection() {
 
   return (
     <>
-      <div className="ws-debug__divider">AI assist</div>
+      <div className="ws-debug__divider">AI 어시스트</div>
       {clusterOn && <ClusterStickiesSub />}
       {tourOn && <RepoTourSub />}
       {anomaliesOn && <AnomaliesSub />}
@@ -88,19 +88,19 @@ function ClusterStickiesSub() {
           className="ws-debug__chip"
           onClick={() => void run()}
           disabled={loading || stickies.length < 2}
-          title="Group similar stickies"
+          title="유사한 스티커 그룹화"
           style={{ flex: 1 }}
         >
-          {loading ? "clustering…" : `AI cluster (${stickies.length})`}
+          {loading ? "클러스터링…" : `AI 클러스터 (${stickies.length})`}
         </button>
         {lastSnapshot && (
           <button
             type="button"
             className="ws-debug__chip"
             onClick={undo}
-            title="Restore previous positions"
+            title="이전 위치로 복원"
           >
-            undo
+            실행 취소
           </button>
         )}
       </div>
@@ -108,8 +108,7 @@ function ClusterStickiesSub() {
         <div style={{ marginTop: 2, fontSize: 10, opacity: 0.8 }}>
           {lastClusters.map(c => (
             <div key={c.label}>
-              <span style={{ opacity: 0.7 }}>· {c.label}:</span> {c.stickyIds.length} sticker
-              {c.stickyIds.length === 1 ? "" : "s"}
+              <span style={{ opacity: 0.7 }}>· {c.label}:</span> 스티커 {c.stickyIds.length}개
             </div>
           ))}
         </div>
@@ -201,16 +200,16 @@ function RepoTourSub() {
           className="ws-debug__chip"
           onClick={() => void run()}
           disabled={loading || !layout}
-          title="Generate a guided walk through the most important files"
+          title="가장 중요한 파일을 안내하는 가이드 투어 생성"
           style={{ flex: 1 }}
         >
-          {loading ? "planning tour…" : "AI tour"}
+          {loading ? "투어 계획 중…" : "AI 투어"}
         </button>
       </div>
       {steps && steps.length > 0 && (
         <div style={{ marginTop: 4, fontSize: 11, opacity: 0.95 }}>
           <div style={{ opacity: 0.75 }}>
-            step {stepIndex + 1} / {steps.length}
+            단계 {stepIndex + 1} / {steps.length}
           </div>
           <div style={{ marginTop: 2 }}>{steps[stepIndex].narration}</div>
           <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
@@ -220,15 +219,15 @@ function RepoTourSub() {
               onClick={advance}
               style={{ flex: 1 }}
             >
-              {stepIndex + 1 < steps.length ? "next →" : "finish"}
+              {stepIndex + 1 < steps.length ? "다음 →" : "완료"}
             </button>
             <button
               type="button"
               className="ws-debug__chip"
               onClick={cancel}
-              title="Stop the tour"
+              title="투어 정지"
             >
-              stop
+              정지
             </button>
           </div>
         </div>
@@ -297,16 +296,16 @@ function AnomaliesSub() {
     <>
       <div className="ws-debug__row" style={{ gap: 4, alignItems: "center" }}>
         <span style={{ flex: 1, opacity: 0.8 }}>
-          anomalies {pending ? "…" : `(${anomalies.length})`}
+          이상 징후 {pending ? "…" : `(${anomalies.length})`}
         </span>
         <button
           type="button"
           className="ws-debug__chip"
           onClick={() => void rerun()}
           disabled={pending}
-          title="Re-scan current layout"
+          title="현재 레이아웃 재스캔"
         >
-          rescan
+          재스캔
         </button>
       </div>
       {kinds.length > 0 && (
@@ -319,7 +318,7 @@ function AnomaliesSub() {
         </div>
       )}
       {anomalies.length === 0 && !pending && (
-        <div className="ws-debug__hint">no anomalies detected.</div>
+        <div className="ws-debug__hint">감지된 이상 징후가 없습니다.</div>
       )}
       {anomalies.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
@@ -348,7 +347,7 @@ function AnomaliesSub() {
             </div>
           ))}
           {anomalies.length > 8 && (
-            <div className="ws-debug__hint">(+{anomalies.length - 8} more)</div>
+            <div className="ws-debug__hint">(외 {anomalies.length - 8}개)</div>
           )}
         </div>
       )}

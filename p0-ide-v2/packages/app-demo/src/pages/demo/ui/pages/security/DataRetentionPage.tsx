@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   AlertTriangle,
+  ArrowRight,
   Bell,
   Code,
   Lock,
@@ -163,13 +164,6 @@ function formatDeletionDate(days: number): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function percentFor(days: number, maxDays: number): number {
-  if (days < 0) return 100;
-  if (maxDays <= 0) return 0;
-  const pct = (days / maxDays) * 100;
-  return Math.min(100, Math.max(4, pct));
-}
-
 export function DataRetentionPage() {
   const [selections, setSelections] = useState<Record<string, string>>(() =>
     Object.fromEntries(CATEGORIES.map((c) => [c.id, c.defaultValue])),
@@ -209,36 +203,34 @@ export function DataRetentionPage() {
           </div>
         </div>
 
-        {/* Per-category rows */}
+        {/* Per-category rows — list style, dashed dividers */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            gap: "var(--space-2h)",
+            border: "1px solid var(--border)",
+            borderRadius: "var(--radius-md)",
+            background: "var(--bg)",
+            overflow: "hidden",
           }}
         >
-          {CATEGORIES.map((cat) => {
+          {CATEGORIES.map((cat, idx) => {
             const Icon = cat.Icon;
             const selected = selections[cat.id] ?? cat.defaultValue;
             const selectedOption =
               cat.options.find((o) => o.value === selected) ??
               cat.options[0];
-            const maxDays = Math.max(
-              ...cat.options.map((o) => (o.days < 0 ? 0 : o.days)),
-              1,
-            );
-            const percentFilled = percentFor(selectedOption.days, maxDays);
             const deletionDate = formatDeletionDate(selectedOption.days);
             const isEnabled = enabled[cat.id] ?? cat.enabled;
+            const neverDeleted = selectedOption.days < 0;
 
             return (
               <div
                 key={cat.id}
                 style={{
-                  padding: "var(--space-3h) var(--space-4)",
-                  border: "1px solid var(--border)",
-                  borderRadius: "var(--radius-md)",
-                  background: "var(--bg)",
+                  padding: "var(--space-3) var(--space-4)",
+                  borderTop:
+                    idx === 0 ? "none" : "1px dashed var(--border)",
                   opacity: isEnabled ? 1 : 0.55,
                 }}
               >
@@ -253,9 +245,9 @@ export function DataRetentionPage() {
                 >
                   <span
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "var(--radius-lg)",
+                      width: 28,
+                      height: 28,
+                      borderRadius: "var(--radius-md)",
                       background: "var(--bg-muted)",
                       color: "var(--fg-muted)",
                       display: "inline-flex",
@@ -263,7 +255,7 @@ export function DataRetentionPage() {
                       justifyContent: "center",
                     }}
                   >
-                    <Icon size={16} strokeWidth={1.8} />
+                    <Icon size={14} strokeWidth={1.8} />
                   </span>
                   <div>
                     <div
@@ -308,120 +300,104 @@ export function DataRetentionPage() {
                   </div>
                 </header>
 
-                {/* Segmented control */}
+                {/* Row: segmented control + deletion date */}
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: `repeat(${cat.options.length}, 1fr)`,
-                    gap: "var(--space-1)",
-                    marginTop: "var(--space-2h)",
-                  }}
-                >
-                  {cat.options.map((opt) => {
-                    const isSelected = selected === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() =>
-                          !opt.locked &&
-                          setSelections((m) => ({
-                            ...m,
-                            [cat.id]: opt.value,
-                          }))
-                        }
-                        disabled={opt.locked}
-                        style={{
-                          padding: "var(--space-2) var(--space-1h)",
-                          border: `1px solid ${
-                            isSelected ? "var(--fg)" : "var(--border)"
-                          }`,
-                          background: isSelected
-                            ? "var(--fg)"
-                            : opt.locked
-                              ? "var(--bg-muted)"
-                              : "var(--bg)",
-                          color: isSelected
-                            ? "var(--bg)"
-                            : opt.locked
-                              ? "var(--fg-subtle)"
-                              : "var(--fg)",
-                          borderRadius: "var(--radius-sm)",
-                          fontSize: "var(--fs-xs)",
-                          fontWeight: "var(--fw-medium)",
-                          cursor: opt.locked ? "not-allowed" : "pointer",
-                          transition: "all 0.12s ease",
-                          position: "relative",
-                        }}
-                        aria-label={
-                          opt.locked
-                            ? `${opt.label} (Enterprise plan)`
-                            : opt.label
-                        }
-                      >
-                        {opt.label}
-                        {opt.locked && (
-                          <Lock
-                            size={9}
-                            strokeWidth={2}
-                            style={{
-                              position: "absolute",
-                              top: "var(--space-1)",
-                              right: "var(--space-1)",
-                            }}
-                            aria-hidden="true"
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Timeline */}
-                <div
-                  style={{
-                    marginTop: "var(--space-2h)",
                     display: "flex",
                     alignItems: "center",
-                    gap: "var(--space-2)",
+                    gap: "var(--space-3)",
+                    marginTop: "var(--space-2)",
                   }}
                 >
+                  {/* iOS-style segmented control */}
                   <div
                     style={{
-                      flex: 1,
-                      height: 6,
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${cat.options.length}, 1fr)`,
+                      gap: 2,
+                      padding: 2,
                       background: "var(--bg-muted)",
-                      borderRadius: "var(--radius-pill)",
-                      position: "relative",
-                      overflow: "hidden",
+                      borderRadius: "var(--radius-sm)",
+                      flex: 1,
                     }}
                   >
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        height: "100%",
-                        width: `${percentFilled}%`,
-                        background:
-                          "linear-gradient(90deg, var(--accent), var(--accent-purple))",
-                        borderRadius: "var(--radius-pill)",
-                        transition: "width 0.2s ease",
-                      }}
-                    />
+                    {cat.options.map((opt) => {
+                      const isSelected = selected === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() =>
+                            !opt.locked &&
+                            setSelections((m) => ({
+                              ...m,
+                              [cat.id]: opt.value,
+                            }))
+                          }
+                          disabled={opt.locked}
+                          style={{
+                            padding: "var(--space-1h) var(--space-1h)",
+                            border: "none",
+                            background: isSelected
+                              ? "var(--bg)"
+                              : "transparent",
+                            color: isSelected
+                              ? "var(--fg)"
+                              : "var(--fg-muted)",
+                            borderRadius: "calc(var(--radius-sm) - 2px)",
+                            fontSize: "var(--fs-xs)",
+                            fontWeight: isSelected
+                              ? "var(--fw-semibold)"
+                              : "var(--fw-medium)",
+                            cursor: opt.locked ? "not-allowed" : "pointer",
+                            opacity: opt.locked ? 0.5 : 1,
+                            transition: "all 0.12s ease",
+                            position: "relative",
+                            boxShadow: isSelected
+                              ? "0 1px 2px rgba(0,0,0,0.06)"
+                              : "none",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: 4,
+                          }}
+                          aria-label={
+                            opt.locked
+                              ? `${opt.label} (Enterprise plan)`
+                              : opt.label
+                          }
+                        >
+                          {opt.label}
+                          {opt.locked && (
+                            <Lock
+                              size={9}
+                              strokeWidth={2}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <span
+
+                  {/* Deletion date — inline muted */}
+                  <div
                     style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "var(--space-1)",
                       fontSize: "var(--fs-10)",
                       color: "var(--fg-subtle)",
-                      letterSpacing: "0.06em",
                       fontFamily: "var(--font-mono)",
-                      minWidth: 110,
-                      textAlign: "right",
+                      letterSpacing: "0.04em",
+                      whiteSpace: "nowrap",
+                      minWidth: 130,
+                      justifyContent: "flex-end",
                     }}
                   >
-                    → {deletionDate}
-                  </span>
+                    <ArrowRight size={10} strokeWidth={1.8} aria-hidden="true" />
+                    {neverDeleted ? "never deleted" : `delete ${deletionDate}`}
+                  </div>
                 </div>
               </div>
             );

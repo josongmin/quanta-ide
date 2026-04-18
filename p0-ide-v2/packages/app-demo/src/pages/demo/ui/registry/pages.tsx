@@ -66,6 +66,7 @@ import {
   LayoutTemplate,
   Code,
   Compass,
+  AlertTriangle,
 } from "lucide-react";
 
 import { CatalogPage }             from "../pages/CatalogPage";
@@ -114,6 +115,7 @@ import { EmptyDashboardPage }      from "../pages/states/EmptyDashboardPage";
 import { ChangelogPage }           from "../pages/updates/ChangelogPage";
 import { RoadmapPage }             from "../pages/updates/RoadmapPage";
 import { TrialBannerPage }         from "../pages/states/TrialBannerPage";
+import { GlitchPage }              from "../pages/states/GlitchPage";
 import { InvoiceDetailPage }       from "../pages/billing/InvoiceDetailPage";
 import { WebhookCatalogPage }      from "../pages/developers/WebhookCatalogPage";
 import { ApiExplorerPage }         from "../pages/developers/ApiExplorerPage";
@@ -231,6 +233,7 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("states.expired",     "states",        "Session expired",     "Re-authentication prompt after timeout.",             Clock,       "full", SessionExpiredPage),
   meta("states.empty",       "states",        "Empty dashboard",     "First-run empty state with setup checklist.",         LayoutDashboard, "app", EmptyDashboardPage),
   meta("states.trial-banner","states",        "Trial banner variants","Healthy / warn / expired banner in a mock app chrome.", Timer,     "app",  TrialBannerPage),
+  meta("states.glitch",      "states",        "Glitch world",        "Pixel-art error scene with floating islands, rainbow, and a retro dialog.", AlertTriangle, "app", GlitchPage),
 
   meta("updates.changelog",  "updates",       "Changelog",           "Release notes feed with entry tags.",                 Radio,       "app",  ChangelogPage),
   meta("updates.roadmap",    "updates",       "Public roadmap",      "Kanban of upcoming work with upvotes and comments.",  Map,         "app",  RoadmapPage),

@@ -57,6 +57,25 @@ export interface ClusterMeta {
   locSum: number;
 }
 
+/**
+ * Per-folder visual wrapper metadata. Each entry represents a single
+ * directory whose files live adjacent on the canvas, plus a bounding
+ * rect (slightly inflated past child file rects) that the renderer
+ * draws as a dashed frame behind the cards. Depth 0 is the root,
+ * depth 1+ reflects nesting depth for colour / opacity tuning.
+ *
+ * Unlike `clusters` (supergalaxy-tier) this is computed for *every*
+ * folder that contains at least one file, so the ground/street tiers
+ * can show the classic "files grouped by folder" affordance readers
+ * expect from an IDE tree.
+ */
+export interface FolderFrameMeta {
+  path: string;      // directory path, e.g. "src/features/workspace-canvas"
+  rect: Rect;        // bounding rect enclosing all contained file cards
+  depth: number;     // directory depth from the repo root (0-based)
+  fileCount: number; // immediate + nested files
+}
+
 export interface WorkspaceLayout {
   fileRects: Map<string, Rect>;
   edgeRoutes: Map<string, BezierRoute>;
@@ -132,6 +151,14 @@ export interface WorkspaceLayout {
     edgeIds: readonly string[];
     byPair: Readonly<Record<string, number>>;
   };
+  /**
+   * Per-directory wrapper rects — one per folder that contains any files,
+   * used by the ground/street tiers to draw a dashed frame behind cards
+   * so readers can tell "which files belong together". Absent ⇒ layout
+   * did not emit folder grouping (e.g. ELK fallback path, or a tiny graph
+   * where grouping would be visual noise).
+   */
+  folderRects?: readonly FolderFrameMeta[];
 }
 
 // Canonical file-card dimensions. Cards are sized to fit a header stripe
@@ -143,3 +170,25 @@ export const FILE_CARD_H = 720;
 export const GRID_GAP_X  = 100;
 export const GRID_GAP_H  = 60;
 export const GRID_COLS   = 8;
+
+// Variable-height file card constants. The renderer now draws the full
+// source inside each card (per the Code Universe spec), so heights must
+// scale with LOC instead of a single fixed `FILE_CARD_H`. Formula:
+//     h = FILE_CARD_HEADER_H + loc * FILE_CARD_LINE_H + FILE_CARD_PAD_H
+// with a sensible floor so tiny files still have a tappable surface.
+// Upper bound: intentionally none — long files render long, and the
+// shelf packer below handles the uneven column heights.
+export const FILE_CARD_HEADER_H = 40;
+export const FILE_CARD_LINE_H   = 12;
+export const FILE_CARD_PAD_H    = 16;
+export const FILE_CARD_MIN_H    = 120;
+
+/**
+ * Compute the rendered height for a file card from its LOC count.
+ * Pure function — both the engine (layout packer) and the renderer
+ * (card DOM) should call this so the two stay aligned without drift.
+ */
+export function computeFileHeight(loc: number): number {
+  const l = Math.max(0, Math.floor(loc));
+  return Math.max(FILE_CARD_MIN_H, FILE_CARD_HEADER_H + l * FILE_CARD_LINE_H + FILE_CARD_PAD_H);
+}

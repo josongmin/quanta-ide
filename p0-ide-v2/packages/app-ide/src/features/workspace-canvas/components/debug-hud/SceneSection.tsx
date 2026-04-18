@@ -684,9 +684,9 @@ function TemporalSection({
 
   return (
     <>
-      <div className="ws-debug__divider">temporal</div>
+      <div className="ws-debug__divider">시간축</div>
       {count < 2 ? (
-        <div className="ws-debug__hint">no history attached to this graph.</div>
+        <div className="ws-debug__hint">이 그래프에 연결된 히스토리가 없습니다.</div>
       ) : (
         <>
           <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -696,7 +696,7 @@ function TemporalSection({
                 type="button"
                 className={`ws-debug__chip${temporal.mode === m ? " is-on" : ""}`}
                 onClick={() => interactionStore.setTemporalMode(m)}
-                title={`temporal: ${m}`}
+                title={`시간축 모드: ${m}`}
               >
                 {m}
               </button>
@@ -723,9 +723,9 @@ function TemporalSection({
                   className={`ws-debug__chip${temporal.playing ? " is-on" : ""}`}
                   onClick={() => interactionStore.setTemporalPlaying(!temporal.playing)}
                   style={{ flex: "0 0 42px" }}
-                  title={temporal.playing ? "pause" : "play"}
+                  title={temporal.playing ? "일시정지" : "재생"}
                 >
-                  {temporal.playing ? "pause" : "play"}
+                  {temporal.playing ? "정지" : "재생"}
                 </button>
               </div>
               <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -747,7 +747,7 @@ function TemporalSection({
           {temporal.mode === "diff" && (
             <>
               <div className="ws-debug__row" style={{ alignItems: "center" }}>
-                <span style={{ flex: "0 0 82px", opacity: 0.75 }}>from (A)</span>
+                <span style={{ flex: "0 0 82px", opacity: 0.75 }}>시작 (A)</span>
                 <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
                   {snaps.map((s, i) => (
                     <button
@@ -755,7 +755,7 @@ function TemporalSection({
                       type="button"
                       className={`ws-debug__chip${temporal.diffFrom === i ? " is-on" : ""}`}
                       onClick={() => interactionStore.setDiffRange(i, temporal.diffTo)}
-                      title={`from: ${s.label}`}
+                      title={`시작: ${s.label}`}
                     >
                       {s.label}
                     </button>
@@ -763,7 +763,7 @@ function TemporalSection({
                 </div>
               </div>
               <div className="ws-debug__row" style={{ alignItems: "center" }}>
-                <span style={{ flex: "0 0 82px", opacity: 0.75 }}>to (B)</span>
+                <span style={{ flex: "0 0 82px", opacity: 0.75 }}>끝 (B)</span>
                 <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
                   {snaps.map((s, i) => (
                     <button
@@ -771,7 +771,7 @@ function TemporalSection({
                       type="button"
                       className={`ws-debug__chip${temporal.diffTo === i ? " is-on" : ""}`}
                       onClick={() => interactionStore.setDiffRange(temporal.diffFrom, i)}
-                      title={`to: ${s.label}`}
+                      title={`끝: ${s.label}`}
                     >
                       {s.label}
                     </button>
@@ -780,7 +780,7 @@ function TemporalSection({
               </div>
               {diffCount && (
                 <div className="ws-debug__grid">
-                  <span className="ws-debug__k">summary</span>
+                  <span className="ws-debug__k">요약</span>
                   <span className="ws-debug__v">
                     <span style={{ color: "#22c55e" }}>+{diffCount.added}</span>
                     {" / "}
@@ -847,14 +847,14 @@ function FilterSection({
   return (
     <>
       <div className="ws-debug__divider" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        <span>{mode === "dsl" ? "filter DSL" : "filter — AI"}</span>
+        <span>{mode === "dsl" ? "필터 DSL" : "필터 — AI"}</span>
         {nlOn && (
           <div className="ws-debug__lod" style={{ gap: 2, marginLeft: "auto" }}>
             <button
               type="button"
               className={`ws-debug__chip${mode === "dsl" ? " is-on" : ""}`}
               onClick={() => setMode("dsl")}
-              title="DSL mode"
+              title="DSL 모드"
             >
               dsl
             </button>
@@ -862,7 +862,7 @@ function FilterSection({
               type="button"
               className={`ws-debug__chip${mode === "nl" ? " is-on" : ""}`}
               onClick={() => setMode("nl")}
-              title="Natural language (⌘/)"
+              title="자연어 (⌘/)"
             >
               nl
             </button>
@@ -944,7 +944,7 @@ function panToWorld(x: number, y: number, w: number, h: number) {
 
 function previewText(s: Sticky): string {
   const t = s.text.trim();
-  if (t.length === 0) return "(empty)";
+  if (t.length === 0) return "(비어 있음)";
   return t.length > 48 ? t.slice(0, 45) + "…" : t;
 }
 
@@ -965,9 +965,9 @@ function StickiesSection() {
   return (
     <>
       <div className="ws-debug__divider">
-        stickies ({stickies.length})
+        스티커 ({stickies.length})
         {resolvedCount > 0 && (
-          <span style={{ color: "#22c55e" }}> · {resolvedCount} done</span>
+          <span style={{ color: "#22c55e" }}> · {resolvedCount} 완료</span>
         )}
       </div>
       <label className="ws-debug__row">
@@ -976,10 +976,10 @@ function StickiesSection() {
           checked={showStickies}
           onChange={e => uxSettingsStore.setShowStickies(e.target.checked)}
         />
-        <span>show stickies</span>
+        <span>스티커 표시</span>
       </label>
       {recent.length === 0 ? (
-        <div className="ws-debug__hint">shift+dblclick empty canvas to drop a sticky.</div>
+        <div className="ws-debug__hint">빈 캔버스에 Shift+더블클릭하여 스티커를 남기세요.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
           {recent.map(s => (
@@ -987,7 +987,7 @@ function StickiesSection() {
               key={s.id}
               className={`ws-debug__sticky-row${s.resolved ? " ws-debug__sticky-row--resolved" : ""}`}
               onClick={() => panToWorld(s.x, s.y, s.width, s.height)}
-              title={s.text || "(empty)"}
+              title={s.text || "(비어 있음)"}
             >
               <span className={`ws-debug__sticky-dot ws-debug__sticky-dot--${s.color}`} />
               <span className="ws-debug__sticky-text">{previewText(s)}</span>
@@ -997,7 +997,7 @@ function StickiesSection() {
                 checked={s.resolved ?? false}
                 onClick={e => e.stopPropagation()}
                 onChange={() => stickiesStore.toggleResolved(s.id)}
-                title="mark done"
+                title="완료로 표시"
               />
             </div>
           ))}
@@ -1023,16 +1023,16 @@ function NavigationSection() {
 
   return (
     <>
-      <div className="ws-debug__divider">navigation</div>
+      <div className="ws-debug__divider">내비게이션</div>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">page</span>
+        <span className="ws-debug__k">페이지</span>
         <span className="ws-debug__v">
           {activePages.find(p => p.id === activeId)?.label ?? "—"}
           <span style={{ opacity: 0.6, marginLeft: 4 }}>
-            ({activePages.length} total)
+            (총 {activePages.length}개)
           </span>
         </span>
-        <span className="ws-debug__k">views</span>
+        <span className="ws-debug__k">뷰</span>
         <span className="ws-debug__v">{forPage.length}</span>
       </div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -1042,7 +1042,7 @@ function NavigationSection() {
             checked={pagesOn}
             onChange={e => featureFlagsStore.setFlag("nav.pages", e.target.checked)}
           />
-          <span>pages</span>
+          <span>페이지</span>
         </label>
         <label className="ws-debug__row" style={{ flex: 1 }}>
           <input
@@ -1050,7 +1050,7 @@ function NavigationSection() {
             checked={bookmarksOn}
             onChange={e => featureFlagsStore.setFlag("nav.bookmarks", e.target.checked)}
           />
-          <span>views</span>
+          <span>뷰</span>
         </label>
       </div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -1060,7 +1060,7 @@ function NavigationSection() {
             checked={storyboardOn}
             onChange={e => featureFlagsStore.setFlag("nav.storyboard", e.target.checked)}
           />
-          <span>storyboard</span>
+          <span>스토리보드</span>
         </label>
         <label className="ws-debug__row" style={{ flex: 1 }}>
           <input
@@ -1068,7 +1068,7 @@ function NavigationSection() {
             checked={templatesOn}
             onChange={e => featureFlagsStore.setFlag("nav.templates", e.target.checked)}
           />
-          <span>templates</span>
+          <span>템플릿</span>
         </label>
       </div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -1077,18 +1077,18 @@ function NavigationSection() {
           className="ws-debug__chip"
           onClick={() => captureCurrentBookmark(activeId)}
           disabled={!bookmarksOn}
-          title="Save current camera + filters as a bookmark on the active page"
+          title="현재 카메라 + 필터를 활성 페이지의 북마크로 저장"
         >
-          capture view
+          뷰 캡처
         </button>
         <button
           type="button"
           className="ws-debug__chip"
           onClick={() => storyboardStore.start(activeId)}
           disabled={!storyboardOn || forPage.length === 0}
-          title="Start storyboard playback of this page's views"
+          title="이 페이지의 뷰들을 스토리보드로 재생"
         >
-          play tour
+          투어 재생
         </button>
       </div>
     </>
@@ -1104,17 +1104,17 @@ function DevModeSection() {
   const measure = useFeature("devmode.measure");
   return (
     <>
-      <div className="ws-debug__divider">Dev mode</div>
+      <div className="ws-debug__divider">개발자 모드</div>
       <label className="ws-debug__row">
         <input
           type="checkbox"
           checked={hoverSummary}
           onChange={e => featureFlagsStore.setFlag("devmode.hoverSummary", e.target.checked)}
         />
-        <span>Hover summary</span>
+        <span>호버 요약</span>
       </label>
       <div className="ws-debug__hint">
-        Measure mode (M key){measure ? "" : " — disabled"}: hold M + click two files.
+        측정 모드 (M 키){measure ? "" : " — 비활성"}: M 키 누른 채로 두 파일을 클릭하세요.
       </div>
     </>
   );
@@ -1134,13 +1134,13 @@ function EmbedsSection() {
   const slackOn = useFeature("embeds.slackThread");
   return (
     <>
-      <div className="ws-debug__divider">Embeds</div>
+      <div className="ws-debug__divider">임베드</div>
       {imagesOn && <ImagesHudRow />}
       {ticketsOn && <TicketsHudRow />}
       {prOn && <PrsHudRow />}
       {slackOn && <SlackHudRow />}
       {!imagesOn && !ticketsOn && !prOn && !slackOn && (
-        <div className="ws-debug__hint">every embed feature is disabled.</div>
+        <div className="ws-debug__hint">모든 임베드 기능이 비활성 상태입니다.</div>
       )}
     </>
   );
@@ -1151,13 +1151,13 @@ function ImagesHudRow() {
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">pasted images</span>
+        <span className="ws-debug__k">붙여넣은 이미지</span>
         <span className="ws-debug__v">
           {images.length} / {IMAGE_MAX_COUNT}
         </span>
       </div>
       <div className="ws-debug__hint">
-        paste (⌘V) an image from the clipboard onto the canvas.
+        클립보드의 이미지를 캔버스에 붙여넣기 (⌘V) 하세요.
       </div>
       {images.length > 0 && (
         <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -1165,9 +1165,9 @@ function ImagesHudRow() {
             type="button"
             className="ws-debug__chip"
             onClick={() => imagesStore.reset()}
-            title="remove every pasted image"
+            title="붙여넣은 모든 이미지 제거"
           >
-            clear all
+            모두 비우기
           </button>
         </div>
       )}
@@ -1198,7 +1198,7 @@ function TicketsHudRow() {
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">tickets</span>
+        <span className="ws-debug__k">티켓</span>
         <span className="ws-debug__v">
           {rows.length} / {listMockTickets().length}
         </span>
@@ -1209,7 +1209,7 @@ function TicketsHudRow() {
           className={`ws-debug__chip${source === "all" ? " is-on" : ""}`}
           onClick={() => setSource("all")}
         >
-          all
+          전체
         </button>
         {TICKET_SOURCES_HUD.map(s => (
           <button
@@ -1228,7 +1228,7 @@ function TicketsHudRow() {
           className={`ws-debug__chip${ticketState === "all" ? " is-on" : ""}`}
           onClick={() => setTicketState("all")}
         >
-          any
+          모두
         </button>
         {TICKET_STATES_HUD.map(s => (
           <button
@@ -1242,7 +1242,7 @@ function TicketsHudRow() {
         ))}
       </div>
       {rows.length === 0 ? (
-        <div className="ws-debug__hint">no tickets match.</div>
+        <div className="ws-debug__hint">일치하는 티켓이 없습니다.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
           {rows.map(t => (
@@ -1264,9 +1264,9 @@ function TicketsHudRow() {
             type="button"
             className="ws-debug__chip"
             onClick={() => ticketLinksStore.reset()}
-            title="clear every ticket link"
+            title="모든 티켓 링크 제거"
           >
-            clear links
+            링크 비우기
           </button>
         </div>
       )}
@@ -1291,13 +1291,13 @@ function PrsHudRow() {
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">pull requests</span>
+        <span className="ws-debug__k">풀 리퀘스트</span>
         <span className="ws-debug__v">
-          {open.length} open · {listMockPrs().length - open.length} merged
+          {open.length} 오픈 · {listMockPrs().length - open.length} 병합됨
         </span>
       </div>
       {open.length === 0 ? (
-        <div className="ws-debug__hint">no open PRs in the mock fixture.</div>
+        <div className="ws-debug__hint">목 픽스처에 오픈된 PR이 없습니다.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
           {open.map(p => (
@@ -1305,7 +1305,7 @@ function PrsHudRow() {
               <span className="ws-pr-badge__num">#{p.number}</span>
               <span className="ws-debug__sticky-text">{p.title}</span>
               <span className="ws-debug__sticky-check" style={{ opacity: 0.7 }}>
-                touches {touchCount(p.number)}
+                파일 {touchCount(p.number)}개
               </span>
             </div>
           ))}
@@ -1330,14 +1330,14 @@ function SlackHudRow() {
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">related discussions</span>
+        <span className="ws-debug__k">관련 논의</span>
         <span className="ws-debug__v">{threads.length}</span>
       </div>
       {!selected && (
-        <div className="ws-debug__hint">select a file to filter; showing all threads.</div>
+        <div className="ws-debug__hint">파일을 선택하면 필터링됩니다. 현재는 모든 스레드를 표시 중입니다.</div>
       )}
       {threads.length === 0 ? (
-        <div className="ws-debug__hint">no related threads.</div>
+        <div className="ws-debug__hint">관련 스레드가 없습니다.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
           {threads.map(t => (

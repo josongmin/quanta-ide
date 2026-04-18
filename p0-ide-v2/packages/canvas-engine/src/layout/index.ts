@@ -5,8 +5,17 @@ export type {
   LodAggregateCache,
   WorkspaceLayout,
   ClusterMeta,
+  FolderFrameMeta,
 } from "./types";
-export { FILE_CARD_W, FILE_CARD_H } from "./types";
+export {
+  FILE_CARD_W,
+  FILE_CARD_H,
+  FILE_CARD_HEADER_H,
+  FILE_CARD_LINE_H,
+  FILE_CARD_PAD_H,
+  FILE_CARD_MIN_H,
+  computeFileHeight,
+} from "./types";
 
 export { lineAnchor, sideAnchor } from "./edge-anchor";
 

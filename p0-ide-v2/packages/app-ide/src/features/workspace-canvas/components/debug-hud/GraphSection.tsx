@@ -49,10 +49,10 @@ export function GraphSection() {
   if (!metrics) {
     return (
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">status</span>
-        <span className="ws-debug__v">no metrics</span>
+        <span className="ws-debug__k">상태</span>
+        <span className="ws-debug__v">메트릭 없음</span>
         <span className="ws-debug__k" style={{ gridColumn: "1 / -1", opacity: 0.6 }}>
-          metrics appear once layout completes.
+          레이아웃이 완료되면 메트릭이 표시됩니다.
         </span>
       </div>
     );
@@ -63,25 +63,25 @@ export function GraphSection() {
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">files</span>
+        <span className="ws-debug__k">파일</span>
         <span className="ws-debug__v">{metrics.fileCount.toLocaleString()}</span>
 
-        <span className="ws-debug__k">edges</span>
+        <span className="ws-debug__k">엣지</span>
         <span className="ws-debug__v">{metrics.edgeCount.toLocaleString()}</span>
 
-        <span className="ws-debug__k">compute</span>
+        <span className="ws-debug__k">계산 시간</span>
         <span className="ws-debug__v">
           {metrics.computeMs.toFixed(1)}ms
-          {metrics.betweennessSampled ? " (sampled)" : ""}
+          {metrics.betweennessSampled ? " (샘플)" : ""}
         </span>
       </div>
 
-      <div className="ws-debug__divider">top by degree</div>
+      <div className="ws-debug__divider">차수 상위</div>
       <div className="ws-debug__grid">
         {degRows.length === 0 && (
           <>
             <span className="ws-debug__k" style={{ gridColumn: "1 / -1", opacity: 0.6 }}>
-              — empty —
+              — 비어 있음 —
             </span>
           </>
         )}
@@ -91,14 +91,14 @@ export function GraphSection() {
             rank={i + 1}
             id={id}
             primary={`${m.degree}`}
-            secondary={`${m.inDegree}in / ${m.outDegree}out`}
+            secondary={`${m.inDegree} 인 / ${m.outDegree} 아웃`}
           />
         ))}
       </div>
 
       {hasBetweenness && (
         <>
-          <div className="ws-debug__divider">top by betweenness</div>
+          <div className="ws-debug__divider">매개 중심성 상위</div>
           <div className="ws-debug__grid">
             {btwRows.map(({ id, m }, i) => (
               <TopRow
@@ -106,7 +106,7 @@ export function GraphSection() {
                 rank={i + 1}
                 id={id}
                 primary={((m.betweennessRank ?? 0) * 100).toFixed(1) + "%"}
-                secondary={`deg ${m.degree}`}
+                secondary={`차수 ${m.degree}`}
               />
             ))}
           </div>
@@ -151,7 +151,7 @@ function SCCList() {
   const shown = sccs.slice(0, 10);
   return (
     <>
-      <div className="ws-debug__divider">cycles ({sccs.length})</div>
+      <div className="ws-debug__divider">사이클 ({sccs.length})</div>
       <div className="ws-debug__grid">
         {shown.map((members, i) => {
           const head = members.slice(0, 3).map(shortName).join(", ");
@@ -184,7 +184,7 @@ function StartHereList() {
   if (!startHere || startHere.length === 0) return null;
   return (
     <>
-      <div className="ws-debug__divider">start here ({startHere.length})</div>
+      <div className="ws-debug__divider">시작점 ({startHere.length})</div>
       <div className="ws-debug__grid">
         {startHere.slice(0, 10).map(entry => (
           <div
@@ -192,7 +192,7 @@ function StartHereList() {
             className="ws-debug__row"
             style={{ gridColumn: "1 / -1", cursor: "pointer" }}
             onClick={() => interactionStore.selectFile(entry.fileId)}
-            title={`${entry.fileId}\ncentrality ${(entry.breakdown.centrality * 100).toFixed(0)}% · entry ${(entry.breakdown.entryPoint * 100).toFixed(0)}% · risk ${(entry.breakdown.risk * 100).toFixed(0)}%`}
+            title={`${entry.fileId}\n중심성 ${(entry.breakdown.centrality * 100).toFixed(0)}% · 진입점 ${(entry.breakdown.entryPoint * 100).toFixed(0)}% · 리스크 ${(entry.breakdown.risk * 100).toFixed(0)}%`}
           >
             <span
               style={{
@@ -281,7 +281,7 @@ function GraphSources() {
 
   return (
     <>
-      <div className="ws-debug__divider">graph sources</div>
+      <div className="ws-debug__divider">그래프 소스</div>
       <div className="ws-debug__grid">
         {rows.buckets.map(b => (
           <div
@@ -289,7 +289,7 @@ function GraphSources() {
             className="ws-debug__row"
             style={{ gridColumn: "1 / -1", cursor: "pointer" }}
             onClick={() => interactionStore.flashGraph(b.graphId)}
-            title={`flash ${b.label} files for 2s`}
+            title={`${b.label} 파일을 2초간 플래시`}
           >
             <span
               style={{
@@ -300,13 +300,13 @@ function GraphSources() {
             />
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{b.label}</span>
             <span style={{ opacity: 0.75, fontVariantNumeric: "tabular-nums" }}>
-              {b.fileCount} files, {b.edgeCount} edges
+              파일 {b.fileCount}개, 엣지 {b.edgeCount}개
             </span>
           </div>
         ))}
         {rows.totalJoins > 0 && (
           <div className="ws-debug__row" style={{ gridColumn: "1 / -1" }}>
-            <span style={{ opacity: 0.75, marginRight: 8 }}>joins:</span>
+            <span style={{ opacity: 0.75, marginRight: 8 }}>조인:</span>
             <span style={{ flex: 1, fontVariantNumeric: "tabular-nums" }}>
               {rows.totalJoins}
             </span>
@@ -335,7 +335,7 @@ function TracesList() {
 
   return (
     <>
-      <div className="ws-debug__divider">traces ({traces.length})</div>
+      <div className="ws-debug__divider">트레이스 ({traces.length})</div>
       {/* Chip row — [none] + one chip per trace. Radio semantics: exactly
           one "is-on" at any time (may be "none"). */}
       <div className="ws-debug__row" style={{ flexWrap: "wrap", gap: 4 }}>
@@ -343,9 +343,9 @@ function TracesList() {
           type="button"
           className={`ws-debug__chip${activeTraceId === null ? " is-on" : ""}`}
           onClick={() => setTrace(null)}
-          title="Clear trace overlay"
+          title="트레이스 오버레이 제거"
         >
-          none
+          없음
         </button>
         {traces.map(t => (
           <button
@@ -353,7 +353,7 @@ function TracesList() {
             type="button"
             className={`ws-debug__chip${activeTraceId === t.id ? " is-on" : ""}`}
             onClick={() => setTrace(t.id)}
-            title={`${t.label} · ${t.totalMs}ms · ${t.spans.length} spans · captured ${new Date(t.capturedAt).toLocaleDateString()}`}
+            title={`${t.label} · ${t.totalMs}ms · 스팬 ${t.spans.length}개 · 수집 ${new Date(t.capturedAt).toLocaleDateString()}`}
           >
             {t.label}
           </button>
@@ -384,7 +384,7 @@ function TracesList() {
                 {t.label}
               </span>
               <span style={{ opacity: 0.75, fontVariantNumeric: "tabular-nums", marginLeft: 6 }}>
-                {t.totalMs}ms · {t.spans.length} spans
+                {t.totalMs}ms · 스팬 {t.spans.length}개
               </span>
             </div>
           );
@@ -419,16 +419,16 @@ function TraceSpanDetails({ trace }: { trace: Trace }) {
   return (
     <>
       <div className="ws-debug__grid" style={{ marginTop: 4 }}>
-        <span className="ws-debug__k">trace</span>
+        <span className="ws-debug__k">트레이스</span>
         <span className="ws-debug__v">{trace.label}</span>
-        <span className="ws-debug__k">total</span>
+        <span className="ws-debug__k">총</span>
         <span className="ws-debug__v">{trace.totalMs}ms</span>
-        <span className="ws-debug__k">spans</span>
+        <span className="ws-debug__k">스팬</span>
         <span className="ws-debug__v">{trace.spans.length}</span>
-        <span className="ws-debug__k">edges</span>
+        <span className="ws-debug__k">엣지</span>
         <span className="ws-debug__v">{trace.edges.length}</span>
       </div>
-      <div className="ws-debug__divider">top spans (self)</div>
+      <div className="ws-debug__divider">자체 시간 상위 스팬</div>
       <div className="ws-debug__grid">
         {topSpans.map((span, i) => {
           const self = span.selfMs ?? span.durationMs;
@@ -440,7 +440,7 @@ function TraceSpanDetails({ trace }: { trace: Trace }) {
               className="ws-debug__row"
               style={{ gridColumn: "1 / -1", cursor: "pointer" }}
               onClick={() => onSpanClick(span)}
-              title={`${span.fileId}${span.symbol ? ` · ${span.symbol}` : ""}\ndepth ${span.depth} · start ${span.startMs}ms · dur ${span.durationMs}ms`}
+              title={`${span.fileId}${span.symbol ? ` · ${span.symbol}` : ""}\n깊이 ${span.depth} · 시작 ${span.startMs}ms · 지속 ${span.durationMs}ms`}
             >
               <span style={{ opacity: 0.7, marginRight: 6, fontVariantNumeric: "tabular-nums" }}>
                 {i + 1}.
@@ -489,7 +489,7 @@ function HotPathsSection() {
     <>
       {hotByLatency.length > 0 && (
         <>
-          <div className="ws-debug__divider">hot paths (p95)</div>
+          <div className="ws-debug__divider">핫 패스 (p95)</div>
           <div className="ws-debug__grid">
             {hotByLatency.map(([id, ent], i) => (
               <div
@@ -497,7 +497,7 @@ function HotPathsSection() {
                 className="ws-debug__row"
                 style={{ gridColumn: "1 / -1", cursor: "pointer" }}
                 onClick={() => interactionStore.selectFile(id)}
-                title={`${id}\np50 ${ent.p50}ms · p95 ${ent.p95}ms · p99 ${ent.p99}ms · ${ent.callCount}/min`}
+                title={`${id}\np50 ${ent.p50}ms · p95 ${ent.p95}ms · p99 ${ent.p99}ms · ${ent.callCount}/분`}
               >
                 <span
                   style={{
@@ -526,7 +526,7 @@ function HotPathsSection() {
 
       {mostEffected.length > 0 && (
         <>
-          <div className="ws-debug__divider">most-effected files</div>
+          <div className="ws-debug__divider">이펙트가 많은 파일</div>
           <div className="ws-debug__grid">
             {mostEffected.map(([id, ent]) => (
               <div
@@ -534,13 +534,13 @@ function HotPathsSection() {
                 className="ws-debug__row"
                 style={{ gridColumn: "1 / -1", cursor: "pointer" }}
                 onClick={() => interactionStore.selectFile(id)}
-                title={`${id}\neffects: ${ent.effects.join(", ")}`}
+                title={`${id}\n이펙트: ${ent.effects.join(", ")}`}
               >
                 <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
                   {shortName(id)}
                 </span>
                 <span style={{ fontVariantNumeric: "tabular-nums", opacity: 0.75 }}>
-                  {ent.effects.length} kinds
+                  {ent.effects.length} 종류
                 </span>
               </div>
             ))}

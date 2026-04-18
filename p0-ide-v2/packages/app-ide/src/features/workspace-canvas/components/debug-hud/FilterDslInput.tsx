@@ -115,7 +115,7 @@ export function FilterDslInput() {
         type="text"
         className="ws-debug__input"
         value={query}
-        placeholder='e.g. layer=safety and severity>=high'
+        placeholder='예: layer=safety and severity>=high'
         onChange={onChange}
         onKeyDown={onKeyDown}
         onKeyUp={syncCursor}
@@ -156,7 +156,7 @@ export function FilterDslInput() {
         </div>
       )}
       <div className="ws-debug__hint" style={{ fontSize: 10, opacity: 0.6 }}>
-        keys: layer, kind, severity, animated, evidence · ops: = != &gt;= &lt;= &gt; &lt; · bool: and or not
+        키: layer, kind, severity, animated, evidence · 연산자: = != &gt;= &lt;= &gt; &lt; · 불린: and or not
       </div>
     </div>
   );

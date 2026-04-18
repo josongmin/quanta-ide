@@ -11,18 +11,18 @@ import {
 import { ThemeChipRow } from "../ThemeSwitcher";
 
 const CATEGORY_LABEL: Record<FeatureCategory, string> = {
-  collab: "Collaboration",
-  annotation: "Annotation",
-  devmode: "Dev Mode",
-  review: "Review flows",
-  navigation: "Navigation",
-  power: "Power tools",
-  embeds: "Embeds",
-  overlay: "Overlays",
+  collab: "협업",
+  annotation: "주석",
+  devmode: "개발자 모드",
+  review: "리뷰 플로우",
+  navigation: "탐색",
+  power: "파워 도구",
+  embeds: "임베드",
+  overlay: "오버레이",
   ai: "AI",
-  temporal: "Temporal",
-  "action-terrain": "Action terrain",
-  experimental: "Experimental",
+  temporal: "시간 흐름",
+  "action-terrain": "액션 지형",
+  experimental: "실험적 기능",
 };
 
 const CATEGORY_ORDER: readonly FeatureCategory[] = [
@@ -62,23 +62,23 @@ export function FeaturesSection() {
   return (
     <>
       <div className="ws-debug__grid">
-        <span className="ws-debug__k">enabled</span>
+        <span className="ws-debug__k">활성</span>
         <span className="ws-debug__v ws-debug__v--hl">
           {enabled} / {total}
         </span>
       </div>
 
       <div className="ws-debug__divider">
-        presets
+        프리셋
       </div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
         <button
           type="button"
           className="ws-debug__chip"
           onClick={() => featureFlagsStore.resetToDefaults()}
-          title="Restore every feature to its default state"
+          title="모든 기능을 기본 상태로 복원"
         >
-          defaults
+          기본값으로 초기화
         </button>
         <button
           type="button"
@@ -86,9 +86,9 @@ export function FeaturesSection() {
           onClick={() => {
             for (const cat of CATEGORY_ORDER) featureFlagsStore.enableCategory(cat, true);
           }}
-          title="Enable every feature"
+          title="모든 기능 활성"
         >
-          all on
+          모두 켜기
         </button>
         <button
           type="button"
@@ -96,9 +96,9 @@ export function FeaturesSection() {
           onClick={() => {
             for (const cat of CATEGORY_ORDER) featureFlagsStore.enableCategory(cat, false);
           }}
-          title="Disable every feature"
+          title="모든 기능 비활성"
         >
-          all off
+          모두 끄기
         </button>
       </div>
 
@@ -106,7 +106,7 @@ export function FeaturesSection() {
         <CategoryBlock key={g.category} category={g.category} features={g.features} flags={flags} />
       ))}
 
-      <div className="ws-debug__divider">theme</div>
+      <div className="ws-debug__divider">테마</div>
       <div className="ws-debug__lod" style={{ gap: 4 }}>
         <ThemeChipRow />
       </div>
@@ -139,9 +139,9 @@ function CategoryBlock({
           className="ws-debug__chip"
           style={{ marginLeft: "auto", fontSize: 9 }}
           onClick={() => featureFlagsStore.enableCategory(category, !allOn)}
-          title={allOn ? "disable all" : "enable all"}
+          title={allOn ? "모두 비활성" : "모두 활성"}
         >
-          {allOn ? "all off" : allOff ? "all on" : "toggle"}
+          {allOn ? "모두 끄기" : allOff ? "모두 켜기" : "토글"}
         </button>
       </div>
       {features.map(f => (
@@ -158,7 +158,7 @@ function FeatureRow({ feature, enabled }: { feature: FeatureDescriptor; enabled:
   return (
     <label
       className="ws-debug__row"
-      title={`${feature.description}${feature.dependsOn ? `\n\nrequires: ${feature.dependsOn.join(", ")}` : ""}${feature.introducedIn ? `\nintroduced: ${feature.introducedIn}` : ""}`}
+      title={`${feature.description}${feature.dependsOn ? `\n\n필요 기능: ${feature.dependsOn.join(", ")}` : ""}${feature.introducedIn ? `\n도입: ${feature.introducedIn}` : ""}`}
       style={{ opacity: depMissing ? 0.5 : 1 }}
     >
       <input
@@ -182,7 +182,7 @@ function FeatureRow({ feature, enabled }: { feature: FeatureDescriptor; enabled:
           {feature.label}
         </span>
         {!effectivelyOn && enabled && (
-          <span style={{ fontSize: 9, color: "#f59e0b" }}>(dep off)</span>
+          <span style={{ fontSize: 9, color: "#f59e0b" }}>(의존성 꺼짐)</span>
         )}
       </span>
     </label>
