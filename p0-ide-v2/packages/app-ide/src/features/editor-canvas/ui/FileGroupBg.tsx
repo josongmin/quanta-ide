@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { FileGroup } from "@quanta/app-ide/entities/canvas";
 import { cn } from "@quanta/ui-kit/lib";
 
@@ -17,7 +18,7 @@ function riskLabel(score: number): string {
   return "Low";
 }
 
-export function FileGroupBg({ group }: Props) {
+export const FileGroupBg = memo(function FileGroupBg({ group }: Props) {
   const score = group.riskScore;
 
   return (
@@ -53,7 +54,7 @@ export function FileGroupBg({ group }: Props) {
       </div>
     </div>
   );
-}
+});
 
 function Stat({ icon, value, label, warn }: { icon: string; value: string; label: string; warn?: boolean }) {
   return (

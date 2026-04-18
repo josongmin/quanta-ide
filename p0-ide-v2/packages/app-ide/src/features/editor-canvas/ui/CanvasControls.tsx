@@ -1,10 +1,12 @@
+import { memo } from "react";
+
 interface Props {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onFit: () => void;
 }
 
-export function CanvasControls({ onZoomIn, onZoomOut, onFit }: Props) {
+export const CanvasControls = memo(function CanvasControls({ onZoomIn, onZoomOut, onFit }: Props) {
   return (
     <div className="canvas-controls">
       <button
@@ -46,4 +48,4 @@ export function CanvasControls({ onZoomIn, onZoomOut, onFit }: Props) {
       </button>
     </div>
   );
-}
+});

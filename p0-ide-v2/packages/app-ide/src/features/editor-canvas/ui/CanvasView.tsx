@@ -28,7 +28,10 @@ export function CanvasView({ file }: { file: FileFacts }) {
       const entry = entries[0];
       if (!entry) return;
       const { width, height } = entry.contentRect;
-      setContainerSize({ w: width, h: height });
+      // Skip setState if dimensions didn't actually change
+      setContainerSize((prev) =>
+        prev.w === width && prev.h === height ? prev : { w: width, h: height },
+      );
     });
 
     ro.observe(el);
@@ -74,6 +77,12 @@ export function CanvasView({ file }: { file: FileFacts }) {
   );
   const activeEdges = useMemo(
     () => (selection ? new Set(selection.flowPath) : undefined),
+    [selection],
+  );
+
+  // O(1) lookup for expandable node IDs (vs .includes() O(n) per node)
+  const expandableSet = useMemo(
+    () => (selection?.expandableNodeIds ? new Set(selection.expandableNodeIds) : undefined),
     [selection],
   );
 
@@ -193,11 +202,7 @@ export function CanvasView({ file }: { file: FileFacts }) {
 
       <div
         className="canvas-view__nodes"
-        style={{
-          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.scale})`,
-          transformOrigin: "0 0",
-          willChange: "transform",
-        }}
+        style={{ transform, transformOrigin: "0 0", willChange: "transform" }}
       >
         <FileGroupBg group={expandedGraph.fileGroup} />
         <CodePaneView
@@ -215,7 +220,7 @@ export function CanvasView({ file }: { file: FileFacts }) {
             key={n.id}
             node={n}
             active={activeNodes?.has(n.id)}
-            expandable={selection?.expandableNodeIds?.includes(n.id)}
+            expandable={expandableSet?.has(n.id)}
             onNodeClick={handleNodeClick}
             onExpand={handleExpandFlow}
           />

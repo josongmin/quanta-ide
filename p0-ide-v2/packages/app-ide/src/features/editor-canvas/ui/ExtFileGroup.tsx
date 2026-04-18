@@ -1,10 +1,11 @@
+import { memo } from "react";
 import type { ExternalFileGroup } from "@quanta/app-ide/entities/canvas";
 
 interface Props {
   group: ExternalFileGroup;
 }
 
-export function ExtFileGroup({ group }: Props) {
+export const ExtFileGroup = memo(function ExtFileGroup({ group }: Props) {
   return (
     <div
       className="ext-file-group"
@@ -18,4 +19,4 @@ export function ExtFileGroup({ group }: Props) {
       </div>
     </div>
   );
-}
+});
