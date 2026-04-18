@@ -2,7 +2,7 @@ import { Graphics, Container, Ticker } from "pixi.js";
 import type { FileEdge, FileNode, WorkspaceLayout, Viewport, EdgeLayer, EdgeSeverity, Rect, EdgeKind } from "@quanta/canvas-engine";
 import type { EdgeGeometryCache } from "@quanta/canvas-engine";
 import { lineAnchor, sideAnchor } from "@quanta/canvas-engine";
-import { resolveEdgeStyle, SEVERITY_RANK } from "./shared/colors";
+import { resolveEdgeStyle, SEVERITY_RANK, CROSS_GRAPH_STYLE } from "./shared/colors";
 
 // Line-anchored edges with per-kind visual vocabulary:
 //   - call / dataflow / impact / taint: arrowhead at target
@@ -88,6 +88,14 @@ export interface EdgeStaticBuildOpts {
    *  ghost). These are drawn even if they'd otherwise be culled by the
    *  temporal set. */
   diffRemoved?: ReadonlySet<string>;
+  /** When false, edges with `crossGraph===true` are skipped entirely. */
+  showCrossGraphEdges?: boolean;
+  /** When true, cross-graph edges get the gold overlay. When false, they
+   *  render with their regular kind/layer style only. */
+  highlightCrossGraph?: boolean;
+  /** Cross-graph focus flash — when present, these edge ids render at full
+   *  alpha and dim others. Used by the HUD "graph sources" row flash. */
+  crossGraphFlash?: ReadonlySet<string>;
 }
 
 export class EdgeStaticRenderer {
@@ -170,6 +178,9 @@ export class EdgeStaticRenderer {
     const temporalEdgeSet = opts?.temporalEdgeSet;
     const diffAdded = opts?.diffAdded;
     const diffRemoved = opts?.diffRemoved;
+    const showCrossGraphEdges = opts?.showCrossGraphEdges ?? true;
+    const highlightCrossGraph = opts?.highlightCrossGraph ?? true;
+    const crossGraphFlash = opts?.crossGraphFlash;
 
     // In diff mode the removed-ghost set may contain edges that are NOT in
     // the live edge list (they existed in snapshot A only). We render them
@@ -177,6 +188,7 @@ export class EdgeStaticRenderer {
     // First: main loop that honours all the standard filters plus the live
     // temporal set.
     for (const edge of edges) {
+      if (edge.crossGraph && !showCrossGraphEdges) continue;
       if (kindFilter && kindFilter[edge.kind] === false) continue;
       if (layerFilter && layerFilter[edge.layer] === false) continue;
       if (minSeverityRank >= 0) {
@@ -213,9 +225,27 @@ export class EdgeStaticRenderer {
       const width = style.baseWidth * invScale * widthMul;
       const cap: "round" | "butt" = edge.animated ? "round" : (style.cap ?? "butt");
 
-      const alpha = focus && !focus.edgeIds.has(edge.id)
+      let alpha = focus && !focus.edgeIds.has(edge.id)
         ? style.alpha * focus.dimAlpha
         : style.alpha;
+
+      const isCross = edge.crossGraph === true;
+      const isFlashed = crossGraphFlash?.has(edge.id) ?? false;
+      if (crossGraphFlash && crossGraphFlash.size > 0 && isCross && !isFlashed) {
+        alpha = alpha * 0.25;
+      }
+
+      if (isCross && highlightCrossGraph) {
+        const goldWidth = CROSS_GRAPH_STYLE.baseWidth * invScale * widthMul * (isFlashed ? 1.8 : 1.4);
+        const goldAlpha = (isFlashed ? 1 : CROSS_GRAPH_STYLE.alpha);
+        drawDashedBezier(
+          this.gfx,
+          a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
+          CROSS_GRAPH_STYLE.dash ?? [8, 5],
+          edge.animated ? dashOffset : 0,
+          { color: CROSS_GRAPH_STYLE.color, alpha: goldAlpha, width: goldWidth, cap: "round" },
+        );
+      }
 
       // Arch violation — draw a wider red halo underneath so the violating
       // edge reads first regardless of its base colour.

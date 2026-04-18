@@ -5,86 +5,35 @@ import { buildOrthogonalRoutes } from "./orthogonal-routing";
 import { buildBundledEdges, buildFileToClusterMap } from "./edge-bundling";
 import { aggregateClusterEdges, routeClusterEdges } from "./cluster-edge-aggregate";
 import type { ClusterEdge } from "./cluster-edge-aggregate";
-import { computeWorkspaceMetrics } from "../graph/metrics";
-import { findStronglyConnectedComponents } from "../graph/scc";
-import { rankStartHere } from "../graph/start-here";
-import { detectArchViolations } from "../graph/arch-violations";
+import { enrichLayout } from "./enrich-layout";
 
 /**
- * Directory-based squarified treemap layout.
- *
- * Design choice (see RFC-0006 discussion): we do NOT scale file cards by
- * treemap area — FILE_CARD_W × FILE_CARD_H is the *minimum* and we render
- * every file at that size. The treemap merely *positions* files inside
- * directory-shaped bounding boxes so that:
- *
- *   1. Files in the same directory are visually adjacent.
- *   2. The final total bounds have a ~1:1.5 aspect ratio instead of the
- *      1:100 strip that `gridLayout` produces at 5.9k nodes.
- *   3. Top-level directories (crates, tests/, etc.) give us natural
- *      supergalaxy-tier cluster boxes.
- *
- * Algorithm:
- *   - Parse `file.id` as a "/"-separated path → build directory tree.
- *   - For each *leaf* directory, pack its files into a near-square grid of
- *     fixed-size cards.
- *   - For each *inner* directory, squarify its children (leaf packs + sub-
- *     directory boxes) using the Bruls/Huijsen/van Wijk squarify algorithm
- *     (1999): iterate children largest-first, build rows that minimize the
- *     worst-case aspect ratio of boxes added to that row. When the next
- *     child would worsen the row's worst ratio, close the row and start a
- *     new one on the short side.
- *   - Recurse top-down to assign absolute (x, y) offsets.
- *
- * Aspect target: root container aims for width/height ≈ TARGET_ASPECT.
+ * Directory-based squarified treemap (Bruls/Huijsen/van Wijk 1999).
+ * Fixed-size cards — the treemap positions; it does not scale. Root
+ * bounds aim for TARGET_ASPECT so minimap+canvas feel landscape.
  */
 
-// Soft minimum columns for tiny leaves. For leaves with many files the column
-// count scales with sqrt(n) to keep the pack near-square.
 const LEAF_COLS_MIN = 4;
-
-// Padding between sibling boxes at every tree level (pixels).
 const DIR_PAD = 240;
-
-// Gap between cards inside a leaf directory.
 const CARD_GAP_X = 100;
 const CARD_GAP_Y = 60;
-
-// Desired *realized* width : height for the final layout bounds. Large
-// repos should render landscape (≈1.5) so the minimap fits a 180×110
-// viewport and the canvas feels editor-like rather than column-like.
 const TARGET_ASPECT = 1.5;
-
-// longSide budget multiplier — see squarify() for derivation. Because
-// children are fixed-size and inter-cell padding eats row width more
-// than column height (padding adds DIR_PAD per child along the row
-// axis, only once per row stack along the column axis), the realized
-// bounds aspect is systematically *narrower* than the input ratio used
-// to pick longSide. Empirically, longSide = sqrt(area * k) with k ≈ 2.3
-// produces bounds with aspect ≈ 1.5 for our 1k–6k-file range. A cleaner
-// fix would be to iterate on longSide until bounds converge, but the
-// constant ladder is within tolerance and avoids O(n²) layout retries.
+// Why 2.3: fixed-size children + row padding makes realized bounds
+// narrower than the naive sqrt(area * aspect) would imply. Constant
+// ladder stays within tolerance and avoids O(n²) layout retries.
 const LONGSIDE_BUDGET_K = 2.3;
-
-// Outer padding around the whole layout.
 const OUTER_PAD = 48;
-
-// Enable a one-time dev assertion on the final root aspect ratio.
 const DEV_ASSERT_ASPECT = true;
 
 // ── directory tree ─────────────────────────────────────────────────────
 
 interface DirNode {
   name: string;
-  path: string;          // "/"-joined path from root (empty for root)
+  path: string;
   children: Map<string, DirNode>;
-  files: FileNode[];     // files directly inside this directory
-  // Filled in during sizing pass:
+  files: FileNode[];
   box: { w: number; h: number };
-  // Cached placements of children (absolute offsets inside this dir's box).
-  // Computed during sizing, consumed during positioning.
   placements: Placement[];
-  // Filled in during positioning pass:
   pos: { x: number; y: number };
 }
 
@@ -124,7 +73,6 @@ function buildDirTree(files: FileNode[]): DirNode {
 
 // ── leaf packing ───────────────────────────────────────────────────────
 
-// Packs `n` cards of FILE_CARD_W × FILE_CARD_H into a near-square grid.
 function leafBox(n: number): { w: number; h: number; cols: number } {
   if (n <= 0) return { w: 0, h: 0, cols: 0 };
   const ideal = Math.sqrt((n * (FILE_CARD_H + CARD_GAP_Y)) / (FILE_CARD_W + CARD_GAP_X));
@@ -138,9 +86,9 @@ function leafBox(n: number): { w: number; h: number; cols: number } {
 // ── squarified treemap (Bruls/Huijsen/van Wijk 1999) ───────────────────
 
 interface Child {
-  area: number;   // Intrinsic area (w * h) — used to compute normalized area.
-  w: number;      // Intrinsic width.
-  h: number;      // Intrinsic height.
+  area: number;
+  w: number;
+  h: number;
   node: DirNode;
   isLeaf: boolean;
 }
@@ -153,17 +101,6 @@ interface Placement {
   h: number;
 }
 
-/**
- * Aspect cost of a prospective row given a target long-side (= container
- * width budget). Intuition: a good row fills as much of longSide as
- * possible without overflowing. We measure how far rowW is from longSide:
- * fill ratio = rowW / longSide. Cost = |log(fill)| so underfilled and
- * overfilled rows are both penalized (though overflow is caught separately
- * with a hard limit).
- *
- * Additionally we weight by row height relative to tallest child height
- * so that jagged stacks (mixing very tall and short rows) incur cost.
- */
 function rowCost(rowCs: Child[], longSide: number): number {
   if (rowCs.length === 0) return Infinity;
   let rowW = 0;
@@ -175,34 +112,9 @@ function rowCost(rowCs: Child[], longSide: number): number {
   rowW = Math.max(rowW - DIR_PAD, 1);
   rowH = Math.max(rowH, 1);
   const fill = rowW / longSide;
-  // Underfill (fill < 1) is what we primarily optimize against.
   return Math.abs(Math.log(fill));
 }
 
-/**
- * Squarified treemap for fixed-size children (Bruls/Huijsen/van Wijk 1999,
- * adapted to rectangles of intrinsic size).
- *
- * Strategy:
- *   1. Compute an "ideal" longSide = sqrt(totalArea * targetAspect) so
- *      that if we perfectly packed all area, the overall container would
- *      be ≈ targetAspect wide-to-tall.
- *   2. Enforce longSide ≥ max(child.w) so no child is forced into its
- *      own row for the wrong reason.
- *   3. Sort children largest-first (BHvW requirement).
- *   4. Greedily build rows along the long axis. For each child:
- *        - Try adding it to the current row.
- *        - If the child would push the row beyond longSide, flush first.
- *        - Otherwise, accept the child if doing so moves the row's
- *          aspect closer to targetAspect; else flush and start a new row.
- *   5. Rows stack along the short axis.
- *
- * Children are never stretched — we preserve each intrinsic w × h.
- *
- * For the ROW aspect target we use `targetAspect` too: every row,
- * viewed independently, should itself be roughly targetAspect wide —
- * that's what keeps stacked rows collectively near target.
- */
 function squarify(
   children: Child[],
   targetAspect: number,
@@ -221,10 +133,6 @@ function squarify(
   const sorted = [...children].sort((a, b) => b.area - a.area);
   const totalArea = sorted.reduce((s, c) => s + c.area, 0);
   const maxChildW = sorted.reduce((m, c) => (c.w > m ? c.w : m), 0);
-  // longSide budget: sqrt(area * k) where k is calibrated so the
-  // realized bounds aspect ≈ targetAspect after padding. See
-  // LONGSIDE_BUDGET_K for details; `longsideK` can be adjusted by the
-  // aspect-refinement pass to nudge the realized ratio closer to target.
   const longSide = Math.max(
     Math.sqrt(totalArea * targetAspect * (longsideK / 1.5)),
     maxChildW,
@@ -258,7 +166,6 @@ function squarify(
       row.push(c);
       continue;
     }
-    // Hard overflow: never let a row exceed the long-side budget.
     const trialW = rowWidth(row) + DIR_PAD + c.w;
     if (trialW > longSide) {
       flushRow();
@@ -267,7 +174,6 @@ function squarify(
     }
     const currentCost = rowCost(row, longSide);
     const trialCost = rowCost([...row, c], longSide);
-    // Accept if adding the child moves the row's aspect closer to target.
     if (trialCost <= currentCost) {
       row.push(c);
     } else {
@@ -324,9 +230,6 @@ function sizeDir(dir: DirNode, longsideK: number): void {
     return;
   }
 
-  // Choose per-level target aspect. At root we want TARGET_ASPECT; deeper
-  // levels use 1.0 (near-square) so individual clusters don't inherit the
-  // root's widescreen bias.
   const { placements, w, h } = squarify(childBoxes, TARGET_ASPECT, longsideK);
   dir.box = { w, h };
   dir.placements = placements;
@@ -360,10 +263,7 @@ function positionDir(
     return;
   }
 
-  // Use cached placements from the sizing pass — guarantees identical
-  // geometry between the two passes (prior bug: re-running the pack here
-  // could produce slightly different placements because the child list
-  // iteration order was fragile).
+  // Cached placements — re-running squarify here could drift (iteration-order bug).
   for (const p of dir.placements) {
     positionDir(p.node, originX + p.x, originY + p.y, fileRects);
   }
@@ -408,31 +308,17 @@ export interface TreemapResult extends WorkspaceLayout {
 }
 
 /**
- * Opt-in feature flags for expensive post-layout passes. Keep all defaults
- * `false` so callers pay nothing until a renderer consumes the data.
- * `computeOrthoRoutes` in particular costs ~50ms on a 5k-edge graph and
- * was previously running unconditionally — pure waste while the renderer
- * only consumes bezier routes.
+ * Opt-in feature flags — keep defaults off for costly passes so callers
+ * pay only for what a renderer actually consumes.
  */
 export interface TreemapOptions {
   computeOrthoRoutes?: boolean;
   computeBundledEdges?: boolean;
-  /**
-   * Aggregate file edges into directional cluster-cluster super-edges
-   * (one per (fromCluster, toCluster, kind) bucket) and attach center-to-
-   * center bezier routes. Default `true` because the supergalaxy renderer
-   * depends on it and the cost is negligible (O(E) over file edges).
-   */
+  /** Default `true` — supergalaxy renderer depends on this. */
   aggregateClusterEdges?: boolean;
-  /**
-   * Compute per-file centrality metrics (degree always; betweenness gated
-   * on graph size — see `computeWorkspaceMetrics`). Attached to
-   * `WorkspaceLayout.metrics`. Default `true`; degree-only is O(E) and
-   * negligible. The betweenness sub-pass runs exactly for graphs
-   * ≤ `betweennessExactThreshold` (default 500) and samples otherwise.
-   */
+  /** Default `true` — galaxy tier needs degree-scaled dot sizing. */
   computeMetrics?: boolean;
-  /** Override the threshold below which Brandes runs exactly. Default 500. */
+  /** Brandes exact-run threshold. Default 500. */
   betweennessExactThreshold?: number;
 }
 
@@ -449,8 +335,8 @@ export function treemapLayout(
   const fileRects = new Map<string, Rect>();
   positionDir(root, OUTER_PAD, OUTER_PAD, fileRects);
 
-  // Cluster rects — one per *top-level* directory (with drill-through
-  // when a single top-level dir dominates).
+  // Clusters = top-level dirs, with drill-through when a single top-level
+  // dir dominates (e.g., monorepo with everything under `src/`).
   const topLevel: DirNode[] = [];
   for (const child of root.children.values()) {
     if (child.name === "__files__") continue;
@@ -470,8 +356,6 @@ export function treemapLayout(
 
   const totalFiles = graph.files.length;
   let clusterSource: DirNode[];
-  // Track which dir level the *clusters* came from so superclusters can be
-  // derived as one level up from that — i.e., the parents of clusters.
   let clusterDrilledInto: DirNode | null = null;
   if (topLevel.length === 1) {
     clusterDrilledInto = topLevel[0];
@@ -500,25 +384,15 @@ export function treemapLayout(
     clusters.push({ id: cluster.path, rect, fileCount: n, locSum: loc });
   }
 
-  // ── Superclusters — one tier above clusters (parents of clusters). ──
-  // For quanta-v2 (topLevel = [crates, tests], no drill): superclusters
-  // == topLevel == 2 boxes.
-  // For a future MSA monorepo where drill-through went through a single
-  // `services/` dominant top-level into clusterSource = [payment, order,
-  // …], superclusters should be the services themselves so we don't get a
-  // single-box universe. We accomplish this by mirroring the cluster drill
-  // logic: pick topLevel directly, unless that would yield exactly one box
-  // that matches what we drilled into — in which case emit its children
-  // (= clusterSource siblings' parents) so the universe tier has ≥ 2 boxes
-  // whenever possible.
+  // Superclusters (universe tier) — parents-of-clusters. Fall through to
+  // drilled-into children when topLevel is the single dominant dir so the
+  // universe always has ≥2 boxes (MSA monorepo case).
   let superclusterSource: DirNode[] = topLevel;
   if (
     clusterDrilledInto &&
     superclusterSource.length === 1 &&
     superclusterSource[0] === clusterDrilledInto
   ) {
-    // Single dominant top-level that we drilled through — use its
-    // children (== cluster parents) so universe has multiple boxes.
     superclusterSource = [...clusterDrilledInto.children.values()].filter(
       c => c.name !== "__files__",
     );
@@ -534,7 +408,6 @@ export function treemapLayout(
     superclusters.push({ id: sc.path, rect, fileCount: n, locSum: loc });
   }
 
-  // Edge routes — bezier (existing renderer expects this shape).
   const edgeRoutes = new Map<string, BezierRoute>();
   for (const edge of graph.fileEdges) {
     const fromRect = fileRects.get(edge.from);
@@ -553,14 +426,10 @@ export function treemapLayout(
     });
   }
 
-  // Orthogonal routes — opt-in because no renderer consumes them yet, and the
-  // O(E) build cost is pure waste otherwise (~50ms at 5k edges).
   const edgeRoutesOrtho = opts.computeOrthoRoutes
     ? buildOrthogonalRoutes(graph.fileEdges, fileRects)
     : undefined;
 
-  // Cluster-level bundled edges — cheap to compute but still gated on opt-in
-  // so call sites decide whether they'll be consumed.
   const bundledEdges = opts.computeBundledEdges
     ? (() => {
         const fileToCluster = buildFileToClusterMap(graph.files, fileRects, clusters);
@@ -568,10 +437,7 @@ export function treemapLayout(
       })()
     : undefined;
 
-  // Directional cluster super-edges — default-on because the supergalaxy
-  // renderer hard-depends on this shape. Shares the fileToCluster map with
-  // bundledEdges when both are enabled; recomputing the same map twice
-  // would be wasteful at large graph sizes.
+  // Default-on: supergalaxy renderer depends on this shape.
   const aggregateEdges = opts.aggregateClusterEdges !== false;
   let clusterEdges: ClusterEdge[] | undefined;
   if (aggregateEdges && clusters.length > 0) {
@@ -580,7 +446,6 @@ export function treemapLayout(
     clusterEdges = routeClusterEdges(raw, clusters);
   }
 
-  // Total bounds.
   let maxX = 0, maxY = 0;
   for (const r of fileRects.values()) {
     if (r.x + r.w > maxX) maxX = r.x + r.w;
@@ -593,11 +458,9 @@ export function treemapLayout(
     h: maxY + OUTER_PAD,
   };
 
-  // Dev assertion — helps catch regressions in the squarify pass.
   if (DEV_ASSERT_ASPECT && totalBounds.h > 0) {
     const aspect = totalBounds.w / totalBounds.h;
     const elapsed = ((typeof performance !== "undefined" ? performance.now() : Date.now()) - t0);
-    // Using console.info so Vite dev overlay doesn't surface it as a warning.
     // eslint-disable-next-line no-console
     console.info(
       `[treemapLayout] files=${graph.files.length} aspect=${aspect.toFixed(3)} ` +
@@ -611,30 +474,10 @@ export function treemapLayout(
     commentedLines: new Map<string, Set<number>>(),
   };
 
-  // Metrics pass — O(E) for degree, optional Brandes (exact or sampled).
-  // Gated on a size threshold so repos over the threshold only pay for
-  // degree-based ordering in the HUD. Absent flag defaults to `true` —
-  // the galaxy tier expects `layout.metrics` at least for degree-scaled
-  // dot sizing.
-  const metrics = (opts.computeMetrics ?? true)
-    ? computeWorkspaceMetrics(graph, {
-        computeBetweenness: true,
-        exactBetweennessThreshold: opts.betweennessExactThreshold,
-      })
-    : undefined;
-
-  // SCC + startHere + arch violations computed alongside metrics. All cheap
-  // (O(V+E) each) and live on the same frozen layout snapshot.
-  const sccRes = findStronglyConnectedComponents(graph);
-  const sccs = sccRes.components;
-  const startHere = metrics ? rankStartHere(graph, metrics) : undefined;
-  const archRes = detectArchViolations(graph);
-  const archViolations = archRes.violatingEdgeIds.size > 0
-    ? {
-        edgeIds: Array.from(archRes.violatingEdgeIds),
-        byPair: Object.fromEntries(archRes.byPair),
-      }
-    : undefined;
+  const enriched = enrichLayout(graph, {
+    computeMetrics: opts.computeMetrics,
+    betweennessExactThreshold: opts.betweennessExactThreshold,
+  });
 
   return {
     fileRects,
@@ -648,9 +491,6 @@ export function treemapLayout(
     edgeRoutesOrtho,
     bundledEdges,
     clusterEdges,
-    metrics,
-    sccs,
-    startHere,
-    archViolations,
+    ...enriched,
   };
 }

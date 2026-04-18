@@ -1,11 +1,13 @@
+import { DemoAppHero } from "../../internal/DemoAppHero";
+
 export function TermsPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Legal</span>
-        <h1 className="demo-app__hero-title">Terms of Service</h1>
-        <p className="demo-app__hero-sub">Last updated: April 1, 2026 · Effective: April 15, 2026</p>
-      </header>
+      <DemoAppHero
+        kicker="Legal"
+        title="Terms of Service"
+        sub="Last updated: April 1, 2026 · Effective: April 15, 2026"
+      />
       <div className="demo-app__body">
         <div className="demo-prose">
           <p>

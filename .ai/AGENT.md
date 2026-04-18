@@ -144,6 +144,17 @@ Engine-facing types and mocks live under `packages/app-ide/src/entities/` (and r
 9. **Never commit with Clippy warnings.** Run `pnpm tauri:validate` from `desktop/` before considering Rust work done.
 10. **Never commit `@ts-ignore`.** Use `@ts-expect-error` with explanation if truly necessary.
 
+## Naming conventions (canvas codebase)
+
+- `build*`   — allocate a structured result from a spec (layouts, views, queries)
+- `compute*` — run a graph / numeric algorithm (metrics, neighborhood, paths)
+- `create*` — factory for stateful objects (stores, spatial indexes, registries)
+- `resolve*` — pick one value from many inputs (effective tier, edge style, fallback)
+- `derive*`  — pure transform, no allocation beyond return value (layer from kind)
+- `rank*`   — sort + slice top-N (start-here)
+- `find*`    — search/filter (paths, SCCs)
+- `detect*`  — boolean-ish finding (violations)
+
 ## Docs split
 
 - **This file (`.ai/AGENT.md`):** repo facts, commands, boundaries.

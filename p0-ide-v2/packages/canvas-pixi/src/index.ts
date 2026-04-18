@@ -1,7 +1,4 @@
 export { PixiStage } from "./stage/PixiStage";
 export type { PixiStageProps } from "./stage/PixiStage";
-export { GalaxyNodeRenderer } from "./renderers/GalaxyNodeRenderer";
-export { CityNodeRenderer } from "./renderers/CityNodeRenderer";
-export { EdgeStaticRenderer } from "./renderers/EdgeStaticRenderer";
-export { EdgeOverlayRenderer } from "./renderers/EdgeOverlayRenderer";
-export { ClusterEdgeRenderer } from "./renderers/ClusterEdgeRenderer";
+export { getPixiDebugHook } from "./debug/pixi-debug-hook";
+export type { PixiDebugHook } from "./debug/pixi-debug-hook";

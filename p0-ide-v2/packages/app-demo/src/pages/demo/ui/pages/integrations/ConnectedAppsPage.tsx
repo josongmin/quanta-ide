@@ -1,4 +1,5 @@
 import { BookOpen, ChevronRight, ShieldAlert } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 type ConnectedApp = {
   name: string;
@@ -67,11 +68,11 @@ const APPS: ConnectedApp[] = [
 export function ConnectedAppsPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Integrations</span>
-        <h1 className="demo-app__hero-title">Connected apps</h1>
-        <p className="demo-app__hero-sub">OAuth applications authorized to access your Quanta workspace.</p>
-      </header>
+      <DemoAppHero
+        kicker="Integrations"
+        title="Connected apps"
+        sub="OAuth applications authorized to access your Quanta workspace."
+      />
       <div className="demo-app__body">
         <div className="demo-block" style={{ marginBottom: "var(--space-3)" }}>
           <div className="demo-block__body" style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>

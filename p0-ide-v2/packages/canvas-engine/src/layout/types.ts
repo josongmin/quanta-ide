@@ -134,13 +134,10 @@ export interface WorkspaceLayout {
   };
 }
 
-// Mirror of `packages/canvas-pixi/src/renderers/shared/file-card-dims.ts`.
-// The renderer owns the canonical definition — cards are sized to fit a
-// header stripe + function-block stack at legible zoom. Layouts here need
-// the same numbers to pack the grid correctly, but importing from
-// canvas-pixi would force a circular package dependency (engine →
-// renderer). Keeping a values-only mirror is the pragmatic middle: any
-// change must be made in both files or layouts drift from renderings.
+// Canonical file-card dimensions. Cards are sized to fit a header stripe
+// + function-block stack at legible zoom. Both the layout packer (engine)
+// and the renderer (canvas-pixi re-exports via `@quanta/canvas-engine`)
+// consume these — single source of truth lives here to avoid drift.
 export const FILE_CARD_W = 560;
 export const FILE_CARD_H = 720;
 export const GRID_GAP_X  = 100;

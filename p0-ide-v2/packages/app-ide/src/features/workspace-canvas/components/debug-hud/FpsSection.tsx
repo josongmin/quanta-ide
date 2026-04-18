@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { getPixiDebugHook } from "@quanta/canvas-pixi";
 import { estimateUniverseMemory, type UniverseMemorySnapshot } from "../../lib/estimate-memory";
 
 // Rolling frame-time window for p50/p95. 120 samples ≈ 2s at 60fps which is
@@ -62,18 +63,8 @@ function computeStats(ring: FrameRing): FrameStats {
   };
 }
 
-interface PixiDebugHook {
-  app?: {
-    renderer?: {
-      statistics?: { drawCalls?: number };
-      texture?: { managedTextures?: unknown[] };
-      buffer?: { managedBuffers?: unknown[] };
-    };
-  };
-}
-
 function readPixiStats(): { drawCalls: number | null; mem: PixiMem } {
-  const hook = (globalThis as unknown as { __pixi?: PixiDebugHook }).__pixi;
+  const hook = getPixiDebugHook();
   const r = hook?.app?.renderer;
   const drawCalls = typeof r?.statistics?.drawCalls === "number"
     ? r.statistics!.drawCalls!

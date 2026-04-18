@@ -1,4 +1,5 @@
 import { ArrowUp, Plus, X, Mail } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 interface Resource {
   name: string;
@@ -25,13 +26,11 @@ const RECIPIENTS = [
 export function UsageAlertsPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Billing</span>
-        <h1 className="demo-app__hero-title">Usage alerts &amp; budgets</h1>
-        <p className="demo-app__hero-sub">
-          Get notified before you blow past a cap. Alerts are evaluated daily.
-        </p>
-      </header>
+      <DemoAppHero
+        kicker="Billing"
+        title="Usage alerts & budgets"
+        sub="Get notified before you blow past a cap. Alerts are evaluated daily."
+      />
       <div className="demo-app__body">
 
         <div className="demo-grid-3" style={{ marginBottom: 16 }}>

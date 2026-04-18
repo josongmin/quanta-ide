@@ -9,6 +9,7 @@ export type CategoryId =
   | "onboarding"
   | "notifications"
   | "integrations"
+  | "developers"
   | "security"
   | "states"
   | "updates"

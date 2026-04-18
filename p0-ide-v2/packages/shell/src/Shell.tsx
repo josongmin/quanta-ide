@@ -1,4 +1,5 @@
 import { Suspense, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { clamp } from "@quanta/canvas-engine";
 import { LayoutProvider, type TabDescriptor } from "@quanta/shell-contract";
 import { Topbar } from "@quanta/shell/widgets/topbar";
 import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
@@ -37,9 +38,6 @@ const INSPECTOR_MIN = 260;
 const INSPECTOR_MAX = 640;
 const BOTTOM_MIN = 120;
 const BOTTOM_MAX = 720;
-
-const clamp = (v: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, v));
 
 
 // ---------------------------------------------------------------------------

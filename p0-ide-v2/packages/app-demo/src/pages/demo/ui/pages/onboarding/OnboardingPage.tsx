@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Check, Rocket, ArrowRight } from "lucide-react";
 import { useDemoNav } from "../../DemoPage";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 interface Step { id: string; title: string; desc: string; cta: string; target?: string; }
 
@@ -23,13 +24,11 @@ export function OnboardingPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Onboarding</span>
-        <h1 className="demo-app__hero-title">Getting started with Quanta</h1>
-        <p className="demo-app__hero-sub">
-          Finish the checklist to unlock the full workspace. You can always pick this up later from the help menu.
-        </p>
-      </header>
+      <DemoAppHero
+        kicker="Onboarding"
+        title="Getting started with Quanta"
+        sub="Finish the checklist to unlock the full workspace. You can always pick this up later from the help menu."
+      />
       <div className="demo-app__body">
         <div className="demo-stats" style={{ marginBottom: 16 }}>
           <div className="demo-stat">

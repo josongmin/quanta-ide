@@ -1,13 +1,14 @@
 import { Camera } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 export function ProfilePage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Profile</span>
-        <h1 className="demo-app__hero-title">Personal information</h1>
-        <p className="demo-app__hero-sub">This is visible to your teammates. Your login email cannot be changed here.</p>
-      </header>
+      <DemoAppHero
+        kicker="Profile"
+        title="Personal information"
+        sub="This is visible to your teammates. Your login email cannot be changed here."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <div className="demo-block__body" style={{ display: "grid", gridTemplateColumns: "auto minmax(0,1fr)", gap: 20 }}>

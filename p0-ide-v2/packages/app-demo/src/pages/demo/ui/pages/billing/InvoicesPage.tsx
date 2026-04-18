@@ -1,4 +1,5 @@
 import { Download } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 const INVOICES = [
   { id: "INV-2026-0005", date: "2026-04-01", amount: "$792.00", status: "paid",    method: "Visa •• 4242" },
@@ -18,11 +19,11 @@ const STATUS_BADGE: Record<string, string> = {
 export function InvoicesPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Billing</span>
-        <h1 className="demo-app__hero-title">Invoices</h1>
-        <p className="demo-app__hero-sub">Download receipts or tax invoices for the past 24 months.</p>
-      </header>
+      <DemoAppHero
+        kicker="Billing"
+        title="Invoices"
+        sub="Download receipts or tax invoices for the past 24 months."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <div className="demo-block__body demo-block__body--flush">

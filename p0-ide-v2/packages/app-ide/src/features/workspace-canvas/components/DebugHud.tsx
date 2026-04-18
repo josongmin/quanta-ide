@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { useSettingsStore, settingsStore } from "../store/settings-store";
+import { useDebugSettings, debugSettingsStore } from "../store/debug-settings-store";
+import { WS_CLASSES } from "../lib/css-classes";
 import { FpsSection } from "./debug-hud/FpsSection";
 import { LodSection } from "./debug-hud/LodSection";
 import { SceneSection } from "./debug-hud/SceneSection";
 import { RecorderControls } from "./debug-hud/RecorderControls";
 import { SimulatorSection } from "./debug-hud/SimulatorSection";
 import { GraphSection } from "./debug-hud/GraphSection";
+import { AgentsSection } from "./debug-hud/AgentsSection";
 
-type Tab = "fps" | "lod" | "scene" | "perf" | "graph";
+type Tab = "fps" | "lod" | "scene" | "perf" | "graph" | "agents";
 const TABS: readonly { id: Tab; label: string }[] = [
   { id: "fps", label: "fps" },
   { id: "lod", label: "lod" },
   { id: "scene", label: "scene" },
   { id: "perf", label: "perf" },
   { id: "graph", label: "graph" },
+  { id: "agents", label: "agents" },
 ] as const;
 
 // Floating corner overlay for development/debugging. Surfaces the LOD, scale,
@@ -22,7 +25,7 @@ const TABS: readonly { id: Tab; label: string }[] = [
 // the store toggle action (wire Cmd+Shift+D from a global shortcut).
 
 export function DebugHud() {
-  const open = useSettingsStore(s => s.debugHudOpen);
+  const open = useDebugSettings(s => s.debugHudOpen);
   const panelRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<Tab>("scene");
 
@@ -30,7 +33,7 @@ export function DebugHud() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "D" || e.key === "d")) {
         e.preventDefault();
-        settingsStore.toggleDebugHud();
+        debugSettingsStore.toggleDebugHud();
       }
     };
     window.addEventListener("keydown", onKey);
@@ -63,8 +66,8 @@ export function DebugHud() {
     return (
       <button
         type="button"
-        className="ws-debug__toggle"
-        onClick={() => settingsStore.toggleDebugHud()}
+        className={WS_CLASSES.debugToggle}
+        onClick={() => debugSettingsStore.toggleDebugHud()}
         title="Show debug HUD (⌘⇧D)"
       >
         debug
@@ -73,33 +76,33 @@ export function DebugHud() {
   }
 
   return (
-    <div ref={panelRef} className="ws-debug">
-      <div className="ws-debug__header">
+    <div ref={panelRef} className={WS_CLASSES.debug}>
+      <div className={WS_CLASSES.debugHeader}>
         <span>debug</span>
         <button
           type="button"
-          className="ws-debug__close"
+          className={WS_CLASSES.debugClose}
           title="Hide (⌘⇧D)"
-          onClick={() => settingsStore.toggleDebugHud()}
+          onClick={() => debugSettingsStore.toggleDebugHud()}
         >×</button>
       </div>
-      <div className="ws-debug__tabs" role="tablist">
+      <div className={WS_CLASSES.debugTabs} role="tablist">
         {TABS.map(t => (
           <button
             key={t.id}
             type="button"
             role="tab"
             aria-selected={tab === t.id}
-            className={`ws-debug__tab${tab === t.id ? " is-on" : ""}`}
+            className={`${WS_CLASSES.debugTab}${tab === t.id ? " is-on" : ""}`}
             onClick={() => setTab(t.id)}
           >
             {t.label}
           </button>
         ))}
       </div>
-      <div className="ws-debug__body">
+      <div className={WS_CLASSES.debugBody}>
         {tab === "fps" && (
-          <div className="ws-debug__grid">
+          <div className={WS_CLASSES.debugGrid}>
             <FpsSection />
           </div>
         )}
@@ -112,6 +115,7 @@ export function DebugHud() {
           </>
         )}
         {tab === "graph" && <GraphSection />}
+        {tab === "agents" && <AgentsSection />}
       </div>
     </div>
   );

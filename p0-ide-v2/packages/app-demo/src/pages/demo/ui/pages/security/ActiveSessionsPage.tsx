@@ -1,4 +1,5 @@
 import { Laptop, Smartphone, Monitor, Tablet, Terminal, LogOut } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 type DeviceKind = "laptop" | "phone" | "desktop" | "tablet" | "terminal";
 type Freshness = "now" | "recent" | "idle";
@@ -44,11 +45,11 @@ function dotClass(s: Session) {
 export function ActiveSessionsPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Security</span>
-        <h1 className="demo-app__hero-title">Active sessions</h1>
-        <p className="demo-app__hero-sub">Devices and browsers currently signed in to your account. Revoke any session you don&apos;t recognise.</p>
-      </header>
+      <DemoAppHero
+        kicker="Security"
+        title="Active sessions"
+        sub="Devices and browsers currently signed in to your account. Revoke any session you don't recognise."
+      />
       <div className="demo-app__body">
         <div className="demo-grid-3" style={{ marginBottom: 16 }}>
           <div className="demo-stat">

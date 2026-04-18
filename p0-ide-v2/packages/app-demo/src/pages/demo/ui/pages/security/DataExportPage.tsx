@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Download, Package } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 type Status = "ready" | "pending" | "failed" | "expired";
 
@@ -45,11 +46,11 @@ export function DataExportPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Security</span>
-        <h1 className="demo-app__hero-title">Data export</h1>
-        <p className="demo-app__hero-sub">Download a machine-readable archive of your workspace data. Exports are generated asynchronously and include a signed URL valid for 48 hours.</p>
-      </header>
+      <DemoAppHero
+        kicker="Security"
+        title="Data export"
+        sub="Download a machine-readable archive of your workspace data. Exports are generated asynchronously and include a signed URL valid for 48 hours."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <header className="demo-block__head">

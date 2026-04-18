@@ -1,17 +1,16 @@
 import { Sparkles } from "lucide-react";
 import { useDemoNav } from "../../DemoPage";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 export function UpgradePage() {
   const nav = useDemoNav();
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Billing</span>
-        <h1 className="demo-app__hero-title">Upgrade prompt</h1>
-        <p className="demo-app__hero-sub">
-          How a paywall modal looks in context — the darkened area is the app behind it.
-        </p>
-      </header>
+      <DemoAppHero
+        kicker="Billing"
+        title="Upgrade prompt"
+        sub="How a paywall modal looks in context — the darkened area is the app behind it."
+      />
       <div className="demo-app__body">
         <div className="demo-modal-host">
           <div className="demo-modal-card">

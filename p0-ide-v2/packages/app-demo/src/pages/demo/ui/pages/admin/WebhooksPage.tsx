@@ -1,4 +1,5 @@
 import { Plus, Send } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 const HOOKS = [
   { url: "https://hooks.acme.com/ci",          events: ["analysis.completed", "policy.violated"],  last: "2 min ago", health: "ok" },
@@ -18,11 +19,11 @@ const ATTEMPTS = [
 export function WebhooksPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Admin</span>
-        <h1 className="demo-app__hero-title">Webhooks</h1>
-        <p className="demo-app__hero-sub">Outbound HTTPS endpoints. We retry failed deliveries for up to 24 hours with exponential backoff.</p>
-      </header>
+      <DemoAppHero
+        kicker="Admin"
+        title="Webhooks"
+        sub="Outbound HTTPS endpoints. We retry failed deliveries for up to 24 hours with exponential backoff."
+      />
       <div className="demo-app__body">
         <div className="demo-sectionbar">
           <span className="demo-sectionbar__spacer" />

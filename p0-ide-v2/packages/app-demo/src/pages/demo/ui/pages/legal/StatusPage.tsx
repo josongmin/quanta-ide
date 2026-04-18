@@ -1,3 +1,5 @@
+import { DemoAppHero } from "../../internal/DemoAppHero";
+
 interface Component {
   name: string;
   bars: Array<"ok" | "degraded" | "outage">;
@@ -33,13 +35,11 @@ const INCIDENTS = [
 export function StatusPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Status</span>
-        <h1 className="demo-app__hero-title">All systems normal</h1>
-        <p className="demo-app__hero-sub">
-          Uptime for the past 60 days. Subscribe to get notified when a component degrades.
-        </p>
-      </header>
+      <DemoAppHero
+        kicker="Status"
+        title="All systems normal"
+        sub="Uptime for the past 60 days. Subscribe to get notified when a component degrades."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <div className="demo-block__body demo-block__body--flush">

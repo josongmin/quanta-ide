@@ -1,10 +1,25 @@
 import { Container } from "pixi.js";
-import type { FileNode, WorkspaceLayout, WorkspaceMetrics, ViewState, Viewport } from "@quanta/canvas-engine";
+import type { FileNode, WorkspaceLayout, WorkspaceMetrics, ViewState, Viewport, FileLatency } from "@quanta/canvas-engine";
+import { latencyColor } from "@quanta/canvas-engine";
 import { FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { type PickRect } from "./shared/SpatialPickIndex";
 import { RectNodeRenderer } from "./shared/RectNodeRenderer";
 import { riskFill, riskBorder, SELECTION_ACCENT } from "./shared/colors";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
+
+// Cost-overlay tint strength, matches CityNodeRenderer's LATENCY_MIX_K so
+// the two tiers agree visually when the user scrolls between them.
+const LATENCY_MIX_K = 0.35;
+
+function mixHex(a: number, b: number, k: number): number {
+  const t = k < 0 ? 0 : k > 1 ? 1 : k;
+  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+  const r = ar + (br - ar) * t;
+  const g = ag + (bg - ag) * t;
+  const bx = ab + (bb - ab) * t;
+  return ((r | 0) << 16) | ((g | 0) << 8) | (bx | 0);
+}
 
 // Galaxy LOD (scale < 0.15): the whole codebase from far away. Each file card
 // is tens of CSS pixels — text would be unreadable. This renderer is stripped
@@ -26,6 +41,8 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
   // can spot them at a glance (Sourcegraph/Gephi-style centrality sizing).
   private frameMetrics: WorkspaceMetrics | null = null;
   private frameStrokeW = 1;
+  private frameLatency: Record<string, FileLatency> | null = null;
+  private frameShowLatency = false;
 
   // File id → instance row index. Maintained across full rebuilds so a
   // selection-only change can rewrite just 2 rows (old + new) instead of
@@ -37,6 +54,9 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
   // file set is unchanged we can short-circuit to the partial path.
   private prevFileIdsKey: string | null = null;
   private prevInstanceCount = 0;
+  // Last-frame cost-overlay flag. Flipping it changes every file's colour,
+  // so we must force the full rebuild path even if the id set is unchanged.
+  private prevShowLatency = false;
 
   constructor(
     parent: Container,
@@ -58,8 +78,21 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     const isSelected = viewState.selectedFileId === file.id;
     const isHovered = viewState.hoveredFileId === file.id;
 
-    const fillColor = riskFill(file.riskScore);
-    const borderColor = isSelected ? SELECTION_ACCENT : riskBorder(file.riskScore);
+    let fillColor = riskFill(file.riskScore);
+    let baseBorder = riskBorder(file.riskScore);
+    // Galaxy cost tint: apply the same LATENCY_MIX_K drift as city so the
+    // two tiers stay visually consistent as the user zooms. At galaxy each
+    // card is only a few screen-px, so the tint is the primary signal —
+    // tiny rects still communicate "cold green" vs "hot red" at a glance.
+    if (this.frameShowLatency && this.frameLatency) {
+      const entry = this.frameLatency[file.id];
+      if (entry) {
+        const latCol = latencyColor(entry.p95);
+        fillColor = mixHex(fillColor, latCol, LATENCY_MIX_K);
+        baseBorder = mixHex(baseBorder, latCol, LATENCY_MIX_K);
+      }
+    }
+    const borderColor = isSelected ? SELECTION_ACCENT : baseBorder;
     const fillAlpha = isSelected ? 1.0 : isHovered ? 0.95 : 0.88;
     const borderAlpha = isSelected ? 1.0 : 0.7;
     const bw = isSelected ? this.frameStrokeW * 2 : this.frameStrokeW;
@@ -105,11 +138,15 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     viewState: ViewState,
     viewport: Viewport,
     metrics: WorkspaceMetrics | null = null,
+    latency: Record<string, FileLatency> | null = null,
+    showLatencyOverlay = false,
   ): void {
     this.frameStrokeW = Math.min(8, Math.max(0.5, 1 / viewport.scale));
     this.frameLayout = layout;
     this.frameViewState = viewState;
     this.frameMetrics = metrics;
+    this.frameLatency = latency;
+    this.frameShowLatency = showLatencyOverlay;
 
     // Build the id-set cache key (same rounding scheme as SpatialPickIndex
     // so the two caches invalidate in lockstep).
@@ -118,7 +155,8 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     const hover = viewState.hoveredFileId ?? null;
     const selectionChanged = selection !== this.prevSelectedFileId || hover !== this.prevHoveredFileId;
 
-    if (idsKey === this.prevFileIdsKey && selectionChanged && this.prevInstanceCount > 0) {
+    const overlayChanged = showLatencyOverlay !== this.prevShowLatency;
+    if (idsKey === this.prevFileIdsKey && selectionChanged && !overlayChanged && this.prevInstanceCount > 0) {
       // Partial path: the visible file set is unchanged; only the selection
       // or hover flipped. Rewrite at most 2 rows (old + new) instead of the
       // whole buffer (for 5000 files, that's ~10 bytes of writes instead of
@@ -144,6 +182,7 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     this.prevFileIdsKey = idsKey;
     this.prevSelectedFileId = selection;
     this.prevHoveredFileId = hover;
+    this.prevShowLatency = showLatencyOverlay;
   }
 
   // Partial rewrite: only the affected instance rows (old selection, new
@@ -220,7 +259,19 @@ registerRenderer("galaxy", (parent, callbacks): RendererHandle => {
       // is a PixiStage dispatch bug — ignore rather than throw (a console
       // warn would drown the hot path; silent no-op is safest).
       if (ctx.sceneKind !== "files") return;
-      inst.update(ctx.files, ctx.layout, ctx.viewState, ctx.viewport, ctx.metrics ?? null);
+      // Galaxy deliberately ignores `ctx.elevationMode` — the tier may
+      // render 5000+ files; a per-file shadow overlay would blow the
+      // instanced fast path. Elevation activates at city and finer tiers.
+      // Cost overlay is cheap (a single mix per rect) and opt-in.
+      inst.update(
+        ctx.files,
+        ctx.layout,
+        ctx.viewState,
+        ctx.viewport,
+        ctx.metrics ?? null,
+        ctx.latency ?? null,
+        ctx.showLatencyOverlay ?? false,
+      );
     },
     clear(): void { inst.clear(); },
     destroy(): void { inst.destroy(); },

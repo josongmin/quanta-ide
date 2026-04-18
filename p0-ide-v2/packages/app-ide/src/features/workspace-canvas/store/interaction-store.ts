@@ -41,6 +41,14 @@ export interface InteractionState {
   pathResult: PathResult | null;
   inspectedEvidenceId: string | null;
   temporal: TemporalState;
+  /** Multi-graph "flash" — files/edges tied to a single source graph are
+   *  briefly emphasised (2s) when the user clicks a "graph sources" row in
+   *  the HUD. Null ⇒ no flash active. */
+  graphFlash: { graphId: string; until: number } | null;
+  /** Active runtime trace overlay. Null ⇒ no trace; the canvas renders its
+   *  usual static-edge vocabulary. When non-null, the canvas dims static
+   *  edges and paints the trace's edges with the TraceEdgeRenderer. */
+  activeTraceId: string | null;
 }
 
 const initialLod: LodLevel = "galaxy";
@@ -72,6 +80,8 @@ let state: InteractionState = {
   pathResult: null,
   inspectedEvidenceId: null,
   temporal: initialTemporal,
+  graphFlash: null,
+  activeTraceId: null,
 };
 
 const listeners = new Set<() => void>();
@@ -242,6 +252,24 @@ const actions = {
     if (t.playing === playing) return;
     state = { ...state, temporal: { ...t, playing } };
     emit();
+  },
+
+  setActiveTrace(id: string | null) {
+    if (state.activeTraceId === id) return;
+    state = { ...state, activeTraceId: id };
+    emit();
+  },
+
+  flashGraph(graphId: string, durationMs = 2000) {
+    state = { ...state, graphFlash: { graphId, until: Date.now() + durationMs } };
+    emit();
+    window.setTimeout(() => {
+      const cur = state.graphFlash;
+      if (cur && cur.graphId === graphId && Date.now() >= cur.until - 1) {
+        state = { ...state, graphFlash: null };
+        emit();
+      }
+    }, durationMs);
   },
 };
 

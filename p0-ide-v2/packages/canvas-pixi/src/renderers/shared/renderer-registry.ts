@@ -25,6 +25,7 @@ import type {
   Viewport,
   ClusterMeta,
   LodRendererKind,
+  FileLatency,
 } from "@quanta/canvas-engine";
 
 // Handlers surfaced upward from the renderers to PixiStage's onClick/onHover
@@ -56,6 +57,24 @@ export type RenderContext =
        * to introspect layout.metrics inside their hot path.
        */
       metrics?: WorkspaceMetrics;
+      /**
+       * CodeCity-inspired fake 3D: when true, renderers map risk score to
+       * apparent elevation (drop shadow, darker trailing border, subtle
+       * scale). Defaults to false — galaxy leaves it off for perf.
+       */
+      elevationMode?: boolean;
+      /**
+       * Per-file latency readings (p50/p95/p99). Present iff the graph
+       * shipped with `WorkspaceGraph.latency`. City/Galaxy renderers use
+       * this only when `showLatencyOverlay === true`.
+       */
+      latency?: Record<string, FileLatency>;
+      /**
+       * Cost-overlay toggle: when true, file card fills are tinted toward
+       * their p95 latency colour. Off by default — the overlay overrides
+       * the usual risk colouring so it's opt-in from the HUD.
+       */
+      showLatencyOverlay?: boolean;
     }
   | {
       sceneKind: "clusters";

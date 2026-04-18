@@ -1,6 +1,15 @@
 import type { FileNode, FileEdge, WorkspaceComment, Rect } from "../graph/types";
 import type { ClusterMeta } from "../layout/types";
 
+// ── Glossary (Workspace* view naming) ────────────────────────────────
+// WorkspaceView            — single-tier renderable. Today = file tier.
+// WorkspaceScene           — tagged-union of tier views ("files" |
+//                            "clusters" | "superclusters"). Scene store reads this.
+// WorkspaceFileView        — kind "files". File cards + edges + comments.
+// WorkspaceClusterView     — kind "supergalaxy". One box per cluster.
+// WorkspaceSuperclusterView— kind "universe". One box per supercluster.
+// ─────────────────────────────────────────────────────────────────────
+
 export type LodLevel = "universe" | "supergalaxy" | "galaxy" | "city" | "street" | "ground";
 
 // Re-export the tier-config types so public consumers can import them from
@@ -72,12 +81,6 @@ export function isSuperclusterView(
   scene: WorkspaceScene,
 ): scene is WorkspaceSuperclusterView {
   return (scene as WorkspaceSuperclusterView).kind === "universe";
-}
-
-export function isFileView(
-  scene: WorkspaceScene,
-): scene is WorkspaceFileView {
-  return (scene as WorkspaceFileView).kind === "files";
 }
 
 /**

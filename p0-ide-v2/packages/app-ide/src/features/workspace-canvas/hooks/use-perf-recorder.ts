@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { viewportStore } from "../store/viewport-store";
 import { sceneStore } from "../store/scene-store";
 import { interactionStore } from "../store/interaction-store";
-import { settingsStore } from "../store/settings-store";
+import { renderSettingsStore } from "../store/render-settings-store";
 import { estimateUniverseMemory } from "../lib/estimate-memory";
 
 // ───────────────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ function sampleCurrentFrame(dtMs: number): FrameSample {
   const vpState = viewportStore.getState();
   const scState = sceneStore.getState();
   const itState = interactionStore.getState();
-  const stState = settingsStore.getState();
+  const stState = renderSettingsStore.getState();
 
   const vp = vpState.viewport;
   const tb = scState.layout?.totalBounds;

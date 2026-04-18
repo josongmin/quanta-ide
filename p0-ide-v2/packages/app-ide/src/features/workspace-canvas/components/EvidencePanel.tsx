@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { ProofBundle, WitnessRole } from "@quanta/canvas-engine";
 import { useSceneStore } from "../store/scene-store";
 import { useInteractionStore, interactionStore } from "../store/interaction-store";
+import { WS_CLASSES } from "../lib/css-classes";
 
 // Slide-in "why was this flagged?" panel. Triggered by cmd+click on a safety
 // or impact edge with a populated `evidenceId`. Shows analyzer metadata +
@@ -53,29 +54,29 @@ export function EvidencePanel() {
     : "—";
 
   return (
-    <div className="ws-evidence" role="dialog" aria-label="Evidence">
-      <div className="ws-evidence__header">
-        <div className="ws-evidence__title">
+    <div className={WS_CLASSES.evidence} role="dialog" aria-label="Evidence">
+      <div className={WS_CLASSES.evidenceHeader}>
+        <div className={WS_CLASSES.evidenceTitle}>
           <span
-            className="ws-evidence__severity"
+            className={WS_CLASSES.evidenceSeverity}
             style={{ background: SEVERITY_COLOR[proof.severity] }}
           >
             {proof.severity}
           </span>
-          <span className="ws-evidence__kind">{proof.kind}</span>
-          {proof.rule && <span className="ws-evidence__rule">{proof.rule}</span>}
+          <span className={WS_CLASSES.evidenceKind}>{proof.kind}</span>
+          {proof.rule && <span className={WS_CLASSES.evidenceRule}>{proof.rule}</span>}
         </div>
         <button
           type="button"
-          className="ws-evidence__close"
+          className={WS_CLASSES.evidenceClose}
           onClick={() => interactionStore.setInspectedEvidence(null)}
           title="Close (Esc)"
         >×</button>
       </div>
 
-      <div className="ws-evidence__summary">{proof.summary}</div>
+      <div className={WS_CLASSES.evidenceSummary}>{proof.summary}</div>
 
-      <div className="ws-evidence__meta">
+      <div className={WS_CLASSES.evidenceMeta}>
         <span>analyzer · {proof.analyzer}</span>
         {typeof proof.confidence === "number" && (
           <span>confidence · {(proof.confidence * 100).toFixed(0)}%</span>
@@ -83,33 +84,33 @@ export function EvidencePanel() {
         <span>{fmtDate}</span>
       </div>
 
-      <div className="ws-evidence__steps">
+      <div className={WS_CLASSES.evidenceSteps}>
         {proof.steps.map((step, idx) => (
-          <div key={step.stepId} className="ws-evidence__step">
-            <div className="ws-evidence__step-head">
-              <span className="ws-evidence__step-num">{idx + 1}</span>
+          <div key={step.stepId} className={WS_CLASSES.evidenceStep}>
+            <div className={WS_CLASSES.evidenceStepHead}>
+              <span className={WS_CLASSES.evidenceStepNum}>{idx + 1}</span>
               <span
-                className="ws-evidence__step-role"
+                className={WS_CLASSES.evidenceStepRole}
                 style={{ background: ROLE_COLOR[step.role] }}
               >
                 {step.role}
               </span>
-              <span className="ws-evidence__step-loc">
+              <span className={WS_CLASSES.evidenceStepLoc}>
                 {step.file}
                 {step.line && `:${step.line}`}
                 {step.symbol && ` · ${step.symbol}`}
               </span>
             </div>
             {step.snippet && (
-              <pre className="ws-evidence__snippet">{step.snippet}</pre>
+              <pre className={WS_CLASSES.evidenceSnippet}>{step.snippet}</pre>
             )}
-            <div className="ws-evidence__step-desc">{step.description}</div>
+            <div className={WS_CLASSES.evidenceStepDesc}>{step.description}</div>
           </div>
         ))}
       </div>
 
-      <div className="ws-evidence__footer">
-        <span className="ws-evidence__hint">Esc to close</span>
+      <div className={WS_CLASSES.evidenceFooter}>
+        <span className={WS_CLASSES.evidenceHint}>Esc to close</span>
       </div>
     </div>
   );

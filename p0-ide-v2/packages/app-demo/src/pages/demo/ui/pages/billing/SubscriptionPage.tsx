@@ -1,15 +1,16 @@
 import { CreditCard } from "lucide-react";
 import { useDemoNav } from "../../DemoPage";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 export function SubscriptionPage() {
   const nav = useDemoNav();
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Billing</span>
-        <h1 className="demo-app__hero-title">Subscription</h1>
-        <p className="demo-app__hero-sub">Manage your current plan, payment method, and billing contacts.</p>
-      </header>
+      <DemoAppHero
+        kicker="Billing"
+        title="Subscription"
+        sub="Manage your current plan, payment method, and billing contacts."
+      />
       <div className="demo-app__body">
 
         <div className="demo-grid-2" style={{ marginBottom: 16 }}>

@@ -1,5 +1,6 @@
 import { LayoutDashboard, Check, ArrowRight, Rocket, GitBranch, Users, Shield, Compass } from "lucide-react";
 import { useDemoNav } from "../../DemoPage";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 interface Step {
   id: string;
@@ -57,13 +58,11 @@ export function EmptyDashboardPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Dashboard</span>
-        <h1 className="demo-app__hero-title">Welcome to your workspace</h1>
-        <p className="demo-app__hero-sub">
-          There&apos;s nothing here yet &mdash; let&apos;s change that.
-        </p>
-      </header>
+      <DemoAppHero
+        kicker="Dashboard"
+        title="Welcome to your workspace"
+        sub="There's nothing here yet — let's change that."
+      />
 
       <div className="demo-app__body">
         <div className="demo-empty" style={{ marginBottom: 16 }}>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CheckCheck, Inbox } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 interface Notif { id: string; title: string; body: string; when: string; unread: boolean; cat: string; }
 
@@ -19,11 +20,11 @@ export function NotificationsInboxPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Notifications</span>
-        <h1 className="demo-app__hero-title">Inbox</h1>
-        <p className="demo-app__hero-sub">A single stream for reviews, policy violations, billing, and system alerts.</p>
-      </header>
+      <DemoAppHero
+        kicker="Notifications"
+        title="Inbox"
+        sub="A single stream for reviews, policy violations, billing, and system alerts."
+      />
       <div className="demo-app__body">
         <div className="demo-sectionbar">
           <div className="demo-billing-toggle" style={{ marginBottom: 0 }}>

@@ -1,16 +1,25 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { FilterDslInput } from "./FilterDslInput";
 import { diffSnapshots } from "@quanta/canvas-engine";
 import { viewportStore, useViewportStore } from "../../store/viewport-store";
 import { useSceneStore } from "../../store/scene-store";
 import { useInteractionStore, interactionStore, type TemporalMode } from "../../store/interaction-store";
 import {
-  useSettingsStore,
-  settingsStore,
+  useRenderSettings,
+  renderSettingsStore,
   type EdgeKind,
   type EdgeLayer,
   type EdgeSeverity,
-} from "../../store/settings-store";
+} from "../../store/render-settings-store";
+import { useUxSettings, uxSettingsStore } from "../../store/ux-settings-store";
+import { useDebugSettings, debugSettingsStore } from "../../store/debug-settings-store";
+import { stickiesStore, useStickiesStore, type Sticky } from "../../store/stickies-store";
+import { buildShareUrl, decodeWorkspaceState } from "../../lib/workspace-url";
+import {
+  applyWorkspaceUrlState,
+  captureWorkspaceUrlState,
+  resetWorkspaceUrlState,
+} from "../../lib/apply-workspace-url";
 
 const EDGE_KINDS: readonly EdgeKind[] = ["import", "taint-propagation", "blast"] as const;
 const EDGE_LAYERS: readonly EdgeLayer[] = ["structural", "flow", "safety", "impact"] as const;
@@ -71,28 +80,35 @@ export function SceneSection() {
   const graph = useSceneStore(s => s.graph);
   const layoutProgress = useSceneStore(s => s.layoutProgress);
 
-  const showEdges = useSettingsStore(s => s.showEdges);
-  const showGridBg = useSettingsStore(s => s.showGridBg);
-  const showHitLayers = useSettingsStore(s => s.showHitLayers);
-  const showHeatmap = useSettingsStore(s => s.showHeatmap);
-  const edgeKinds = useSettingsStore(s => s.edgeKinds);
-  const edgeLayers = useSettingsStore(s => s.edgeLayers);
-  const showSccBubbles = useSettingsStore(s => s.showSccBubbles);
-  const showStartHereBadges = useSettingsStore(s => s.showStartHereBadges);
-  const startHereTopN = useSettingsStore(s => s.startHereTopN);
-  const showClusterEdges = useSettingsStore(s => s.showClusterEdges);
+  const showEdges = useRenderSettings(s => s.showEdges);
+  const showGridBg = useUxSettings(s => s.showGridBg);
+  const showHitLayers = useUxSettings(s => s.showHitLayers);
+  const showHeatmap = useUxSettings(s => s.showHeatmap);
+  const showBlameGutter = useRenderSettings(s => s.showBlameGutter);
+  const edgeKinds = useRenderSettings(s => s.edgeKinds);
+  const edgeLayers = useRenderSettings(s => s.edgeLayers);
+  const showSccBubbles = useRenderSettings(s => s.showSccBubbles);
+  const showStartHereBadges = useRenderSettings(s => s.showStartHereBadges);
+  const startHereTopN = useRenderSettings(s => s.startHereTopN);
+  const showClusterEdges = useRenderSettings(s => s.showClusterEdges);
+  const showAgentPresence = useRenderSettings(s => s.showAgentPresence);
+  const elevationMode = useRenderSettings(s => s.elevationMode);
+  const showEffectBadges = useRenderSettings(s => s.showEffectBadges);
+  const showLatencyOverlay = useRenderSettings(s => s.showLatencyOverlay);
   const pathQuery = useInteractionStore(s => s.pathQuery);
   const pathResult = useInteractionStore(s => s.pathResult);
   const temporal = useInteractionStore(s => s.temporal);
-  const highlightArchViolations = useSettingsStore(s => s.highlightArchViolations);
+  const highlightArchViolations = useRenderSettings(s => s.highlightArchViolations);
+  const showCrossGraphEdges = useRenderSettings(s => s.showCrossGraphEdges);
+  const highlightCrossGraph = useRenderSettings(s => s.highlightCrossGraph);
   const archViolations = useSceneStore(s => s.layout?.archViolations);
 
-  const edgeMinSeverity = useSettingsStore(s => s.edgeMinSeverity);
-  const edgeWidthMul = useSettingsStore(s => s.edgeWidthMul);
-  const freezeScene = useSettingsStore(s => s.freezeScene);
-  const focusMode = useSettingsStore(s => s.focusMode);
-  const focusHops = useSettingsStore(s => s.focusHops);
-  const focusDimOpacity = useSettingsStore(s => s.focusDimOpacity);
+  const edgeMinSeverity = useRenderSettings(s => s.edgeMinSeverity);
+  const edgeWidthMul = useRenderSettings(s => s.edgeWidthMul);
+  const freezeScene = useDebugSettings(s => s.freezeScene);
+  const focusMode = useRenderSettings(s => s.focusMode);
+  const focusHops = useRenderSettings(s => s.focusHops);
+  const focusDimOpacity = useRenderSettings(s => s.focusDimOpacity);
 
   const tb = layout?.totalBounds;
   const clusterTotal = layout?.clusters?.length ?? 0;
@@ -181,7 +197,7 @@ export function SceneSection() {
             key={layer}
             type="button"
             className={`ws-debug__chip${edgeLayers[layer] ? " is-on" : ""}`}
-            onClick={() => settingsStore.setEdgeLayer(layer, !edgeLayers[layer])}
+            onClick={() => renderSettingsStore.setEdgeLayer(layer, !edgeLayers[layer])}
             title={layer}
           >
             {layer}
@@ -196,7 +212,7 @@ export function SceneSection() {
               key={sev}
               type="button"
               className={`ws-debug__chip${edgeMinSeverity === sev ? " is-on" : ""}`}
-              onClick={() => settingsStore.setEdgeMinSeverity(sev)}
+              onClick={() => renderSettingsStore.setEdgeMinSeverity(sev)}
               title={`min severity: ${sev}`}
             >
               {sev}
@@ -210,7 +226,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={showEdges}
-          onChange={e => settingsStore.setShowEdges(e.target.checked)}
+          onChange={e => renderSettingsStore.setShowEdges(e.target.checked)}
         />
         <span>edges (all)</span>
       </label>
@@ -220,7 +236,7 @@ export function SceneSection() {
             key={k}
             type="button"
             className={`ws-debug__chip${edgeKinds[k] ? " is-on" : ""}`}
-            onClick={() => settingsStore.setEdgeKind(k, !edgeKinds[k])}
+            onClick={() => renderSettingsStore.setEdgeKind(k, !edgeKinds[k])}
             title={k}
             disabled={!showEdges}
           >
@@ -237,7 +253,7 @@ export function SceneSection() {
           max={3}
           step={0.05}
           value={edgeWidthMul}
-          onChange={e => settingsStore.setEdgeWidthMul(parseFloat(e.target.value))}
+          onChange={e => renderSettingsStore.setEdgeWidthMul(parseFloat(e.target.value))}
           style={{ flex: 1 }}
         />
         <span style={{ flex: "0 0 42px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
@@ -249,7 +265,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={showGridBg}
-          onChange={e => settingsStore.setShowGridBg(e.target.checked)}
+          onChange={e => uxSettingsStore.setShowGridBg(e.target.checked)}
         />
         <span>grid bg</span>
       </label>
@@ -257,7 +273,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={showHitLayers}
-          onChange={e => settingsStore.setShowHitLayers(e.target.checked)}
+          onChange={e => uxSettingsStore.setShowHitLayers(e.target.checked)}
         />
         <span>hit layers</span>
       </label>
@@ -265,7 +281,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={freezeScene}
-          onChange={e => settingsStore.setFreezeScene(e.target.checked)}
+          onChange={e => debugSettingsStore.setFreezeScene(e.target.checked)}
         />
         <span>freeze scene</span>
       </label>
@@ -273,9 +289,41 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={showHeatmap}
-          onChange={e => settingsStore.setShowHeatmap(e.target.checked)}
+          onChange={e => uxSettingsStore.setShowHeatmap(e.target.checked)}
         />
         <span>minimap heatmap</span>
+      </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={elevationMode}
+          onChange={e => renderSettingsStore.setElevationMode(e.target.checked)}
+        />
+        <span>elevation mode (3D)</span>
+      </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showBlameGutter}
+          onChange={e => renderSettingsStore.setShowBlameGutter(e.target.checked)}
+        />
+        <span>blame gutter (ground)</span>
+      </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showEffectBadges}
+          onChange={e => renderSettingsStore.setShowEffectBadges(e.target.checked)}
+        />
+        <span>effect badges (chips)</span>
+      </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showLatencyOverlay}
+          onChange={e => renderSettingsStore.setShowLatencyOverlay(e.target.checked)}
+        />
+        <span>cost overlay (p95 tint)</span>
       </label>
 
       <div className="ws-debug__divider">overlays</div>
@@ -283,7 +331,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={showSccBubbles}
-          onChange={e => settingsStore.setShowSccBubbles(e.target.checked)}
+          onChange={e => renderSettingsStore.setShowSccBubbles(e.target.checked)}
         />
         <span>cycle bubbles (SCC)</span>
       </label>
@@ -291,7 +339,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={showStartHereBadges}
-          onChange={e => settingsStore.setShowStartHereBadges(e.target.checked)}
+          onChange={e => renderSettingsStore.setShowStartHereBadges(e.target.checked)}
         />
         <span>start-here badges</span>
       </label>
@@ -301,7 +349,7 @@ export function SceneSection() {
             key={n}
             type="button"
             className={`ws-debug__chip${startHereTopN === n ? " is-on" : ""}`}
-            onClick={() => settingsStore.setStartHereTopN(n)}
+            onClick={() => renderSettingsStore.setStartHereTopN(n)}
             disabled={!showStartHereBadges}
             title={`top-${n}`}
           >
@@ -313,9 +361,17 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={showClusterEdges}
-          onChange={e => settingsStore.setShowClusterEdges(e.target.checked)}
+          onChange={e => renderSettingsStore.setShowClusterEdges(e.target.checked)}
         />
         <span>cluster super-edges</span>
+      </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showAgentPresence}
+          onChange={e => renderSettingsStore.setShowAgentPresence(e.target.checked)}
+        />
+        <span>agent presence rings</span>
       </label>
 
       <div className="ws-debug__divider">focus</div>
@@ -323,7 +379,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={focusMode === "on"}
-          onChange={e => settingsStore.setFocusMode(e.target.checked ? "on" : "off")}
+          onChange={e => renderSettingsStore.setFocusMode(e.target.checked ? "on" : "off")}
         />
         <span>focus mode</span>
       </label>
@@ -333,7 +389,7 @@ export function SceneSection() {
             key={h}
             type="button"
             className={`ws-debug__chip${focusHops === h ? " is-on" : ""}`}
-            onClick={() => settingsStore.setFocusHops(h)}
+            onClick={() => renderSettingsStore.setFocusHops(h)}
             disabled={focusMode !== "on"}
             title={`${h}-hop`}
           >
@@ -349,7 +405,7 @@ export function SceneSection() {
           max={0.5}
           step={0.01}
           value={focusDimOpacity}
-          onChange={e => settingsStore.setFocusDimOpacity(parseFloat(e.target.value))}
+          onChange={e => renderSettingsStore.setFocusDimOpacity(parseFloat(e.target.value))}
           disabled={focusMode !== "on"}
           style={{ flex: 1 }}
         />
@@ -371,7 +427,7 @@ export function SceneSection() {
         <input
           type="checkbox"
           checked={highlightArchViolations}
-          onChange={e => settingsStore.setHighlightArchViolations(e.target.checked)}
+          onChange={e => renderSettingsStore.setHighlightArchViolations(e.target.checked)}
         />
         <span>highlight violating edges</span>
       </label>
@@ -389,6 +445,24 @@ export function SceneSection() {
           ))}
         </div>
       )}
+
+      <div className="ws-debug__divider">cross-graph edges</div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showCrossGraphEdges}
+          onChange={e => renderSettingsStore.setShowCrossGraphEdges(e.target.checked)}
+        />
+        <span>show cross-graph edges</span>
+      </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={highlightCrossGraph}
+          onChange={e => renderSettingsStore.setHighlightCrossGraph(e.target.checked)}
+        />
+        <span>highlight cross-graph (gold overlay)</span>
+      </label>
 
       <div className="ws-debug__divider">
         path query {pathQuery && <span style={{ color: "#7dd3fc" }}>· active</span>}
@@ -440,6 +514,8 @@ export function SceneSection() {
 
       <TemporalSection temporal={temporal} history={graph?.history} />
 
+      <StickiesSection />
+
       <div className="ws-debug__divider">viewport</div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
         <button type="button" className="ws-debug__chip" onClick={resetViewport} title="x=0,y=0,scale=1">
@@ -452,6 +528,109 @@ export function SceneSection() {
           copy
         </button>
       </div>
+
+      <ShareSection />
+    </>
+  );
+}
+
+function ShareSection() {
+  const autoSyncUrl = useUxSettings(s => s.autoSyncUrl);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const flashToast = (msg: string) => {
+    setToast(msg);
+    window.setTimeout(() => setToast(null), 1500);
+  };
+
+  const copyShareLink = async () => {
+    const state = captureWorkspaceUrlState();
+    const base =
+      typeof window !== "undefined"
+        ? window.location.origin + window.location.pathname
+        : "";
+    const url = buildShareUrl(base, state);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        flashToast("copied!");
+      } else {
+        window.prompt("copy share link", url);
+        flashToast("copy manually");
+      }
+    } catch {
+      window.prompt("copy share link", url);
+      flashToast("copy manually");
+    }
+  };
+
+  const importFromClipboard = async () => {
+    try {
+      if (!navigator.clipboard?.readText) {
+        flashToast("clipboard unavailable");
+        return;
+      }
+      const raw = await navigator.clipboard.readText();
+      const trimmed = raw.trim();
+      let encoded = trimmed;
+      const match = trimmed.match(/[?&]ws=([^&\s#]+)/);
+      if (match) encoded = match[1] ?? "";
+      const state = decodeWorkspaceState(encoded);
+      if (!state) {
+        flashToast("invalid link");
+        return;
+      }
+      applyWorkspaceUrlState(state);
+      flashToast("applied!");
+    } catch {
+      flashToast("clipboard error");
+    }
+  };
+
+  const resetAll = () => {
+    resetWorkspaceUrlState();
+    flashToast("reset");
+  };
+
+  return (
+    <>
+      <div className="ws-debug__divider">
+        share {toast && <span style={{ color: "#7dd3fc" }}>· {toast}</span>}
+      </div>
+      <div className="ws-debug__lod" style={{ gap: 2 }}>
+        <button
+          type="button"
+          className="ws-debug__chip"
+          onClick={copyShareLink}
+          title="encode state + write to clipboard"
+        >
+          copy share link
+        </button>
+        <button
+          type="button"
+          className="ws-debug__chip"
+          onClick={importFromClipboard}
+          title="read clipboard + apply"
+        >
+          import
+        </button>
+        <button
+          type="button"
+          className="ws-debug__chip"
+          onClick={resetAll}
+          title="reset to defaults"
+        >
+          reset
+        </button>
+      </div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={autoSyncUrl}
+          onChange={e => uxSettingsStore.setAutoSyncUrl(e.target.checked)}
+        />
+        <span>auto-sync URL</span>
+      </label>
     </>
   );
 }
@@ -640,6 +819,81 @@ function FragmentRow({ k, v }: { k: string; v: string }) {
     <>
       <span className="ws-debug__k" style={{ paddingLeft: 20, opacity: 0.6 }}>· {k}</span>
       <span className="ws-debug__v" style={{ opacity: 0.75 }}>{v}</span>
+    </>
+  );
+}
+
+function panToWorld(x: number, y: number, w: number, h: number) {
+  const vp = viewportStore.getState().viewport;
+  if (vp.width <= 0 || vp.height <= 0 || vp.scale <= 0) return;
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const nx = vp.width / 2 - cx * vp.scale;
+  const ny = vp.height / 2 - cy * vp.scale;
+  viewportStore.setViewport({ ...vp, x: nx, y: ny });
+}
+
+function previewText(s: Sticky): string {
+  const t = s.text.trim();
+  if (t.length === 0) return "(empty)";
+  return t.length > 48 ? t.slice(0, 45) + "…" : t;
+}
+
+function StickiesSection() {
+  const stickies = useStickiesStore(s => s.stickies);
+  const showStickies = useUxSettings(s => s.showStickies);
+
+  const recent = useMemo(() => {
+    const arr = [...stickies].sort((a, b) => b.updatedAt - a.updatedAt);
+    return arr.slice(0, 6);
+  }, [stickies]);
+
+  const resolvedCount = useMemo(
+    () => stickies.filter(s => s.resolved).length,
+    [stickies],
+  );
+
+  return (
+    <>
+      <div className="ws-debug__divider">
+        stickies ({stickies.length})
+        {resolvedCount > 0 && (
+          <span style={{ color: "#22c55e" }}> · {resolvedCount} done</span>
+        )}
+      </div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showStickies}
+          onChange={e => uxSettingsStore.setShowStickies(e.target.checked)}
+        />
+        <span>show stickies</span>
+      </label>
+      {recent.length === 0 ? (
+        <div className="ws-debug__hint">shift+dblclick empty canvas to drop a sticky.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
+          {recent.map(s => (
+            <div
+              key={s.id}
+              className={`ws-debug__sticky-row${s.resolved ? " ws-debug__sticky-row--resolved" : ""}`}
+              onClick={() => panToWorld(s.x, s.y, s.width, s.height)}
+              title={s.text || "(empty)"}
+            >
+              <span className={`ws-debug__sticky-dot ws-debug__sticky-dot--${s.color}`} />
+              <span className="ws-debug__sticky-text">{previewText(s)}</span>
+              <input
+                type="checkbox"
+                className="ws-debug__sticky-check"
+                checked={s.resolved ?? false}
+                onClick={e => e.stopPropagation()}
+                onChange={() => stickiesStore.toggleResolved(s.id)}
+                title="mark done"
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

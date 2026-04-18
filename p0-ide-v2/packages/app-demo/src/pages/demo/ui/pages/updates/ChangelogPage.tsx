@@ -1,4 +1,5 @@
 import { Rss, Sparkles } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 type Tag = "Feature" | "Improvement" | "Fix" | "Security";
 
@@ -108,11 +109,11 @@ function Screenshot({ label }: { label: string }) {
 export function ChangelogPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Updates</span>
-        <h1 className="demo-app__hero-title">What&apos;s new in Quanta</h1>
-        <p className="demo-app__hero-sub">Ship log, curated. Subscribe to the RSS or email digest.</p>
-      </header>
+      <DemoAppHero
+        kicker="Updates"
+        title="What's new in Quanta"
+        sub="Ship log, curated. Subscribe to the RSS or email digest."
+      />
       <div className="demo-app__body">
 
         <div className="demo-sectionbar" style={{ marginBottom: 16 }}>

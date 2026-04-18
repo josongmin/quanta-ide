@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 interface Range {
   id: string;
@@ -23,11 +24,11 @@ export function IpAllowlistPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Security</span>
-        <h1 className="demo-app__hero-title">IP allowlist</h1>
-        <p className="demo-app__hero-sub">Restrict workspace access to specific network ranges. Members outside these ranges will be blocked even with valid credentials.</p>
-      </header>
+      <DemoAppHero
+        kicker="Security"
+        title="IP allowlist"
+        sub="Restrict workspace access to specific network ranges. Members outside these ranges will be blocked even with valid credentials."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <header className="demo-block__head">

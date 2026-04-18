@@ -1,4 +1,5 @@
 import { Check, Minus } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 type Level = "full" | "partial" | "none";
 
@@ -24,11 +25,11 @@ function Cell({ lvl }: { lvl: Level }) {
 export function RolesPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Team</span>
-        <h1 className="demo-app__hero-title">Roles &amp; permissions</h1>
-        <p className="demo-app__hero-sub">Capability matrix. Roles are additive and can be customized on Enterprise.</p>
-      </header>
+      <DemoAppHero
+        kicker="Team"
+        title="Roles & permissions"
+        sub="Capability matrix. Roles are additive and can be customized on Enterprise."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <div className="demo-block__body demo-block__body--flush">

@@ -19,6 +19,7 @@ import {
   Users,
   Workflow,
 } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 type Integration = {
   name: string;
@@ -62,11 +63,11 @@ export function MarketplacePage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Integrations</span>
-        <h1 className="demo-app__hero-title">Marketplace</h1>
-        <p className="demo-app__hero-sub">Connect Quanta to the tools your team already uses.</p>
-      </header>
+      <DemoAppHero
+        kicker="Integrations"
+        title="Marketplace"
+        sub="Connect Quanta to the tools your team already uses."
+      />
       <div className="demo-app__body">
         <div className="demo-sectionbar">
           <div

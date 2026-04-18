@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { LodManager, LOD_TIERS } from "@quanta/canvas-engine";
 import { useViewportStore } from "../store/viewport-store";
-import { useSettingsStore } from "../store/settings-store";
+import { useDebugSettings } from "../store/debug-settings-store";
 import { interactionStore } from "../store/interaction-store";
 
 // The manager internally reads thresholds from `LOD_TIERS` (imported here
@@ -19,7 +19,7 @@ export function useLodSync(graphKey: string = "default") {
   // (e.g. `showEdges` toggle) doesn't trigger this effect, and vice
   // versa — only scale and forceLod matter here.
   const scale    = useViewportStore(s => s.viewport.scale);
-  const forceLod = useSettingsStore(s => s.forceLod);
+  const forceLod = useDebugSettings(s => s.forceLod);
 
   useEffect(() => {
     manager.reset();

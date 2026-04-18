@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { MoreHorizontal, Search, UserPlus } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
+import { initials } from "../../internal/avatar-utils";
 
 const MEMBERS = [
   { name: "Ada Lovelace",     email: "ada@acme.com",     role: "Owner",       status: "active",   joined: "2025-03-02", dot: "success" },
@@ -30,11 +32,11 @@ export function MembersPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Team</span>
-        <h1 className="demo-app__hero-title">Members</h1>
-        <p className="demo-app__hero-sub">Everyone with access to this workspace. Owners can change roles and remove seats.</p>
-      </header>
+      <DemoAppHero
+        kicker="Team"
+        title="Members"
+        sub="Everyone with access to this workspace. Owners can change roles and remove seats."
+      />
       <div className="demo-app__body">
         <div className="demo-sectionbar">
           <div className="demo-sectionbar__title">7 people · 12 seats used of 25</div>
@@ -78,7 +80,7 @@ export function MembersPage() {
                   <tr key={m.email}>
                     <td>
                       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <span className="demo-avatar">{m.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}</span>
+                        <span className="demo-avatar">{initials(m.name)}</span>
                         <div>
                           <div style={{ fontWeight: 500 }}>{m.name}</div>
                           <div style={{ color: "var(--fg-subtle)", fontSize: "var(--fs-10)" }}>{m.email}</div>

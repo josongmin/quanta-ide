@@ -1,4 +1,5 @@
 import { Copy, RefreshCw, Trash2 } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 const INVITES = [
   { email: "bill@acme.com",     role: "Engineer", sent: "2 hours ago",  expires: "in 6 days" },
@@ -11,11 +12,11 @@ const INVITES = [
 export function InvitesPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Team</span>
-        <h1 className="demo-app__hero-title">Invitations</h1>
-        <p className="demo-app__hero-sub">Pending invitations. Invites expire 7 days after being sent.</p>
-      </header>
+      <DemoAppHero
+        kicker="Team"
+        title="Invitations"
+        sub="Pending invitations. Invites expire 7 days after being sent."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <header className="demo-block__head">

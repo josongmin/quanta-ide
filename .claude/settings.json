@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm typecheck *)",
+      "Bash(pnpm lint *)",
+      "Bash(pnpm tsc *)",
+      "Bash(pnpm vitest *)",
+      "Bash(pnpm dev)",
+      "Bash(npx tsc *)",
+      "Bash(npx vitest *)",
+      "Bash(cargo clippy *)",
+      "Bash(cargo test *)",
+      "Bash(cargo check *)",
+      "Bash(cargo build *)"
+    ]
+  }
+}

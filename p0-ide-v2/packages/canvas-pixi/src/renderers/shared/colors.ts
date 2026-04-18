@@ -9,7 +9,7 @@
 // palette.
 
 import type { EdgeKind, EdgeLayer, EdgeSeverity } from "@quanta/canvas-engine";
-import { deriveEdgeLayer } from "@quanta/canvas-engine";
+import { clamp, deriveEdgeLayer } from "@quanta/canvas-engine";
 
 // Thresholds mirror the existing inline conditions: >=70 high, >=40 medium,
 // else low. Centralising the constants means a future "move the boundary"
@@ -66,6 +66,30 @@ export const SELECTION_ACCENT = 0x4f46e5;
 // Signal-count / taint accent — matches RISK_TEXT.high because a positive
 // signal count is itself a risk indicator and users expect the two to agree.
 export const SIGNAL_ACCENT = 0xdc2626;
+
+// Architecture-violation halo drawn around offending file cards. Same hue
+// as SIGNAL_ACCENT by design — both say "this needs attention".
+export const VIOLATION_HALO = 0xdc2626;
+
+// Cross-graph / cross-repo join edges (safety-yellow).
+export const CROSS_GRAPH_ACCENT = 0xfacc15;
+
+/**
+ * Design-token namespace consumable by CSS-in-JS or build-time emitters.
+ * Mirrors the `:root` CSS variables declared in
+ * `app-ide/src/features/workspace-canvas/workspace-canvas.css`. Keep the two
+ * lists in sync — if you add or remove a semantic token here, update the CSS
+ * block too.
+ */
+export const DESIGN_TOKENS = {
+  selectionAccent: SELECTION_ACCENT,
+  signalAccent: SIGNAL_ACCENT,
+  violationHalo: VIOLATION_HALO,
+  crossGraph: CROSS_GRAPH_ACCENT,
+  riskHigh: RISK_TEXT.high,
+  riskMedium: RISK_TEXT.medium,
+  riskLow: RISK_TEXT.low,
+} as const;
 
 // Edge styling is a two-level registry so the renderer can gracefully handle
 // ~19 analyzer-defined kinds without forcing every kind to have a bespoke
@@ -126,9 +150,12 @@ export const SEVERITY_RANK: Record<EdgeSeverity, number> = {
   low: 0, medium: 1, high: 2, critical: 3,
 };
 
-function clamp(n: number, lo: number, hi: number): number {
-  return n < lo ? lo : n > hi ? hi : n;
-}
+export const CROSS_GRAPH_STYLE: EdgeStyle = {
+  color: CROSS_GRAPH_ACCENT,
+  alpha: 0.85,
+  baseWidth: 1.2,
+  dash: [8, 5],
+};
 
 /**
  * Resolve a stroke style for a single edge.

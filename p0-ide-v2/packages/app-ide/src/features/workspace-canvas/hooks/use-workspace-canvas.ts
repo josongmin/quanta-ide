@@ -5,7 +5,7 @@ import { workspaceCanvasStore } from "../store/workspace-canvas-store";
 import { useViewportStore } from "../store/viewport-store";
 import { sceneStore, useSceneStore } from "../store/scene-store";
 import { interactionStore, useInteractionStore } from "../store/interaction-store";
-import { useSettingsStore } from "../store/settings-store";
+import { useDebugSettings } from "../store/debug-settings-store";
 import { useLodSync } from "./use-lod-sync";
 import { requestLayout, requestAggregates } from "./use-worker-bridge";
 import { getActiveGraphSource } from "../data/loaders";
@@ -42,7 +42,7 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
   const viewport = useViewportStore(s => s.viewport);
   const layout   = useSceneStore(s => s.layout);
   const lod      = useInteractionStore(s => s.lod);
-  const forceLod = useSettingsStore(s => s.forceLod);
+  const forceLod = useDebugSettings(s => s.forceLod);
 
   const lastIdsRef = useRef<{
     kind: SceneKind;

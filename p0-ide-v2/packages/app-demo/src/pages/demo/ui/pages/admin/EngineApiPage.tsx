@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { cn } from "@quanta/ui-kit/lib";
 import { DemoAppHero } from "../../internal/DemoAppHero";
+import { AreaChart } from "../../internal/AreaChart";
+import { StatCard } from "../../internal/StatCard";
+import { HttpStatusBadge } from "../../internal/HttpStatusBadge";
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -121,39 +124,6 @@ function fmtInt(n: number) {
   return n.toLocaleString("en-US");
 }
 
-function StatusBadge({ code }: { code: number }) {
-  if (code >= 500) return <span className="demo-badge demo-badge--danger">{code}</span>;
-  if (code === 429 || code === 401) return <span className="demo-badge demo-badge--warn">{code}</span>;
-  return <span className="demo-badge demo-badge--success">{code}</span>;
-}
-
-function AreaChart({ values, height = 120, color = "var(--fg)" }: { values: number[]; height?: number; color?: string }) {
-  const w = 760;
-  const h = height;
-  const step = w / (values.length - 1);
-  const path = useMemo(() => {
-    return values
-      .map((v, i) => `${i === 0 ? "M" : "L"}${(i * step).toFixed(1)},${(h - v * (h - 8) - 4).toFixed(1)}`)
-      .join(" ");
-  }, [values, step, h]);
-  const fill = useMemo(() => `${path} L${w},${h} L0,${h} Z`, [path, w, h]);
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" width="100%" height={h} aria-hidden style={{ display: "block" }}>
-      <defs>
-        <linearGradient id="engine-api-area" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0.25, 0.5, 0.75].map((p) => (
-        <line key={p} x1={0} x2={w} y1={h * p} y2={h * p} stroke="var(--border)" strokeDasharray="2 4" strokeWidth={0.5} />
-      ))}
-      <path d={fill} fill="url(#engine-api-area)" />
-      <path d={path} fill="none" stroke={color} strokeWidth={1.6} strokeLinejoin="round" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -195,12 +165,12 @@ export function EngineApiPage() {
 
         {/* ------- Top stats ------- */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "var(--space-3)", marginBottom: "var(--space-3h)" }}>
-          <StatCard icon={<Zap       size={14} strokeWidth={1.8} />} label="Calls / 24h"     value={fmtInt(totalCalls)}   delta="+18.2%" tone="up" />
-          <StatCard icon={<TrendingUp size={14} strokeWidth={1.8} />} label="Success rate"    value="99.86%"               delta="+0.04%" tone="up" />
-          <StatCard icon={<Clock     size={14} strokeWidth={1.8} />} label="p50 latency"    value="42 ms"                delta="−3 ms" tone="up" />
-          <StatCard icon={<Gauge     size={14} strokeWidth={1.8} />} label="p95 latency"    value="218 ms"               delta="+12 ms" tone="down" />
-          <StatCard icon={<CircleAlert size={14} strokeWidth={1.8} />} label="p99 latency"  value="612 ms"               delta="+41 ms" tone="down" />
-          <StatCard icon={<Cpu       size={14} strokeWidth={1.8} />} label="Active clients" value="847"                  delta="+24"    tone="up" />
+          <StatCard icon={<Zap         size={14} strokeWidth={1.8} />} label="Calls / 24h"     value={fmtInt(totalCalls)} delta="+18.2%" deltaTone="up" />
+          <StatCard icon={<TrendingUp  size={14} strokeWidth={1.8} />} label="Success rate"    value="99.86%"             delta="+0.04%" deltaTone="up" />
+          <StatCard icon={<Clock       size={14} strokeWidth={1.8} />} label="p50 latency"     value="42 ms"              delta="−3 ms"  deltaTone="up" />
+          <StatCard icon={<Gauge       size={14} strokeWidth={1.8} />} label="p95 latency"     value="218 ms"             delta="+12 ms" deltaTone="down" />
+          <StatCard icon={<CircleAlert size={14} strokeWidth={1.8} />} label="p99 latency"     value="612 ms"             delta="+41 ms" deltaTone="down" />
+          <StatCard icon={<Cpu         size={14} strokeWidth={1.8} />} label="Active clients"  value="847"                delta="+24"    deltaTone="up" />
         </div>
 
         {/* ------- Time series ------- */}
@@ -424,7 +394,7 @@ export function EngineApiPage() {
                     <td className="is-num" style={{ fontVariantNumeric: "tabular-nums" }}>
                       <span style={{ color: l.ms > 400 ? "var(--warn)" : "var(--fg-muted)" }}>{l.ms} ms</span>
                     </td>
-                    <td><StatusBadge code={l.status} /></td>
+                    <td><HttpStatusBadge code={l.status} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -438,37 +408,6 @@ export function EngineApiPage() {
           </div>
         </div>
 
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Stat tile (local — uses existing tokens, no new CSS)
-// ---------------------------------------------------------------------------
-
-function StatCard({
-  icon,
-  label,
-  value,
-  delta,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  delta: string;
-  tone: "up" | "down";
-}) {
-  return (
-    <div className="demo-stat">
-      <div className="demo-stat__label" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <span style={{ color: "var(--fg-muted)", display: "inline-flex" }}>{icon}</span>
-        {label}
-      </div>
-      <div className="demo-stat__value">{value}</div>
-      <div className={cn("demo-stat__delta", tone === "up" ? "is-up" : "is-down")}>
-        {tone === "up" ? "▲" : "▼"} {delta}
       </div>
     </div>
   );

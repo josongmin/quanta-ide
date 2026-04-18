@@ -1,5 +1,20 @@
+import type { FileBlame } from "./blame";
+import type { FileEffects } from "./effects";
+import type { FileLatency } from "./latency";
 import type { ProofBundle } from "./evidence";
 import type { GraphHistory } from "./history";
+import type { TracePack } from "./traces";
+
+// ── Glossary (Workspace* naming) ─────────────────────────────────────
+// WorkspaceGraph   — the data (files, edges, comments, proofs, history, blame, effects, latency, traces).
+//                    No coordinates. Worker-transferable.
+// WorkspaceLayout  — coordinate bag computed from WorkspaceGraph: fileRects,
+//                    edgeRoutes, cluster rects + metadata, metrics, sccs, etc.
+// WorkspaceView    — single-tier renderable subset: the file-tier view
+//                    produced by buildWorkspaceView. Kind "files".
+// WorkspaceScene   — tagged-union of renderables: "files" | "clusters" |
+//                    "superclusters". Consumed by the scene store.
+// ─────────────────────────────────────────────────────────────────────
 
 export type ArchLayer = "domain" | "adapter" | "infra" | "ui" | "util" | "unknown";
 
@@ -30,6 +45,9 @@ export interface FileNode {
   loc: number;
   signals: SignalSummary;
   functions: FunctionBlock[];  // City LOD — populated by DataTier 1
+  /** Identifies the source graph when multiple graphs are joined. Absent
+   *  ⇒ the file belongs to the canonical single-graph ("default"). */
+  graphId?: string;
 }
 
 // Semantic layer groups all edge kinds into 4 conceptual planes so UI gates
@@ -98,6 +116,12 @@ export interface FileEdge {
   toLine?: number;
   /** Symbol at `toLine`. */
   toSymbol?: string;
+  /** Identifies the source graph when multiple graphs are joined. Absent
+   *  ⇒ the edge belongs to the canonical single-graph ("default"). */
+  graphId?: string;
+  /** When true, source and target are from different graphs — treat as
+   *  cross-service / cross-repo call. Derived at join time. */
+  crossGraph?: boolean;
 }
 
 /**
@@ -154,4 +178,12 @@ export interface WorkspaceGraph {
   /** Commit-ordered edge snapshots. Consumed by the temporal slider / diff
    *  mode; absent ⇒ temporal UI unavailable. */
   history?: GraphHistory;
+  /** Optional blame records, keyed by fileId. Survives structured-clone to worker. */
+  blame?: Record<string, FileBlame>;
+  /** Per-file side-effect annotations, keyed by fileId. */
+  effects?: Record<string, FileEffects>;
+  /** Per-file p50/p95/p99 latency readings, keyed by fileId. */
+  latency?: Record<string, FileLatency>;
+  /** Captured runtime traces. Absent ⇒ no trace overlay UI. */
+  traces?: TracePack;
 }

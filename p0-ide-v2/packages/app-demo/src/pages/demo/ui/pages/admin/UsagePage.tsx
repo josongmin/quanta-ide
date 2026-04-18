@@ -1,6 +1,6 @@
-import { useMemo } from "react";
-import { ArrowUp, ArrowDown } from "lucide-react";
 import { DemoAppHero } from "../../internal/DemoAppHero";
+import { Sparkline } from "../../internal/Sparkline";
+import { StatCard } from "../../internal/StatCard";
 
 function bars(n: number, seed: number) {
   const out: number[] = [];
@@ -10,18 +10,6 @@ function bars(n: number, seed: number) {
     out.push(0.35 + (s / 233280) * 0.65);
   }
   return out;
-}
-
-function Sparkline({ values, color = "var(--fg)" }: { values: number[]; color?: string }) {
-  const w = 220, h = 48, step = w / (values.length - 1);
-  const path = useMemo(() => {
-    return values.map((v, i) => `${i === 0 ? "M" : "L"}${(i * step).toFixed(1)},${(h - v * (h - 4) - 2).toFixed(1)}`).join(" ");
-  }, [values, step]);
-  return (
-    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden>
-      <path d={path} fill="none" stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
-    </svg>
-  );
 }
 
 export function UsagePage() {
@@ -38,24 +26,27 @@ export function UsagePage() {
       />
       <div className="demo-app__body">
         <div className="demo-grid-3" style={{ marginBottom: 16 }}>
-          <div className="demo-stat">
-            <div className="demo-stat__label">AI tokens</div>
-            <div className="demo-stat__value">1.42M</div>
-            <div className="demo-stat__delta is-up"><ArrowUp size={10} strokeWidth={2.4} /> +18% vs last period</div>
-            <div style={{ marginTop: 8 }}><Sparkline values={tokens} color="var(--accent-purple)" /></div>
-          </div>
-          <div className="demo-stat">
-            <div className="demo-stat__label">Analysis minutes</div>
-            <div className="demo-stat__value">8,204</div>
-            <div className="demo-stat__delta is-up"><ArrowUp size={10} strokeWidth={2.4} /> +4% vs last period</div>
-            <div style={{ marginTop: 8 }}><Sparkline values={minutes} color="var(--accent)" /></div>
-          </div>
-          <div className="demo-stat">
-            <div className="demo-stat__label">Active seats</div>
-            <div className="demo-stat__value">12 / 25</div>
-            <div className="demo-stat__delta is-down"><ArrowDown size={10} strokeWidth={2.4} /> -1 vs last period</div>
-            <div style={{ marginTop: 8 }}><Sparkline values={seats} /></div>
-          </div>
+          <StatCard
+            label="AI tokens"
+            value="1.42M"
+            delta="+18% vs last period"
+            deltaTone="up"
+            chart={<Sparkline values={tokens} color="var(--accent-purple)" />}
+          />
+          <StatCard
+            label="Analysis minutes"
+            value="8,204"
+            delta="+4% vs last period"
+            deltaTone="up"
+            chart={<Sparkline values={minutes} color="var(--accent)" />}
+          />
+          <StatCard
+            label="Active seats"
+            value="12 / 25"
+            delta="-1 vs last period"
+            deltaTone="down"
+            chart={<Sparkline values={seats} />}
+          />
         </div>
 
         <div className="demo-block">

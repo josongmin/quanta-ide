@@ -1,5 +1,7 @@
 import { memo } from "react";
-import type { FileNode, Rect } from "@quanta/canvas-engine";
+import type { CSSProperties } from "react";
+import type { FileNode, Rect, FileEffects, FileLatency } from "@quanta/canvas-engine";
+import { elevationFromRisk, EFFECT_STYLE, latencyColor } from "@quanta/canvas-engine";
 import { tone } from "@quanta/app-ide/entities/risk";
 import type { RiskTone } from "@quanta/app-ide/entities/risk";
 
@@ -7,7 +9,16 @@ interface StreetCardProps {
   file: FileNode;
   rect: Rect;
   isSelected: boolean;
+  elevationMode?: boolean;
+  effects?: FileEffects;
+  latency?: FileLatency;
+  showEffectBadges?: boolean;
+  showLatencyOverlay?: boolean;
   onSelect: (id: string) => void;
+}
+
+function hexFromInt(n: number): string {
+  return `#${n.toString(16).padStart(6, "0")}`;
 }
 
 const TONE_PASTEL: Record<RiskTone, string> = {
@@ -28,7 +39,11 @@ function cpxColor(cpx: number): string {
   return TONE_PASTEL.low;
 }
 
-function StreetCardImpl({ file, rect, isSelected, onSelect }: StreetCardProps) {
+function StreetCardImpl({
+  file, rect, isSelected, elevationMode = false,
+  effects, latency, showEffectBadges = true, showLatencyOverlay = false,
+  onSelect,
+}: StreetCardProps) {
   const HEADER_H = 32;
   const FOOTER_H = 20;
   const ROW_H    = 22;
@@ -37,10 +52,31 @@ function StreetCardImpl({ file, rect, isSelected, onSelect }: StreetCardProps) {
   const maxRows    = Math.max(0, Math.floor(bodyHeight / ROW_H));
   const visibleFns = file.functions.slice(0, maxRows);
 
+  const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
+  const effectKinds = effects?.effects ?? [];
+  const visibleEffects = showEffectBadges ? effectKinds.slice(0, 4) : [];
+  const extraEffectCount = Math.max(0, effectKinds.length - visibleEffects.length);
+  const latencyTint = showLatencyOverlay && latency
+    ? hexFromInt(latencyColor(latency.p95))
+    : null;
+  const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, height: rect.h };
+  if (latencyTint) {
+    style.background = `color-mix(in srgb, ${latencyTint} 22%, var(--bg))`;
+  }
+  if (elevation > 0) {
+    const ox = elevation * 0.3;
+    const oy = elevation * 0.4;
+    const blur = elevation * 0.5;
+    const sa = Math.min(0.45, elevation / 160);
+    style.boxShadow = `${ox}px ${oy}px ${blur}px rgba(0, 0, 0, ${sa})`;
+    style.transform = `scale(${1 + elevation / 1000})`;
+    style.transformOrigin = "center";
+  }
+
   return (
     <div
-      className={`street-card${isSelected ? " street-card--selected" : ""}`}
-      style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+      className={`street-card${isSelected ? " street-card--selected" : ""}${elevation > 0 ? " street-card--elevated" : ""}`}
+      style={style}
       onClick={() => { onSelect(file.id); }}
     >
       <div className="street-card__header">
@@ -73,7 +109,39 @@ function StreetCardImpl({ file, rect, isSelected, onSelect }: StreetCardProps) {
 
       <div className="street-card__footer">
         <span className="street-card__loc">{file.loc} LOC</span>
+        {latency && (
+          <span
+            className="street-card__lat"
+            style={{ color: hexFromInt(latencyColor(latency.p95)) }}
+            title={`p50 ${latency.p50}ms · p95 ${latency.p95}ms · p99 ${latency.p99}ms · ${latency.callCount}/min`}
+          >
+            {latency.p95}ms
+          </span>
+        )}
       </div>
+
+      {visibleEffects.length > 0 && (
+        <div className="street-card__effects">
+          {visibleEffects.map(kind => {
+            const s = EFFECT_STYLE[kind];
+            return (
+              <span
+                key={kind}
+                className="street-card__effect-chip"
+                style={{ background: hexFromInt(s.color) }}
+                title={s.description}
+              >
+                {s.glyph}
+              </span>
+            );
+          })}
+          {extraEffectCount > 0 && (
+            <span className="street-card__effect-chip street-card__effect-chip--more">
+              +{extraEffectCount}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -89,5 +157,10 @@ export const StreetCard = memo(
     prev.file === next.file &&
     prev.rect === next.rect &&
     prev.isSelected === next.isSelected &&
+    prev.elevationMode === next.elevationMode &&
+    prev.effects === next.effects &&
+    prev.latency === next.latency &&
+    prev.showEffectBadges === next.showEffectBadges &&
+    prev.showLatencyOverlay === next.showLatencyOverlay &&
     prev.onSelect === next.onSelect,
 );

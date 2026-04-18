@@ -1,3 +1,5 @@
+import { DemoAppHero } from "../../internal/DemoAppHero";
+
 const PREFS: Array<{ key: string; label: string; hint: string; on: boolean }> = [
   { key: "theme",       label: "Follow system theme",           hint: "Switch to dark mode automatically when your OS does.", on: true },
   { key: "keys.vim",    label: "Vim keybindings",               hint: "Use vim-style navigation and editing.", on: false },
@@ -10,11 +12,11 @@ const PREFS: Array<{ key: string; label: string; hint: string; on: boolean }> = 
 export function AccountPreferencesPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Profile</span>
-        <h1 className="demo-app__hero-title">Preferences</h1>
-        <p className="demo-app__hero-sub">Personal defaults that travel with your account across workspaces.</p>
-      </header>
+      <DemoAppHero
+        kicker="Profile"
+        title="Preferences"
+        sub="Personal defaults that travel with your account across workspaces."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <div className="demo-block__body demo-block__body--flush">

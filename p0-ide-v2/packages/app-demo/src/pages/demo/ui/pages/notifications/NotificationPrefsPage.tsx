@@ -1,3 +1,5 @@
+import { DemoAppHero } from "../../internal/DemoAppHero";
+
 const CATEGORIES = [
   { key: "review",     label: "PR review requested",           hint: "Someone tagged you as a reviewer." },
   { key: "mention",    label: "Mentioned in a comment",        hint: "@you in a review or agent chat." },
@@ -16,11 +18,11 @@ const CHANNELS: Array<{ key: "in_app" | "email" | "slack"; label: string }> = [
 export function NotificationPrefsPage() {
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Notifications</span>
-        <h1 className="demo-app__hero-title">Notification preferences</h1>
-        <p className="demo-app__hero-sub">Decide where each type of event lands. Workspace owners can enforce defaults.</p>
-      </header>
+      <DemoAppHero
+        kicker="Notifications"
+        title="Notification preferences"
+        sub="Decide where each type of event lands. Workspace owners can enforce defaults."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <div className="demo-block__body demo-block__body--flush">

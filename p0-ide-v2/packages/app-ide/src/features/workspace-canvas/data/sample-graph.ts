@@ -1,5 +1,5 @@
-import type { WorkspaceGraph, FileNode, FileEdge, FunctionBlock, ArchLayer, EdgeKind, ProofBundle, WitnessStep, GraphHistory, GraphSnapshot } from "@quanta/canvas-engine";
-import { deriveEdgeLayer } from "@quanta/canvas-engine";
+import type { WorkspaceGraph, FileNode, FileEdge, FunctionBlock, ArchLayer, EdgeKind, EffectKind, FileEffects, FileLatency, ProofBundle, WitnessStep, GraphHistory, GraphSnapshot, FileBlame, BlameEntry, NamedGraph, JoinEdge, Trace, TraceSpan, TraceEdge, TracePack } from "@quanta/canvas-engine";
+import { deriveEdgeLayer, joinGraphs } from "@quanta/canvas-engine";
 
 // ── Vite glob: all TS/TSX source files per package ────────────────────
 // New files are picked up automatically — no manual list needed.
@@ -511,6 +511,176 @@ function synthesizeHistory(edges: readonly FileEdge[]): GraphHistory | undefined
   return { snapshots, baseIndex: 0 };
 }
 
+// ── Blame synthesis (Stage 6: line-age overlay) ───────────────────────
+// Per-file, bucket lines into 3–5 age ranges driven by function offsets.
+// Deterministic prime-index hash on (fileId, rangeIndex) keeps the demo
+// stable across dev-reloads so the gutter doesn't flicker.
+
+const BLAME_AUTHORS = ["alice", "bob", "charlie", "dana"] as const;
+const BLAME_MESSAGES = [
+  "refactor: extract helpers",
+  "fix: edge case on empty input",
+  "feat: support new signal type",
+  "chore: rename for clarity",
+  "refactor: inline one-shot",
+  "fix: off-by-one in loop",
+  "feat: add overlay toggle",
+  "chore: tighten types",
+] as const;
+
+const BLAME_DAY = 86_400_000;
+const BLAME_AGE_BUCKETS: readonly number[] = [
+  1   * BLAME_DAY,
+  7   * BLAME_DAY,
+  30  * BLAME_DAY,
+  180 * BLAME_DAY,
+  365 * BLAME_DAY,
+  2 * 365 * BLAME_DAY,
+];
+
+function hashString(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function synthesizeBlame(files: readonly FileNode[], now: number): Record<string, FileBlame> {
+  const out: Record<string, FileBlame> = {};
+  for (const f of files) {
+    if (f.functions.length < 1 || f.loc < 2) continue;
+
+    const cuts = new Set<number>([1, f.loc + 1]);
+    for (const fn of f.functions) cuts.add(Math.max(1, Math.min(f.loc, fn.startLine)));
+    const sorted = [...cuts].sort((a, b) => a - b);
+    const clamped = sorted.length > 6 ? sorted.slice(0, 6) : sorted;
+
+    const entries: BlameEntry[] = [];
+    for (let i = 0; i < clamped.length - 1; i++) {
+      const start = clamped[i];
+      const end = Math.max(start, clamped[i + 1] - 1);
+      const h = hashString(`${f.id}:${i}`);
+      const bucket = BLAME_AGE_BUCKETS[h % BLAME_AGE_BUCKETS.length];
+      const jitter = (h >>> 3) % BLAME_DAY;
+      entries.push({
+        startLine: start,
+        endLine: end,
+        committedAt: now - bucket - jitter,
+        author: BLAME_AUTHORS[(h >>> 5) % BLAME_AUTHORS.length],
+        commitSha: (h >>> 0).toString(16).padStart(8, "0"),
+        message: BLAME_MESSAGES[(h >>> 7) % BLAME_MESSAGES.length],
+      });
+    }
+    if (entries.length === 0) continue;
+    out[f.id] = { fileId: f.id, entries, lineCount: f.loc };
+  }
+  return out;
+}
+
+// ── Effect synthesis (Stage 7: per-file side-effect badges) ───────────
+// Deterministic mapping from file id → EffectKind[]. Real analyzer would
+// walk the AST and observe side-effectful calls; the mock picks plausible
+// sets per package so the UI has a varied demo.
+//
+// Rules:
+//   - canvas-worker/*   → io + net  (it's the data tier + worker-bridge)
+//   - canvas-engine/graph/* → pure   (pure data transforms)
+//   - canvas-pixi/*      → io (GPU writes count as I/O)
+//   - workspace-canvas/store/* → env + io (store = stateful)
+//   - workspace-canvas/hooks/* → io
+//   - UI components → pure-ish, no chips
+//
+// A deterministic hash on (fileId) decides whether to sprinkle db/crypto
+// onto adapter-ish files so the chip palette is visibly varied.
+
+function inferEffectsForId(id: string): EffectKind[] {
+  const out: EffectKind[] = [];
+  const push = (k: EffectKind): void => {
+    if (!out.includes(k)) out.push(k);
+  };
+
+  if (id.startsWith("canvas-worker/")) {
+    push("io");
+    push("net");
+  } else if (id.startsWith("canvas-engine/graph/")) {
+    push("pure");
+  } else if (id.startsWith("canvas-pixi/")) {
+    push("io");
+  } else if (id.includes("/store/")) {
+    push("env");
+    push("io");
+  } else if (id.includes("/hooks/")) {
+    push("io");
+  }
+
+  // Variety layer: prime-strided hash so two dev-reloads produce the same
+  // extras (fnv1a already elsewhere — reuse the same approach).
+  const h = hashString(id);
+  if ((h & 0b111) === 0) push("db");       // ~12.5% of files
+  if (((h >>> 3) & 0b1111) === 0) push("crypto"); // ~6%
+  if (((h >>> 7) & 0b11111) === 0) push("random"); // ~3%
+  if (((h >>> 11) & 0b11111) === 0) push("time");  // ~3%
+  if (((h >>> 13) & 0b111111) === 0) push("fs");   // ~1.5%
+
+  return out;
+}
+
+function synthesizeEffects(files: readonly FileNode[]): Record<string, FileEffects> {
+  const out: Record<string, FileEffects> = {};
+  for (const f of files) {
+    const effects = inferEffectsForId(f.id);
+    if (effects.length === 0) continue;
+    const total = f.functions.length;
+    const pure = effects.length === 1 && effects[0] === "pure" ? total : 0;
+    out[f.id] = {
+      fileId: f.id,
+      effects,
+      totalFunctions: total,
+      pureFunctions: pure,
+    };
+  }
+  return out;
+}
+
+// ── Latency synthesis (Stage 7: p50/p95/p99 per file) ─────────────────
+// Most files read ~5ms p95 (fast). A handful of "hot" files (highest risk
+// score) get >200ms, chosen deterministically so the demo top-N list is
+// stable across reloads.
+
+function synthesizeLatency(files: readonly FileNode[]): Record<string, FileLatency> {
+  if (files.length === 0) return {};
+  const out: Record<string, FileLatency> = {};
+  // Deterministic index picks: the top-5 risk files become the hot set,
+  // each spaced across the ramp so a reader sees a smooth "5ms → 800ms"
+  // gradient in the HUD list.
+  const ranked = [...files].sort((a, b) => b.riskScore - a.riskScore);
+  const hotTargets = [800, 450, 260, 180, 120];
+  const hotIds = new Set<string>();
+  for (let i = 0; i < Math.min(hotTargets.length, ranked.length); i++) {
+    hotIds.add(ranked[i].id);
+  }
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    const h = hashString(f.id);
+    const hotIdx = ranked.findIndex(r => r.id === f.id);
+    let p95: number;
+    if (hotIds.has(f.id) && hotIdx >= 0 && hotIdx < hotTargets.length) {
+      p95 = hotTargets[hotIdx];
+    } else {
+      // 3..12ms baseline with tiny hash-driven jitter.
+      p95 = 3 + ((h >>> 2) % 10);
+    }
+    const p50 = Math.max(1, Math.floor(p95 * 0.45));
+    const p99 = Math.floor(p95 * 1.35);
+    const callCount = 10 + ((h >>> 5) % 240);
+    out[f.id] = { fileId: f.id, p50, p95, p99, callCount };
+  }
+  return out;
+}
+
 // ── Build ─────────────────────────────────────────────────────────────
 
 function build(): { graph: WorkspaceGraph; sources: Record<string, string> } {
@@ -539,11 +709,411 @@ function build(): { graph: WorkspaceGraph; sources: Record<string, string> } {
   const fileEdges: FileEdge[] = [...imports, ...synthetic];
   const proofs = synthesizeProofs(fileEdges, files.map(f => f.id));
   const history = synthesizeHistory(fileEdges);
+  const blame = synthesizeBlame(files, Date.UTC(2026, 3, 17));
+  const effects = synthesizeEffects(files);
+  const latency = synthesizeLatency(files);
 
-  return { graph: { files, fileEdges, comments: [], proofs, history }, sources };
+  return { graph: { files, fileEdges, comments: [], proofs, history, blame, effects, latency }, sources };
 }
 
-const { graph, sources } = build();
+const { graph: mainGraph, sources: mainSources } = build();
 
-export const SAMPLE_GRAPH: WorkspaceGraph = graph;
-export const SAMPLE_SOURCES: Record<string, string> = sources;
+// ── Auth-service mock graph (Stage 6: multi-graph join) ───────────────
+// A small microservice alongside the main graph. Joined via 2-3 api-call
+// edges from the highest-risk main files into the service's public
+// entry points so the "cross-service reference" demo has a visible path.
+
+interface AuthFileSpec {
+  id: string;
+  layer: ArchLayer;
+  loc: number;
+  riskScore: number;
+  functions: Array<{ name: string; startLine: number; signalCount?: number; complexity?: number }>;
+}
+
+const AUTH_FILES: AuthFileSpec[] = [
+  { id: "auth-service/src/routes/login.ts", layer: "ui", loc: 120, riskScore: 0.55,
+    functions: [{ name: "loginHandler", startLine: 15, complexity: 6 }, { name: "validateBody", startLine: 58, complexity: 3 }] },
+  { id: "auth-service/src/routes/refresh.ts", layer: "ui", loc: 90, riskScore: 0.48,
+    functions: [{ name: "refreshHandler", startLine: 10, complexity: 4 }] },
+  { id: "auth-service/src/routes/session.ts", layer: "ui", loc: 110, riskScore: 0.52,
+    functions: [{ name: "sessionInfo", startLine: 12, complexity: 3 }, { name: "revokeSession", startLine: 60, complexity: 4 }] },
+  { id: "auth-service/src/domain/tokens.ts", layer: "domain", loc: 180, riskScore: 0.7,
+    functions: [{ name: "signToken", startLine: 20, complexity: 5 }, { name: "verifyToken", startLine: 80, complexity: 7 }] },
+  { id: "auth-service/src/domain/password.ts", layer: "domain", loc: 140, riskScore: 0.66,
+    functions: [{ name: "hashPassword", startLine: 14, complexity: 4 }, { name: "comparePassword", startLine: 55, complexity: 5 }] },
+  { id: "auth-service/src/domain/policy.ts", layer: "domain", loc: 95, riskScore: 0.4,
+    functions: [{ name: "checkPolicy", startLine: 18, complexity: 6 }] },
+  { id: "auth-service/src/adapters/user-repo.ts", layer: "adapter", loc: 160, riskScore: 0.58,
+    functions: [{ name: "findByEmail", startLine: 22, complexity: 4 }, { name: "createUser", startLine: 80, complexity: 5 }] },
+  { id: "auth-service/src/adapters/redis-store.ts", layer: "adapter", loc: 130, riskScore: 0.45,
+    functions: [{ name: "put", startLine: 18, complexity: 3 }, { name: "get", startLine: 50, complexity: 3 }] },
+  { id: "auth-service/src/infra/crypto.ts", layer: "infra", loc: 75, riskScore: 0.35,
+    functions: [{ name: "randomBytes", startLine: 8, complexity: 2 }] },
+  { id: "auth-service/src/infra/logger.ts", layer: "infra", loc: 60, riskScore: 0.2,
+    functions: [{ name: "log", startLine: 10, complexity: 2 }] },
+];
+
+function buildAuthGraph(): WorkspaceGraph {
+  const files: FileNode[] = AUTH_FILES.map(spec => {
+    const fnBlocks: FunctionBlock[] = spec.functions.map(fn => ({
+      name: fn.name,
+      startLine: fn.startLine,
+      endLine: Math.min(spec.loc, fn.startLine + 24),
+      signalCount: fn.signalCount ?? 0,
+      complexity: fn.complexity ?? 2,
+    }));
+    return {
+      id: spec.id,
+      name: spec.id.split("/").pop() ?? spec.id,
+      layer: spec.layer,
+      riskScore: spec.riskScore,
+      loc: spec.loc,
+      signals: { taintCount: 0, blastCritical: 0, deadCount: 0, archViolations: 0, cpxMax: 1 },
+      functions: fnBlocks,
+    };
+  });
+
+  const edges: FileEdge[] = [];
+  const addEdge = (from: string, to: string, kind: EdgeKind, extras: Partial<FileEdge> = {}): void => {
+    edges.push({
+      id: `e:auth:${kind}:${from}→${to}`,
+      from, to, kind,
+      layer: deriveEdgeLayer(kind),
+      weight: extras.weight ?? 1,
+      confidence: extras.confidence,
+      severity: extras.severity,
+      animated: extras.animated,
+    });
+  };
+
+  addEdge("auth-service/src/routes/login.ts",   "auth-service/src/domain/password.ts", "call", { weight: 1.1, confidence: 0.9 });
+  addEdge("auth-service/src/routes/login.ts",   "auth-service/src/domain/tokens.ts",   "call", { weight: 1.1, confidence: 0.9 });
+  addEdge("auth-service/src/routes/login.ts",   "auth-service/src/adapters/user-repo.ts", "call", { weight: 1.0, confidence: 0.85 });
+  addEdge("auth-service/src/routes/refresh.ts", "auth-service/src/domain/tokens.ts",   "call", { weight: 1.0, confidence: 0.9 });
+  addEdge("auth-service/src/routes/refresh.ts", "auth-service/src/adapters/redis-store.ts", "call", { weight: 0.9, confidence: 0.8 });
+  addEdge("auth-service/src/routes/session.ts", "auth-service/src/domain/policy.ts",   "call", { weight: 1.0, confidence: 0.85 });
+  addEdge("auth-service/src/routes/session.ts", "auth-service/src/adapters/redis-store.ts", "call", { weight: 0.9, confidence: 0.85 });
+  addEdge("auth-service/src/domain/tokens.ts",  "auth-service/src/infra/crypto.ts",    "call", { weight: 0.8, confidence: 0.9 });
+  addEdge("auth-service/src/domain/password.ts","auth-service/src/infra/crypto.ts",    "call", { weight: 0.8, confidence: 0.9 });
+  addEdge("auth-service/src/adapters/user-repo.ts", "auth-service/src/infra/logger.ts", "reference", { weight: 0.5, confidence: 0.7 });
+  addEdge("auth-service/src/domain/tokens.ts",  "auth-service/src/domain/password.ts", "dataflow", { weight: 0.8, confidence: 0.75, animated: true });
+  addEdge("auth-service/src/routes/login.ts",   "auth-service/src/domain/tokens.ts",   "taint-propagation", {
+    weight: 1.2, severity: "high", confidence: 0.8, animated: true,
+  });
+
+  return { files, fileEdges: edges, comments: [] };
+}
+
+const AUTH_GRAPH: WorkspaceGraph = buildAuthGraph();
+
+const MAIN_GRAPH_ID = "main";
+const AUTH_GRAPH_ID = "auth";
+
+function buildJoinEdges(): JoinEdge[] {
+  const riskRanked = [...mainGraph.files].sort((a, b) => b.riskScore - a.riskScore);
+  const topMainFiles = riskRanked.slice(0, 3).map(f => f.id);
+  const entries = [
+    "auth-service/src/routes/login.ts",
+    "auth-service/src/routes/session.ts",
+    "auth-service/src/routes/refresh.ts",
+  ];
+  const joins: JoinEdge[] = [];
+  for (let i = 0; i < Math.min(3, topMainFiles.length); i++) {
+    joins.push({
+      fromGraphId: MAIN_GRAPH_ID,
+      fromFileId: topMainFiles[i],
+      toGraphId: AUTH_GRAPH_ID,
+      toFileId: entries[i % entries.length],
+      kind: "api-call",
+      severity: i === 0 ? "high" : "medium",
+      confidence: 0.8,
+      weight: 1.1,
+    });
+  }
+  return joins;
+}
+
+const NAMED_MAIN: NamedGraph = {
+  graphId: MAIN_GRAPH_ID,
+  label: "main",
+  color: 0x3b82f6,
+  graph: mainGraph,
+};
+const NAMED_AUTH: NamedGraph = {
+  graphId: AUTH_GRAPH_ID,
+  label: "auth",
+  color: 0xf59e0b,
+  graph: AUTH_GRAPH,
+};
+
+const JOIN_EDGES: JoinEdge[] = buildJoinEdges();
+
+const JOINED = joinGraphs([NAMED_MAIN, NAMED_AUTH], JOIN_EDGES);
+
+// Carry across the main graph's history + blame so Stage 5 features keep
+// working. The joined main files are prefixed `main::`, so we rewrite the
+// keys of each ancillary record to the prefixed ids.
+const MAIN_PREFIX = `${MAIN_GRAPH_ID}::`;
+const prefixedBlame: Record<string, FileBlame> = {};
+if (mainGraph.blame) {
+  for (const [id, entry] of Object.entries(mainGraph.blame)) {
+    prefixedBlame[`${MAIN_PREFIX}${id}`] = { ...entry, fileId: `${MAIN_PREFIX}${entry.fileId}` };
+  }
+}
+
+const prefixedHistory: GraphHistory | undefined = mainGraph.history
+  ? {
+      baseIndex: mainGraph.history.baseIndex,
+      snapshots: mainGraph.history.snapshots.map(snap => ({
+        ...snap,
+        edgeIds: snap.edgeIds?.map(id => `${MAIN_PREFIX}${id}`),
+        added: snap.added?.map(id => `${MAIN_PREFIX}${id}`),
+        removed: snap.removed?.map(id => `${MAIN_PREFIX}${id}`),
+      })),
+    }
+  : undefined;
+
+const prefixedSources: Record<string, string> = {};
+for (const [id, src] of Object.entries(mainSources)) {
+  prefixedSources[`${MAIN_PREFIX}${id}`] = src;
+}
+
+// Effect + latency records follow the same prefix rule as blame: joined
+// files live under `main::`, so the lookup tables have to match or the
+// EffectBadgeRenderer / latency tint would silently miss every file.
+const prefixedEffects: Record<string, FileEffects> = {};
+if (mainGraph.effects) {
+  for (const [id, entry] of Object.entries(mainGraph.effects)) {
+    prefixedEffects[`${MAIN_PREFIX}${id}`] = { ...entry, fileId: `${MAIN_PREFIX}${entry.fileId}` };
+  }
+}
+const prefixedLatency: Record<string, FileLatency> = {};
+if (mainGraph.latency) {
+  for (const [id, entry] of Object.entries(mainGraph.latency)) {
+    prefixedLatency[`${MAIN_PREFIX}${id}`] = { ...entry, fileId: `${MAIN_PREFIX}${entry.fileId}` };
+  }
+}
+
+// ── Trace pack synthesis (Stage 7: runtime trace overlay) ────────────
+// Mock 2-3 captured "call paths" that resemble production traces. Files are
+// chosen by deterministic heuristics over the joined graph so the picks
+// survive graph shape changes without editing constants here. Durations
+// follow plausible distributions (5..120ms per span) — the renderer scales
+// width by log(totalDurationMs + 1) so the absolute numbers don't need to
+// be precise, only internally consistent.
+
+interface TraceScaffold {
+  id: string;
+  label: string;
+  capturedOffsetMs: number;
+  /** Ordered file ids forming the call chain. First = root span, last = leaf. */
+  chain: string[];
+  /** Base duration per depth step, ms. Each edge adds its own. */
+  baseStep: number;
+}
+
+function pickByLayerAndPrefix(
+  files: readonly FileNode[],
+  layer: ArchLayer,
+  prefixFilter: (id: string) => boolean,
+  stride: number,
+): string | null {
+  const matching = files.filter(f => f.layer === layer && prefixFilter(f.id));
+  if (matching.length === 0) return null;
+  return matching[stride % matching.length].id;
+}
+
+function buildLoginTrace(graph: WorkspaceGraph): Trace | null {
+  const files = graph.files;
+  const available = new Set(files.map(f => f.id));
+  // UI → store → adapter → domain → infra — auth service has an explicit
+  // login chain we can wire end-to-end. Fall through to a synthesized
+  // chain if the auth files are absent (e.g. single-graph mode).
+  const chain = [
+    "auth::auth-service/src/routes/login.ts",
+    "auth::auth-service/src/domain/password.ts",
+    "auth::auth-service/src/adapters/user-repo.ts",
+    "auth::auth-service/src/domain/tokens.ts",
+    "auth::auth-service/src/infra/crypto.ts",
+  ].filter(id => available.has(id));
+  if (chain.length < 3) return null;
+
+  const scaffold: TraceScaffold = {
+    id: "login-flow",
+    label: "login flow",
+    capturedOffsetMs: 0,
+    chain,
+    baseStep: 8,
+  };
+  return synthesizeTrace(scaffold, files);
+}
+
+function buildCheckoutTrace(graph: WorkspaceGraph): Trace | null {
+  const files = graph.files;
+  const available = new Set(files.map(f => f.id));
+  const chain = [
+    "auth::auth-service/src/routes/session.ts",
+    "auth::auth-service/src/domain/policy.ts",
+    "auth::auth-service/src/adapters/redis-store.ts",
+    "auth::auth-service/src/infra/logger.ts",
+  ].filter(id => available.has(id));
+  if (chain.length < 3) return null;
+
+  const scaffold: TraceScaffold = {
+    id: "checkout",
+    label: "checkout /api/orders",
+    capturedOffsetMs: 0,
+    chain,
+    baseStep: 14,
+  };
+  return synthesizeTrace(scaffold, files);
+}
+
+function buildColdStartTrace(graph: WorkspaceGraph): Trace | null {
+  // Top-3 startHere-ranked files on the main graph. startHere isn't populated
+  // on the synthesized graph yet (layout-time computation), so we approximate
+  // by taking the three highest-risk domain/adapter/ui files from the main
+  // graph — the same signal startHere weights heaviest.
+  const mainFiles = graph.files.filter(f => f.graphId === MAIN_GRAPH_ID || !f.graphId);
+  if (mainFiles.length < 3) return null;
+  const pickUi     = pickByLayerAndPrefix(mainFiles, "ui",     () => true, 0);
+  const pickAdapt  = pickByLayerAndPrefix(mainFiles, "adapter", () => true, 0);
+  const pickDom    = pickByLayerAndPrefix(mainFiles, "domain",  () => true, 0);
+  const pickInfra  = pickByLayerAndPrefix(mainFiles, "infra",   () => true, 0);
+  const chain = [pickUi, pickAdapt, pickDom, pickInfra]
+    .filter((x): x is string => !!x);
+  if (chain.length < 3) return null;
+
+  const scaffold: TraceScaffold = {
+    id: "cold-start",
+    label: "cold start",
+    capturedOffsetMs: 0,
+    chain,
+    baseStep: 22,
+  };
+  return synthesizeTrace(scaffold, graph.files);
+}
+
+/**
+ * Turn a scaffold chain into a concrete Trace. Each chain entry becomes a
+ * span at incrementing depth; each consecutive pair becomes an edge. A few
+ * helper spans are inserted to make the flame-map look realistic (e.g. the
+ * root span is called twice so the "×2" badge appears on at least one edge).
+ */
+function synthesizeTrace(scaffold: TraceScaffold, files: readonly FileNode[]): Trace {
+  const byId = new Map(files.map(f => [f.id, f]));
+  const spans: TraceSpan[] = [];
+  const edgeAcc = new Map<string, TraceEdge>();
+
+  let cursor = scaffold.capturedOffsetMs;
+  const step = scaffold.baseStep;
+
+  // Primary walk — one span per chain entry, increasing depth.
+  for (let i = 0; i < scaffold.chain.length; i++) {
+    const fileId = scaffold.chain[i];
+    const f = byId.get(fileId);
+    const symbol = f?.functions[0]?.name;
+    const duration = step * (i === 0 ? scaffold.chain.length : scaffold.chain.length - i);
+    spans.push({
+      fileId,
+      symbol,
+      startMs: cursor,
+      durationMs: duration,
+      selfMs: i === scaffold.chain.length - 1 ? duration : step,
+      depth: i,
+    });
+    cursor += step;
+
+    if (i > 0) {
+      const from = scaffold.chain[i - 1];
+      const to = fileId;
+      const fromFn = byId.get(from)?.functions[0]?.name;
+      const key = `${from}→${to}`;
+      const prev = edgeAcc.get(key);
+      if (prev) {
+        edgeAcc.set(key, {
+          ...prev,
+          callCount: prev.callCount + 1,
+          totalDurationMs: prev.totalDurationMs + duration,
+        });
+      } else {
+        edgeAcc.set(key, {
+          from, to,
+          fromSymbol: fromFn,
+          toSymbol: symbol,
+          callCount: 1,
+          totalDurationMs: duration,
+        });
+      }
+    }
+  }
+
+  // Add a second invocation of the root→first-child edge so at least one
+  // "×2" badge appears in the HUD + renderer. Represents e.g. a retry.
+  if (scaffold.chain.length >= 2) {
+    const from = scaffold.chain[0];
+    const to = scaffold.chain[1];
+    const retrySymbol = byId.get(to)?.functions[0]?.name;
+    const retryDur = Math.round(step * 0.6);
+    spans.push({
+      fileId: to,
+      symbol: retrySymbol,
+      startMs: cursor,
+      durationMs: retryDur,
+      selfMs: retryDur,
+      depth: 1,
+    });
+    cursor += retryDur;
+    const key = `${from}→${to}`;
+    const prev = edgeAcc.get(key);
+    if (prev) {
+      edgeAcc.set(key, {
+        ...prev,
+        callCount: prev.callCount + 1,
+        totalDurationMs: prev.totalDurationMs + retryDur,
+      });
+    }
+  }
+
+  const edges: TraceEdge[] = [...edgeAcc.values()];
+  const totalMs = spans.reduce((a, s) => Math.max(a, s.startMs + s.durationMs), 0);
+
+  return {
+    id: scaffold.id,
+    label: scaffold.label,
+    capturedAt: Date.UTC(2026, 3, 17, 12, 30),
+    totalMs,
+    spans,
+    edges,
+  };
+}
+
+function synthesizeTracePack(graph: WorkspaceGraph): TracePack | undefined {
+  const out: Trace[] = [];
+  const login = buildLoginTrace(graph);
+  if (login) out.push(login);
+  const cold = buildColdStartTrace(graph);
+  if (cold) out.push(cold);
+  const checkout = buildCheckoutTrace(graph);
+  if (checkout) out.push(checkout);
+  if (out.length === 0) return undefined;
+  return { traces: out };
+}
+
+const TRACE_PACK = synthesizeTracePack({
+  ...JOINED,
+});
+
+export const SAMPLE_GRAPH: WorkspaceGraph = {
+  ...JOINED,
+  blame: Object.keys(prefixedBlame).length > 0 ? prefixedBlame : undefined,
+  history: prefixedHistory,
+  traces: TRACE_PACK,
+  effects: Object.keys(prefixedEffects).length > 0 ? prefixedEffects : undefined,
+  latency: Object.keys(prefixedLatency).length > 0 ? prefixedLatency : undefined,
+};
+export const SAMPLE_SOURCES: Record<string, string> = prefixedSources;
+export const SAMPLE_NAMED_GRAPHS: readonly NamedGraph[] = [NAMED_MAIN, NAMED_AUTH];
+export const SAMPLE_JOIN_EDGES: readonly JoinEdge[] = JOIN_EDGES;
+export default SAMPLE_GRAPH;

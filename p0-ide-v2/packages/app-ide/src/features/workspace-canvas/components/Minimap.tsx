@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useRef } from "react";
 import type { WorkspaceLayout, Viewport } from "@quanta/canvas-engine";
 import { useWorkspaceCanvas } from "../store/workspace-canvas-store";
 import { useSceneStore } from "../store/scene-store";
-import { settingsStore, useSettingsStore } from "../store/settings-store";
+import { uxSettingsStore, useUxSettings } from "../store/ux-settings-store";
 import { computeRiskHeatmap, type HeatCell } from "../lib/heatmap";
 
 interface Props {
@@ -166,7 +166,7 @@ export function Minimap({ layout, viewport }: Props) {
   // and cluster-level rendering without prop-drilling from MultiFileCanvas.
   const lod = useWorkspaceCanvas(s => s.lod);
   const graph = useSceneStore(s => s.graph);
-  const showHeatmap = useSettingsStore(s => s.showHeatmap);
+  const showHeatmap = useUxSettings(s => s.showHeatmap);
 
   // Grid resolution scales with minimap pixel size — roughly 1 cell per
   // ~8px so the heatmap reads as a density field, not a pixelated block.
@@ -220,7 +220,7 @@ export function Minimap({ layout, viewport }: Props) {
       <button
         type="button"
         className={`ws-minimap__chip${showHeatmap ? " is-on" : ""}`}
-        onClick={() => settingsStore.setShowHeatmap(!showHeatmap)}
+        onClick={() => uxSettingsStore.setShowHeatmap(!showHeatmap)}
         title="toggle risk heatmap"
       >
         heat

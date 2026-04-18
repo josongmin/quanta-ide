@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Download, AlertTriangle } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 export function DangerZonePage() {
   const [text, setText] = useState("");
@@ -7,11 +8,11 @@ export function DangerZonePage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Profile</span>
-        <h1 className="demo-app__hero-title">Danger zone</h1>
-        <p className="demo-app__hero-sub">These actions are permanent. Be sure.</p>
-      </header>
+      <DemoAppHero
+        kicker="Profile"
+        title="Danger zone"
+        sub="These actions are permanent. Be sure."
+      />
       <div className="demo-app__body">
         <div className="demo-block">
           <header className="demo-block__head">

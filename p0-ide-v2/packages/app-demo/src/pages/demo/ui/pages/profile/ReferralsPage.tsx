@@ -1,5 +1,6 @@
 import { Copy, Mail, Share2, AtSign, Gift, Link2 } from "lucide-react";
 import { useDemoNav } from "../../DemoPage";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 interface Activity {
   initials: string;
@@ -29,13 +30,11 @@ export function ReferralsPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Profile</span>
-        <h1 className="demo-app__hero-title">Referrals &amp; credits</h1>
-        <p className="demo-app__hero-sub">
-          Invite your network. Earn Quanta credits applied to your next invoice.
-        </p>
-      </header>
+      <DemoAppHero
+        kicker="Profile"
+        title="Referrals & credits"
+        sub="Invite your network. Earn Quanta credits applied to your next invoice."
+      />
       <div className="demo-app__body">
 
         <div className="demo-block">

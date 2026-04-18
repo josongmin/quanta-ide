@@ -41,6 +41,14 @@ import {
   Gift,
   Building,
   BellOff,
+  Play,
+  Keyboard,
+  Map,
+  Timer,
+  ShieldAlert,
+  Archive,
+  Handshake,
+  FileDigit,
 } from "lucide-react";
 
 import { CatalogPage }             from "../pages/CatalogPage";
@@ -87,6 +95,15 @@ import { ServerErrorPage }         from "../pages/states/ServerErrorPage";
 import { SessionExpiredPage }      from "../pages/states/SessionExpiredPage";
 import { EmptyDashboardPage }      from "../pages/states/EmptyDashboardPage";
 import { ChangelogPage }           from "../pages/updates/ChangelogPage";
+import { RoadmapPage }             from "../pages/updates/RoadmapPage";
+import { TrialBannerPage }         from "../pages/states/TrialBannerPage";
+import { InvoiceDetailPage }       from "../pages/billing/InvoiceDetailPage";
+import { WebhookCatalogPage }      from "../pages/developers/WebhookCatalogPage";
+import { ApiExplorerPage }         from "../pages/developers/ApiExplorerPage";
+import { KeyboardShortcutsPage }   from "../pages/developers/KeyboardShortcutsPage";
+import { ContactSalesPage }        from "../pages/legal/ContactSalesPage";
+import { SecurityDisclosurePage }  from "../pages/security/SecurityDisclosurePage";
+import { DataRetentionPage }       from "../pages/security/DataRetentionPage";
 
 import { iconOf } from "./icon";
 import type { CategoryId, DemoChrome, DemoPageMeta } from "./types";
@@ -125,6 +142,7 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("billing.invoices",   "billing",       "Invoices",            "Invoice history with PDF downloads.",                 Receipt,     "app",  InvoicesPage),
   meta("billing.upgrade",    "billing",       "Upgrade CTA",         "Mid-app paywall prompt modal.",                       Sparkles,    "app",  UpgradePage),
   meta("billing.alerts",     "billing",       "Usage alerts",        "Budget caps and overage alert thresholds.",           BellOff,     "app",  UsageAlertsPage),
+  meta("billing.invoice",    "billing",       "Invoice detail",      "Document-style drill-down for a single paid invoice.", FileDigit,  "app",  InvoiceDetailPage),
 
   meta("team.members",       "team",          "Members",             "List of team members with roles and status.",         Users,       "app",  MembersPage),
   meta("team.invites",       "team",          "Invitations",         "Pending invites with resend / revoke.",               UserPlus,    "app",  InvitesPage),
@@ -144,21 +162,30 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("integrations.marketplace","integrations", "Marketplace",     "Connect GitHub, Slack, Jira, CI providers, and more.", Boxes,      "app",  MarketplacePage),
   meta("integrations.connected","integrations", "Connected apps",    "OAuth applications authorized to access the workspace.", Plug,    "app",  ConnectedAppsPage),
 
+  meta("developers.webhooks","developers",   "Webhook event catalog","Every event we emit with sample payloads and copy-curl.", Webhook,   "app",  WebhookCatalogPage),
+  meta("developers.api",     "developers",   "API explorer",        "Stripe-style three-pane interactive API reference.",   Play,        "app",  ApiExplorerPage),
+  meta("developers.shortcuts","developers",  "Keyboard shortcuts",  "Full cheatsheet with macOS/Windows toggle and search.", Keyboard,   "app",  KeyboardShortcutsPage),
+
   meta("security.sessions",  "security",      "Active sessions",     "Devices currently signed in to your account.",        Laptop,      "app",  ActiveSessionsPage),
   meta("security.ip",        "security",      "IP allowlist",        "Restrict workspace access to known network ranges.",  Network,     "app",  IpAllowlistPage),
   meta("security.export",    "security",      "Data export",         "Machine-readable workspace archive (GDPR).",          Download,    "app",  DataExportPage),
+  meta("security.retention", "security",      "Data retention",      "Per-category retention schedules with segmented controls.", Archive, "app",  DataRetentionPage),
+  meta("security.disclosure","security",      "Responsible disclosure","Bounty tiers, scope, process, and hall of fame.",    ShieldAlert, "app",  SecurityDisclosurePage),
 
   meta("states.404",         "states",        "404 Not Found",       "Page-not-found full-screen template.",                 SearchX,     "full", NotFoundPage),
   meta("states.500",         "states",        "500 Server Error",    "Server error full-screen with incident ID.",          ServerCrash, "full", ServerErrorPage),
   meta("states.expired",     "states",        "Session expired",     "Re-authentication prompt after timeout.",             Clock,       "full", SessionExpiredPage),
   meta("states.empty",       "states",        "Empty dashboard",     "First-run empty state with setup checklist.",         LayoutDashboard, "app", EmptyDashboardPage),
+  meta("states.trial-banner","states",        "Trial banner variants","Healthy / warn / expired banner in a mock app chrome.", Timer,     "app",  TrialBannerPage),
 
   meta("updates.changelog",  "updates",       "Changelog",           "Release notes feed with entry tags.",                 Radio,       "app",  ChangelogPage),
+  meta("updates.roadmap",    "updates",       "Public roadmap",      "Kanban of upcoming work with upvotes and comments.",  Map,         "app",  RoadmapPage),
 
   meta("legal.terms",        "legal",         "Terms of Service",    "Long-form terms document.",                           FileText,    "app",  TermsPage),
   meta("legal.privacy",      "legal",         "Privacy Policy",      "Data handling and retention policy.",                 Lock,        "app",  PrivacyPage),
   meta("legal.status",       "legal",         "Status page",         "Uptime + incident timeline by component.",            Activity,    "app",  StatusPage),
   meta("legal.help",         "legal",         "Help & support",      "Knowledge base home + contact options.",              LifeBuoy,    "app",  HelpPage),
+  meta("legal.contact",      "legal",         "Contact sales",       "Enterprise inquiry form with testimonial + trust rail.", Handshake, "app",  ContactSalesPage),
 
   meta("admin.usage",        "admin",         "Usage dashboard",     "Tokens, analysis minutes, seats — by week.",          Gauge,       "app",  UsagePage),
   meta("admin.engine-api",   "admin",         "Engine API traffic",  "External engine calls (MCP, CLI, REST, IDE, CI) with p50/p95/error rates.", Bolt, "app", EngineApiPage),

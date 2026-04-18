@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, Upload, Check, Globe } from "lucide-react";
+import { DemoAppHero } from "../../internal/DemoAppHero";
 
 export function OrgSettingsPage() {
   const [confirm, setConfirm] = useState("");
@@ -7,13 +8,11 @@ export function OrgSettingsPage() {
 
   return (
     <div className="demo-app">
-      <header className="demo-app__hero">
-        <span className="demo-app__hero-kicker">Admin</span>
-        <h1 className="demo-app__hero-title">Organization settings</h1>
-        <p className="demo-app__hero-sub">
-          Workspace identity, discoverability, and defaults that apply to everyone in the org.
-        </p>
-      </header>
+      <DemoAppHero
+        kicker="Admin"
+        title="Organization settings"
+        sub="Workspace identity, discoverability, and defaults that apply to everyone in the org."
+      />
       <div className="demo-app__body">
 
         <div className="demo-block">

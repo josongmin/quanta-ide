@@ -7,7 +7,7 @@ import {
   GRID_GAP_H,
   GRID_COLS,
 } from "./types";
-import { computeWorkspaceMetrics } from "../graph/metrics";
+import { enrichLayout } from "./enrich-layout";
 
 export function gridLayout(graph: WorkspaceGraph): WorkspaceLayout {
   const fileRects = new Map<string, { x: number; y: number; w: number; h: number }>();
@@ -79,7 +79,7 @@ export function gridLayout(graph: WorkspaceGraph): WorkspaceLayout {
   // Metrics are cheap enough at grid scale that we always compute them —
   // gridLayout is used for ≤TREEMAP_THRESHOLD files (≤100 by default),
   // so Brandes runs exactly in under a millisecond.
-  const metrics = computeWorkspaceMetrics(graph, { computeBetweenness: true });
+  const enriched = enrichLayout(graph);
 
-  return { fileRects, edgeRoutes, aggregates, totalBounds, metrics };
+  return { fileRects, edgeRoutes, aggregates, totalBounds, ...enriched };
 }

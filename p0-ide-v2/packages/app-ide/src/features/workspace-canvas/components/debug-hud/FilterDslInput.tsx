@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { compileEdgeFilter, getCompletions, type Completion } from "@quanta/canvas-engine";
-import { settingsStore, useSettingsStore } from "../../store/settings-store";
+import { renderSettingsStore, useRenderSettings } from "../../store/render-settings-store";
 
 function findPartialTokenStart(src: string, cursor: number): number {
   let i = cursor;
@@ -19,7 +19,7 @@ function needsTrailingSpace(c: Completion): boolean {
 }
 
 export function FilterDslInput() {
-  const query = useSettingsStore(s => s.edgeFilterQuery);
+  const query = useRenderSettings(s => s.edgeFilterQuery);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [cursor, setCursor] = useState(0);
@@ -50,7 +50,7 @@ export function FilterDslInput() {
     const insert = c.insertText + (needsTrailingSpace(c) ? " " : "");
     const next = before + insert + after;
     const nextCursor = (before + insert).length;
-    settingsStore.setEdgeFilterQuery(next);
+    renderSettingsStore.setEdgeFilterQuery(next);
     requestAnimationFrame(() => {
       const el = inputRef.current;
       if (!el) return;
@@ -88,7 +88,7 @@ export function FilterDslInput() {
   };
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    settingsStore.setEdgeFilterQuery(e.target.value);
+    renderSettingsStore.setEdgeFilterQuery(e.target.value);
     setCursor(e.target.selectionStart ?? e.target.value.length);
     setOpen(true);
     setActive(0);

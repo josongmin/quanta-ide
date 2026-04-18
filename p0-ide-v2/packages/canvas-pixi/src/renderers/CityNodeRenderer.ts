@@ -1,5 +1,6 @@
 import { BitmapText, Container, Graphics, FederatedPointerEvent } from "pixi.js";
-import type { FileNode, WorkspaceLayout, ViewState, Viewport } from "@quanta/canvas-engine";
+import type { FileNode, WorkspaceLayout, ViewState, Viewport, FileLatency, Rect } from "@quanta/canvas-engine";
+import { elevationFromRisk, latencyColor } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, CITY_MONO_FONT_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
@@ -36,6 +37,33 @@ const FN_H = 22;
 const FN_GAP = 2;
 const FN_PAD_X = 8;
 
+function mixToBlack(hex: number, k: number): number {
+  const t = 1 - k;
+  const r = ((hex >> 16) & 0xff) * t;
+  const g = ((hex >> 8) & 0xff) * t;
+  const b = (hex & 0xff) * t;
+  return ((r | 0) << 16) | ((g | 0) << 8) | (b | 0);
+}
+
+// Linear RGB mix — mirrors GLSL `mix(a, b, k)`. Used by the cost overlay to
+// tint risk-coloured card fills toward the latency colour.
+function mixHex(a: number, b: number, k: number): number {
+  const t = k < 0 ? 0 : k > 1 ? 1 : k;
+  const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+  const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+  const r = ar + (br - ar) * t;
+  const g = ag + (bg - ag) * t;
+  const bx = ab + (bb - ab) * t;
+  return ((r | 0) << 16) | ((g | 0) << 8) | (bx | 0);
+}
+
+// Cost-overlay tint factor: how far to drift the risk fill toward the
+// latency colour. 0.35 keeps the risk hue readable while the latency shift
+// is unmistakable — picked so a green "low risk" card with a red hot path
+// reads as warm-amber (you can tell something is wrong without losing the
+// risk baseline).
+const LATENCY_MIX_K = 0.35;
+
 // Below this screen scale, labels are sub-readable — skip them and keep the
 // cards as pure rects. Saves thousands of BitmapText updates per pan/zoom.
 const LABEL_MIN_SCREEN_SCALE = 0.25;
@@ -63,9 +91,31 @@ interface TextPool {
   lastFrameHigh: number;
 }
 
+interface InstanceStyle {
+  fillColor: number;
+  borderColor: number;
+  selBorder: number;
+  fillAlpha: number;
+  borderAlpha: number;
+  isSelected: boolean;
+}
+
+interface FrameCtx {
+  data: Float32Array;
+  ri: number;
+  invScale: number;
+  showLabels: boolean;
+  showFunctionLabels: boolean;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
 export class CityNodeRenderer {
   private container: Container;
   private rectMesh: InstancedRectMesh;           // card bgs + function blocks
+  private shadowLayer: Graphics;                 // elevation drop shadows (pre-mesh pass)
   private labelContainer: Container;             // holds BitmapText children
   private hitLayer: Graphics;
   private pickIndex: SpatialPickIndex;
@@ -94,6 +144,7 @@ export class CityNodeRenderer {
 
     this.container = new Container();
     this.rectMesh = new InstancedRectMesh(4096); // 5000 files × ~5 rects worst case
+    this.shadowLayer = new Graphics();
     this.labelContainer = new Container();
     this.hitLayer = new Graphics();
     this.pickIndex = new SpatialPickIndex();
@@ -101,7 +152,11 @@ export class CityNodeRenderer {
     this.onClickFile = opts?.onClick;
     this.onHoverFile = opts?.onHover;
 
-    // Z-order: rects → labels → hit layer.
+    // Z-order: shadows → rects → labels → hit layer. The shadow layer is
+    // a single Graphics the elevation pass paints offset rects into —
+    // ~one rect per elevated file, drawn *before* the instanced mesh so
+    // the card body visually sits atop its own shadow.
+    this.container.addChild(this.shadowLayer);
     this.container.addChild(this.rectMesh.mesh);
     this.container.addChild(this.labelContainer);
 
@@ -190,15 +245,21 @@ export class CityNodeRenderer {
     }
   }
 
-  update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState, viewport: Viewport): void {
+  update(
+    files: FileNode[],
+    layout: WorkspaceLayout,
+    viewState: ViewState,
+    viewport: Viewport,
+    elevationMode = false,
+    latency?: Record<string, FileLatency>,
+    showLatencyOverlay = false,
+  ): void {
     const invScale = Math.min(8, Math.max(0.5, 1 / viewport.scale));
     // viewport.scale is world-px → screen-px. At 1, 1 world-px = 1 screen-px.
     // We hide labels once each screen-px of a world-px is < LABEL_MIN…
     const showLabels = viewport.scale >= LABEL_MIN_SCREEN_SCALE;
     const showFunctionLabels = viewport.scale >= LABEL_MIN_SCREEN_SCALE * 1.5;
 
-    // Pre-count rects so we size the instance buffer once. Upper bound:
-    // per file = 1 card + 1 header stripe + up to N function blocks.
     let rectUpper = 0;
     for (const file of files) {
       if (!layout.fileRects.has(file.id)) continue;
@@ -207,172 +268,237 @@ export class CityNodeRenderer {
     this.rectMesh.ensureCapacity(rectUpper);
 
     const data = this.rectMesh.view();
-    // Reuse the scratch pickRects array — assign length 0, then push. This
-    // avoids allocating a new array per frame and lets RBush.load see a
-    // stable reference. Items themselves are cheap {x,y,w,h,id} literals.
     this.pickRects.length = 0;
     this.releaseAllText();
+    this.shadowLayer.clear();
 
-    // AABB for the single hit rect — see the note at the end of update().
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-
-    let ri = 0; // rect instance cursor
+    const frame: FrameCtx = {
+      data,
+      ri: 0,
+      invScale,
+      showLabels,
+      showFunctionLabels,
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity,
+    };
 
     for (const file of files) {
       const rect = layout.fileRects.get(file.id);
       if (!rect) continue;
 
-      const isSelected = viewState.selectedFileId === file.id;
-      const isHovered = viewState.hoveredFileId === file.id;
+      const instance = this.resolveInstance(file, viewState, latency, showLatencyOverlay);
+      const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
+      const card = this.computeCardRect(rect, elevation);
 
-      const fillColor = riskFill(file.riskScore);
-      const borderColor = riskBorder(file.riskScore);
-      const selBorder = isSelected ? SELECTION_ACCENT : borderColor;
-      const fillAlpha = isSelected ? 1.0 : isHovered ? 0.95 : 0.88;
-      const borderAlpha = isSelected ? 1.0 : 0.85;
-      const bw = isSelected ? invScale * 2 : invScale;
+      this.updateShadow(card, elevation);
+      this.updateCardShell(frame, card, instance, elevation);
+      this.updateHeader(frame, file, card, instance);
+      this.updateFunctionBlocks(frame, file, card);
+      this.updateFooter(frame, file, card);
 
-      // --- Card background (fill + rounded border) ---
-      {
-        const o = ri * FLOATS_PER_INSTANCE;
-        data[o] = rect.x;
-        data[o + 1] = rect.y;
-        data[o + 2] = rect.w;
-        data[o + 3] = rect.h;
-        unpackHexInto(fillColor, data, o + 4, fillAlpha);
-        unpackHexInto(selBorder, data, o + 8, borderAlpha);
-        data[o + 12] = bw;
-        data[o + 13] = 6;
-        ri++;
-      }
-
-      // --- Header stripe (flat bar at top, no border) ---
-      {
-        const headerH = 28 * invScale;
-        const o = ri * FLOATS_PER_INSTANCE;
-        data[o] = rect.x;
-        data[o + 1] = rect.y;
-        data[o + 2] = rect.w;
-        data[o + 3] = headerH;
-        unpackHexInto(borderColor, data, o + 4, 0.7);
-        // Zero-alpha border = no visible stroke, shader still runs AA rounding.
-        unpackHexInto(borderColor, data, o + 8, 0);
-        data[o + 12] = 0;
-        data[o + 13] = 6;
-        ri++;
-      }
-
-      // --- Function blocks (body rows) ---
-      const maxFns = Math.floor((rect.h - HEADER_H * invScale - 8 * invScale) / (FN_H * invScale + FN_GAP * invScale));
-      let fnY = rect.y + HEADER_H * invScale;
-      const fnX = rect.x + FN_PAD_X * invScale;
-      const fnW = rect.w - FN_PAD_X * 2 * invScale;
-      const fnH = FN_H * invScale;
-
-      const fnSlots = Math.min(file.functions.length, maxFns);
-      for (let k = 0; k < fnSlots; k++) {
-        if (fnY + fnH > rect.y + rect.h - 4) break;
-        const fn = file.functions[k];
-        const cpx = fn.complexity;
-        const fnFill = complexityFill(cpx);
-        const fnBorder = complexityBorder(cpx);
-
-        const o = ri * FLOATS_PER_INSTANCE;
-        data[o] = fnX;
-        data[o + 1] = fnY;
-        data[o + 2] = fnW;
-        data[o + 3] = fnH;
-        unpackHexInto(fnFill, data, o + 4, 0.8);
-        unpackHexInto(fnBorder, data, o + 8, 0.6);
-        data[o + 12] = 0.5; // thin hairline border, world units
-        data[o + 13] = 3 * invScale;
-        ri++;
-
-        if (showFunctionLabels) {
-          const fnLabel = this.acquireText(CITY_MONO_FONT_NAME);
-          fnLabel.text = fn.name.length > 22 ? fn.name.slice(0, 21) + "…" : fn.name;
-          fnLabel.style.fontSize = 9;
-          fnLabel.style.fill = 0x333333;
-          fnLabel.scale.set(invScale);
-          fnLabel.x = fnX + 6 * invScale;
-          fnLabel.y = fnY + 6 * invScale;
-
-          if (fn.signalCount > 0) {
-            const sigLabel = this.acquireText(CITY_FONT_BOLD_NAME);
-            sigLabel.text = String(fn.signalCount);
-            sigLabel.style.fontSize = 9;
-            sigLabel.style.fill = SIGNAL_ACCENT;
-            sigLabel.scale.set(invScale);
-            sigLabel.x = fnX + fnW - 16 * invScale;
-            sigLabel.y = fnY + 6 * invScale;
-          }
-        }
-
-        fnY += (FN_H + FN_GAP) * invScale;
-      }
-
-      // --- File-level labels (name, score, LOC, taint) ---
-      if (showLabels) {
-        const nameLabel = this.acquireText(CITY_FONT_NAME);
-        nameLabel.text = file.name.length > 20 ? "…" + file.name.slice(-18) : file.name;
-        nameLabel.style.fontSize = 11;
-        nameLabel.style.fill = 0x1a1a2e;
-        nameLabel.scale.set(invScale);
-        nameLabel.x = rect.x + 8 * invScale;
-        nameLabel.y = rect.y + 7 * invScale;
-
-        const scoreLabel = this.acquireText(CITY_FONT_BOLD_NAME);
-        scoreLabel.text = String(file.riskScore);
-        scoreLabel.style.fontSize = 10;
-        scoreLabel.style.fill = riskText(file.riskScore);
-        scoreLabel.scale.set(invScale);
-        // BitmapText.width is in world units after scale is applied.
-        scoreLabel.x = rect.x + rect.w - scoreLabel.width - 8 * invScale;
-        scoreLabel.y = rect.y + 8 * invScale;
-
-        const locLabel = this.acquireText(CITY_FONT_NAME);
-        locLabel.text = `${file.loc.toLocaleString()} lines`;
-        locLabel.style.fontSize = 9;
-        locLabel.style.fill = 0x888888;
-        locLabel.scale.set(invScale);
-        locLabel.x = rect.x + 8 * invScale;
-        locLabel.y = rect.y + rect.h - 18 * invScale;
-
-        if (file.signals.taintCount > 0) {
-          const taintLabel = this.acquireText(CITY_FONT_NAME);
-          taintLabel.text = `⚡ ${file.signals.taintCount}`;
-          taintLabel.style.fontSize = 9;
-          taintLabel.style.fill = SIGNAL_ACCENT;
-          taintLabel.scale.set(invScale);
-          taintLabel.x = rect.x + 8 * invScale;
-          taintLabel.y = rect.y + 34 * invScale;
-        }
-      }
-
-      // --- Hit region ---
-      // Collect the pick rect; actual Pixi hit geometry is one AABB at the
-      // end. Per-file hitLayer.rect() calls tessellate N Graphics quads and
-      // cost ~2 ms at N=5000 for no functional benefit.
-      this.pickRects.push({ x: rect.x, y: rect.y, w: rect.w, h: rect.h, id: file.id });
-      if (rect.x < minX) minX = rect.x;
-      if (rect.y < minY) minY = rect.y;
-      if (rect.x + rect.w > maxX) maxX = rect.x + rect.w;
-      if (rect.y + rect.h > maxY) maxY = rect.y + rect.h;
+      this.pickRects.push({ x: card.x, y: card.y, w: card.w, h: card.h, id: file.id });
+      if (card.x < frame.minX) frame.minX = card.x;
+      if (card.y < frame.minY) frame.minY = card.y;
+      if (card.x + card.w > frame.maxX) frame.maxX = card.x + card.w;
+      if (card.y + card.h > frame.maxY) frame.maxY = card.y + card.h;
     }
 
-    // Single invisible hit rect over the populated AABB. Pixi delivers
-    // pointermove anywhere in this box; SpatialPickIndex resolves the id.
     this.hitLayer.clear();
     if (this.pickRects.length > 0) {
-      this.hitLayer.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: 0x000000, alpha: 0.001 });
+      this.hitLayer
+        .rect(frame.minX, frame.minY, frame.maxX - frame.minX, frame.maxY - frame.minY)
+        .fill({ color: 0x000000, alpha: 0.001 });
     }
 
-    this.rectMesh.setInstanceCount(ri);
-    // Rebuild spatial pick index once per update(). Bulk-load is ~1 ms for
-    // 5000 items vs. O(n) on every pointermove. "city" prefix namespaces
-    // the key so it cannot collide with galaxy/cluster/supercluster caches
-    // if the index were ever shared — cheap future-proofing.
+    this.rectMesh.setInstanceCount(frame.ri);
     this.pickIndex.load(this.pickRects, "city");
+  }
+
+  private resolveInstance(
+    file: FileNode,
+    viewState: ViewState,
+    latency: Record<string, FileLatency> | undefined,
+    showLatencyOverlay: boolean,
+  ): InstanceStyle {
+    const baseFill = riskFill(file.riskScore);
+    const baseBorder = riskBorder(file.riskScore);
+    let fillColor = baseFill;
+    let borderColor = baseBorder;
+    if (showLatencyOverlay && latency) {
+      const entry = latency[file.id];
+      if (entry) {
+        const latColor = latencyColor(entry.p95);
+        fillColor = mixHex(baseFill, latColor, LATENCY_MIX_K);
+        borderColor = mixHex(baseBorder, latColor, LATENCY_MIX_K);
+      }
+    }
+    const isSelected = viewState.selectedFileId === file.id;
+    const isHovered = viewState.hoveredFileId === file.id;
+    return {
+      fillColor,
+      borderColor,
+      selBorder: isSelected ? SELECTION_ACCENT : borderColor,
+      fillAlpha: isSelected ? 1.0 : isHovered ? 0.95 : 0.88,
+      borderAlpha: isSelected ? 1.0 : 0.85,
+      isSelected,
+    };
+  }
+
+  private computeCardRect(rect: Rect, elevation: number): Rect {
+    const scaleK = 1 + elevation / 1000;
+    const w = rect.w * scaleK;
+    const h = rect.h * scaleK;
+    return {
+      x: rect.x - (w - rect.w) * 0.5,
+      y: rect.y - (h - rect.h) * 0.5,
+      w,
+      h,
+    };
+  }
+
+  private updateShadow(card: Rect, elevation: number): void {
+    if (elevation <= 0) return;
+    const sx = card.x + elevation * 0.3;
+    const sy = card.y + elevation * 0.4;
+    const sa = Math.min(0.45, elevation / 160);
+    this.shadowLayer
+      .roundRect(sx, sy, card.w, card.h, 6)
+      .fill({ color: 0x000000, alpha: sa });
+  }
+
+  private updateCardShell(
+    frame: FrameCtx,
+    card: Rect,
+    instance: InstanceStyle,
+    elevation: number,
+  ): void {
+    const { data } = frame;
+    const bw = instance.isSelected ? frame.invScale * 2 : frame.invScale;
+    const o = frame.ri * FLOATS_PER_INSTANCE;
+    data[o] = card.x;
+    data[o + 1] = card.y;
+    data[o + 2] = card.w;
+    data[o + 3] = card.h;
+    unpackHexInto(instance.fillColor, data, o + 4, instance.fillAlpha);
+    const tintK = Math.min(0.5, elevation / 160);
+    const bColor = tintK > 0 ? mixToBlack(instance.selBorder, tintK) : instance.selBorder;
+    unpackHexInto(bColor, data, o + 8, instance.borderAlpha);
+    data[o + 12] = bw;
+    data[o + 13] = 6;
+    frame.ri++;
+  }
+
+  private updateHeader(
+    frame: FrameCtx,
+    file: FileNode,
+    card: Rect,
+    instance: InstanceStyle,
+  ): void {
+    const { data, invScale } = frame;
+    const headerH = 28 * invScale;
+    const o = frame.ri * FLOATS_PER_INSTANCE;
+    data[o] = card.x;
+    data[o + 1] = card.y;
+    data[o + 2] = card.w;
+    data[o + 3] = headerH;
+    unpackHexInto(instance.borderColor, data, o + 4, 0.7);
+    unpackHexInto(instance.borderColor, data, o + 8, 0);
+    data[o + 12] = 0;
+    data[o + 13] = 6;
+    frame.ri++;
+
+    if (!frame.showLabels) return;
+
+    const nameLabel = this.acquireText(CITY_FONT_NAME);
+    nameLabel.text = file.name.length > 20 ? "…" + file.name.slice(-18) : file.name;
+    nameLabel.style.fontSize = 11;
+    nameLabel.style.fill = 0x1a1a2e;
+    nameLabel.scale.set(invScale);
+    nameLabel.x = card.x + 8 * invScale;
+    nameLabel.y = card.y + 7 * invScale;
+
+    const scoreLabel = this.acquireText(CITY_FONT_BOLD_NAME);
+    scoreLabel.text = String(file.riskScore);
+    scoreLabel.style.fontSize = 10;
+    scoreLabel.style.fill = riskText(file.riskScore);
+    scoreLabel.scale.set(invScale);
+    scoreLabel.x = card.x + card.w - scoreLabel.width - 8 * invScale;
+    scoreLabel.y = card.y + 8 * invScale;
+  }
+
+  private updateFunctionBlocks(frame: FrameCtx, file: FileNode, card: Rect): void {
+    const { data, invScale, showFunctionLabels } = frame;
+    const maxFns = Math.floor((card.h - HEADER_H * invScale - 8 * invScale) / (FN_H * invScale + FN_GAP * invScale));
+    let fnY = card.y + HEADER_H * invScale;
+    const fnX = card.x + FN_PAD_X * invScale;
+    const fnW = card.w - FN_PAD_X * 2 * invScale;
+    const fnH = FN_H * invScale;
+    const fnSlots = Math.min(file.functions.length, maxFns);
+
+    for (let k = 0; k < fnSlots; k++) {
+      if (fnY + fnH > card.y + card.h - 4) break;
+      const fn = file.functions[k];
+      const fnFill = complexityFill(fn.complexity);
+      const fnBorder = complexityBorder(fn.complexity);
+
+      const o = frame.ri * FLOATS_PER_INSTANCE;
+      data[o] = fnX;
+      data[o + 1] = fnY;
+      data[o + 2] = fnW;
+      data[o + 3] = fnH;
+      unpackHexInto(fnFill, data, o + 4, 0.8);
+      unpackHexInto(fnBorder, data, o + 8, 0.6);
+      data[o + 12] = 0.5;
+      data[o + 13] = 3 * invScale;
+      frame.ri++;
+
+      if (showFunctionLabels) {
+        const fnLabel = this.acquireText(CITY_MONO_FONT_NAME);
+        fnLabel.text = fn.name.length > 22 ? fn.name.slice(0, 21) + "…" : fn.name;
+        fnLabel.style.fontSize = 9;
+        fnLabel.style.fill = 0x333333;
+        fnLabel.scale.set(invScale);
+        fnLabel.x = fnX + 6 * invScale;
+        fnLabel.y = fnY + 6 * invScale;
+
+        if (fn.signalCount > 0) {
+          const sigLabel = this.acquireText(CITY_FONT_BOLD_NAME);
+          sigLabel.text = String(fn.signalCount);
+          sigLabel.style.fontSize = 9;
+          sigLabel.style.fill = SIGNAL_ACCENT;
+          sigLabel.scale.set(invScale);
+          sigLabel.x = fnX + fnW - 16 * invScale;
+          sigLabel.y = fnY + 6 * invScale;
+        }
+      }
+
+      fnY += (FN_H + FN_GAP) * invScale;
+    }
+  }
+
+  private updateFooter(frame: FrameCtx, file: FileNode, card: Rect): void {
+    if (!frame.showLabels) return;
+    const { invScale } = frame;
+
+    const locLabel = this.acquireText(CITY_FONT_NAME);
+    locLabel.text = `${file.loc.toLocaleString()} lines`;
+    locLabel.style.fontSize = 9;
+    locLabel.style.fill = 0x888888;
+    locLabel.scale.set(invScale);
+    locLabel.x = card.x + 8 * invScale;
+    locLabel.y = card.y + card.h - 18 * invScale;
+
+    if (file.signals.taintCount > 0) {
+      const taintLabel = this.acquireText(CITY_FONT_NAME);
+      taintLabel.text = `⚡ ${file.signals.taintCount}`;
+      taintLabel.style.fontSize = 9;
+      taintLabel.style.fill = SIGNAL_ACCENT;
+      taintLabel.scale.set(invScale);
+      taintLabel.x = card.x + 8 * invScale;
+      taintLabel.y = card.y + 34 * invScale;
+    }
   }
 
   // Parity with the other tier renderers — PixiStage clears every
@@ -381,6 +507,7 @@ export class CityNodeRenderer {
   clear(): void {
     this.rectMesh.setInstanceCount(0);
     this.hitLayer.clear();
+    this.shadowLayer.clear();
     this.pickRects.length = 0;
     this.pickIndex.clear();
     this.releaseAllText();
@@ -403,7 +530,15 @@ registerRenderer("city", (parent, callbacks): RendererHandle => {
   return {
     update(ctx: RenderContext): void {
       if (ctx.sceneKind !== "files") return;
-      inst.update(ctx.files, ctx.layout, ctx.viewState, ctx.viewport);
+      inst.update(
+        ctx.files,
+        ctx.layout,
+        ctx.viewState,
+        ctx.viewport,
+        ctx.elevationMode ?? false,
+        ctx.latency,
+        ctx.showLatencyOverlay ?? false,
+      );
     },
     clear(): void { inst.clear(); },
     destroy(): void { inst.destroy(); },

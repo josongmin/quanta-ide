@@ -2,7 +2,7 @@ import { getTierConfig, resolveEffectiveTier } from "@quanta/canvas-engine";
 import { useInteractionStore } from "../../store/interaction-store";
 import { useSceneStore } from "../../store/scene-store";
 import { useViewportStore } from "../../store/viewport-store";
-import { useSettingsStore, settingsStore, type ForceLod } from "../../store/settings-store";
+import { useDebugSettings, debugSettingsStore, type ForceLod } from "../../store/debug-settings-store";
 
 const LOD_CHOICES: readonly ForceLod[] = [
   "auto", "universe", "supergalaxy", "galaxy", "city", "street", "ground",
@@ -25,7 +25,7 @@ export function LodSection() {
   const scale = useViewportStore(s => s.viewport.scale);
   const clusterTotal = useSceneStore(s => s.layout?.clusters?.length ?? 0);
   const superTotal = useSceneStore(s => s.layout?.superclusters?.length ?? 0);
-  const forceLod = useSettingsStore(s => s.forceLod);
+  const forceLod = useDebugSettings(s => s.forceLod);
 
   const effectiveTier = resolveEffectiveTier(lod, {
     hasClusters: clusterTotal > 0,
@@ -85,7 +85,7 @@ export function LodSection() {
               key={v}
               type="button"
               className={`ws-debug__chip${forceLod === v ? " is-on" : ""}`}
-              onClick={() => settingsStore.setForceLod(v)}
+              onClick={() => debugSettingsStore.setForceLod(v)}
               title={v === "auto" ? "follow viewport scale" : `${v}${isActive ? " · active" : ""}`}
             >
               {isActive && <span style={{ marginRight: 3 }}>●</span>}
