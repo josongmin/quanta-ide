@@ -4,6 +4,7 @@ import type {
   WorkspaceLayout,
   WorkspaceView,
   WorkspaceClusterView,
+  WorkspaceSuperclusterView,
   ViewState,
   LodLevel,
   Viewport,
@@ -32,6 +33,11 @@ export interface WorkspaceCanvasState {
   // visibleScene. Renderers branch on this to draw cluster boxes instead of
   // per-file cards when the user is zoomed all the way out.
   clusterScene: WorkspaceClusterView | null;
+  // Populated only at universe LOD (one tier above supergalaxy); mutually
+  // exclusive with both visibleScene and clusterScene. Renderers draw one
+  // box per top-level service/crate-group so large MSA monorepos collapse
+  // into a handful of boxes at the most zoomed-out tier.
+  superclusterScene: WorkspaceSuperclusterView | null;
 
   // Absolute path of the repo currently loaded (null when the built-in
   // sample graph is active). Loaders use this to know whether to fetch
@@ -60,7 +66,7 @@ export interface WorkspaceCanvasState {
   debugHudOpen: boolean;
   showGridBg: boolean;
   showHitLayers: boolean;
-  forceLod: "auto" | "supergalaxy" | "galaxy" | "city" | "street" | "ground";
+  forceLod: "auto" | "universe" | "supergalaxy" | "galaxy" | "city" | "street" | "ground";
 }
 
 const listeners = new Set<() => void>();
@@ -91,6 +97,7 @@ let state: WorkspaceCanvasState = {
   layout: null,
   visibleScene: null,
   clusterScene: null,
+  superclusterScene: null,
 
   repoRoot: null,
 
@@ -137,6 +144,7 @@ const actions = {
       layout: null,
       visibleScene: null,
       clusterScene: null,
+      superclusterScene: null,
       viewState: { ...state.viewState, selectedFileId: null, hoveredFileId: null, selectedEdgeId: null, focusedNodeId: null },
       groundData: {},
       groundLoading: {},
@@ -205,14 +213,24 @@ const actions = {
   },
 
   setVisibleScene(scene: WorkspaceView) {
-    state = { ...state, visibleScene: scene, clusterScene: null };
+    // Mutual exclusivity: clear both coarser-tier scenes so PixiStage never
+    // sees two scene types at once.
+    state = { ...state, visibleScene: scene, clusterScene: null, superclusterScene: null };
     emit();
   },
 
   setClusterScene(scene: WorkspaceClusterView) {
     // Mutual exclusivity: clearing visibleScene prevents stale file geometry
     // from being passed to PixiStage when we're at supergalaxy.
-    state = { ...state, clusterScene: scene, visibleScene: null };
+    state = { ...state, clusterScene: scene, visibleScene: null, superclusterScene: null };
+    emit();
+  },
+
+  setSuperclusterScene(scene: WorkspaceSuperclusterView) {
+    // Mutual exclusivity: at universe LOD we draw only supercluster boxes,
+    // so both finer-grain scenes are cleared to keep PixiStage branching
+    // trivially on `lod === "universe"`.
+    state = { ...state, superclusterScene: scene, visibleScene: null, clusterScene: null };
     emit();
   },
 

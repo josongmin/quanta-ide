@@ -1,7 +1,7 @@
 import type { FileNode, FileEdge, WorkspaceComment, Rect } from "../graph/types";
 import type { ClusterMeta } from "../layout/types";
 
-export type LodLevel = "supergalaxy" | "galaxy" | "city" | "street" | "ground";
+export type LodLevel = "universe" | "supergalaxy" | "galaxy" | "city" | "street" | "ground";
 
 export interface Viewport {
   x: number;
@@ -22,6 +22,19 @@ export interface WorkspaceClusterView {
   kind: "supergalaxy";
 }
 
+/**
+ * Supercluster visible payload for the `universe` LOD — one tier above
+ * supergalaxy. Each entry is a top-level directory (e.g. `crates/`,
+ * `tests/`, or each service in an MSA monorepo) that collapses many
+ * underlying clusters into a single box. Used so a multi-service monorepo
+ * with thousands of crates renders as a handful of service boxes at the
+ * most zoomed-out LOD.
+ */
+export interface WorkspaceSuperclusterView {
+  superclusters: ClusterMeta[];
+  kind: "universe";
+}
+
 export interface WorkspaceFileView {
   files: FileNode[];
   edges: FileEdge[];
@@ -33,13 +46,22 @@ export interface WorkspaceFileView {
 // continue to receive the file-level view via `buildWorkspaceView`.
 export type WorkspaceView = WorkspaceFileView;
 
-// Union used by scene-consumers that DO care about supergalaxy.
-export type WorkspaceScene = WorkspaceFileView | WorkspaceClusterView;
+// Union used by scene-consumers that DO care about supergalaxy / universe.
+export type WorkspaceScene =
+  | WorkspaceFileView
+  | WorkspaceClusterView
+  | WorkspaceSuperclusterView;
 
 export function isClusterView(
   scene: WorkspaceScene,
 ): scene is WorkspaceClusterView {
   return (scene as WorkspaceClusterView).kind === "supergalaxy";
+}
+
+export function isSuperclusterView(
+  scene: WorkspaceScene,
+): scene is WorkspaceSuperclusterView {
+  return (scene as WorkspaceSuperclusterView).kind === "universe";
 }
 
 // Re-export for downstream convenience (PixiStage imports from here).

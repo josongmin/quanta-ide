@@ -3,6 +3,7 @@ import type { WorkspaceLayout, ClusterMeta } from "../layout/types";
 import type {
   WorkspaceView,
   WorkspaceClusterView,
+  WorkspaceSuperclusterView,
   WorkspaceScene,
   Viewport,
   LodLevel,
@@ -67,6 +68,27 @@ export function buildClusterQuery(
     if (rectsIntersect(c.rect, canvasRect)) visible.push(c);
   }
   return { kind: "supergalaxy", clusters: visible };
+}
+
+/**
+ * Universe scene: returns supercluster boxes intersecting the viewport.
+ * One tier above supergalaxy — collapses parents of clusters (e.g. all
+ * crates/, tests/ for quanta-v2; each service in an MSA monorepo).
+ */
+export function buildSuperclusterQuery(
+  layout: WorkspaceLayout,
+  viewport: Viewport,
+): WorkspaceSuperclusterView {
+  const superclusters = layout.superclusters ?? [];
+  if (viewport.width <= 0 || viewport.height <= 0) {
+    return { kind: "universe", superclusters };
+  }
+  const canvasRect = viewportToCanvas(viewport);
+  const visible: ClusterMeta[] = [];
+  for (const c of superclusters) {
+    if (rectsIntersect(c.rect, canvasRect)) visible.push(c);
+  }
+  return { kind: "universe", superclusters: visible };
 }
 
 /**

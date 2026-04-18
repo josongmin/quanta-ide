@@ -1,6 +1,8 @@
 import type { WorkspaceGraph, FileNode, Rect } from "../graph/types";
 import type { WorkspaceLayout, BezierRoute } from "./types";
 import { FILE_CARD_W, FILE_CARD_H } from "./types";
+import { buildOrthogonalRoutes } from "./orthogonal-routing";
+import { buildBundledEdges, buildFileToClusterMap } from "./edge-bundling";
 
 /**
  * Directory-based squarified treemap layout.
@@ -391,6 +393,8 @@ export interface ClusterInfo {
 export interface TreemapResult extends WorkspaceLayout {
   clusterRects: Map<string, Rect>;
   clusters: ClusterInfo[];
+  superclusterRects: Map<string, Rect>;
+  superclusters: ClusterInfo[];
 }
 
 export function treemapLayout(graph: WorkspaceGraph): TreemapResult {
@@ -424,16 +428,23 @@ export function treemapLayout(graph: WorkspaceGraph): TreemapResult {
 
   const totalFiles = graph.files.length;
   let clusterSource: DirNode[];
+  // Track which dir level the *clusters* came from so superclusters can be
+  // derived as one level up from that — i.e., the parents of clusters.
+  let clusterDrilledInto: DirNode | null = null;
   if (topLevel.length === 1) {
+    clusterDrilledInto = topLevel[0];
     clusterSource = [...topLevel[0].children.values()].filter(c => c.name !== "__files__");
   } else {
     const dominant = topLevel.find(t => {
       const { n } = countFiles(t);
       return n > totalFiles * 0.9;
     });
-    clusterSource = dominant
-      ? [...dominant.children.values()].filter(c => c.name !== "__files__")
-      : topLevel;
+    if (dominant) {
+      clusterDrilledInto = dominant;
+      clusterSource = [...dominant.children.values()].filter(c => c.name !== "__files__");
+    } else {
+      clusterSource = topLevel;
+    }
   }
 
   const clusterRects = new Map<string, Rect>();
@@ -445,6 +456,40 @@ export function treemapLayout(graph: WorkspaceGraph): TreemapResult {
     const { n, loc } = countFiles(cluster);
     clusterRects.set(cluster.path, rect);
     clusters.push({ id: cluster.path, rect, fileCount: n, locSum: loc });
+  }
+
+  // ── Superclusters — one tier above clusters (parents of clusters). ──
+  // For quanta-v2 (topLevel = [crates, tests], no drill): superclusters
+  // == topLevel == 2 boxes.
+  // For a future MSA monorepo where drill-through went through a single
+  // `services/` dominant top-level into clusterSource = [payment, order,
+  // …], superclusters should be the services themselves so we don't get a
+  // single-box universe. We accomplish this by mirroring the cluster drill
+  // logic: pick topLevel directly, unless that would yield exactly one box
+  // that matches what we drilled into — in which case emit its children
+  // (= clusterSource siblings' parents) so the universe tier has ≥ 2 boxes
+  // whenever possible.
+  let superclusterSource: DirNode[] = topLevel;
+  if (
+    clusterDrilledInto &&
+    superclusterSource.length === 1 &&
+    superclusterSource[0] === clusterDrilledInto
+  ) {
+    // Single dominant top-level that we drilled through — use its
+    // children (== cluster parents) so universe has multiple boxes.
+    superclusterSource = [...clusterDrilledInto.children.values()].filter(
+      c => c.name !== "__files__",
+    );
+  }
+
+  const superclusterRects = new Map<string, Rect>();
+  const superclusters: ClusterInfo[] = [];
+  for (const sc of superclusterSource) {
+    const rect = dirBounds(sc, fileRects);
+    if (!rect) continue;
+    const { n, loc } = countFiles(sc);
+    superclusterRects.set(sc.path, rect);
+    superclusters.push({ id: sc.path, rect, fileCount: n, locSum: loc });
   }
 
   // Edge routes — bezier (existing renderer expects this shape).
@@ -465,6 +510,14 @@ export function treemapLayout(graph: WorkspaceGraph): TreemapResult {
       x2, y2,
     });
   }
+
+  // Orthogonal routes — parallel to bezier, data-only for now (renderer
+  // integration deferred).
+  const edgeRoutesOrtho = buildOrthogonalRoutes(graph.fileEdges, fileRects);
+
+  // Cluster-level bundled edges — used by future supergalaxy renderer.
+  const fileToCluster = buildFileToClusterMap(graph.files, fileRects, clusters);
+  const bundledEdges = buildBundledEdges(graph.fileEdges, fileToCluster, clusters);
 
   // Total bounds.
   let maxX = 0, maxY = 0;
@@ -504,5 +557,9 @@ export function treemapLayout(graph: WorkspaceGraph): TreemapResult {
     totalBounds,
     clusterRects,
     clusters,
+    superclusterRects,
+    superclusters,
+    edgeRoutesOrtho,
+    bundledEdges,
   };
 }

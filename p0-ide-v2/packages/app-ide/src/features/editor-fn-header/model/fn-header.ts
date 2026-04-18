@@ -23,12 +23,20 @@ class FnHeaderWidget extends WidgetType {
       && other.indent === this.indent;
   }
   override toDOM(): HTMLElement {
+    // Outer wrapper owns vertical spacing via padding so CodeMirror's
+    // offsetHeight measurement matches the rendered footprint.
+    // Wrapper also owns horizontal indent: 12px mirrors `.cm-line` left
+    // padding (theme), and `${indent}ch` matches the line's leading
+    // whitespace — chip bar lands directly above the def's first char.
+    const wrap = document.createElement("div");
+    wrap.className = `cm-fnhead-wrap cm-fnhead-wrap--${this.h.kind}`;
+    wrap.style.paddingLeft = `calc(12px + ${this.indent}ch)`;
+
     const el = document.createElement("div");
     const tone =
       this.h.riskScore >= 70 ? "high" :
       this.h.riskScore >= 40 ? "mid" : "low";
-    el.className = `cm-fnhead cm-fnhead--${tone}`;
-    el.style.marginLeft = `${this.indent}ch`;
+    el.className = `cm-fnhead cm-fnhead--${tone} cm-fnhead--${this.h.kind}`;
 
     const chips: string[] = [];
 
@@ -56,10 +64,11 @@ class FnHeaderWidget extends WidgetType {
     chips.push(`<span class="cm-fnhead__risk"><span class="cm-fnhead__ico">risk</span>${this.h.riskScore}</span>`);
 
     el.innerHTML = chips.join("");
-    return el;
+    wrap.appendChild(el);
+    return wrap;
   }
   override get estimatedHeight(): number {
-    return 18;
+    return 26;
   }
 }
 

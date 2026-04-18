@@ -1196,6 +1196,89 @@ def create_orchestrator(
     orch.register_runner("blast_radius", BlastRadiusRunner())
 
     return orch
+
+
+# ═══════════════════════════════════════════════════════════════════
+# IDE Scenario Catalog
+# ──────────────────────────────────────────────────────────────────
+# Compact reference patterns the IDE inspector / gutter / canvas
+# recognises. Each block is a self-contained demo of a single scenario.
+# Line numbers in this section are anchored — see metadata.
+# ═══════════════════════════════════════════════════════════════════
+
+
+# ── scenario: typestate (resource opened, leaked on error path) ──
+def _emit_audit(payload: bytes) -> None:
+    handle = open("/var/log/audit.bin", "ab")        # typestate: opened
+    if not payload:
+        return                                       # ← typestate: leaked
+    handle.write(payload)
+    handle.close()
+
+
+# ── scenario: N+1 query (per-step DB roundtrip in a loop) ────────
+def _hydrate_steps(plan: Plan) -> List[StepResult]:
+    out: List[StepResult] = []
+    for step in plan.steps:                          # ← N+1: loop
+        record = postgres.exec("SELECT * FROM steps WHERE id=$1", step.id)
+        out.append(StepResult.from_row(record))
+    return out
+
+
+# ── scenario: race condition (TOCTOU check-then-act on cache) ────
+_GLOBAL_CACHE: Dict[str, Any] = {}
+
+def _cache_or_compute(key: str, compute: Callable[[], T]) -> T:
+    if key in _GLOBAL_CACHE:                         # TOCTOU: check
+        return _GLOBAL_CACHE[key]
+    value = compute()
+    _GLOBAL_CACHE[key] = value                       # ← TOCTOU: act
+    return value
+
+
+# ── scenario: weak crypto (md5 for integrity / signing) ──────────
+def _trace_signature(trace: List[TraceEntry]) -> str:
+    body = "|".join(t.step_id for t in trace).encode()
+    return hashlib.md5(body).hexdigest()             # ← weak crypto
+
+
+# ── scenario: secret in code (hardcoded API token) ───────────────
+_DASHBOARD_TOKEN = "sk-live-9f4a82e1c0d54b76b8eaed93f8c1a07b"  # ← secret-leak
+
+def _push_dashboard(metric: str, value: float) -> None:
+    headers = {"Authorization": f"Bearer {_DASHBOARD_TOKEN}"}  # ← secret-use
+    postgres.exec(
+        "INSERT INTO dashboard_metrics VALUES ($1, $2)", metric, value
+    )
+
+
+# ── scenario: log injection (untrusted ctx into log line) ────────
+def _audit_request(request: Request) -> None:
+    logger.info("inbound request: %s", request.ctx)  # ← log injection
+
+
+# ── scenario: SSRF (user-controlled URL → outbound fetch) ────────
+def _fetch_metadata(request: Request) -> str:
+    import urllib.request
+    url = request.ctx.get("callback_url")            # ← taint source
+    return urllib.request.urlopen(url).read().decode()  # ← SSRF sink
+
+
+# ── scenario: SQL injection (string-built query, no params) ──────
+def _query_traces_by_owner(owner: str) -> List[Dict[str, Any]]:
+    sql = f"SELECT * FROM traces WHERE owner = '{owner}'"  # ← SQLi build
+    return postgres.exec(sql)                              # ← SQLi sink
+
+
+# ── scenario: timing attack (== comparison on a secret token) ────
+def _verify_replay_token(supplied: str, expected: str) -> bool:
+    return supplied == expected                      # ← timing leak
+
+
+# ── scenario: sanitizer hint (where validate_trace() should run) ─
+def _persist_trace(trace: List[TraceEntry]) -> None:
+    # SANITIZER HINT: validate_trace(trace) belongs above this line
+    postgres.exec("INSERT INTO traces VALUES ($1)", trace)
 `;
 
 export const ORCHESTRATOR: FileFacts = {

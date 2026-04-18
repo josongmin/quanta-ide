@@ -11,6 +11,11 @@ class FileHeaderWidget extends WidgetType {
     return other instanceof FileHeaderWidget && other.file.name === this.file.name;
   }
   override toDOM(): HTMLElement {
+    // Outer wrapper owns vertical spacing via padding, so its offsetHeight
+    // matches what CodeMirror sees → gutter line numbers stay aligned.
+    const wrap = document.createElement("div");
+    wrap.className = "cm-fnhead-wrap cm-fnhead-wrap--file";
+
     const el = document.createElement("div");
     const tone =
       this.file.riskScore >= 70 ? "high" :
@@ -43,10 +48,11 @@ class FileHeaderWidget extends WidgetType {
     chips.push(`<span class="cm-fnhead__risk">${this.file.riskScore}</span>`);
 
     el.innerHTML = chips.join("");
-    return el;
+    wrap.appendChild(el);
+    return wrap;
   }
   override get estimatedHeight(): number {
-    return 22;
+    return 38;
   }
 }
 

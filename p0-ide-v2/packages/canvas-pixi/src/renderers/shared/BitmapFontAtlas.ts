@@ -55,9 +55,8 @@ export function installCityFonts(): void {
   });
 }
 
-// Module-init side effect: install fonts the moment this module is imported.
-// Both CityNodeRenderer and ClusterNodeRenderer import from here, so the
-// atlases are ready before the first constructor runs without per-instance
-// checks on the hot path. The guard inside installCityFonts makes re-entry
-// from split bundles safe.
-installCityFonts();
+// NOTE: We intentionally do NOT call installCityFonts() at module load —
+// Pixi's BitmapFont.install needs the default Renderer ready, which isn't
+// the case before any Application.init(). We also cannot depend on the
+// import order getting that right. Callers (renderers) invoke this lazily
+// in their constructor; the `installed` guard makes repeat calls free.

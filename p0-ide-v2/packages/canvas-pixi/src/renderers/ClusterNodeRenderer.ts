@@ -1,7 +1,7 @@
 import { BitmapText, Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import type { ClusterMeta, Viewport } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
-import { CITY_FONT_BOLD_NAME } from "./shared/BitmapFontAtlas";
+import { CITY_FONT_BOLD_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 
 // Supergalaxy LOD renderer — draws one soft-coloured box per top-level
@@ -47,7 +47,10 @@ export class ClusterNodeRenderer {
     onClick?: (id: string) => void;
     onHover?: (id: string | null) => void;
   }) {
-    // Fonts installed at module load; nothing to do here.
+    // BitmapFont.install requires the default Pixi Renderer to be ready,
+    // which the PixiStage init guarantees *before* any renderer is
+    // constructed. Call lazily here (idempotent guard inside).
+    installCityFonts();
     this.container = new Container();
     this.rectMesh = new InstancedRectMesh(256);
     this.labelContainer = new Container();
@@ -114,6 +117,14 @@ export class ClusterNodeRenderer {
   }
 
   update(clusters: ClusterMeta[], viewport: Viewport): void {
+    if (clusters.length === 0) {
+      this.rectMesh.setInstanceCount(0);
+      this.hitLayer.clear();
+      this.pickRects.length = 0;
+      this.pickIndex.clear();
+      this.releaseLabels();
+      return;
+    }
     const invScale = Math.min(16, Math.max(1, 1 / viewport.scale));
     this.rectMesh.ensureCapacity(clusters.length);
     const data = this.rectMesh.view();

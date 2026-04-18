@@ -13,6 +13,8 @@ export type {
 // Layout types + constants
 export type {
   BezierRoute,
+  OrthogonalRoute,
+  BundledEdge,
   LodAggregateCache,
   WorkspaceLayout,
   ClusterMeta,
@@ -46,6 +48,12 @@ export { gridLayout } from "./layout/grid-layout";
 // Treemap layout (directory-based)
 export { treemapLayout } from "./layout/treemap-layout";
 export type { TreemapResult, ClusterInfo } from "./layout/treemap-layout";
+
+// Orthogonal edge routing (data-only; renderer integration deferred)
+export { orthogonalRoute, buildOrthogonalRoutes } from "./layout/orthogonal-routing";
+
+// Cluster-level edge bundling (data-only; renderer integration deferred)
+export { buildBundledEdges, buildFileToClusterMap } from "./layout/edge-bundling";
 
 // Edge geometry cache
 export type { BezierGeometry } from "./render/edge-geometry-cache";

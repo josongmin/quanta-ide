@@ -209,17 +209,25 @@ export function PixiStage({
   // tiny zoom ticks. visible.files reference is already stable (orchestrator
   // dedupes) — so plain-ref deps are cheaper than stringifying ids.
   const scaleBucket = Math.round(viewport.scale * 20) / 20;
+  // Effective LOD: when supergalaxy fires but the layout has no clusters
+  // (grid layouts from small graphs), there's nothing to draw via the
+  // cluster renderer. Fall back to galaxy so the user still sees files at
+  // that zoom level instead of a blank canvas.
+  const effectiveLod: typeof lod =
+    lod === "supergalaxy" && !(clusters && clusters.clusters.length > 0)
+      ? "galaxy"
+      : lod;
   useEffect(() => {
     if (!pixiReady) return;
-    if (lod === "supergalaxy") {
+    if (effectiveLod === "supergalaxy") {
       clusterRef.current?.update(clusters?.clusters ?? [], viewport);
       cityRef.current?.update([], layout, viewState, viewport);
       galaxyRef.current?.update([], layout, viewState, viewport);
-    } else if (lod === "city") {
+    } else if (effectiveLod === "city") {
       cityRef.current?.update(visible.files, layout, viewState, viewport);
       galaxyRef.current?.update([], layout, viewState, viewport);
       clusterRef.current?.clear();
-    } else if (lod === "galaxy") {
+    } else if (effectiveLod === "galaxy") {
       galaxyRef.current?.update(visible.files, layout, viewState, viewport);
       cityRef.current?.update([], layout, viewState, viewport);
       clusterRef.current?.clear();
@@ -232,7 +240,7 @@ export function PixiStage({
     // Intentional subset: viewport.x/y excluded (pan never triggers redraw);
     // scaleBucket captures scale changes; selection/hover handled via viewState.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, visible.files, clusters, layout, lod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
+  }, [pixiReady, visible.files, clusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
 
   // ── Edge static redraw ──────────────────────────────────────────
   // Edge rendering is toggleable: thousands of bezier curves hurt scroll

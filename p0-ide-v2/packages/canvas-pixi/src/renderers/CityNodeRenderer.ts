@@ -1,7 +1,7 @@
 import { BitmapText, Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import type { FileNode, WorkspaceLayout, ViewState, Viewport } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
-import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, CITY_MONO_FONT_NAME } from "./shared/BitmapFontAtlas";
+import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, CITY_MONO_FONT_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 
 // City LOD: zoomed in enough to see the file card, its header, and (when
@@ -95,7 +95,10 @@ export class CityNodeRenderer {
       onHover?: (fileId: string | null) => void;
     },
   ) {
-    // Fonts installed at module load; nothing to do here.
+    // BitmapFont.install requires a ready Pixi renderer — safe to call only
+    // after the PixiStage's app.init() completes. PixiStage constructs this
+    // renderer only after init, so this is the earliest legal point.
+    installCityFonts();
 
     this.container = new Container();
     this.rectMesh = new InstancedRectMesh(4096); // 5000 files × ~5 rects worst case

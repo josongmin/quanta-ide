@@ -1,12 +1,14 @@
 import type { LodLevel } from "../view/types";
 
 const UP = {
+  universe_supergalaxy: 0.025,
   supergalaxy_galaxy: 0.08,
   galaxy_city: 0.15,
   city_street: 0.35,
   street_ground: 0.75,
 };
 const DOWN = {
+  universe_supergalaxy: 0.02,
   supergalaxy_galaxy: 0.065,
   galaxy_city: 0.12,
   city_street: 0.32,
@@ -25,6 +27,8 @@ export class LodManager {
 
   update(scale: number): LodLevel {
     const c = this.current;
+    if (c === "universe"    && scale >= UP.universe_supergalaxy) this.current = "supergalaxy";
+    if (c === "supergalaxy" && scale <  DOWN.universe_supergalaxy) this.current = "universe";
     if (c === "supergalaxy" && scale >= UP.supergalaxy_galaxy) this.current = "galaxy";
     if (c === "galaxy" && scale <  DOWN.supergalaxy_galaxy)    this.current = "supergalaxy";
     if (c === "galaxy" && scale >= UP.galaxy_city)             this.current = "city";
@@ -41,9 +45,10 @@ export class LodManager {
 }
 
 export function lodFromScale(scale: number): LodLevel {
-  if (scale >= UP.street_ground)      return "ground";
-  if (scale >= UP.city_street)        return "street";
-  if (scale >= UP.galaxy_city)        return "city";
-  if (scale >= UP.supergalaxy_galaxy) return "galaxy";
-  return "supergalaxy";
+  if (scale >= UP.street_ground)         return "ground";
+  if (scale >= UP.city_street)           return "street";
+  if (scale >= UP.galaxy_city)           return "city";
+  if (scale >= UP.supergalaxy_galaxy)    return "galaxy";
+  if (scale >= UP.universe_supergalaxy)  return "supergalaxy";
+  return "universe";
 }

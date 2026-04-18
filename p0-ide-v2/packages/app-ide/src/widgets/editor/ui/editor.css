@@ -558,7 +558,17 @@
 .cm-gm:hover,
 .cm-activeLineGutter .cm-gm { color: var(--fg); }
 
-/* ── Inline function header (block widget above each notable fn) ── */
+/* ── Inline function header (block widget above each notable fn) ──
+   Wrapper handles vertical spacing via padding — CodeMirror measures
+   offsetHeight (excludes margins), so spacing must be padding-based to
+   keep gutter line numbers aligned with content. */
+.cm-fnhead-wrap {
+  padding-top: var(--space-1h);
+}
+.cm-fnhead-wrap--file {
+  padding: 4px 0 var(--space-2h) 0;
+}
+
 .cm-fnhead {
   display: flex;
   align-items: center;
@@ -566,7 +576,7 @@
   width: fit-content;
   max-width: calc(100% - 24px);
   padding: var(--space-0h) var(--space-2h);
-  margin: var(--space-1h) 0 0 0;
+  margin: 0;
   font-family: var(--font-sans);
   font-size: var(--fs-xs);
   color: var(--fg-muted);
@@ -639,9 +649,11 @@
 .cm-fnhead--mid:hover .cm-fnhead__risk { color: var(--warn); background: var(--bg-warn-subtle); }
 .cm-fnhead--high:hover .cm-fnhead__risk { color: var(--danger); background: var(--bg-danger-subtle); }
 
-/* File-level variant (appears above line 1 — full file summary) */
+/* File-level variant (appears above line 1 — full file summary).
+   Vertical spacing lives on .cm-fnhead-wrap--file; only the gutter
+   overhang (-30px) and inner padding stay here. */
 .cm-fnhead--file {
-  margin: 4px 0 var(--space-2h) -30px;
+  margin: 0 0 0 -30px;
   padding: 3px 12px;
   position: relative;
   z-index: 210;
