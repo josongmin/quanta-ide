@@ -53,6 +53,8 @@ export class CityNodeRenderer {
   }
 
   update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState): void {
+    const invScale = Math.min(8, Math.max(0.5, 1 / viewState.viewport.scale));
+
     this.bgGfx.clear();
     this.labelContainer.removeChildren();
     for (const h of this.hitAreas) {
@@ -87,12 +89,12 @@ export class CityNodeRenderer {
 
       // Header bar (rounded top)
       this.bgGfx
-        .roundRect(rect.x, rect.y, rect.w, 28, 6)
+        .roundRect(rect.x, rect.y, rect.w, 28 * invScale, 6)
         .fill({ color: borderColor, alpha: 0.25 });
 
       // Fill the lower portion of header to square off bottom of header bar
       this.bgGfx
-        .rect(rect.x, rect.y + 12, rect.w, 16)
+        .rect(rect.x, rect.y + 12 * invScale, rect.w, 16 * invScale)
         .fill({ color: borderColor, alpha: 0.15 });
 
       // File name label
@@ -105,8 +107,9 @@ export class CityNodeRenderer {
           fontWeight: "500",
         },
       });
-      nameLabel.x = rect.x + 8;
-      nameLabel.y = rect.y + 7;
+      nameLabel.scale.set(invScale);
+      nameLabel.x = rect.x + 8 * invScale;
+      nameLabel.y = rect.y + 7 * invScale;
       this.labelContainer.addChild(nameLabel);
 
       // Risk score badge
@@ -119,8 +122,9 @@ export class CityNodeRenderer {
           fontWeight: "700",
         },
       });
-      scoreLabel.x = rect.x + rect.w - scoreLabel.width - 8;
-      scoreLabel.y = rect.y + 8;
+      scoreLabel.scale.set(invScale);
+      scoreLabel.x = rect.x + rect.w - scoreLabel.width - 8 * invScale;
+      scoreLabel.y = rect.y + 8 * invScale;
       this.labelContainer.addChild(scoreLabel);
 
       // LOC label at bottom
@@ -128,8 +132,9 @@ export class CityNodeRenderer {
         text: `${file.loc.toLocaleString()} lines`,
         style: { fontSize: 9, fill: 0x888888, fontFamily: "system-ui" },
       });
-      locLabel.x = rect.x + 8;
-      locLabel.y = rect.y + rect.h - 18;
+      locLabel.scale.set(invScale);
+      locLabel.x = rect.x + 8 * invScale;
+      locLabel.y = rect.y + rect.h - 18 * invScale;
       this.labelContainer.addChild(locLabel);
 
       // Signal badges (taint)
@@ -138,24 +143,25 @@ export class CityNodeRenderer {
           text: `⚡ ${file.signals.taintCount}`,
           style: { fontSize: 9, fill: 0xdc2626, fontFamily: "system-ui" },
         });
-        taintLabel.x = rect.x + 8;
-        taintLabel.y = rect.y + HEADER_H + 4 - 10; // just below header
+        taintLabel.scale.set(invScale);
+        taintLabel.x = rect.x + 8 * invScale;
+        taintLabel.y = rect.y + 34 * invScale;
         this.labelContainer.addChild(taintLabel);
       }
 
       // Function blocks
-      const maxFns = Math.floor((rect.h - HEADER_H - 8) / (FN_H + FN_GAP));
-      let fnY = rect.y + HEADER_H + 4;
+      const maxFns = Math.floor((rect.h - HEADER_H * invScale - 8 * invScale) / (FN_H * invScale + FN_GAP * invScale));
+      let fnY = rect.y + HEADER_H * invScale;
 
       for (const fn of file.functions.slice(0, maxFns)) {
-        if (fnY + FN_H > rect.y + rect.h - 4) break;
+        if (fnY + FN_H * invScale > rect.y + rect.h - 4) break;
 
         const cpx = fn.complexity;
         const fnFill = cpx >= 10 ? 0xfee2e2 : cpx >= 5 ? 0xfef3c7 : 0xf0fdf4;
         const fnBorder = cpx >= 10 ? 0xfca5a5 : cpx >= 5 ? 0xfde68a : 0xbbf7d0;
 
         this.bgGfx
-          .roundRect(rect.x + FN_PAD_X, fnY, rect.w - FN_PAD_X * 2, FN_H, 3)
+          .roundRect(rect.x + FN_PAD_X * invScale, fnY, rect.w - FN_PAD_X * 2 * invScale, FN_H * invScale, 3 * invScale)
           .fill({ color: fnFill, alpha: 0.8 })
           .stroke({ color: fnBorder, width: 0.5, alpha: 0.6 });
 
@@ -167,8 +173,9 @@ export class CityNodeRenderer {
             fontFamily: "JetBrains Mono, monospace",
           },
         });
-        fnLabel.x = rect.x + FN_PAD_X + 6;
-        fnLabel.y = fnY + 6;
+        fnLabel.scale.set(invScale);
+        fnLabel.x = rect.x + FN_PAD_X * invScale + 6 * invScale;
+        fnLabel.y = fnY + 6 * invScale;
         this.labelContainer.addChild(fnLabel);
 
         if (fn.signalCount > 0) {
@@ -181,12 +188,13 @@ export class CityNodeRenderer {
               fontWeight: "700",
             },
           });
-          sigLabel.x = rect.x + rect.w - FN_PAD_X - sigLabel.width - 4;
-          sigLabel.y = fnY + 6;
+          sigLabel.scale.set(invScale);
+          sigLabel.x = rect.x + rect.w - FN_PAD_X * invScale - sigLabel.width - 4 * invScale;
+          sigLabel.y = fnY + 6 * invScale;
           this.labelContainer.addChild(sigLabel);
         }
 
-        fnY += FN_H + FN_GAP;
+        fnY += (FN_H + FN_GAP) * invScale;
       }
 
       // Transparent hit area for pointer events

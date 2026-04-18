@@ -6,6 +6,10 @@ import { useWorkspaceCanvas, workspaceCanvasStore } from "../store/workspace-can
 import { EdgeGeometryCache } from "@quanta/canvas-engine";
 import { PixiStage } from "@quanta/canvas-pixi";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
+import { StreetCard } from "./StreetCard";
+import { GroundCard } from "./GroundCard";
+import { Minimap } from "./Minimap";
+import { CanvasControls } from "./CanvasControls";
 
 interface Props {
   graph: WorkspaceGraph;
@@ -15,7 +19,7 @@ export function MultiFileCanvas({ graph }: Props) {
   useWorkspaceCanvasOrchestrator(graph);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const { panBy, zoomAt, setContainerSize, transform } = useCanvasViewport();
+  const { panBy, zoomAt, fitToGraph, setContainerSize, transform, viewport } = useCanvasViewport();
   const lod          = useWorkspaceCanvas(s => s.lod);
   const visibleScene = useWorkspaceCanvas(s => s.visibleScene);
   const viewState    = useWorkspaceCanvas(s => s.viewState);
@@ -80,6 +84,13 @@ export function MultiFileCanvas({ graph }: Props) {
 
   const onMouseUp = useCallback(() => { dragging.current = false; }, []);
 
+  // Zoom controls
+  const onZoomIn = useCallback(() => zoomAt(0.25, viewport.width / 2, viewport.height / 2), [zoomAt, viewport.width, viewport.height]);
+  const onZoomOut = useCallback(() => zoomAt(-0.25, viewport.width / 2, viewport.height / 2), [zoomAt, viewport.width, viewport.height]);
+  const onFit = useCallback(() => {
+    if (layout) fitToGraph(layout.totalBounds.w, layout.totalBounds.h);
+  }, [fitToGraph, layout]);
+
   if (!visibleScene) {
     return <div ref={containerRef} className="workspace-canvas workspace-canvas--loading" />;
   }
@@ -112,28 +123,52 @@ export function MultiFileCanvas({ graph }: Props) {
         />
       )}
 
-      {/* DOM layer: Street / Ground */}
-      {(lod === "street" || lod === "ground") && (
+      {/* DOM layer: Street */}
+      {lod === "street" && (
         <div className="workspace-canvas__dom-layer" style={{ transform, transformOrigin: "0 0", willChange: "transform" }}>
           {visibleScene.files.map(file => {
             const rect = layout?.fileRects.get(file.id);
             if (!rect) return null;
             return (
-              <div
+              <StreetCard
                 key={file.id}
-                className="file-card"
-                style={{ position: "absolute", left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
-                onClick={() => workspaceCanvasStore.selectFile(file.id)}
-              >
-                <div className="file-card__header">{file.name}</div>
-                <div className="file-card__body">
-                  <span style={{ opacity: 0.4, fontSize: 11 }}>{lod} · {file.loc} lines</span>
-                </div>
-              </div>
+                file={file}
+                rect={rect}
+                isSelected={viewState.selectedFileId === file.id}
+                onSelect={(id) => workspaceCanvasStore.selectFile(id)}
+              />
             );
           })}
         </div>
       )}
+
+      {/* DOM layer: Ground */}
+      {lod === "ground" && (
+        <div className="workspace-canvas__dom-layer" style={{ transform, transformOrigin: "0 0", willChange: "transform" }}>
+          {visibleScene.files.map(file => {
+            const rect = layout?.fileRects.get(file.id);
+            if (!rect) return null;
+            return (
+              <GroundCard
+                key={file.id}
+                file={file}
+                rect={rect}
+                isSelected={viewState.selectedFileId === file.id}
+                onSelect={(id) => workspaceCanvasStore.selectFile(id)}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* Overlays */}
+      <Minimap layout={layout} viewport={viewport} />
+      <CanvasControls
+        scale={viewport.scale}
+        onZoomIn={onZoomIn}
+        onZoomOut={onZoomOut}
+        onFit={onFit}
+      />
     </div>
   );
 }

@@ -48,6 +48,8 @@ export class GalaxyNodeRenderer {
   }
 
   update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState): void {
+    const invScale = Math.min(8, Math.max(0.5, 1 / viewState.viewport.scale));
+
     this.bgGfx.clear();
     this.labelContainer.removeChildren();
     for (const h of this.hitAreas) {
@@ -82,12 +84,12 @@ export class GalaxyNodeRenderer {
 
       // Header bar (rounded top)
       this.bgGfx
-        .roundRect(rect.x, rect.y, rect.w, 28, 6)
+        .roundRect(rect.x, rect.y, rect.w, 28 * invScale, 6)
         .fill({ color: borderColor, alpha: 0.25 });
 
       // Fill the lower portion of header to square off bottom of header bar
       this.bgGfx
-        .rect(rect.x, rect.y + 12, rect.w, 16)
+        .rect(rect.x, rect.y + 12 * invScale, rect.w, 16 * invScale)
         .fill({ color: borderColor, alpha: 0.15 });
 
       // File name label
@@ -100,8 +102,9 @@ export class GalaxyNodeRenderer {
           fontWeight: "500",
         },
       });
-      nameLabel.x = rect.x + 8;
-      nameLabel.y = rect.y + 7;
+      nameLabel.scale.set(invScale);
+      nameLabel.x = rect.x + 8 * invScale;
+      nameLabel.y = rect.y + 7 * invScale;
       this.labelContainer.addChild(nameLabel);
 
       // Risk score badge
@@ -114,8 +117,9 @@ export class GalaxyNodeRenderer {
           fontWeight: "700",
         },
       });
-      scoreLabel.x = rect.x + rect.w - scoreLabel.width - 8;
-      scoreLabel.y = rect.y + 8;
+      scoreLabel.scale.set(invScale);
+      scoreLabel.x = rect.x + rect.w - scoreLabel.width - 8 * invScale;
+      scoreLabel.y = rect.y + 8 * invScale;
       this.labelContainer.addChild(scoreLabel);
 
       // LOC label
@@ -123,8 +127,9 @@ export class GalaxyNodeRenderer {
         text: `${file.loc.toLocaleString()} lines`,
         style: { fontSize: 9, fill: 0x888888, fontFamily: "system-ui" },
       });
-      locLabel.x = rect.x + 8;
-      locLabel.y = rect.y + rect.h - 18;
+      locLabel.scale.set(invScale);
+      locLabel.x = rect.x + 8 * invScale;
+      locLabel.y = rect.y + rect.h - 18 * invScale;
       this.labelContainer.addChild(locLabel);
 
       // Signal badges (taint)
@@ -133,8 +138,9 @@ export class GalaxyNodeRenderer {
           text: `⚡ ${file.signals.taintCount}`,
           style: { fontSize: 9, fill: 0xdc2626, fontFamily: "system-ui" },
         });
-        taintLabel.x = rect.x + 8;
-        taintLabel.y = rect.y + 34;
+        taintLabel.scale.set(invScale);
+        taintLabel.x = rect.x + 8 * invScale;
+        taintLabel.y = rect.y + 34 * invScale;
         this.labelContainer.addChild(taintLabel);
       }
 

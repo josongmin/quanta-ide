@@ -20,8 +20,8 @@ export interface WorkspaceLayout {
   totalBounds: Rect;
 }
 
-export const FILE_CARD_W = 320;
-export const FILE_CARD_H = 200;
-export const GRID_GAP_X  = 80;
+export const FILE_CARD_W = 560;
+export const FILE_CARD_H = 720;
+export const GRID_GAP_X  = 100;
 export const GRID_GAP_H  = 60;
 export const GRID_COLS   = 8;

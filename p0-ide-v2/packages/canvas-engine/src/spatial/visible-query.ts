@@ -4,14 +4,36 @@ import type { WorkspaceView, Viewport } from "../view/types";
 import { FileIndex } from "./file-index";
 import { EdgeFilter } from "./edge-filter";
 
+interface SpatialCache {
+  fileIndex: FileIndex;
+  edgeFilter: EdgeFilter;
+}
+
+// WeakMap: auto-invalidates when layout object is GC'd
+const spatialCache = new WeakMap<WorkspaceLayout, SpatialCache>();
+
+function getSpatialCache(graph: WorkspaceGraph, layout: WorkspaceLayout): SpatialCache {
+  const cached = spatialCache.get(layout);
+  if (cached) return cached;
+
+  const fileIndex = new FileIndex();
+  fileIndex.load(layout.fileRects);
+
+  const edgeFilter = new EdgeFilter();
+  edgeFilter.load(graph.fileEdges.map(e => e.id), layout.edgeRoutes);
+
+  const entry: SpatialCache = { fileIndex, edgeFilter };
+  spatialCache.set(layout, entry);
+  return entry;
+}
+
 // Returns the portion of graph visible in viewport
 export function buildVisibleQuery(
   graph: WorkspaceGraph,
   layout: WorkspaceLayout,
   viewport: Viewport,
 ): WorkspaceView {
-  // 1. Convert viewport screen coords to canvas coords (account for x/y/scale)
-  //    Canvas rect = { x: -vp.x/scale, y: -vp.y/scale, w: vp.width/scale, h: vp.height/scale }
+  // Convert viewport screen coords to canvas coords
   const canvasRect = {
     x: -viewport.x / viewport.scale,
     y: -viewport.y / viewport.scale,
@@ -19,24 +41,14 @@ export function buildVisibleQuery(
     h: viewport.height / viewport.scale,
   };
 
-  // 2. Query file index for visible file IDs
-  const fileIndex = new FileIndex();
-  fileIndex.load(layout.fileRects);
-  const visibleFileIds = new Set(fileIndex.query(canvasRect));
+  const { fileIndex, edgeFilter } = getSpatialCache(graph, layout);
 
-  // 3. Filter graph.files to visible
+  const visibleFileIds = new Set(fileIndex.query(canvasRect));
   const files = graph.files.filter((f) => visibleFileIds.has(f.id));
 
-  // 4. Query edge filter for visible edge IDs
-  const edgeFilter = new EdgeFilter();
-  const allEdgeIds = graph.fileEdges.map((e) => e.id);
-  edgeFilter.load(allEdgeIds, layout.edgeRoutes);
   const visibleEdgeIds = new Set(edgeFilter.query(canvasRect));
-
-  // 5. Filter graph.fileEdges
   const edges = graph.fileEdges.filter((e) => visibleEdgeIds.has(e.id));
 
-  // 6. Filter graph.comments to files that are visible
   const comments = graph.comments.filter((c) => visibleFileIds.has(c.fileId));
 
   return { files, edges, comments };

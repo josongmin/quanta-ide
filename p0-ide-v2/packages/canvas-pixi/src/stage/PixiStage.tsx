@@ -46,6 +46,11 @@ export function PixiStage({
     if (!canvas) return;
     let cancelled = false;
 
+    const handleContextLost = () => {
+      readyRef.current = false;
+    };
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+
     void (async () => {
       const app = new Application();
       await app.init({
@@ -92,7 +97,12 @@ export function PixiStage({
     return () => {
       cancelled = true;
       readyRef.current = false;
-      appRef.current?.destroy();
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      try {
+        appRef.current?.destroy();
+      } catch {
+        // context may already be lost (e.g. HMR, browser resource pressure)
+      }
       appRef.current = null;
       worldRef.current = null;
       galaxyRef.current = null;

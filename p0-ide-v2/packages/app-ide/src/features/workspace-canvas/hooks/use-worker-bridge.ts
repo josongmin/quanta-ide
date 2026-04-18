@@ -8,7 +8,7 @@ let worker: Worker | null = null;
 function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(
-      new URL("../../../../canvas-worker/src/worker.ts", import.meta.url),
+      new URL("../../../../../canvas-worker/src/worker.ts", import.meta.url),
       { type: "module" },
     );
     worker.onmessage = handleMessage;
@@ -20,15 +20,30 @@ function getWorker(): Worker {
 function handleMessage(event: MessageEvent) {
   const msg = event.data as { type: string; payload?: unknown; message?: string };
   switch (msg.type) {
-    case "LAYOUT_READY":
-      workspaceCanvasStore.setLayout(deserializeLayout(msg.payload as SerializedLayout));
+    case "LAYOUT_READY": {
+      const layout = deserializeLayout(msg.payload as SerializedLayout);
+      workspaceCanvasStore.setLayout(layout);
       workspaceCanvasStore.setWorkerState("workerLayout", false);
+      // Auto-fit viewport to graph bounds
+      const vp = workspaceCanvasStore.getState().viewport;
+      const { w: graphW, h: graphH } = layout.totalBounds;
+      if (graphW > 0 && graphH > 0 && vp.width > 0 && vp.height > 0) {
+        const scale = Math.min(2.5, Math.max(0.05, Math.min(vp.width / graphW, vp.height / graphH) * 0.9));
+        const x = (vp.width - graphW * scale) / 2;
+        const y = (vp.height - graphH * scale) / 2;
+        workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+      }
       break;
-    case "AGGREGATES_READY":
-      // store aggregates — attach to layout
-      deserializeAggregates(msg.payload as SerializedAggregates);
+    }
+    case "AGGREGATES_READY": {
+      const aggregates = deserializeAggregates(msg.payload as SerializedAggregates);
+      const currentLayout = workspaceCanvasStore.getState().layout;
+      if (currentLayout) {
+        workspaceCanvasStore.setLayout({ ...currentLayout, aggregates });
+      }
       workspaceCanvasStore.setWorkerState("workerAggregates", false);
       break;
+    }
     case "GEOMETRY_READY":
       workspaceCanvasStore.setWorkerState("workerGeometry", false);
       break;
