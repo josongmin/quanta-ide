@@ -1,0 +1,209 @@
+import { Graphics, Container, Text } from "pixi.js";
+import type { FileNode, WorkspaceLayout, ViewState } from "@quanta/canvas-engine";
+
+function riskFill(score: number): number {
+  if (score >= 70) return 0xfee2e2; // red tint
+  if (score >= 40) return 0xfef3c7; // yellow tint
+  return 0xdcfce7;                  // green tint
+}
+
+function riskBorder(score: number): number {
+  if (score >= 70) return 0xfca5a5;
+  if (score >= 40) return 0xfcd34d;
+  return 0x86efac;
+}
+
+function riskText(score: number): number {
+  if (score >= 70) return 0xdc2626;
+  if (score >= 40) return 0xd97706;
+  return 0x16a34a;
+}
+
+const HEADER_H = 32;
+const FN_H = 22;
+const FN_GAP = 2;
+const FN_PAD_X = 8;
+
+export class CityNodeRenderer {
+  private container: Container;
+  private bgGfx: Graphics;
+  private labelContainer: Container;
+  private hitAreas: Graphics[] = [];
+
+  private onClickFile?: (fileId: string) => void;
+  private onHoverFile?: (fileId: string | null) => void;
+
+  constructor(
+    parent: Container,
+    opts?: {
+      onClick?: (fileId: string) => void;
+      onHover?: (fileId: string | null) => void;
+    },
+  ) {
+    this.container = new Container();
+    this.bgGfx = new Graphics();
+    this.labelContainer = new Container();
+    this.onClickFile = opts?.onClick;
+    this.onHoverFile = opts?.onHover;
+
+    // Order: bg → labels → hit areas
+    this.container.addChild(this.bgGfx);
+    this.container.addChild(this.labelContainer);
+    parent.addChild(this.container);
+  }
+
+  update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState): void {
+    this.bgGfx.clear();
+    this.labelContainer.removeChildren();
+    for (const h of this.hitAreas) {
+      h.destroy();
+    }
+    this.hitAreas = [];
+
+    for (const file of files) {
+      const rect = layout.fileRects.get(file.id);
+      if (!rect) continue;
+
+      const isSelected = viewState.selectedFileId === file.id;
+      const isHovered = viewState.hoveredFileId === file.id;
+
+      const fillColor = riskFill(file.riskScore);
+      const borderColor = riskBorder(file.riskScore);
+      const shadowAlpha = isSelected ? 0.35 : isHovered ? 0.25 : 0.15;
+
+      // Background fill
+      this.bgGfx
+        .roundRect(rect.x, rect.y, rect.w, rect.h, 6)
+        .fill({ color: fillColor, alpha: shadowAlpha + 0.15 });
+
+      // Border stroke
+      this.bgGfx
+        .roundRect(rect.x, rect.y, rect.w, rect.h, 6)
+        .stroke({
+          color: isSelected ? 0x4f46e5 : borderColor,
+          width: isSelected ? 2 : 1,
+          alpha: isSelected ? 0.9 : 0.6,
+        });
+
+      // Header bar (rounded top)
+      this.bgGfx
+        .roundRect(rect.x, rect.y, rect.w, 28, 6)
+        .fill({ color: borderColor, alpha: 0.25 });
+
+      // Fill the lower portion of header to square off bottom of header bar
+      this.bgGfx
+        .rect(rect.x, rect.y + 12, rect.w, 16)
+        .fill({ color: borderColor, alpha: 0.15 });
+
+      // File name label
+      const nameLabel = new Text({
+        text: file.name.length > 20 ? "…" + file.name.slice(-18) : file.name,
+        style: {
+          fontSize: 11,
+          fill: 0x1a1a2e,
+          fontFamily: "system-ui, sans-serif",
+          fontWeight: "500",
+        },
+      });
+      nameLabel.x = rect.x + 8;
+      nameLabel.y = rect.y + 7;
+      this.labelContainer.addChild(nameLabel);
+
+      // Risk score badge
+      const scoreLabel = new Text({
+        text: String(file.riskScore),
+        style: {
+          fontSize: 10,
+          fill: riskText(file.riskScore),
+          fontFamily: "system-ui",
+          fontWeight: "700",
+        },
+      });
+      scoreLabel.x = rect.x + rect.w - scoreLabel.width - 8;
+      scoreLabel.y = rect.y + 8;
+      this.labelContainer.addChild(scoreLabel);
+
+      // LOC label at bottom
+      const locLabel = new Text({
+        text: `${file.loc.toLocaleString()} lines`,
+        style: { fontSize: 9, fill: 0x888888, fontFamily: "system-ui" },
+      });
+      locLabel.x = rect.x + 8;
+      locLabel.y = rect.y + rect.h - 18;
+      this.labelContainer.addChild(locLabel);
+
+      // Signal badges (taint)
+      if (file.signals.taintCount > 0) {
+        const taintLabel = new Text({
+          text: `⚡ ${file.signals.taintCount}`,
+          style: { fontSize: 9, fill: 0xdc2626, fontFamily: "system-ui" },
+        });
+        taintLabel.x = rect.x + 8;
+        taintLabel.y = rect.y + HEADER_H + 4 - 10; // just below header
+        this.labelContainer.addChild(taintLabel);
+      }
+
+      // Function blocks
+      const maxFns = Math.floor((rect.h - HEADER_H - 8) / (FN_H + FN_GAP));
+      let fnY = rect.y + HEADER_H + 4;
+
+      for (const fn of file.functions.slice(0, maxFns)) {
+        if (fnY + FN_H > rect.y + rect.h - 4) break;
+
+        const cpx = fn.complexity;
+        const fnFill = cpx >= 10 ? 0xfee2e2 : cpx >= 5 ? 0xfef3c7 : 0xf0fdf4;
+        const fnBorder = cpx >= 10 ? 0xfca5a5 : cpx >= 5 ? 0xfde68a : 0xbbf7d0;
+
+        this.bgGfx
+          .roundRect(rect.x + FN_PAD_X, fnY, rect.w - FN_PAD_X * 2, FN_H, 3)
+          .fill({ color: fnFill, alpha: 0.8 })
+          .stroke({ color: fnBorder, width: 0.5, alpha: 0.6 });
+
+        const fnLabel = new Text({
+          text: fn.name.length > 22 ? fn.name.slice(0, 21) + "…" : fn.name,
+          style: {
+            fontSize: 9,
+            fill: 0x333333,
+            fontFamily: "JetBrains Mono, monospace",
+          },
+        });
+        fnLabel.x = rect.x + FN_PAD_X + 6;
+        fnLabel.y = fnY + 6;
+        this.labelContainer.addChild(fnLabel);
+
+        if (fn.signalCount > 0) {
+          const sigLabel = new Text({
+            text: String(fn.signalCount),
+            style: {
+              fontSize: 9,
+              fill: 0xdc2626,
+              fontFamily: "system-ui",
+              fontWeight: "700",
+            },
+          });
+          sigLabel.x = rect.x + rect.w - FN_PAD_X - sigLabel.width - 4;
+          sigLabel.y = fnY + 6;
+          this.labelContainer.addChild(sigLabel);
+        }
+
+        fnY += FN_H + FN_GAP;
+      }
+
+      // Transparent hit area for pointer events
+      const hit = new Graphics();
+      hit.rect(rect.x, rect.y, rect.w, rect.h).fill({ color: 0x000000, alpha: 0.001 });
+      hit.eventMode = "static";
+      hit.cursor = "pointer";
+      const fileId = file.id;
+      hit.on("pointertap", () => this.onClickFile?.(fileId));
+      hit.on("pointerover", () => this.onHoverFile?.(fileId));
+      hit.on("pointerout", () => this.onHoverFile?.(null));
+      this.container.addChild(hit);
+      this.hitAreas.push(hit);
+    }
+  }
+
+  destroy(): void {
+    this.container.destroy({ children: true });
+  }
+}

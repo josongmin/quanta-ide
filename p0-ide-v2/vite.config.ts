@@ -23,6 +23,7 @@ export default defineConfig({
       "@quanta/app-home": path.resolve(__dirname, "packages/app-home/src"),
       "@quanta/app-policy": path.resolve(__dirname, "packages/app-policy/src"),
       "@quanta/canvas-engine": path.resolve(__dirname, "packages/canvas-engine/src"),
+      "@quanta/canvas-pixi": path.resolve(__dirname, "packages/canvas-pixi/src"),
     },
   },
   server: { port: 5174, strictPort: true },

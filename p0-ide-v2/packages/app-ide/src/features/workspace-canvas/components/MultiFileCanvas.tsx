@@ -2,8 +2,9 @@ import { useRef, useCallback, useEffect } from "react";
 import "../workspace-canvas.css";
 import { useWorkspaceCanvasOrchestrator } from "../hooks/use-workspace-canvas";
 import { useCanvasViewport } from "../hooks/use-canvas-viewport";
-import { useWorkspaceCanvas } from "../store/workspace-canvas-store";
-import { workspaceCanvasStore } from "../store/workspace-canvas-store";
+import { useWorkspaceCanvas, workspaceCanvasStore } from "../store/workspace-canvas-store";
+import { EdgeGeometryCache } from "@quanta/canvas-engine";
+import { PixiStage } from "@quanta/canvas-pixi";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 
 interface Props {
@@ -17,6 +18,19 @@ export function MultiFileCanvas({ graph }: Props) {
   const { panBy, zoomAt, setContainerSize, transform } = useCanvasViewport();
   const lod          = useWorkspaceCanvas(s => s.lod);
   const visibleScene = useWorkspaceCanvas(s => s.visibleScene);
+  const viewState    = useWorkspaceCanvas(s => s.viewState);
+  const layout       = useWorkspaceCanvas(s => s.layout);
+  const edgeCacheRef = useRef(new EdgeGeometryCache());
+
+  // Rebuild edge cache when layout changes
+  useEffect(() => {
+    if (!layout) return;
+    edgeCacheRef.current.build(
+      layout.edgeRoutes.size > 0 ? (visibleScene?.edges ?? []) : [],
+      layout,
+    );
+    // intentionally exclude visibleScene.edges — rebuild on layout change only
+  }, [layout]);
 
   // ResizeObserver for container size
   useEffect(() => {
@@ -79,11 +93,29 @@ export function MultiFileCanvas({ graph }: Props) {
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
     >
-      {/* DOM layer: street + ground */}
+      {/* Grid dot background (moves with pan/zoom) */}
+      <div
+        className="workspace-canvas__grid"
+        style={{ transform, transformOrigin: "0 0" }}
+      />
+
+      {/* WebGL layer: Galaxy / City */}
+      {(lod === "galaxy" || lod === "city") && layout && (
+        <PixiStage
+          visible={visibleScene}
+          layout={layout}
+          viewState={viewState}
+          lod={lod}
+          edgeCache={edgeCacheRef.current}
+          onFileClick={(fileId) => workspaceCanvasStore.selectFile(fileId)}
+          onFileHover={(fileId) => workspaceCanvasStore.hoverFile(fileId)}
+        />
+      )}
+
+      {/* DOM layer: Street / Ground */}
       {(lod === "street" || lod === "ground") && (
         <div className="workspace-canvas__dom-layer" style={{ transform, transformOrigin: "0 0", willChange: "transform" }}>
           {visibleScene.files.map(file => {
-            const layout = workspaceCanvasStore.getState().layout;
             const rect = layout?.fileRects.get(file.id);
             if (!rect) return null;
             return (
@@ -95,43 +127,8 @@ export function MultiFileCanvas({ graph }: Props) {
               >
                 <div className="file-card__header">{file.name}</div>
                 <div className="file-card__body">
-                  {/* GroundCard / StreetCard goes here in later phases */}
                   <span style={{ opacity: 0.4, fontSize: 11 }}>{lod} · {file.loc} lines</span>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Galaxy/City: placeholder until canvas-pixi is ready */}
-      {(lod === "galaxy" || lod === "city") && (
-        <div className="workspace-canvas__dom-layer" style={{ transform, transformOrigin: "0 0" }}>
-          {visibleScene.files.map(file => {
-            const layout = workspaceCanvasStore.getState().layout;
-            const rect = layout?.fileRects.get(file.id);
-            if (!rect) return null;
-            const risk = file.riskScore;
-            const bg = risk >= 70 ? "#fee2e2" : risk >= 40 ? "#fef3c7" : "#dcfce7";
-            return (
-              <div
-                key={file.id}
-                style={{
-                  position: "absolute",
-                  left: rect.x, top: rect.y,
-                  width: rect.w, height: rect.h,
-                  background: bg,
-                  border: "1px solid rgba(0,0,0,0.1)",
-                  borderRadius: 4,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 10,
-                  cursor: "pointer",
-                }}
-                onClick={() => workspaceCanvasStore.selectFile(file.id)}
-              >
-                {file.name}
               </div>
             );
           })}
