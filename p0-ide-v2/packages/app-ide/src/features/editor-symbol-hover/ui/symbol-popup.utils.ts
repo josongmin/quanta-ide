@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { tone } from "@quanta/app-ide/entities/risk";
 import type { HoverAnchor } from "../model/symbol-hover";
 
 export const KIND_LABEL: Record<string, string> = {
@@ -20,9 +21,8 @@ export const KIND_GLYPH: Record<string, string> = {
 };
 
 export function riskTone(score: number): string {
-  if (score >= 70) return "symtip__risk--high";
-  if (score >= 40) return "symtip__risk--mid";
-  return "";
+  const t = tone(score);
+  return t === "low" ? "" : `symtip__risk--${t}`;
 }
 
 export function churnState(n: number): string {

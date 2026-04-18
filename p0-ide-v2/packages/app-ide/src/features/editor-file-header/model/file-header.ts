@@ -11,30 +11,30 @@ import {
 } from "@quanta/app-ide/features/editor-chip-bar";
 
 class FileHeaderWidget extends WidgetType {
+  /** Cached signature — `eq()` is hot during reconciliation; recomputing
+   * the 12-field join on every call is wasteful. */
+  private readonly _sig: string;
+
   constructor(readonly file: FileFacts) {
     super();
-  }
-
-  /** Stable signature over every field that flows into `toDOM`. */
-  private get sig(): string {
-    return signature(
-      this.file.name,
-      this.file.riskScore,
-      this.file.blast,
-      this.file.blastCritical,
-      this.file.taintCount,
-      this.file.cpxMax,
-      this.file.cpxBudgetPct,
-      this.file.archViolations,
-      this.file.deadCount,
-      this.file.incidents.length,
-      this.file.owner,
-      this.file.lastModified,
+    this._sig = signature(
+      file.name,
+      file.riskScore,
+      file.blast,
+      file.blastCritical,
+      file.taintCount,
+      file.cpxMax,
+      file.cpxBudgetPct,
+      file.archViolations,
+      file.deadCount,
+      file.incidents.length,
+      file.owner,
+      file.lastModified,
     );
   }
 
   override eq(other: WidgetType): boolean {
-    return other instanceof FileHeaderWidget && other.sig === this.sig;
+    return other instanceof FileHeaderWidget && other._sig === this._sig;
   }
 
   // XSS-safe DOM construction via the shared chip-bar primitives — no

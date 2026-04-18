@@ -33,13 +33,19 @@ export type LayoutStage =
   | "elk-running"
   | "elk-skipped"
   | "elk-done"
-  | "elk-failed";
+  | "elk-failed"
+  // Terminal failure stage emitted by the worker bridge when the worker
+  // posts WORKER_ERROR. The LoadingOverlay renders a distinct red error
+  // state for this stage with a reload button.
+  | "worker-error";
 
 export interface LayoutProgress {
   stage: LayoutStage;
   filesCount: number;
   startedAt: number; // performance.now() when request was made
   lastUpdateMs: number; // elapsed ms at last stage transition
+  // Human-readable error message — only set when stage === "worker-error".
+  error?: string;
 }
 
 export interface SceneState {
@@ -65,6 +71,10 @@ export interface SceneState {
   workerGeometry: boolean;
 
   layoutProgress: LayoutProgress;
+
+  // Pixi/WebGL init failure — set by MultiFileCanvas when PixiStage surfaces
+  // onPixiError. Non-null value triggers a WebGL-unavailable fallback UI.
+  pixiError: string | null;
 }
 
 const initialLayoutProgress: LayoutProgress = {
@@ -91,6 +101,8 @@ let state: SceneState = {
   workerGeometry: false,
 
   layoutProgress: initialLayoutProgress,
+
+  pixiError: null,
 };
 
 const listeners = new Set<() => void>();
@@ -147,7 +159,10 @@ const actions = {
     emit();
   },
 
-  setLayoutProgress(stage: LayoutStage, extras?: { filesCount?: number; elapsedMs?: number }) {
+  setLayoutProgress(
+    stage: LayoutStage,
+    extras?: { filesCount?: number; elapsedMs?: number; error?: string },
+  ) {
     state = {
       ...state,
       layoutProgress: {
@@ -155,8 +170,17 @@ const actions = {
         stage,
         filesCount: extras?.filesCount ?? state.layoutProgress.filesCount,
         lastUpdateMs: extras?.elapsedMs ?? (performance.now() - state.layoutProgress.startedAt),
+        // Only attach error message on the terminal failure stage; clear it
+        // otherwise so stale text doesn't leak into the next run.
+        error: stage === "worker-error" ? extras?.error : undefined,
       },
     };
+    emit();
+  },
+
+  setPixiError(err: string | null) {
+    if (state.pixiError === err) return;
+    state = { ...state, pixiError: err };
     emit();
   },
 

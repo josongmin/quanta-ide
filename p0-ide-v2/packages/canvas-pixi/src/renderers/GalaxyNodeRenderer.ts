@@ -51,7 +51,7 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
       onHover?: (fileId: string | null) => void;
     },
   ) {
-    super(parent, 1024, { onClick: opts?.onClick, onHover: opts?.onHover });
+    super(parent, 1024, { onClick: opts?.onClick, onHover: opts?.onHover }, "galaxy");
   }
 
   // Fill one instance row for a file. Base class tracks AABB + pickRect.

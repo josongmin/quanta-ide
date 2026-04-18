@@ -2,7 +2,12 @@
 // All builders return DOM nodes (no innerHTML) so user-facing fields
 // like owner/email/filename can flow through safely.
 
-export type ChipTone = "low" | "mid" | "high";
+import type { Taint } from "@quanta/app-ide/entities/symbol";
+import { tone as riskTone } from "@quanta/app-ide/entities/risk";
+import type { RiskTone } from "@quanta/app-ide/entities/risk";
+
+/** @deprecated re-exported for back-compat — prefer `RiskTone` from `entities/risk`. */
+export type ChipTone = RiskTone;
 
 export type ChipKind =
   | "default"
@@ -11,10 +16,12 @@ export type ChipKind =
   | "muted"
   | "taint-source"
   | "taint-sink"
-  | "taint-passthrough";
+  | "taint-passthrough"
+  | "taint-sanitized";
 
 export interface ChipSpec {
-  ico: string;
+  /** Optional uppercase 8px label (e.g. "blast", "cpx"). Omit for label-only chips. */
+  ico?: string;
   value: string | number;
   /** small trailing label, e.g. "O(n)", "91%" */
   sub?: string;
@@ -23,20 +30,30 @@ export interface ChipSpec {
   kind?: ChipKind;
 }
 
-export function tone(riskScore: number): ChipTone {
-  if (riskScore >= 70) return "high";
-  if (riskScore >= 40) return "mid";
-  return "low";
+/** Re-export of the shared risk → tone helper. */
+export const tone = riskTone;
+
+/** Map a `Taint` value to the matching chip kind. Single source of truth. */
+export function taintChipKind(t: Taint | undefined): ChipKind {
+  switch (t) {
+    case "source": return "taint-source";
+    case "sink": return "taint-sink";
+    case "passthrough": return "taint-passthrough";
+    case "sanitized": return "taint-sanitized";
+    default: return "default";
+  }
 }
 
 export function createChip(spec: ChipSpec): HTMLElement {
   const span = document.createElement("span");
   span.className = "cm-fnhead__chip" + chipKindSuffix(spec.kind ?? "default");
 
-  const ico = document.createElement("span");
-  ico.className = "cm-fnhead__ico";
-  ico.textContent = spec.ico;
-  span.appendChild(ico);
+  if (spec.ico) {
+    const ico = document.createElement("span");
+    ico.className = "cm-fnhead__ico";
+    ico.textContent = spec.ico;
+    span.appendChild(ico);
+  }
 
   span.appendChild(document.createTextNode(String(spec.value)));
 
@@ -61,17 +78,24 @@ export function createMeta(text: string): HTMLElement {
   return span;
 }
 
-export function createRisk(score: number): HTMLElement {
+export function createRisk(score: number, opts?: { ico?: boolean }): HTMLElement {
   const span = document.createElement("span");
   span.className = "cm-fnhead__risk";
-  span.textContent = String(score);
+  if (opts?.ico) {
+    const ico = document.createElement("span");
+    ico.className = "cm-fnhead__ico";
+    ico.textContent = "risk";
+    span.appendChild(ico);
+  }
+  span.appendChild(document.createTextNode(String(score)));
   return span;
 }
 
 /**
  * Stable signature for `WidgetType.eq()` — every value that flows into
  * the rendered DOM must be included so a content change forces re-render.
- * Strings only; nullish becomes empty.
+ * Use `\u001f` (Unit Separator) so user-supplied strings can't collide.
+ * Cache the result in the widget's constructor — `eq()` is hot.
  */
 export function signature(...parts: (string | number | boolean | null | undefined)[]): string {
   return parts.map((p) => (p == null ? "" : String(p))).join("\u001f");
@@ -91,6 +115,8 @@ function chipKindSuffix(kind: ChipKind): string {
       return " cm-fnhead__chip--taint-sink";
     case "taint-passthrough":
       return " cm-fnhead__chip--taint-passthrough";
+    case "taint-sanitized":
+      return " cm-fnhead__chip--taint-sanitized";
     default:
       return "";
   }

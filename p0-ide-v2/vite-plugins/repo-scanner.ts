@@ -58,6 +58,12 @@ interface ScanStats {
   readMs: number;
   parseMs: number;
   edgesMs: number;
+  // Count of edges dropped because `from` or `to` wasn't in the final
+  // file set (e.g. target file was filtered by minLines, or a Rust `use`
+  // resolved to a path that was skipped). Surfaced for observability so
+  // a sudden spike — which would indicate a regression in resolution —
+  // shows up in the HUD rather than silently shrinking the edge count.
+  droppedEdges: number;
   serializeMs?: number;
   // Concurrency / retry metrics — used to surface rate-limit + timeout
   // behavior to the HUD / future observability layer.
@@ -108,6 +114,11 @@ function isInsideRootSync(abs: string, rootReal: string): boolean {
   }
 }
 
+// Max recursion depth. Caps pathological cases (bind-mount loops, deeply
+// symlinked vendor trees) even when inode dedup is defeated by filesystems
+// that report 0 or non-unique inodes (e.g. some FUSE mounts, Windows).
+const MAX_WALK_DEPTH = 32;
+
 function walk(
   dir: string,
   rootReal: string,
@@ -115,8 +126,11 @@ function walk(
   acc: string[],
   maxFiles: number,
   skipped: { symlinkEscapes: number },
+  visitedInodes: Set<number>,
+  depth: number,
 ): void {
   if (acc.length >= maxFiles) return;
+  if (depth > MAX_WALK_DEPTH) return;
   let entries: fs.Dirent[];
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -137,11 +151,17 @@ function walk(
         continue;
       }
       // Fall through — symlinked dirs/files inside root are walked
-      // like anything else. Use statSync to learn their real type.
+      // like anything else. Use statSync to learn their real type and
+      // detect cycles via inode.
       let st: fs.Stats;
       try { st = fs.statSync(p); } catch { continue; }
       if (st.isDirectory()) {
-        walk(p, rootReal, exts, acc, maxFiles, skipped);
+        // Inode-based cycle guard. `a/b → a` loops trigger on the
+        // second traversal. Inode 0 means "don't know" (some FUSE) —
+        // fall through and rely on MAX_WALK_DEPTH instead.
+        if (st.ino !== 0 && visitedInodes.has(st.ino)) continue;
+        if (st.ino !== 0) visitedInodes.add(st.ino);
+        walk(p, rootReal, exts, acc, maxFiles, skipped, visitedInodes, depth + 1);
       } else if (st.isFile()) {
         const ext = path.extname(e.name).toLowerCase();
         if (exts.has(ext)) acc.push(p);
@@ -149,7 +169,13 @@ function walk(
       continue;
     }
     if (e.isDirectory()) {
-      walk(p, rootReal, exts, acc, maxFiles, skipped);
+      // Real directory: stat to pull the inode and dedup. Any failure
+      // (EACCES, ENOENT race) → skip rather than crash the whole walk.
+      let st: fs.Stats;
+      try { st = fs.statSync(p); } catch { continue; }
+      if (st.ino !== 0 && visitedInodes.has(st.ino)) continue;
+      if (st.ino !== 0) visitedInodes.add(st.ino);
+      walk(p, rootReal, exts, acc, maxFiles, skipped, visitedInodes, depth + 1);
     } else if (e.isFile()) {
       const ext = path.extname(e.name).toLowerCase();
       if (exts.has(ext)) acc.push(p);
@@ -467,7 +493,17 @@ export async function scanRepo(
 
   const filePaths: string[] = [];
   const walkSkip = { symlinkEscapes: 0 };
-  walk(rootReal, rootReal, exts, filePaths, maxFiles, walkSkip);
+  // Seed the inode-visited set with the root's own inode so a symlink
+  // back to root is caught on the first nested traversal.
+  const visitedInodes = new Set<number>();
+  try {
+    const rootSt = fs.statSync(rootReal);
+    if (rootSt.ino !== 0) visitedInodes.add(rootSt.ino);
+  } catch {
+    // Non-fatal: realpath succeeded above, so stat failing here would be
+    // a TOCTOU-level race. Fall through with an empty visited set.
+  }
+  walk(rootReal, rootReal, exts, filePaths, maxFiles, walkSkip, visitedInodes, 0);
   const walkMs = Date.now() - t0;
 
   // First pass: parallel async readFile + single-pass parse.
@@ -621,6 +657,15 @@ export async function scanRepo(
 
   const edgesStart = Date.now();
   const fileEdges: FileEdge[] = [];
+  // Build the known-file set once — used by both Rust and TS edge
+  // filtering. Rust `resolveRustUse` may resolve to a path that was
+  // filtered out (e.g. lib.rs with lineCount < minLines), and TS
+  // `resolveTsImports` passes this through resolveTsBase but callers
+  // mutated `files` post-resolution in earlier revisions, so we apply
+  // an explicit drop filter on both paths for robustness.
+  const known = new Set(files.map(f => f.id));
+  let droppedEdges = 0;
+
   // Rust edges — resolve now that we have the full module index.
   for (const { id, specs } of rustUsesByFile) {
     const seen = new Set<string>();
@@ -628,14 +673,27 @@ export async function scanRepo(
       const target = resolveRustUse(spec, crateRoots, moduleIndex);
       if (!target || target === id || seen.has(target)) continue;
       seen.add(target);
+      // Drop edges whose source or target didn't survive to the final
+      // file set. `id` is always in `known` (we only push onto
+      // rustUsesByFile for accepted files), but `target` may not be.
+      if (!known.has(id) || !known.has(target)) {
+        droppedEdges++;
+        continue;
+      }
       fileEdges.push({ id: `e:${id}→${target}`, from: id, to: target, kind: "import", weight: 1 });
     }
   }
 
   if (tsImportsById.size) {
-    const known = new Set(files.map(f => f.id));
     for (const [id, imps] of tsImportsById) {
-      fileEdges.push(...resolveTsImports(id, imps, known, subpathAliases));
+      const resolved = resolveTsImports(id, imps, known, subpathAliases);
+      for (const edge of resolved) {
+        if (!known.has(edge.from) || !known.has(edge.to)) {
+          droppedEdges++;
+          continue;
+        }
+        fileEdges.push(edge);
+      }
     }
   }
   const edgesMs = Date.now() - edgesStart;
@@ -655,6 +713,7 @@ export async function scanRepo(
       readMs: readParseMs,
       parseMs,
       edgesMs,
+      droppedEdges,
     },
   };
 }
@@ -735,7 +794,8 @@ export function repoScannerPlugin(): Plugin {
             res.end(finalBody);
             // eslint-disable-next-line no-console
             console.log(
-              `[repo-scan] ${graph.files.length} files, ${graph.fileEdges.length} edges · ` +
+              `[repo-scan] ${graph.files.length} files, ${graph.fileEdges.length} edges ` +
+              `(dropped=${graph.stats.droppedEdges}) · ` +
               `walk=${graph.stats.walkMs}ms read+parse=${graph.stats.readMs}ms ` +
               `assemble=${graph.stats.parseMs}ms edges=${graph.stats.edgesMs}ms ` +
               `serialize=${graph.stats.serializeMs}ms total=${graph.stats.durationMs}ms ` +

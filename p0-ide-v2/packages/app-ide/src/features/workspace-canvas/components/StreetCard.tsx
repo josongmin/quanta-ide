@@ -1,5 +1,7 @@
 import { memo } from "react";
 import type { FileNode, Rect } from "@quanta/canvas-engine";
+import { tone } from "@quanta/app-ide/entities/risk";
+import type { RiskTone } from "@quanta/app-ide/entities/risk";
 
 interface StreetCardProps {
   file: FileNode;
@@ -8,16 +10,22 @@ interface StreetCardProps {
   onSelect: (id: string) => void;
 }
 
+const TONE_PASTEL: Record<RiskTone, string> = {
+  high: "#fca5a5",
+  mid: "#fde68a",
+  low: "#bbf7d0",
+};
+
 function riskColor(score: number): string {
-  if (score >= 70) return "#fca5a5";
-  if (score >= 40) return "#fde68a";
-  return "#bbf7d0";
+  return TONE_PASTEL[tone(score)];
 }
 
+// CPX has its own thresholds (10 / 5) — distinct from risk score buckets,
+// so it stays inline rather than using `tone()`.
 function cpxColor(cpx: number): string {
-  if (cpx >= 10) return "#fca5a5";
-  if (cpx >= 5)  return "#fde68a";
-  return "#bbf7d0";
+  if (cpx >= 10) return TONE_PASTEL.high;
+  if (cpx >= 5) return TONE_PASTEL.mid;
+  return TONE_PASTEL.low;
 }
 
 function StreetCardImpl({ file, rect, isSelected, onSelect }: StreetCardProps) {

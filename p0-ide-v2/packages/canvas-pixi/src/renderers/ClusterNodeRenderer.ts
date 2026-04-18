@@ -169,7 +169,7 @@ export class ClusterNodeRenderer {
     }
 
     this.rectMesh.setInstanceCount(clusters.length);
-    this.pickIndex.load(this.pickRects);
+    this.pickIndex.load(this.pickRects, "cluster");
     this.releaseLabels();
   }
 

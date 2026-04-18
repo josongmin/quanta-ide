@@ -419,7 +419,7 @@ export function treemapLayout(
 
   const root = buildDirTree(graph.files);
 
-  sizeDir(root);
+  sizeDir(root, LONGSIDE_BUDGET_K);
 
   const fileRects = new Map<string, Rect>();
   positionDir(root, OUTER_PAD, OUTER_PAD, fileRects);
@@ -528,13 +528,20 @@ export function treemapLayout(
     });
   }
 
-  // Orthogonal routes — parallel to bezier, data-only for now (renderer
-  // integration deferred).
-  const edgeRoutesOrtho = buildOrthogonalRoutes(graph.fileEdges, fileRects);
+  // Orthogonal routes — opt-in because no renderer consumes them yet, and the
+  // O(E) build cost is pure waste otherwise (~50ms at 5k edges).
+  const edgeRoutesOrtho = opts.computeOrthoRoutes
+    ? buildOrthogonalRoutes(graph.fileEdges, fileRects)
+    : undefined;
 
-  // Cluster-level bundled edges — used by future supergalaxy renderer.
-  const fileToCluster = buildFileToClusterMap(graph.files, fileRects, clusters);
-  const bundledEdges = buildBundledEdges(graph.fileEdges, fileToCluster, clusters);
+  // Cluster-level bundled edges — cheap to compute but still gated on opt-in
+  // so call sites decide whether they'll be consumed.
+  const bundledEdges = opts.computeBundledEdges
+    ? (() => {
+        const fileToCluster = buildFileToClusterMap(graph.files, fileRects, clusters);
+        return buildBundledEdges(graph.fileEdges, fileToCluster, clusters);
+      })()
+    : undefined;
 
   // Total bounds.
   let maxX = 0, maxY = 0;

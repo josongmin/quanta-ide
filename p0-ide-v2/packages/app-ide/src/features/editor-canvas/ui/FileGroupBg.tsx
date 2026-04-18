@@ -1,25 +1,28 @@
 import { memo } from "react";
 import type { FileGroup } from "@quanta/app-ide/entities/canvas";
 import { cn } from "@quanta/ui-kit/lib";
+import { tone, RISK_HIGH } from "@quanta/app-ide/entities/risk";
+import type { RiskTone } from "@quanta/app-ide/entities/risk";
 
 interface Props {
   group: FileGroup;
 }
 
-function riskColor(score: number): string {
-  if (score >= 70) return "var(--danger)";
-  if (score >= 40) return "var(--warn)";
-  return "var(--success)";
-}
+const TONE_COLOR: Record<RiskTone, string> = {
+  high: "var(--danger)",
+  mid: "var(--warn)",
+  low: "var(--success)",
+};
 
-function riskLabel(score: number): string {
-  if (score >= 70) return "High risk";
-  if (score >= 40) return "Medium";
-  return "Low";
-}
+const TONE_LABEL: Record<RiskTone, string> = {
+  high: "High risk",
+  mid: "Medium",
+  low: "Low",
+};
 
 export const FileGroupBg = memo(function FileGroupBg({ group }: Props) {
   const score = group.riskScore;
+  const t = tone(score);
 
   return (
     <div
@@ -34,12 +37,12 @@ export const FileGroupBg = memo(function FileGroupBg({ group }: Props) {
         </svg>
         <span className="file-group__name">{group.name}</span>
         <span className="file-group__spacer" />
-        <span className="file-group__score" style={{ color: riskColor(score) }}>
+        <span className="file-group__score" style={{ color: TONE_COLOR[t] }}>
           {score}
         </span>
         <span className="file-group__score-sub">/100</span>
-        <span className={cn("file-group__risk-badge", score >= 70 && "file-group__risk-badge--high")}>
-          {riskLabel(score)}
+        <span className={cn("file-group__risk-badge", score >= RISK_HIGH && "file-group__risk-badge--high")}>
+          {TONE_LABEL[t]}
         </span>
       </div>
 

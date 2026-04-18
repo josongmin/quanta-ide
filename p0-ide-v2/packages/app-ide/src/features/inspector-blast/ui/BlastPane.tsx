@@ -1,4 +1,5 @@
 import type { FileFacts } from "@quanta/app-ide/entities/file";
+import { tone, RISK_HIGH, RISK_MID } from "@quanta/app-ide/entities/risk";
 
 const REASON_LABEL: Record<string, string> = {
   "direct-caller": "direct caller",
@@ -9,8 +10,8 @@ const REASON_LABEL: Record<string, string> = {
 
 export function BlastPane({ file }: { file: FileFacts }) {
   const sorted = [...file.blastTargets].sort((a, b) => b.riskScore - a.riskScore);
-  const critical = sorted.filter((t) => t.riskScore >= 70).length;
-  const high = sorted.filter((t) => t.riskScore >= 40 && t.riskScore < 70).length;
+  const critical = sorted.filter((t) => t.riskScore >= RISK_HIGH).length;
+  const high = sorted.filter((t) => t.riskScore >= RISK_MID && t.riskScore < RISK_HIGH).length;
 
   return (
     <div className="blast-pane">
@@ -31,9 +32,9 @@ export function BlastPane({ file }: { file: FileFacts }) {
 
       <ul className="blast-list">
         {sorted.map((t) => {
-          const tone = t.riskScore >= 70 ? "high" : t.riskScore >= 40 ? "mid" : "low";
+          const rowTone = tone(t.riskScore);
           return (
-            <li key={t.file} className={`blast-row blast-row--${tone}`}>
+            <li key={t.file} className={`blast-row blast-row--${rowTone}`}>
               <span className="blast-row__risk">{t.riskScore}</span>
               <div className="blast-row__body">
                 <div className="blast-row__file">{t.file}</div>

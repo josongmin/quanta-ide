@@ -60,7 +60,7 @@ const editorTheme = EditorView.theme({
     color: "var(--fg-muted)",
   },
   ".cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--accent) 5%, transparent)" },
-  ".cm-line": { padding: "0 16px 0 12px" },
+  ".cm-line": { padding: "0 16px 0 var(--cm-line-pad)" },
   "&.cm-focused": { outline: "none" },
   "&.cm-focused .cm-selectionBackground, ::selection": {
     backgroundColor: "color-mix(in srgb, var(--accent) 25%, transparent)",

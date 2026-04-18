@@ -638,6 +638,8 @@
 .cm-fnhead__chip--taint-source { color: color-mix(in srgb, var(--warn) 55%, var(--fg-muted)); }
 .cm-fnhead:hover .cm-fnhead__chip--taint-source { color: var(--warn); }
 .cm-fnhead__chip--taint-passthrough { color: var(--fg-muted); }
+.cm-fnhead__chip--taint-sanitized { color: color-mix(in srgb, var(--success) 55%, var(--fg-muted)); }
+.cm-fnhead:hover .cm-fnhead__chip--taint-sanitized { color: var(--success); }
 .cm-fnhead__risk {
   padding: 0 5px;
   border-radius: var(--radius-sm);

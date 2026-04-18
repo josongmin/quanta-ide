@@ -3,47 +3,44 @@ import type { DecorationSet } from "@codemirror/view";
 import { RangeSetBuilder, StateField } from "@codemirror/state";
 import type { EditorState } from "@codemirror/state";
 import type { FunctionHeader } from "@quanta/app-ide/entities/function";
+import { RISK_NOTABLE } from "@quanta/app-ide/entities/risk";
 import {
   CM_LINE_PAD_PX,
   createChip,
+  createRisk,
   signature,
+  taintChipKind,
   tone,
 } from "@quanta/app-ide/features/editor-chip-bar";
-import type { ChipKind } from "@quanta/app-ide/features/editor-chip-bar";
 
 function isNotable(h: FunctionHeader): boolean {
   if (h.dead) return true;
   if (h.taint) return true;
-  if (h.riskScore >= 50) return true;
+  if (h.riskScore >= RISK_NOTABLE) return true;
   if (h.blast >= 10) return true;
   if (h.complexity >= 7) return true;
   if (h.tests.startsWith("0/") && h.tests !== "0/0") return true;
   return false;
 }
 
-function taintKind(t: FunctionHeader["taint"]): ChipKind {
-  switch (t) {
-    case "source": return "taint-source";
-    case "sink": return "taint-sink";
-    case "passthrough": return "taint-passthrough";
-    default: return "default";
-  }
-}
-
 class FnHeaderWidget extends WidgetType {
+  /** Cached signature — `eq()` is hot during reconciliation; recomputing
+   * the 13-field join on every call is wasteful. */
+  private readonly _sig: string;
+
   constructor(readonly h: FunctionHeader, readonly indent: number) {
     super();
-  }
-  private get sig(): string {
-    return signature(
-      this.h.line, this.h.name, this.h.kind, this.indent,
-      this.h.blast, this.h.blastCritical, this.h.complexity, this.h.bigO,
-      this.h.tests, this.h.taint, this.h.dead, this.h.riskScore, this.h.budgetPct,
+    this._sig = signature(
+      h.line, h.name, h.kind, indent,
+      h.blast, h.blastCritical, h.complexity, h.bigO,
+      h.tests, h.taint, h.dead, h.riskScore, h.budgetPct,
     );
   }
+
   override eq(other: WidgetType): boolean {
-    return other instanceof FnHeaderWidget && other.sig === this.sig;
+    return other instanceof FnHeaderWidget && other._sig === this._sig;
   }
+
   override toDOM(): HTMLElement {
     // Outer wrapper owns vertical spacing via padding so CodeMirror's
     // offsetHeight measurement matches the rendered footprint.
@@ -53,11 +50,14 @@ class FnHeaderWidget extends WidgetType {
     // def's first char.
     const wrap = document.createElement("div");
     wrap.className = "cm-fnhead-wrap";
+    // `1ch` resolves against the wrapper's own font. Force the mono font
+    // here so the indent matches the editor's monospace columns exactly
+    // (sans-serif `ch` would drift ~1-2px per indent level).
+    wrap.style.fontFamily = "'JetBrains Mono', ui-monospace, monospace";
     wrap.style.paddingLeft = `calc(${CM_LINE_PAD_PX}px + ${this.indent}ch)`;
 
     const el = document.createElement("div");
-    const t = tone(this.h.riskScore);
-    el.className = `cm-fnhead cm-fnhead--${t}`;
+    el.className = `cm-fnhead cm-fnhead--${tone(this.h.riskScore)}`;
 
     const chips: HTMLElement[] = [];
 
@@ -90,29 +90,28 @@ class FnHeaderWidget extends WidgetType {
       chips.push(createChip({
         ico: "taint",
         value: this.h.taint,
-        kind: taintKind(this.h.taint),
+        kind: taintChipKind(this.h.taint),
       }));
     }
 
     if (this.h.dead) {
-      chips.push(createChip({
-        ico: "dead",
-        value: "",
-        kind: "muted",
-      }));
+      // Label-only chip — omit `ico` so we get
+      // `<span class="cm-fnhead__chip is-muted">dead</span>` (pre-refactor shape).
+      chips.push(createChip({ value: "dead", kind: "muted" }));
     }
 
-    chips.push(createChip({
-      ico: "risk",
-      value: this.h.riskScore,
-    }));
+    // Risk pill carries the `cm-fnhead__risk` class (its own padding/
+    // border-radius/hover bg in editor.css). Pass `ico: true` to keep the
+    // small "risk" label that fn-header has historically shown.
+    chips.push(createRisk(this.h.riskScore, { ico: true }));
 
     for (const c of chips) el.appendChild(c);
     wrap.appendChild(el);
     return wrap;
   }
+
   override get estimatedHeight(): number {
-    return 26;
+    return 30;
   }
 }
 

@@ -117,6 +117,35 @@
 }
 .ws-loading__sep { opacity: 0.5; }
 .ws-loading__timer { min-width: 40px; text-align: right; }
+/* Error state — reuses .ws-loading layout; the inner block
+   re-enables pointer events so the reload button is clickable. */
+.ws-loading--error .ws-loading__inner {
+  pointer-events: auto;
+  border: 1px solid #dc2626;
+  background: color-mix(in srgb, #dc2626 6%, var(--bg));
+  border-radius: 8px;
+}
+.ws-loading__headline--error { color: #dc2626; }
+.ws-loading__err-msg {
+  font-size: 11px;
+  color: var(--fg);
+  max-width: 420px;
+  text-align: center;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.ws-loading__reload {
+  font-size: 11px;
+  padding: 4px 12px;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  background: #dc2626;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 500;
+}
+.ws-loading__reload:hover { filter: brightness(1.05); }
 .ws-loading__spinner {
   width: 12px;
   height: 12px;

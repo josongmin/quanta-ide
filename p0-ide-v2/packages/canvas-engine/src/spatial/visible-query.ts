@@ -59,6 +59,10 @@ export function buildClusterQuery(
   viewport: Viewport,
 ): WorkspaceClusterView {
   const clusters = layout.clusters ?? [];
+  // Empty / malformed graph guard: no cluster data to query.
+  if (clusters.length === 0) {
+    return { kind: "supergalaxy", clusters: [] };
+  }
   if (viewport.width <= 0 || viewport.height <= 0) {
     return { kind: "supergalaxy", clusters };
   }
@@ -100,6 +104,12 @@ export function buildVisibleQuery(
   layout: WorkspaceLayout,
   viewport: Viewport,
 ): WorkspaceView {
+  // Empty / malformed graph guard: no files or no laid-out rects means
+  // there's nothing to spatially query. Return an empty scene with the
+  // correct discriminator instead of running FileIndex.load on empty data.
+  if (graph.files.length === 0 || layout.fileRects.size === 0) {
+    return { kind: "files", files: [], edges: [], comments: [] };
+  }
   // Container size not yet reported (before first ResizeObserver tick):
   // returning an empty scene here causes a blank flash that persists until
   // the next viewport update. Return everything instead so the renderer

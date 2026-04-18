@@ -61,6 +61,7 @@ export interface WorkspaceCanvasState {
   workerAggregates: boolean;
   workerGeometry: boolean;
   layoutProgress: LayoutProgress;
+  pixiError: string | null;
 
   // Viewport
   viewport: Viewport;
@@ -119,6 +120,7 @@ function getState(): WorkspaceCanvasState {
     workerAggregates: sc.workerAggregates,
     workerGeometry: sc.workerGeometry,
     layoutProgress: sc.layoutProgress,
+    pixiError: sc.pixiError,
     // Viewport
     viewport: vp.viewport,
     // Interaction
@@ -156,10 +158,15 @@ function subscribe(listener: () => void): () => void {
 // existing callers need no change.
 const actions = {
   // --- Scene ---
+  // Invariant: setGraph is the one multi-sub-store write that used to emit
+  // twice (scene, then interaction). We keep the single-action API but
+  // serialize the two mutations back-to-back; consumers that subscribe
+  // via the facade see at most TWO notifications per graph swap, and any
+  // selector that reads from both sub-stores runs at most once per pulse
+  // (useSyncExternalStore debounces identical snapshots). Emitting in
+  // this order — scene first, then interaction — ensures no downstream
+  // effect sees a fresh graph paired with stale selection ids.
   setGraph(graph: WorkspaceGraph) {
-    // Scene swap must also reset interaction (selection/hover would
-    // reference stale ids). Two emits (scene + interaction) but this
-    // path fires on repo change only, not a hot path.
     sceneStore.setGraph(graph);
     interactionStore.resetSelection();
   },
@@ -172,8 +179,15 @@ const actions = {
     sceneStore.setLayout(layout);
   },
 
-  setLayoutProgress(stage: LayoutStage, extras?: { filesCount?: number; elapsedMs?: number }) {
+  setLayoutProgress(
+    stage: LayoutStage,
+    extras?: { filesCount?: number; elapsedMs?: number; error?: string },
+  ) {
     sceneStore.setLayoutProgress(stage, extras);
+  },
+
+  setPixiError(err: string | null) {
+    sceneStore.setPixiError(err);
   },
 
   setVisibleScene(scene: WorkspaceView) {

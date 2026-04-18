@@ -1348,7 +1348,7 @@ export const ORCHESTRATOR: FileFacts = {
           flowsTo: [
             { line: 524, symbol: "request", hop: "source: request.ctx" },
             { line: 701, symbol: "step.run", hop: "propagate: request.ctx → result" },
-            { line: 545, symbol: "trace", hop: "propagate: result → trace" },
+            { line: 543, symbol: "trace", hop: "propagate: result → trace" },
             { line: 549, symbol: "_store.save", hop: "sink: trace → save(unvalidated)" },
           ],
           deps: {
@@ -1397,7 +1397,7 @@ export const ORCHESTRATOR: FileFacts = {
               name: "trace",
               kind: "variable",
               detail: "Ordered step results — flows into store.save (sink).",
-              line: 545,
+              line: 543,
               taint: "passthrough",
             },
           ],
@@ -1442,7 +1442,7 @@ export const ORCHESTRATOR: FileFacts = {
       name: "ExperienceStore",
       kind: "class",
       detail: "Persists reasoning traces for later replay.",
-      line: 64,
+      line: 0,  // external — class lives in infra/experience_store.py
       layer: "infra",
       role: "Store",
       contract: { verb: "implements", name: "ExperiencePort" },
@@ -1747,7 +1747,7 @@ export const ORCHESTRATOR: FileFacts = {
 
   callSites: [
     {
-      line: 598,
+      line: 600,
       callee: "Strategy.select",
       calleeFile: "ports/strategy.py",
       effects: ["pure"],
@@ -1779,7 +1779,7 @@ export const ORCHESTRATOR: FileFacts = {
         steps: [
           { line: 524, symbol: "request", hop: "source", detail: "untrusted request.ctx" },
           { line: 701, symbol: "step.run", hop: "propagate", detail: "ctx → result" },
-          { line: 545, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
+          { line: 543, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
           { line: 549, symbol: "_store.save", hop: "sink", detail: "save(trace) — no validation" },
         ],
         sanitizerHints: [
@@ -1799,7 +1799,7 @@ export const ORCHESTRATOR: FileFacts = {
       steps: [
         { line: 524, symbol: "request", hop: "source", detail: "untrusted request.ctx" },
         { line: 701, symbol: "step.run", hop: "propagate", detail: "ctx → result" },
-        { line: 545, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
+        { line: 543, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
         { line: 549, symbol: "_store.save", hop: "sink", detail: "save(trace) — no validation" },
       ],
       sanitizerHints: [
@@ -1898,9 +1898,9 @@ export const ORCHESTRATOR: FileFacts = {
   ],
 
   behaviorDiff: [
-    { line: 9, kind: "syntax", summary: "whitespace" },
-    { line: 13, kind: "semantic", summary: "trace.append reordered — now after terminal check was removed", before: "trace.append(result); if result.is_terminal(): break", after: "result = step.run(request.ctx); trace.append(result)" },
-    { line: 16, kind: "runtime", summary: "new sink path — _store.save now reachable with unvalidated trace", before: "(no call)", after: "self._store.save(trace)" },
+    { line: 543, kind: "semantic", summary: "trace assignment moved out of terminal-check branch", before: "for r in step_results:\n    trace.append(r)\n    if r.is_terminal(): break", after: "trace = self._execute_plan(plan, ctx, metrics)" },
+    { line: 545, kind: "syntax", summary: "metrics finalize line shifted by trace refactor" },
+    { line: 551, kind: "runtime", summary: "new sink path — _store.save now reachable with unvalidated trace", before: "(no call)", after: "self._store.save(trace)" },
   ],
 
   nextHops: {

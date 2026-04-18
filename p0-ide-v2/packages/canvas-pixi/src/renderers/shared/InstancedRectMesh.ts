@@ -198,6 +198,15 @@ export class InstancedRectMesh {
     let next = this.capacity;
     while (next < n) next *= 2;
     this.capacity = next;
+    // Zero instanceCount *before* swapping the buffer. If Pixi were to emit
+    // a draw in the window between `setDataWithSize()` (which drops the old
+    // GlBuffer) and the renderer's subsequent update-loop + setInstanceCount(),
+    // a non-zero instanceCount would cause the shader to read stale attribute
+    // offsets from whatever buffer is bound — sometimes garbage, sometimes
+    // the previous frame's data rendered at wrong positions. Forcing 0 here
+    // gates the drawInstanced call until the caller writes fresh bytes and
+    // calls setInstanceCount(n) again with the real count.
+    this.geometry.instanceCount = 0;
     // Drop the old Float32Array reference *before* allocating the new one so
     // the JS GC can reclaim it on the next sweep without being pinned by
     // this.data.

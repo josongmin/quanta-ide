@@ -377,8 +377,10 @@ export class CityNodeRenderer {
 
     this.rectMesh.setInstanceCount(ri);
     // Rebuild spatial pick index once per update(). Bulk-load is ~1 ms for
-    // 5000 items vs. O(n) on every pointermove.
-    this.pickIndex.load(this.pickRects);
+    // 5000 items vs. O(n) on every pointermove. "city" prefix namespaces
+    // the key so it cannot collide with galaxy/cluster/supercluster caches
+    // if the index were ever shared — cheap future-proofing.
+    this.pickIndex.load(this.pickRects, "city");
   }
 
   destroy(): void {

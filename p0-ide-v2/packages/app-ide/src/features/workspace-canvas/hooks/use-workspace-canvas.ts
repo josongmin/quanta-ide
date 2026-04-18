@@ -32,6 +32,7 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
   const viewport = useStore(s => s.viewport);
   const layout   = useStore(s => s.layout);
   const lod      = useStore(s => s.lod);
+  const forceLod = useStore(s => s.forceLod);
 
   const lastIdsRef = useRef<{
     kind: SceneKind;
@@ -41,8 +42,13 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
     superclusterIds: Set<string>;
   } | null>(null);
 
-  // Reset dedupe cache on graph/layout swap so the new scene always emits.
-  useEffect(() => { lastIdsRef.current = null; }, [graph, layout]);
+  // Reset dedupe cache on graph/layout/forceLod swap so the new scene
+  // always emits. forceLod is included because a manual LOD override
+  // changes the downstream buildSceneQuery kind (cluster vs. files) —
+  // if we skipped this, toggling forceLod while panning inside a stable
+  // visible region would leave the old scene kind up until the id-set
+  // changes.
+  useEffect(() => { lastIdsRef.current = null; }, [graph, layout, forceLod]);
 
   useEffect(() => {
     if (!layout) return;

@@ -230,7 +230,7 @@ export class SuperclusterNodeRenderer {
     this.hitLayer.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: 0x000000, alpha: 0.001 });
 
     this.rectMesh.setInstanceCount(superclusters.length);
-    this.pickIndex.load(this.pickRects);
+    this.pickIndex.load(this.pickRects, "supercluster");
     this.releaseLabels();
   }
 

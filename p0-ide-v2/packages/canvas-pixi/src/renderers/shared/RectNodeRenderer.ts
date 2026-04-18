@@ -27,6 +27,11 @@ export abstract class RectNodeRenderer<T> {
   protected hitLayer: Graphics;
   protected pickIndex: SpatialPickIndex;
   protected pickRects: PickRect[] = [];
+  // Namespaces SpatialPickIndex cache keys so two renderers that share an
+  // index-shape but draw different semantic layers (e.g. galaxy file id =
+  // cluster id by coincidence) don't false-positive as "same load". Set by
+  // subclasses via the constructor; default null = no prefix (legacy).
+  protected readonly pickKindKey: string | null;
 
   constructor(
     parent: Container,
@@ -35,7 +40,9 @@ export abstract class RectNodeRenderer<T> {
       onClick?: (id: string) => void;
       onHover?: (id: string | null) => void;
     },
+    pickKindKey: string | null = null,
   ) {
+    this.pickKindKey = pickKindKey;
     this.container = new Container();
     this.rectMesh = new InstancedRectMesh(initialCapacity);
     this.hitLayer = new Graphics();
@@ -92,6 +99,16 @@ export abstract class RectNodeRenderer<T> {
   // sub-element like a header stripe that should never be the target).
   protected abstract renderInstance(item: T, i: number, data: Float32Array): PickRect | null;
 
+  // Public entry point each subclass must expose. Signatures vary between
+  // tiers (Galaxy takes layout/viewState/viewport; Cluster/Supercluster take
+  // only items + viewport), so we declare the loosest compatible shape with
+  // a variadic unknown[] — TypeScript verifies each subclass *has* an
+  // `update()` method without constraining its arity. Purpose of this
+  // declaration is drift prevention, not contract enforcement: if a new
+  // renderer forgets to implement update() the abstract class itself won't
+  // be instantiable.
+  abstract update(...args: unknown[]): void;
+
   // Orchestrates the 4-step pipeline. Subclasses that need label rendering
   // override update() and wrap a super.update() call, or override and
   // reimplement. Default update() handles the common "one rect per item".
@@ -131,7 +148,7 @@ export abstract class RectNodeRenderer<T> {
     this.hitLayer.visible = true;
 
     this.rectMesh.setInstanceCount(written);
-    this.pickIndex.load(this.pickRects);
+    this.pickIndex.load(this.pickRects, this.pickKindKey ?? undefined);
     return written;
   }
 

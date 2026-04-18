@@ -51,8 +51,14 @@ export class SpatialPickIndex {
   // `false` if the id+geometry set matched the prior load(). The caller can
   // use the flag for instrumentation — functionally, pickAt() works in
   // either case because the prior tree state is already correct.
-  load(rects: PickRect[]): boolean {
-    const key = this.keyFor(rects);
+  //
+  // `kindKey` (optional): prepended to the cache key to namespace entries by
+  // renderer tier ("galaxy" | "city" | "cluster" | "supercluster"). Two
+  // indexes that happen to produce identical (id, geometry) tuples for
+  // different semantic layers (e.g. a cluster id that matches a file id)
+  // would otherwise false-positive as a cache hit.
+  load(rects: PickRect[], kindKey?: string): boolean {
+    const key = this.keyFor(rects, kindKey);
     if (key === this.prevIdsKey) return false;
     this.prevIdsKey = key;
     this.tree.clear();
@@ -77,9 +83,10 @@ export class SpatialPickIndex {
   // but the strings themselves are tiny and the comparison is one interned
   // string equality. Avoids a second pass to hash into a number (FNV on
   // 5000 strings costs more than the native === check below).
-  private keyFor(rects: PickRect[]): string {
-    if (rects.length === 0) return "";
-    let s = String(rects.length);
+  private keyFor(rects: PickRect[], kindKey?: string): string {
+    const prefix = kindKey ? kindKey + ":" : "";
+    if (rects.length === 0) return prefix;
+    let s = prefix + String(rects.length);
     for (let i = 0; i < rects.length; i++) {
       const r = rects[i];
       // Round geometry — a sub-pixel jiggle from a floating-point layout

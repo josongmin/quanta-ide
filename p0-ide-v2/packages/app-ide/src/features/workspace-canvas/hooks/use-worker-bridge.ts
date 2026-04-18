@@ -5,6 +5,16 @@ import { workspaceCanvasStore } from "../store/workspace-canvas-store";
 
 let worker: Worker | null = null;
 
+// Tracks the id of the MOST-RECENTLY-REQUESTED layout/aggregates job. When
+// the user swaps graphs quickly (or we request a re-layout while a previous
+// one is still running), late messages from the superseded job arrive with
+// an older id. Applying them would stomp the current layout with stale
+// results and potentially crash downstream consumers that just read fresh
+// file ids. Guard: any LAYOUT_READY / AGGREGATES_READY whose id does not
+// match the current request is dropped with a debug log.
+let currentLayoutRequestId: string | null = null;
+let currentAggregatesRequestId: string | null = null;
+
 function getWorker(): Worker {
   if (!worker) {
     worker = new Worker(
@@ -20,6 +30,7 @@ function getWorker(): Worker {
 function handleMessage(event: MessageEvent) {
   const msg = event.data as {
     type: string;
+    id?: string;
     payload?: unknown;
     message?: string;
     stage?: string;
@@ -29,6 +40,15 @@ function handleMessage(event: MessageEvent) {
   console.log("[worker-bridge] recv", msg.type, "stage=", msg.stage);
   switch (msg.type) {
     case "LAYOUT_READY": {
+      // Stale-request guard: if the user swapped the graph while the worker
+      // was mid-layout, the superseded response still arrives. Drop it —
+      // currentLayoutRequestId was overwritten when the fresh request went
+      // out, so applying this payload would stomp the in-flight newer layout
+      // (or crash downstream consumers if file ids no longer exist).
+      if (msg.id && msg.id !== currentLayoutRequestId) {
+        console.log("[worker-bridge] stale LAYOUT_READY dropped", msg.id, "!=", currentLayoutRequestId);
+        return;
+      }
       const layout = deserializeLayout(msg.payload as SerializedLayout);
       const wasElk = msg.stage === "elk";
       workspaceCanvasStore.setLayout(layout);
@@ -61,6 +81,13 @@ function handleMessage(event: MessageEvent) {
       break;
     }
     case "AGGREGATES_READY": {
+      // Same stale-request guard as LAYOUT_READY — the aggregates pass runs
+      // async alongside layout; a prior graph's aggregates can land after
+      // a new graph was loaded.
+      if (msg.id && msg.id !== currentAggregatesRequestId) {
+        console.log("[worker-bridge] stale AGGREGATES_READY dropped", msg.id, "!=", currentAggregatesRequestId);
+        return;
+      }
       const aggregates = deserializeAggregates(msg.payload as SerializedAggregates);
       const currentLayout = workspaceCanvasStore.getState().layout;
       if (currentLayout) {
@@ -72,20 +99,31 @@ function handleMessage(event: MessageEvent) {
     case "GEOMETRY_READY":
       workspaceCanvasStore.setWorkerState("workerGeometry", false);
       break;
-    case "WORKER_ERROR":
-      console.error("[canvas-worker] error:", msg.message);
+    case "WORKER_ERROR": {
+      // Promote worker errors into the store so the LoadingOverlay can
+      // render a red error state with a reload CTA. Also flip busy flags
+      // off so the UI doesn't sit on a spinner forever.
+      const message = msg.message ?? "Unknown worker error";
+      console.error("[canvas-worker] error:", message);
+      workspaceCanvasStore.setLayoutProgress("worker-error", { error: message });
+      workspaceCanvasStore.setWorkerState("workerLayout", false);
+      workspaceCanvasStore.setWorkerState("workerAggregates", false);
+      workspaceCanvasStore.setWorkerState("workerGeometry", false);
       break;
+    }
   }
 }
 
 export function requestLayout(graph: WorkspaceGraph, strategy: "grid" | "grid-then-elk" = "grid-then-elk") {
   const id = `layout-${Date.now()}`;
+  currentLayoutRequestId = id;
   workspaceCanvasStore.setWorkerState("workerLayout", true);
   getWorker().postMessage({ type: "BUILD_LAYOUT", id, payload: { graph, strategy } });
 }
 
 export function requestAggregates(graph: WorkspaceGraph) {
   const id = `agg-${Date.now()}`;
+  currentAggregatesRequestId = id;
   workspaceCanvasStore.setWorkerState("workerAggregates", true);
   getWorker().postMessage({ type: "BUILD_AGGREGATES", id, payload: { graph } });
 }

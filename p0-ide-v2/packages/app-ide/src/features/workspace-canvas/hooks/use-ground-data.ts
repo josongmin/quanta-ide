@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useWorkspaceCanvas } from "../store/workspace-canvas-store";
-import { enqueueGroundFetch } from "./use-ground-data-batch";
+import { enqueueGroundFetch, unregisterMount } from "./use-ground-data-batch";
 
 // Subscribes a ground-card to its slice of the store and enqueues
 // a batched fetch on mount when no cached data exists. The batch
@@ -16,6 +16,12 @@ export function useGroundData(fileId: string) {
     // already dedupes in-flight fetches, and checking `loading` here
     // would race with the microtask that flips it true.
     void enqueueGroundFetch(fileId);
+    // On unmount (user zooms out, scrolls away), tell the coordinator
+    // to drop this id's result when the in-flight batch resolves.
+    // Prevents wasted store writes + emits for cards no longer visible.
+    return () => {
+      unregisterMount(fileId);
+    };
   }, [fileId, data]);
 
   return { data: data ?? null, loading };
