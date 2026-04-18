@@ -212,13 +212,23 @@ function SkyScene() {
       aria-hidden
     >
       {/* sun */}
-      <Sprite x={268} y={8} rows={SUN_ROWS} palette={SUN_PAL} px={2} />
+      <g className="anim-sun">
+        <Sprite x={268} y={8} rows={SUN_ROWS} palette={SUN_PAL} px={2} />
+      </g>
 
       {/* clouds */}
-      <Sprite x={24} y={10} rows={CLOUD_ROWS} palette={CLOUD_PAL} px={2} />
-      <Sprite x={102} y={2} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
-      <Sprite x={196} y={22} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
-      <Sprite x={150} y={34} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={1} />
+      <g className="anim-cloud-a">
+        <Sprite x={24} y={10} rows={CLOUD_ROWS} palette={CLOUD_PAL} px={2} />
+      </g>
+      <g className="anim-cloud-b">
+        <Sprite x={102} y={2} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
+      </g>
+      <g className="anim-cloud-c">
+        <Sprite x={196} y={22} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={2} />
+      </g>
+      <g className="anim-cloud-d">
+        <Sprite x={150} y={34} rows={CLOUD_SM_ROWS} palette={CLOUD_PAL} px={1} />
+      </g>
 
       {/* back mountains */}
       <polygon
@@ -246,7 +256,7 @@ function SkyScene() {
           <rect x="66" y="28" width="188" height="72" />
         </clipPath>
       </defs>
-      <g clipPath="url(#glitch-rainbow-clip)">
+      <g clipPath="url(#glitch-rainbow-clip)" className="anim-rainbow">
         <circle cx="160" cy="100" r="60" fill="none" stroke={P.rainbowA} strokeWidth="4" />
         <circle cx="160" cy="100" r="56" fill="none" stroke={P.rainbowB} strokeWidth="4" />
         <circle cx="160" cy="100" r="52" fill="none" stroke={P.rainbowC} strokeWidth="4" />
@@ -256,10 +266,14 @@ function SkyScene() {
       </g>
 
       {/* floating islands */}
-      <Sprite x={200} y={30} rows={ISLAND_ROWS} palette={ISLAND_PAL} px={2} />
-      <Sprite x={218} y={24} rows={TREE_ROWS} palette={TREE_PAL_MD} px={2} />
-      <Sprite x={96} y={48} rows={ISLAND_SM_ROWS} palette={ISLAND_PAL} px={2} />
-      <Sprite x={102} y={42} rows={TREE_ROWS} palette={TREE_PAL_DK} px={1} />
+      <g className="anim-island-big">
+        <Sprite x={200} y={30} rows={ISLAND_ROWS} palette={ISLAND_PAL} px={2} />
+        <Sprite x={218} y={24} rows={TREE_ROWS} palette={TREE_PAL_MD} px={2} />
+      </g>
+      <g className="anim-island-sm">
+        <Sprite x={96} y={48} rows={ISLAND_SM_ROWS} palette={ISLAND_PAL} px={2} />
+        <Sprite x={102} y={42} rows={TREE_ROWS} palette={TREE_PAL_DK} px={1} />
+      </g>
 
       {/* forest silhouettes near horizon */}
       {forestLine.map((t, i) => (
@@ -267,8 +281,12 @@ function SkyScene() {
       ))}
 
       {/* big trees at the horizon — trunks reach the very bottom */}
-      <Sprite x={8} y={62} rows={TREE_ROWS} palette={TREE_PAL_DK} px={4} />
-      <Sprite x={280} y={64} rows={TREE_ROWS} palette={TREE_PAL_DK} px={4} />
+      <g className="anim-tree-l">
+        <Sprite x={8} y={62} rows={TREE_ROWS} palette={TREE_PAL_DK} px={4} />
+      </g>
+      <g className="anim-tree-r">
+        <Sprite x={280} y={64} rows={TREE_ROWS} palette={TREE_PAL_DK} px={4} />
+      </g>
     </svg>
   );
 }
@@ -335,13 +353,61 @@ function GroundScene() {
       ))}
 
       {/* pig */}
-      <Sprite x={110} y={28} rows={PIG_ROWS} palette={PIG_PAL} px={3} />
+      <g className="anim-pig">
+        <Sprite x={110} y={28} rows={PIG_ROWS} palette={PIG_PAL} px={3} />
+      </g>
       {/* chicken */}
-      <Sprite x={180} y={28} rows={HEN_ROWS} palette={HEN_PAL} px={3} />
+      <g className="anim-chicken">
+        <Sprite x={180} y={28} rows={HEN_ROWS} palette={HEN_PAL} px={3} />
+      </g>
 
       {/* tiny Quanta mark */}
       <Sprite x={302} y={48} rows={LOGO_ROWS} palette={LOGO_PAL} px={1} />
     </svg>
+  );
+}
+
+interface Apparition {
+  emoji: string;
+  top: string;
+  left: string;
+  dur: number;
+  delay: number;
+  size: number;
+}
+
+const APPARITIONS: readonly Apparition[] = [
+  { emoji: "\u{1F437}", top: "62%", left: "22%", dur: 14, delay: 0,    size: 72 },
+  { emoji: "\u{1F984}", top: "34%", left: "70%", dur: 17, delay: 3.5,  size: 84 },
+  { emoji: "\u{1F996}", top: "58%", left: "86%", dur: 11, delay: 7,    size: 88 },
+  { emoji: "\u{1F47E}", top: "38%", left: "12%", dur: 13, delay: 10,   size: 68 },
+  { emoji: "\u{1F414}", top: "72%", left: "50%", dur: 15, delay: 2,    size: 64 },
+  { emoji: "\u{1F980}", top: "78%", left: "16%", dur: 19, delay: 5,    size: 60 },
+  { emoji: "\u{1F525}", top: "52%", left: "94%", dur: 16, delay: 12.5, size: 56 },
+  { emoji: "\u{1F48E}", top: "28%", left: "40%", dur: 18, delay: 8,    size: 52 },
+  { emoji: "\u{1FAA9}", top: "44%", left: "58%", dur: 21, delay: 14,   size: 80 },
+  { emoji: "\u26A1",    top: "24%", left: "24%", dur: 9,  delay: 4,    size: 48 },
+];
+
+function GlitchApparitions() {
+  return (
+    <div className="glitch-apparitions" aria-hidden>
+      {APPARITIONS.map((a, i) => (
+        <div
+          key={i}
+          className="glitch-apparition"
+          style={{
+            top: a.top,
+            left: a.left,
+            fontSize: `clamp(36px, ${a.size / 16}vw, ${a.size}px)`,
+            animationDelay: `${a.delay}s`,
+            animationDuration: `${a.dur}s`,
+          }}
+        >
+          <span className="glitch-apparition__glyph">{a.emoji}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -356,7 +422,9 @@ export function GlitchPage() {
       <div className="glitch-ground-layer" aria-hidden>
         <GroundScene />
       </div>
+      <GlitchApparitions />
       <div className="glitch-scanlines" aria-hidden />
+      <div className="glitch-band" aria-hidden />
 
       <div className="glitch-overlay">
         <div className="glitch-card">
@@ -711,5 +779,172 @@ const GLITCH_CSS = `
 .glitch-card__footer span:nth-child(1) {
   font-weight: 800;
   color: #e85b5b;
+}
+
+/* =========================================================================
+   Pixel character animations (run inside the SVGs)
+   ========================================================================= */
+
+.anim-sun {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: glitch-sun-pulse 4.2s ease-in-out infinite;
+}
+@keyframes glitch-sun-pulse {
+  0%, 100% { filter: brightness(1); transform: scale(1); }
+  50%      { filter: brightness(1.18); transform: scale(1.04); }
+}
+
+.anim-cloud-a { animation: glitch-cloud-drift 36s ease-in-out infinite; }
+.anim-cloud-b { animation: glitch-cloud-drift 48s ease-in-out infinite -8s; }
+.anim-cloud-c { animation: glitch-cloud-drift 58s ease-in-out infinite -22s; }
+.anim-cloud-d { animation: glitch-cloud-drift 70s ease-in-out infinite -40s; }
+@keyframes glitch-cloud-drift {
+  0%, 100% { transform: translateX(0); }
+  50%      { transform: translateX(14px); }
+}
+
+.anim-rainbow {
+  animation: glitch-rainbow-flicker 9s steps(1) infinite;
+}
+@keyframes glitch-rainbow-flicker {
+  0%, 86%, 100%  { opacity: 1; }
+  87%            { opacity: 0.3; }
+  88%            { opacity: 0.85; }
+  89%            { opacity: 0.15; }
+  90%            { opacity: 1; }
+  94%            { opacity: 0.6; }
+  95%            { opacity: 1; }
+}
+
+.anim-island-big { animation: glitch-island-bob 6.4s ease-in-out infinite; }
+.anim-island-sm  { animation: glitch-island-bob 4.8s ease-in-out infinite -1.5s; }
+@keyframes glitch-island-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
+
+.anim-tree-l {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: glitch-tree-sway-l 7s ease-in-out infinite;
+}
+.anim-tree-r {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: glitch-tree-sway-r 6.2s ease-in-out infinite -1.2s;
+}
+@keyframes glitch-tree-sway-l {
+  0%, 100% { transform: rotate(-0.6deg); }
+  50%      { transform: rotate(0.8deg); }
+}
+@keyframes glitch-tree-sway-r {
+  0%, 100% { transform: rotate(0.7deg); }
+  50%      { transform: rotate(-0.7deg); }
+}
+
+.anim-pig {
+  animation: glitch-pig-trot 5.5s ease-in-out infinite;
+}
+@keyframes glitch-pig-trot {
+  0%, 100% { transform: translate(0, 0); }
+  20%      { transform: translate(4px, -1px); }
+  40%      { transform: translate(8px, 0); }
+  55%      { transform: translate(10px, -1px); }
+  70%      { transform: translate(6px, 0); }
+  85%      { transform: translate(2px, -1px); }
+}
+
+.anim-chicken {
+  animation: glitch-chicken-bob 0.7s ease-in-out infinite;
+}
+@keyframes glitch-chicken-bob {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(0, -1px); }
+}
+
+/* =========================================================================
+   3D emoji apparitions — glitch world bleed-throughs
+   ========================================================================= */
+
+.glitch-apparitions {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.glitch-apparition {
+  position: absolute;
+  line-height: 1;
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  animation-name: glitch-apparition;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  will-change: transform, opacity, filter;
+  filter: drop-shadow(0 6px 14px rgba(17, 17, 17, 0.35));
+}
+
+.glitch-apparition__glyph {
+  display: inline-block;
+  /* Use emoji-friendly fonts so the glyph renders as the system's 3D-ish emoji */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+               "Twemoji Mozilla", system-ui, sans-serif;
+  text-shadow:
+    2px 0 rgba(232, 91, 91, 0.85),
+    -2px 0 rgba(106, 169, 224, 0.85);
+}
+
+@keyframes glitch-apparition {
+  0%, 84%       { opacity: 0; transform: translate(-50%, -50%) scale(0.35) rotate(-14deg); filter: blur(10px) saturate(240%) hue-rotate(0deg); }
+  85%           { opacity: 1; transform: translate(-50%, -50%) scale(1.35) rotate(6deg);   filter: blur(0) saturate(320%) hue-rotate(60deg); }
+  85.6%         { opacity: 1; transform: translate(-45%, -50%) scale(1.18);                filter: hue-rotate(-90deg) saturate(400%); }
+  86.2%         { opacity: 1; transform: translate(-55%, -50%) scale(1.18);                filter: hue-rotate(130deg) saturate(320%); }
+  87%           { opacity: 1; transform: translate(-50%, -50%) scale(1.02);                filter: none; }
+  90%           { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  92%           { opacity: 0.85; transform: translate(-50%, -48%) scale(1) rotate(-3deg); }
+  93%           { opacity: 0.35; transform: translate(-52%, -52%) scale(1.15) rotate(5deg); filter: hue-rotate(-45deg) blur(1px); }
+  94%           { opacity: 0;    transform: translate(-50%, -50%) scale(0.5);               filter: blur(14px) hue-rotate(200deg); }
+  100%          { opacity: 0; }
+}
+
+/* Occasional full-width glitch band sweeping across the screen */
+.glitch-band {
+  position: absolute;
+  left: -4%;
+  right: -4%;
+  top: 0;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      rgba(232, 91, 91, 0)  0px,
+      rgba(232, 91, 91, 0)  6px,
+      rgba(232, 91, 91, 0.14) 7px,
+      rgba(232, 91, 91, 0)  8px
+    );
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: glitch-band-sweep 11s steps(1) infinite;
+}
+@keyframes glitch-band-sweep {
+  0%, 92%, 100%  { opacity: 0;   transform: translateY(0); }
+  93%            { opacity: 0.9; transform: translateY(-8px) skewX(2deg); }
+  93.5%          { opacity: 0.6; transform: translateY(14px) skewX(-3deg); }
+  94%            { opacity: 0.9; transform: translateY(-6px) skewX(1deg); }
+  94.5%          { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-sun, .anim-cloud-a, .anim-cloud-b, .anim-cloud-c, .anim-cloud-d,
+  .anim-rainbow, .anim-island-big, .anim-island-sm, .anim-tree-l, .anim-tree-r,
+  .anim-pig, .anim-chicken, .glitch-apparition, .glitch-band,
+  .glitch-card__heading::before, .glitch-card__heading::after {
+    animation: none !important;
+  }
 }
 `;

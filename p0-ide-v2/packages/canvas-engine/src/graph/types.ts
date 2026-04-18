@@ -58,10 +58,12 @@ export interface FileNode {
 export type EdgeLayer = "structural" | "flow" | "safety" | "impact";
 
 // Superset of analyzer outputs from engine-catalog:
-//   structural: import, call, reference, cfg, inheritance
-//   flow:       dataflow, effect, pdg, alias
-//   safety:     taint-propagation, sanitizer, race, cycle, finding
-//   impact:     blast, impact, diff, dependency, witness
+//   structural: import, call, reference, cfg, inheritance, test-covers, clone
+//   flow:       dataflow, effect, pdg, alias, feature-flag
+//   safety:     taint-propagation, sanitizer, race, cycle, finding, contract,
+//               dead-edge, runtime-divergence
+//   impact:     blast, impact, diff, dependency, witness, cochange,
+//               rename-pair, supply-chain
 // New kinds can be added without breaking callers because renderers fall
 // back to the layer's default style when a kind is unknown.
 export type EdgeKind =
@@ -70,20 +72,29 @@ export type EdgeKind =
   | "reference"
   | "cfg"
   | "inheritance"
+  | "test-covers"
+  | "clone"
   | "dataflow"
   | "effect"
   | "pdg"
   | "alias"
+  | "feature-flag"
   | "taint-propagation"
   | "sanitizer"
   | "race"
   | "cycle"
   | "finding"
+  | "contract"
+  | "dead-edge"
+  | "runtime-divergence"
   | "blast"
   | "impact"
   | "diff"
   | "dependency"
-  | "witness";
+  | "witness"
+  | "cochange"
+  | "rename-pair"
+  | "supply-chain";
 
 export type EdgeSeverity = "low" | "medium" | "high" | "critical";
 
@@ -136,23 +147,32 @@ export function deriveEdgeLayer(kind: EdgeKind): EdgeLayer {
     case "reference":
     case "cfg":
     case "inheritance":
+    case "test-covers":
+    case "clone":
       return "structural";
     case "dataflow":
     case "effect":
     case "pdg":
     case "alias":
+    case "feature-flag":
       return "flow";
     case "taint-propagation":
     case "sanitizer":
     case "race":
     case "cycle":
     case "finding":
+    case "contract":
+    case "dead-edge":
+    case "runtime-divergence":
       return "safety";
     case "blast":
     case "impact":
     case "diff":
     case "dependency":
     case "witness":
+    case "cochange":
+    case "rename-pair":
+    case "supply-chain":
       return "impact";
   }
 }

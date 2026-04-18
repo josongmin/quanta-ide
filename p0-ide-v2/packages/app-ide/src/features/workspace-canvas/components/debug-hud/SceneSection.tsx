@@ -49,9 +49,13 @@ const EDGE_SEVERITIES: readonly EdgeSeverity[] = ["low", "medium", "high", "crit
 // is the only lossy shortening; everything else is just compact.
 const KIND_LABEL: Record<EdgeKind, string> = {
   import: "import", call: "call", reference: "ref", cfg: "cfg", inheritance: "inherit",
+  "test-covers": "test-cov", clone: "clone",
   dataflow: "dataflow", effect: "effect", pdg: "pdg", alias: "alias",
+  "feature-flag": "flag",
   "taint-propagation": "taint", sanitizer: "sanitize", race: "race", cycle: "cycle", finding: "finding",
+  contract: "contract", "dead-edge": "dead", "runtime-divergence": "divergence",
   blast: "blast", impact: "impact", diff: "diff", dependency: "dep", witness: "witness",
+  cochange: "cochange", "rename-pair": "rename", "supply-chain": "supply",
 };
 
 function kindColorHex(kind: EdgeKind): string {

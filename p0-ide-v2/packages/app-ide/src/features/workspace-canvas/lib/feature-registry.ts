@@ -1,4 +1,3 @@
-// NOTE(perf): all Batch 1–9 / T2–T4 features default OFF after 875ms city-LOD stalls; opt-in via HUD.
 // Feature registry — single source of truth for every toggleable feature
 // in the workspace canvas. Each feature declares its metadata (id, label,
 // default, dependencies, category) once here, and both the runtime gate
@@ -7,13 +6,38 @@
 // This enables:
 //   - user-level on/off for every experimental surface
 //   - feature dependency checks (e.g., "realtime-cursors" requires "presence")
-//   - preset bundles ("disable all collab", "experimental only")
-//   - URL-shareable feature selection
+//   - preset bundles ("disable all collab", "experimental only") — see
+//     `feature-presets.ts`
+//   - URL-shareable feature selection (via `workspace-url.ts` which also
+//     compacts exact preset matches to a single `preset=<id>` field)
+//
+// ── defaultEnabled policy (U2) ─────────────────────────────────────────
+// Historical note: after the 875ms city-LOD stall in early perf work, we
+// flipped literally every feature OFF. That shipped a boring first-run
+// canvas and users had to discover the HUD to see anything interesting.
+// We now default ON a curated "Minimal + QoL" set that is safe and cheap
+// to render:
+//
+//   ON   —  overlay.* (no entries today, reserved for future visual
+//           overlays), devmode.inspector, power.commandPalette (Cmd+K
+//           is expected UX), power.themeSwitcher, power.smoothCamera,
+//           nav.pages, nav.bookmarks, annotation.toolbar + pen + text +
+//           shape (the annotation essentials — they don't do anything
+//           until the user clicks them).
+//   OFF  —  heavy AI (`ai.anomalyAlerts` runs coupling scans, `ai.repoTour`
+//           launches a tour unprompted), all `experimental` maturity,
+//           collab.* (spawns mock agents / cursors that surprise first-time
+//           users), action-terrain.* (heavy isometric mode — 30fps target).
+//
+// Use presets (`feature-presets.ts`) for richer bundles like "Code Reviewer"
+// or "Demo (Full Stack)".
 //
 // Adding a feature:
 //   1. pick a category + stable id (kebab-case, never rename)
 //   2. push to `FEATURE_REGISTRY` below
 //   3. gate your code with `useFeature("your-id")` or `isFeatureEnabled("your-id")`
+//   4. if the new feature belongs to an existing preset, wire it into
+//      `FEATURE_PRESETS` in `feature-presets.ts`
 
 export type FeatureCategory =
   | "collab"      // multi-user presence, cursors, follow, comments, reactions

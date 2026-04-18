@@ -94,6 +94,12 @@ const DIRECTIONAL_KINDS: ReadonlySet<EdgeKind> = new Set<EdgeKind>([
   "inheritance",
   "reference",
   "dependency",
+  "test-covers",
+  "feature-flag",
+  "contract",
+  "dead-edge",
+  "runtime-divergence",
+  "supply-chain",
 ]);
 
 export interface EdgeStaticBuildOpts {
