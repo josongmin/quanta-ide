@@ -8,12 +8,16 @@ import {
   featureFlagsStore,
   useFeatureFlags,
 } from "../../store/feature-flags-store";
+import { ThemeChipRow } from "../ThemeSwitcher";
 
 const CATEGORY_LABEL: Record<FeatureCategory, string> = {
   collab: "Collaboration",
   annotation: "Annotation",
   devmode: "Dev Mode",
   review: "Review flows",
+  navigation: "Navigation",
+  power: "Power tools",
+  embeds: "Embeds",
   overlay: "Overlays",
   ai: "AI",
   experimental: "Experimental",
@@ -24,6 +28,9 @@ const CATEGORY_ORDER: readonly FeatureCategory[] = [
   "annotation",
   "devmode",
   "review",
+  "navigation",
+  "power",
+  "embeds",
   "overlay",
   "ai",
   "experimental",
@@ -94,6 +101,11 @@ export function FeaturesSection() {
       {groups.map(g => (
         <CategoryBlock key={g.category} category={g.category} features={g.features} flags={flags} />
       ))}
+
+      <div className="ws-debug__divider">theme</div>
+      <div className="ws-debug__lod" style={{ gap: 4 }}>
+        <ThemeChipRow />
+      </div>
     </>
   );
 }

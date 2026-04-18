@@ -7,6 +7,21 @@ export { interactionStore, useInteractionStore } from "./store/interaction-store
 export { renderSettingsStore, useRenderSettings } from "./store/render-settings-store";
 export { uxSettingsStore, useUxSettings } from "./store/ux-settings-store";
 export { debugSettingsStore, useDebugSettings } from "./store/debug-settings-store";
+export { pagesStore, usePagesStore, getActivePage } from "./store/pages-store";
+export type { CanvasPage, CanvasPageViewport, CreatePageOpts } from "./store/pages-store";
+export {
+  bookmarksStore,
+  useBookmarksStore,
+  bookmarksForPage,
+} from "./store/bookmarks-store";
+export type {
+  Bookmark,
+  BookmarkCameraState,
+  BookmarkFilterState,
+  CreateBookmarkInput,
+} from "./store/bookmarks-store";
+export { storyboardStore, useStoryboardStore } from "./store/storyboard-store";
+export type { StoryboardState, StoryboardSpeed } from "./store/storyboard-store";
 
 export { fileFactsToWorkspaceGraph } from "./data/adapters";
 export { SAMPLE_GRAPH } from "./data/sample-graph";

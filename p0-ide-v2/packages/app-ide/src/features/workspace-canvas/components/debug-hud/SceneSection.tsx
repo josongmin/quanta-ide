@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FilterDslInput } from "./FilterDslInput";
+import { NlFilterInput } from "./NlFilterInput";
+import { AiAssistSection } from "./AiAssistSection";
 import { diffSnapshots } from "@quanta/canvas-engine";
 import { viewportStore, useViewportStore } from "../../store/viewport-store";
 import { useSceneStore } from "../../store/scene-store";
@@ -15,6 +17,19 @@ import { useUxSettings, uxSettingsStore } from "../../store/ux-settings-store";
 import { useDebugSettings, debugSettingsStore } from "../../store/debug-settings-store";
 import { stickiesStore, useStickiesStore, type Sticky } from "../../store/stickies-store";
 import { featureFlagsStore, useFeature } from "../../store/feature-flags-store";
+import { usePagesStore } from "../../store/pages-store";
+import {
+  useBookmarksStore,
+  bookmarksForPage,
+} from "../../store/bookmarks-store";
+import { storyboardStore } from "../../store/storyboard-store";
+import { captureCurrentBookmark } from "../BookmarksDrawer";
+import { useImagesStore, imagesStore, IMAGE_MAX_COUNT } from "../../store/images-store";
+import { useTicketLinksStore, ticketLinksStore } from "../../store/ticket-links-store";
+import { listMockTickets, type TicketSource, type TicketState } from "../../lib/mock-tickets";
+import { listMockPrs, buildPrsByFile } from "../../lib/mock-prs";
+import { listMockSlackThreads, resolveSlackRelatedFileId } from "../../lib/mock-slack";
+import { SlackEmbed } from "../SlackEmbed";
 import { CommentsSection } from "./CommentsSection";
 import { buildShareUrl, decodeWorkspaceState } from "../../lib/workspace-url";
 import {
@@ -416,8 +431,8 @@ export function SceneSection() {
         </span>
       </div>
 
-      <div className="ws-debug__divider">filter DSL</div>
-      <FilterDslInput />
+      <FilterSection graph={graph} edgeLayers={edgeLayers} />
+
 
       <div className="ws-debug__divider">
         arch violations
@@ -520,7 +535,13 @@ export function SceneSection() {
 
       <StickiesSection />
 
+      <AiAssistSection />
+
       <CommentsSection />
+
+      <NavigationSection />
+
+      <EmbedsSection />
 
       <div className="ws-debug__divider">viewport</div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -780,6 +801,88 @@ function basename(path: string): string {
   return idx >= 0 ? path.slice(idx + 1) : path;
 }
 
+// Filter input — toggles between the raw DSL and the natural-language
+// entry when the ai.naturalLanguageFilter feature is on. Cmd+/ flips
+// between modes; default is DSL to match the existing muscle memory.
+function FilterSection({
+  graph,
+  edgeLayers,
+}: {
+  graph: import("@quanta/canvas-engine").WorkspaceGraph | null;
+  edgeLayers: Record<EdgeLayer, boolean>;
+}) {
+  const nlOn = useFeature("ai.naturalLanguageFilter");
+  const [mode, setMode] = useState<"dsl" | "nl">("dsl");
+
+  // Cmd+/ global shortcut — flip mode when the user is somewhere inside
+  // the HUD. Bound at the section level so it doesn't fight the existing
+  // canvas shortcuts outside of the HUD surface.
+  useEffect(() => {
+    if (!nlOn) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== "/") return;
+      e.preventDefault();
+      setMode(m => (m === "dsl" ? "nl" : "dsl"));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [nlOn]);
+
+  const enabledLayers = useMemo(
+    () => (Object.entries(edgeLayers) as [EdgeLayer, boolean][])
+      .filter(([, v]) => v)
+      .map(([k]) => k),
+    [edgeLayers],
+  );
+  const edgeKinds = useMemo(() => {
+    const set = new Set<string>();
+    for (const e of graph?.fileEdges ?? []) set.add(e.kind);
+    return [...set];
+  }, [graph]);
+  const fileIds = useMemo(() => {
+    return (graph?.files ?? []).map(f => f.id);
+  }, [graph]);
+
+  return (
+    <>
+      <div className="ws-debug__divider" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span>{mode === "dsl" ? "filter DSL" : "filter — AI"}</span>
+        {nlOn && (
+          <div className="ws-debug__lod" style={{ gap: 2, marginLeft: "auto" }}>
+            <button
+              type="button"
+              className={`ws-debug__chip${mode === "dsl" ? " is-on" : ""}`}
+              onClick={() => setMode("dsl")}
+              title="DSL mode"
+            >
+              dsl
+            </button>
+            <button
+              type="button"
+              className={`ws-debug__chip${mode === "nl" ? " is-on" : ""}`}
+              onClick={() => setMode("nl")}
+              title="Natural language (⌘/)"
+            >
+              nl
+            </button>
+          </div>
+        )}
+      </div>
+      {mode === "dsl" || !nlOn ? (
+        <FilterDslInput />
+      ) : (
+        <NlFilterInput
+          edgeKinds={edgeKinds}
+          edgeLayers={enabledLayers}
+          fileIds={fileIds}
+          onSwitchToDsl={() => setMode("dsl")}
+        />
+      )}
+    </>
+  );
+}
+
 function EdgeLayerRow({
   layer,
   visible,
@@ -904,6 +1007,94 @@ function StickiesSection() {
   );
 }
 
+// ── Navigation section (Batch 5) ────────────────────────────────────
+// Single block in the scene tab: toggles for pages/bookmarks/storyboard/
+// templates + a "capture view" button that forwards into the bookmarks
+// drawer's capture action for whichever page is active.
+function NavigationSection() {
+  const pagesOn = useFeature("nav.pages");
+  const bookmarksOn = useFeature("nav.bookmarks");
+  const storyboardOn = useFeature("nav.storyboard");
+  const templatesOn = useFeature("nav.templates");
+  const activePages = usePagesStore(s => s.pages);
+  const activeId = usePagesStore(s => s.activeId);
+  const bookmarks = useBookmarksStore(s => s.bookmarks);
+  const forPage = bookmarksForPage({ bookmarks }, activeId);
+
+  return (
+    <>
+      <div className="ws-debug__divider">navigation</div>
+      <div className="ws-debug__grid">
+        <span className="ws-debug__k">page</span>
+        <span className="ws-debug__v">
+          {activePages.find(p => p.id === activeId)?.label ?? "—"}
+          <span style={{ opacity: 0.6, marginLeft: 4 }}>
+            ({activePages.length} total)
+          </span>
+        </span>
+        <span className="ws-debug__k">views</span>
+        <span className="ws-debug__v">{forPage.length}</span>
+      </div>
+      <div className="ws-debug__lod" style={{ gap: 2 }}>
+        <label className="ws-debug__row" style={{ flex: 1 }}>
+          <input
+            type="checkbox"
+            checked={pagesOn}
+            onChange={e => featureFlagsStore.setFlag("nav.pages", e.target.checked)}
+          />
+          <span>pages</span>
+        </label>
+        <label className="ws-debug__row" style={{ flex: 1 }}>
+          <input
+            type="checkbox"
+            checked={bookmarksOn}
+            onChange={e => featureFlagsStore.setFlag("nav.bookmarks", e.target.checked)}
+          />
+          <span>views</span>
+        </label>
+      </div>
+      <div className="ws-debug__lod" style={{ gap: 2 }}>
+        <label className="ws-debug__row" style={{ flex: 1 }}>
+          <input
+            type="checkbox"
+            checked={storyboardOn}
+            onChange={e => featureFlagsStore.setFlag("nav.storyboard", e.target.checked)}
+          />
+          <span>storyboard</span>
+        </label>
+        <label className="ws-debug__row" style={{ flex: 1 }}>
+          <input
+            type="checkbox"
+            checked={templatesOn}
+            onChange={e => featureFlagsStore.setFlag("nav.templates", e.target.checked)}
+          />
+          <span>templates</span>
+        </label>
+      </div>
+      <div className="ws-debug__lod" style={{ gap: 2 }}>
+        <button
+          type="button"
+          className="ws-debug__chip"
+          onClick={() => captureCurrentBookmark(activeId)}
+          disabled={!bookmarksOn}
+          title="Save current camera + filters as a bookmark on the active page"
+        >
+          capture view
+        </button>
+        <button
+          type="button"
+          className="ws-debug__chip"
+          onClick={() => storyboardStore.start(activeId)}
+          disabled={!storyboardOn || forPage.length === 0}
+          title="Start storyboard playback of this page's views"
+        >
+          play tour
+        </button>
+      </div>
+    </>
+  );
+}
+
 // ── Dev Mode section ────────────────────────────────────────────────
 // Small control surface for the Batch 2 features. The inspector has no
 // explicit toggle here — opening it is triggered by file selection, and
@@ -925,6 +1116,235 @@ function DevModeSection() {
       <div className="ws-debug__hint">
         Measure mode (M key){measure ? "" : " — disabled"}: hold M + click two files.
       </div>
+    </>
+  );
+}
+
+// ── Embeds section ──────────────────────────────────────────────────
+// Aggregates the Batch 8 smart-embed HUD rows: pasted images, linked
+// tickets (with source + state filter), open pull requests, and slack
+// threads related to the currently-selected file.
+const TICKET_SOURCES_HUD: readonly TicketSource[] = ["linear", "jira", "github"] as const;
+const TICKET_STATES_HUD: readonly TicketState[] = ["todo", "in-progress", "in-review", "done"] as const;
+
+function EmbedsSection() {
+  const imagesOn = useFeature("embeds.imagePaste");
+  const ticketsOn = useFeature("embeds.tickets");
+  const prOn = useFeature("embeds.prBadge");
+  const slackOn = useFeature("embeds.slackThread");
+  return (
+    <>
+      <div className="ws-debug__divider">Embeds</div>
+      {imagesOn && <ImagesHudRow />}
+      {ticketsOn && <TicketsHudRow />}
+      {prOn && <PrsHudRow />}
+      {slackOn && <SlackHudRow />}
+      {!imagesOn && !ticketsOn && !prOn && !slackOn && (
+        <div className="ws-debug__hint">every embed feature is disabled.</div>
+      )}
+    </>
+  );
+}
+
+function ImagesHudRow() {
+  const images = useImagesStore(s => s.images);
+  return (
+    <>
+      <div className="ws-debug__grid">
+        <span className="ws-debug__k">pasted images</span>
+        <span className="ws-debug__v">
+          {images.length} / {IMAGE_MAX_COUNT}
+        </span>
+      </div>
+      <div className="ws-debug__hint">
+        paste (⌘V) an image from the clipboard onto the canvas.
+      </div>
+      {images.length > 0 && (
+        <div className="ws-debug__lod" style={{ gap: 2 }}>
+          <button
+            type="button"
+            className="ws-debug__chip"
+            onClick={() => imagesStore.reset()}
+            title="remove every pasted image"
+          >
+            clear all
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function TicketsHudRow() {
+  const [source, setSource] = useState<TicketSource | "all">("all");
+  const [ticketState, setTicketState] = useState<TicketState | "all">("all");
+  const byFile = useTicketLinksStore(s => s.byFile);
+
+  const linkedIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const ids of byFile.values()) for (const id of ids) s.add(id);
+    return s;
+  }, [byFile]);
+
+  const rows = useMemo(() => {
+    return listMockTickets().filter(t => {
+      if (!linkedIds.has(t.id)) return false;
+      if (source !== "all" && t.source !== source) return false;
+      if (ticketState !== "all" && t.state !== ticketState) return false;
+      return true;
+    });
+  }, [linkedIds, source, ticketState]);
+
+  return (
+    <>
+      <div className="ws-debug__grid">
+        <span className="ws-debug__k">tickets</span>
+        <span className="ws-debug__v">
+          {rows.length} / {listMockTickets().length}
+        </span>
+      </div>
+      <div className="ws-debug__lod" style={{ gap: 2 }}>
+        <button
+          type="button"
+          className={`ws-debug__chip${source === "all" ? " is-on" : ""}`}
+          onClick={() => setSource("all")}
+        >
+          all
+        </button>
+        {TICKET_SOURCES_HUD.map(s => (
+          <button
+            key={s}
+            type="button"
+            className={`ws-debug__chip${source === s ? " is-on" : ""}`}
+            onClick={() => setSource(s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <div className="ws-debug__lod" style={{ gap: 2 }}>
+        <button
+          type="button"
+          className={`ws-debug__chip${ticketState === "all" ? " is-on" : ""}`}
+          onClick={() => setTicketState("all")}
+        >
+          any
+        </button>
+        {TICKET_STATES_HUD.map(s => (
+          <button
+            key={s}
+            type="button"
+            className={`ws-debug__chip${ticketState === s ? " is-on" : ""}`}
+            onClick={() => setTicketState(s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      {rows.length === 0 ? (
+        <div className="ws-debug__hint">no tickets match.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
+          {rows.map(t => (
+            <div key={t.id} className="ws-debug__sticky-row" title={t.title}>
+              <span className={`ws-ticket__src ws-ticket__src--${t.source}`} aria-hidden>
+                {t.source.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="ws-debug__sticky-text">
+                {t.externalId} · {t.title}
+              </span>
+              <span className={`ws-ticket__state ws-ticket__state--${t.state}`}>{t.state}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {linkedIds.size > 0 && (
+        <div className="ws-debug__lod" style={{ gap: 2 }}>
+          <button
+            type="button"
+            className="ws-debug__chip"
+            onClick={() => ticketLinksStore.reset()}
+            title="clear every ticket link"
+          >
+            clear links
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PrsHudRow() {
+  const graph = useSceneStore(s => s.graph);
+  const prsByFile = useMemo(() => {
+    if (!graph) return new Map<string, readonly ReturnType<typeof listMockPrs>[number][]>();
+    return buildPrsByFile(graph.files.map(f => f.id));
+  }, [graph]);
+  const open = listMockPrs().filter(p => p.state === "open");
+  const touchCount = (prNumber: number): number => {
+    let n = 0;
+    for (const row of prsByFile.values()) {
+      if (row.some(p => p.number === prNumber)) n += 1;
+    }
+    return n;
+  };
+  return (
+    <>
+      <div className="ws-debug__grid">
+        <span className="ws-debug__k">pull requests</span>
+        <span className="ws-debug__v">
+          {open.length} open · {listMockPrs().length - open.length} merged
+        </span>
+      </div>
+      {open.length === 0 ? (
+        <div className="ws-debug__hint">no open PRs in the mock fixture.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
+          {open.map(p => (
+            <div key={p.number} className="ws-debug__sticky-row" title={p.title}>
+              <span className="ws-pr-badge__num">#{p.number}</span>
+              <span className="ws-debug__sticky-text">{p.title}</span>
+              <span className="ws-debug__sticky-check" style={{ opacity: 0.7 }}>
+                touches {touchCount(p.number)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+function SlackHudRow() {
+  const graph = useSceneStore(s => s.graph);
+  const selected = useInteractionStore(s => s.viewState.selectedFileId);
+  const threads = useMemo(() => {
+    const fileIds = graph?.files.map(f => f.id) ?? [];
+    const allThreads = listMockSlackThreads();
+    if (!selected) return allThreads;
+    return allThreads.filter(t => {
+      const fid = resolveSlackRelatedFileId(t, fileIds);
+      return fid === selected;
+    });
+  }, [graph, selected]);
+  return (
+    <>
+      <div className="ws-debug__grid">
+        <span className="ws-debug__k">related discussions</span>
+        <span className="ws-debug__v">{threads.length}</span>
+      </div>
+      {!selected && (
+        <div className="ws-debug__hint">select a file to filter; showing all threads.</div>
+      )}
+      {threads.length === 0 ? (
+        <div className="ws-debug__hint">no related threads.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 4 }}>
+          {threads.map(t => (
+            <SlackEmbed key={t.id} thread={t} />
+          ))}
+        </div>
+      )}
     </>
   );
 }

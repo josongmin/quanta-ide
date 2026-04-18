@@ -19,6 +19,9 @@ export type FeatureCategory =
   | "annotation"  // drawing tools, frames, connectors, shapes
   | "devmode"     // right-sidebar inspector, export, copy-as, hover summary
   | "review"      // voting, estimation poker, timer, retrospective boards
+  | "navigation"  // pages, bookmarks, storyboard, templates (Figma-style nav)
+  | "power"       // command palette, lasso, smooth camera, zoom lens, theme switcher
+  | "embeds"      // rich-media canvas embeds (image paste, tickets, PR, slack)
   | "overlay"     // existing visual overlays (kept as features for consistency)
   | "ai"          // AI-assisted helpers (summaries, clustering, tour)
   | "experimental"; // unproven / gated
@@ -264,6 +267,169 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
     defaultEnabled: true,
     maturity: "experimental",
     introducedIn: "batch-4",
+  },
+
+  // ── Navigation (Batch 5) ─────────────────────────────────────────
+  {
+    id: "nav.pages",
+    category: "navigation",
+    label: "Canvas pages",
+    description: "Figma-style multi-page canvas — switch between independent canvases with their own viewport + selection.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-5",
+  },
+  {
+    id: "nav.bookmarks",
+    category: "navigation",
+    label: "Named views",
+    description: "Saved cameras / bookmarks per page — click a thumbnail to restore camera + filters.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-5",
+  },
+  {
+    id: "nav.storyboard",
+    category: "navigation",
+    label: "Storyboard playback",
+    description: "Play through the current page's bookmarks like a presentation (play / pause / speed).",
+    defaultEnabled: true,
+    maturity: "beta",
+    dependsOn: ["nav.bookmarks"],
+    introducedIn: "batch-5",
+  },
+  {
+    id: "nav.templates",
+    category: "navigation",
+    label: "Canvas templates",
+    description: "Prebuilt scenario pages (security review, onboarding, post-mortem, architecture).",
+    defaultEnabled: true,
+    maturity: "beta",
+    dependsOn: ["nav.pages", "nav.bookmarks"],
+    introducedIn: "batch-5",
+  },
+
+  // ── Power user (Batch 7) ─────────────────────────────────────────
+  {
+    id: "power.commandPalette",
+    category: "power",
+    label: "Command palette",
+    description: "Cmd+K / Ctrl+K fuzzy-matched command palette — files, actions, features, bookmarks, stickies.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-7",
+  },
+  {
+    id: "power.lasso",
+    category: "power",
+    label: "Multi-select lasso",
+    description: "Shift+drag on empty canvas to rectangle-select file cards; bulk action toolbar while selection is non-empty.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-7",
+  },
+  {
+    id: "power.smoothCamera",
+    category: "power",
+    label: "Smooth camera transitions",
+    description: "Eased pan/zoom for cluster click, double-click fit, bookmark jumps, and palette navigation.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-7",
+  },
+  {
+    id: "power.zoomLens",
+    category: "power",
+    label: "Zoom lens magnifier",
+    description: "Hold Z to magnify under the cursor with a circular lens — 2x extra zoom over the canvas.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "batch-7",
+  },
+  {
+    id: "power.themeSwitcher",
+    category: "power",
+    label: "Theme switcher",
+    description: "Switch between dark, light, and high-contrast themes — persisted to localStorage.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-7",
+  },
+
+  // ── Smart embeds (Batch 8) ───────────────────────────────────────
+  {
+    id: "embeds.imagePaste",
+    category: "embeds",
+    label: "Paste image as element",
+    description: "Clipboard paste of an image drops it on the canvas as a world-positioned, draggable image element (persisted in localStorage).",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-8",
+  },
+  {
+    id: "embeds.tickets",
+    category: "embeds",
+    label: "Ticket cards (Linear / Jira / GitHub)",
+    description: "Mock ticket cards linked to files (Linear / Jira / GitHub) — displayed adjacent to each file at city+ zoom.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-8",
+  },
+  {
+    id: "embeds.prBadge",
+    category: "embeds",
+    label: "Pull-request badges",
+    description: "Mock open / merged PRs as a top-left pill on file cards; hover shows title, stats, and a mini diff preview.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-8",
+  },
+  {
+    id: "embeds.slackThread",
+    category: "embeds",
+    label: "Slack thread embed",
+    description: "Mock Slack thread cards — last reply preview, message count, linked to files in the HUD.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-8",
+  },
+
+  // ── AI assist (Batch 6) ──────────────────────────────────────────
+  {
+    id: "ai.naturalLanguageFilter",
+    category: "ai",
+    label: "Natural-language edge filter",
+    description: "Type a plain-English question and the AI compiles it to the DSL.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "batch-6",
+  },
+  {
+    id: "ai.clusterStickies",
+    category: "ai",
+    label: "Cluster stickies",
+    description: "Group stickies with similar text into labelled clusters.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "batch-6",
+  },
+  {
+    id: "ai.repoTour",
+    category: "ai",
+    label: "Repo tour",
+    description: "AI-generated guided walk through the most important files.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "batch-6",
+  },
+  {
+    id: "ai.anomalyAlerts",
+    category: "ai",
+    label: "Anomaly alerts",
+    description: "Badge files with coupling spikes, cycles, or unreachable status.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "batch-6",
   },
 ] as const;
 

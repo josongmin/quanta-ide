@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "../workspace-canvas.css";
 import { EdgeGeometryCache, createEdgePickIndex } from "@quanta/canvas-engine";
 import type { EdgePickIndex, WorkspaceGraph } from "@quanta/canvas-engine";
@@ -6,7 +6,14 @@ import { PixiStage } from "@quanta/canvas-pixi";
 import { useWorkspaceCanvasOrchestrator } from "../hooks/use-workspace-canvas";
 import { useCanvasViewport } from "../hooks/use-canvas-viewport";
 import { useCanvasInteractions } from "../hooks/use-canvas-interactions";
-import { useModifierKeyTracking } from "../hooks/use-keyboard-shortcuts";
+import {
+  useModifierKeyTracking,
+  useGlobalKeybinds,
+  isCmdK,
+  isCmdShiftT,
+  type GlobalKeybind,
+} from "../hooks/use-keyboard-shortcuts";
+import { useSmoothCamera } from "../hooks/use-smooth-camera";
 import { useUrlStateSync } from "../hooks/use-url-state-sync";
 import { useEdgeFocusLogic } from "../hooks/use-edge-focus-logic";
 import {
@@ -15,7 +22,7 @@ import {
   useCrossGraphFlash,
 } from "../hooks/use-scene-derivations";
 import { useSceneStore } from "../store/scene-store";
-import { useInteractionStore } from "../store/interaction-store";
+import { useInteractionStore, interactionStore } from "../store/interaction-store";
 import { useRenderSettings, renderSettingsStore } from "../store/render-settings-store";
 import { usePresenceStore } from "../store/presence-store";
 import { stickiesStore } from "../store/stickies-store";
@@ -34,6 +41,21 @@ import { CollabLayer } from "./CollabLayer";
 import { ReviewLayer } from "./ReviewLayer";
 import { SessionTimer } from "./SessionTimer";
 import { DevModeLayer, type DevModeLayerApi } from "./DevModeLayer";
+import { AnomalyBadgesLayer } from "./AnomalyBadgesLayer";
+import { CommandPalette } from "./CommandPalette";
+import { LassoOverlay, BulkActionsToolbar } from "./LassoOverlay";
+import { ZoomLens } from "./ZoomLens";
+import { ApplyThemeAttribute } from "./ThemeSwitcher";
+import { exportAsPNG } from "../lib/export-canvas";
+import { featureFlagsStore } from "../store/feature-flags-store";
+import { themeStore } from "../store/theme-store";
+import { useAnomalyDetectionRun } from "../hooks/use-anomaly-detection";
+import { PagesTabBar } from "./PagesTabBar";
+import { BookmarksDrawer } from "./BookmarksDrawer";
+import { StoryboardPlayer } from "./StoryboardPlayer";
+import { ImagesLayer } from "./ImagesLayer";
+import { TicketsLayer } from "./TicketsLayer";
+import { PrBadgesLayer } from "./PrBadgesLayer";
 import { useFeature } from "../store/feature-flags-store";
 
 interface Props {
@@ -43,6 +65,7 @@ interface Props {
 export function MultiFileCanvas({ graph }: Props) {
   useWorkspaceCanvasOrchestrator(graph);
   useUrlStateSync();
+  useAnomalyDetectionRun();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -52,6 +75,12 @@ export function MultiFileCanvas({ graph }: Props) {
 
   const { panBy, zoomAt, fitToGraph, setContainerSize, transform, viewport } = useCanvasViewport();
   const modifiers = useModifierKeyTracking();
+  const smoothCamera = useSmoothCamera();
+
+  // Palette open state — driven by Cmd+K / Ctrl+K and closed by Esc,
+  // click-outside, or after an action runs. Kept in a local React state
+  // rather than a store because the palette lifecycle is purely UI-local.
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   // Store selectors — each column subscribes to its owning sub-store so a
   // pan tick never wakes scene/interaction/settings listeners.
@@ -88,7 +117,8 @@ export function MultiFileCanvas({ graph }: Props) {
   const {
     onMouseDown, onMouseMove, onMouseUp,
     selectFile: rawSelectFile, hoverFile,
-    onClusterClick, onSuperclusterClick,
+    onClusterClick: rawClusterClick,
+    onSuperclusterClick: rawSuperclusterClick,
     onZoomIn, onZoomOut,
   } = useCanvasInteractions({
     containerRef,
@@ -99,6 +129,31 @@ export function MultiFileCanvas({ graph }: Props) {
     viewportWidth: viewport.width,
     viewportHeight: viewport.height,
   });
+
+  // Wrap cluster/supercluster zoom so the transition eases when
+  // power.smoothCamera is on. The inner hook already writes to the
+  // viewport store directly, so we intercept at call time and replace
+  // the hard snap with a tween when the flag is live.
+  const onClusterClick = useCallback((clusterId: string) => {
+    if (!featureFlagsStore.isEnabled("power.smoothCamera")) {
+      rawClusterClick(clusterId);
+      return;
+    }
+    const lay = layout;
+    const rect = lay?.clusterRects?.get(clusterId)
+      ?? lay?.clusters?.find(c => c.id === clusterId)?.rect;
+    if (rect) smoothCamera.fitRect(rect, 0.8);
+    else rawClusterClick(clusterId);
+  }, [rawClusterClick, layout, smoothCamera]);
+  const onSuperclusterClick = useCallback((superclusterId: string) => {
+    if (!featureFlagsStore.isEnabled("power.smoothCamera")) {
+      rawSuperclusterClick(superclusterId);
+      return;
+    }
+    const rect = layout?.superclusters?.find(c => c.id === superclusterId)?.rect;
+    if (rect) smoothCamera.fitRect(rect, 0.8);
+    else rawSuperclusterClick(superclusterId);
+  }, [rawSuperclusterClick, layout, smoothCamera]);
 
   // Dev Mode capture hook — when the user holds M and clicks a file we
   // route the selection into the measure state machine instead of the
@@ -128,8 +183,59 @@ export function MultiFileCanvas({ graph }: Props) {
   }, []);
 
   const onFit = useCallback(() => {
-    if (layout) fitToGraph(layout.totalBounds.w, layout.totalBounds.h);
-  }, [fitToGraph, layout]);
+    if (!layout) return;
+    if (featureFlagsStore.isEnabled("power.smoothCamera")) {
+      smoothCamera.fitRect(layout.totalBounds, 0.9);
+    } else {
+      fitToGraph(layout.totalBounds.w, layout.totalBounds.h);
+    }
+  }, [fitToGraph, layout, smoothCamera]);
+
+  // Smooth zoom-to-file — used by the palette and as the default zoom-to-rect
+  // helper for bookmarks etc. Falls back to an instant snap when the feature
+  // is off (via useSmoothCamera.panTo which reads the flag at call time).
+  const zoomToFileSmooth = useCallback((fileId: string) => {
+    const lay = layout;
+    if (!lay) return;
+    const rect = lay.fileRects.get(fileId);
+    if (!rect) return;
+    interactionStore.selectFile(fileId);
+    smoothCamera.fitRect(rect, 0.85);
+  }, [layout, smoothCamera]);
+
+  const resetViewport = useCallback(() => {
+    smoothCamera.panTo(0, 0, 0.1);
+  }, [smoothCamera]);
+
+  const exportPng = useCallback(() => {
+    const container = containerRef.current;
+    void exportAsPNG(container);
+  }, []);
+
+  // Global keybinds — registered once, extended here instead of scattering
+  // fresh window.addEventListener calls. Cmd+K opens the palette; Cmd+Shift+T
+  // cycles the theme when the theme-switcher feature is on. Cmd+Shift+D is
+  // still owned by DebugHud directly and is intentionally not duplicated here.
+  const keybinds = useMemo<readonly GlobalKeybind[]>(() => ([
+    {
+      label: "Open command palette",
+      match: isCmdK,
+      fireInEditable: false,
+      handler: () => {
+        if (!featureFlagsStore.isEnabled("power.commandPalette")) return;
+        setPaletteOpen(true);
+      },
+    },
+    {
+      label: "Cycle theme",
+      match: isCmdShiftT,
+      handler: () => {
+        if (!featureFlagsStore.isEnabled("power.themeSwitcher")) return;
+        themeStore.cycle();
+      },
+    },
+  ]), []);
+  useGlobalKeybinds(keybinds);
 
   // Edge cache + pick index rebuilds tied to layout.
   useEffect(() => {
@@ -318,6 +424,7 @@ export function MultiFileCanvas({ graph }: Props) {
       )}
 
       <StickiesLayer transform={transform} scale={viewport.scale} />
+      <ImagesLayer transform={transform} scale={viewport.scale} containerRef={containerRef} />
       <CollabLayer
         transform={transform}
         scale={viewport.scale}
@@ -326,6 +433,9 @@ export function MultiFileCanvas({ graph }: Props) {
       />
       <AnnotationsLayer transform={transform} scale={viewport.scale} containerRef={containerRef} />
       <ReviewLayer graph={graph} transform={transform} scale={viewport.scale} />
+      <TicketsLayer transform={transform} />
+      <PrBadgesLayer transform={transform} />
+      <AnomalyBadgesLayer layout={layout} transform={transform} />
       <Minimap layout={layout} viewport={viewport} />
       <CanvasControls
         scale={viewport.scale}
@@ -337,7 +447,22 @@ export function MultiFileCanvas({ graph }: Props) {
         onToggleEdges={toggleEdges}
       />
       <AnnotationToolbar />
+      <PagesTabBar />
+      <BookmarksDrawer />
+      <StoryboardPlayer />
       <TimerMount />
+      <LassoOverlay containerRef={containerRef} layout={layout} />
+      <BulkActionsToolbar layout={layout} />
+      <ZoomLens containerRef={containerRef} layout={layout} zoomLensHeldRef={modifiers.zoomLensHeldRef} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        zoomToFile={zoomToFileSmooth}
+        fitToGraph={onFit}
+        resetViewport={resetViewport}
+        exportPng={exportPng}
+      />
+      <ApplyThemeAttribute containerRef={containerRef} />
       <DebugHud />
       <EvidencePanel />
       <DevModeLayer onReady={onDevModeReady} />
