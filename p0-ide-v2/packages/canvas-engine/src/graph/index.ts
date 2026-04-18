@@ -58,6 +58,7 @@ export type { PathQuery, PathResult } from "./pathfinding";
 export { findPaths } from "./pathfinding";
 
 export type { StartHereEntry } from "./start-here";
+export { rankStartHere } from "./start-here";
 
 // ── Filtering & rules ───────────────────────────────────────────────
 export { elevationFromRisk } from "./elevation";

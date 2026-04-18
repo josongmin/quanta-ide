@@ -56,6 +56,16 @@ import {
   Search,
   Terminal,
   Package,
+  Brain,
+  DollarSign,
+  Smartphone,
+  Monitor,
+  Mail,
+  Send,
+  Flag,
+  LayoutTemplate,
+  Code,
+  Compass,
 } from "lucide-react";
 
 import { CatalogPage }             from "../pages/CatalogPage";
@@ -119,6 +129,16 @@ import { TicketListPage }          from "../pages/support/TicketListPage";
 import { TicketDetailPage }        from "../pages/support/TicketDetailPage";
 import { AutomationBuilderPage }   from "../pages/automation/AutomationBuilderPage";
 import { UniversalSearchPage }     from "../pages/search/UniversalSearchPage";
+import { ModelPreferencesPage }    from "../pages/ai/ModelPreferencesPage";
+import { SpendDashboardPage }      from "../pages/ai/SpendDashboardPage";
+import { MobileAppPage }           from "../pages/distribution/MobileAppPage";
+import { DesktopClientPage }       from "../pages/distribution/DesktopClientPage";
+import { EmailTemplatesPage }      from "../pages/admin/EmailTemplatesPage";
+import { BroadcastComposerPage }   from "../pages/admin/BroadcastComposerPage";
+import { FeatureFlagsPage }        from "../pages/admin/FeatureFlagsPage";
+import { DashboardBuilderPage }    from "../pages/admin/DashboardBuilderPage";
+import { OpenApiPage }             from "../pages/developers/OpenApiPage";
+import { ProductTourPage }         from "../pages/onboarding/ProductTourPage";
 
 import { iconOf } from "./icon";
 import type { CategoryId, DemoChrome, DemoPageMeta } from "./types";
@@ -170,6 +190,7 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("profile.danger",     "profile",       "Danger zone",         "Export data, delete account confirmation.",           ShieldCheck, "app",  DangerZonePage),
 
   meta("onboarding.checklist","onboarding",   "Getting started",     "First-run onboarding checklist with progress.",       Rocket,      "app",  OnboardingPage),
+  meta("onboarding.tour",    "onboarding",    "Product tour",        "Interactive coachmarks walkthrough of the IDE surfaces.", Compass,  "app",  ProductTourPage),
 
   meta("notifications.inbox","notifications", "Inbox",               "In-app notification center feed.",                    Bell,        "app",  NotificationsInboxPage),
   meta("notifications.prefs","notifications", "Notification prefs",  "Per-event channel toggles (email / in-app / slack).", BellRing,    "app",  NotificationPrefsPage),
@@ -183,6 +204,10 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("developers.webhooks","developers",   "Webhook event catalog","Every event we emit with sample payloads and copy-curl.", Webhook,   "app",  WebhookCatalogPage),
   meta("developers.api",     "developers",   "API explorer",        "Stripe-style three-pane interactive API reference.",   Play,        "app",  ApiExplorerPage),
   meta("developers.shortcuts","developers",  "Keyboard shortcuts",  "Full cheatsheet with macOS/Windows toggle and search.", Keyboard,   "app",  KeyboardShortcutsPage),
+  meta("developers.openapi", "developers",   "OpenAPI spec",        "Download the spec or Postman collection, browse schemas.", Code,     "app",  OpenApiPage),
+
+  meta("ai.models",          "ai",            "Model preferences",   "Pick which foundation models power each engine.",     Brain,       "app",  ModelPreferencesPage),
+  meta("ai.spend",           "ai",            "AI spend dashboard",  "Token cost breakdown per model, engine, and member.", DollarSign,  "app",  SpendDashboardPage),
 
   meta("security.sessions",  "security",      "Active sessions",     "Devices currently signed in to your account.",        Laptop,      "app",  ActiveSessionsPage),
   meta("security.ip",        "security",      "IP allowlist",        "Restrict workspace access to known network ranges.",  Network,     "app",  IpAllowlistPage),
@@ -197,6 +222,9 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("automation.builder", "automation",    "Automation builder",  "Visual trigger \u2192 filter \u2192 action rule composer.",       Workflow,  "app",  AutomationBuilderPage),
 
   meta("search.universal",   "search",        "Universal search",    "Grouped results across code, members, policies, docs.",  Search,     "app",  UniversalSearchPage),
+
+  meta("distribution.mobile","distribution",  "Mobile app",          "iOS + Android download, QR, phone mockup, features.", Smartphone,  "app",  MobileAppPage),
+  meta("distribution.desktop","distribution", "Desktop client",      "macOS/Windows/Linux installer per-platform + MDM.",   Monitor,     "app",  DesktopClientPage),
 
   meta("states.404",         "states",        "404 Not Found",       "Page-not-found full-screen template.",                 SearchX,     "full", NotFoundPage),
   meta("states.500",         "states",        "500 Server Error",    "Server error full-screen with incident ID.",          ServerCrash, "full", ServerErrorPage),
@@ -219,4 +247,8 @@ export const DEMO_PAGES: readonly DemoPageMeta[] = [
   meta("admin.keys",         "admin",         "API keys",            "Create & rotate programmatic access tokens.",         KeySquare,   "app",  ApiKeysPage),
   meta("admin.webhooks",     "admin",         "Webhooks",            "Outbound event delivery endpoints.",                  Webhook,     "app",  WebhooksPage),
   meta("admin.org",          "admin",         "Organization settings","Identity, discoverability, defaults, and delete org.",Building,   "app",  OrgSettingsPage),
+  meta("admin.email",        "admin",         "Email templates",     "Every transactional email, live preview, merge fields.", Mail,      "app",  EmailTemplatesPage),
+  meta("admin.broadcast",    "admin",         "Broadcast composer",  "Four-step wizard for org-wide announcements.",          Send,        "app",  BroadcastComposerPage),
+  meta("admin.flags",        "admin",         "Feature flags",       "Rollouts, kill switches, A/B experiments.",           Flag,        "app",  FeatureFlagsPage),
+  meta("admin.dashboards",   "admin",         "Dashboard builder",   "Drag-drop custom dashboards from widget library.",    LayoutTemplate, "app", DashboardBuilderPage),
 ];
