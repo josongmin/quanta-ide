@@ -78,16 +78,72 @@
 }
 
 /* ── Loading state ──────────────────────────────────────────────── */
-.workspace-canvas--loading::after {
-  content: "Loading workspace…";
+.workspace-canvas--loading {
+  position: relative;
+}
+
+.ws-loading {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  color: var(--fg-subtle);
   pointer-events: none;
+}
+.ws-loading__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-width: 280px;
+  padding: 18px 24px;
+  color: var(--fg-muted);
+}
+.ws-loading__headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+}
+.ws-loading__meta {
+  font-size: 11px;
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ws-loading__sep { opacity: 0.5; }
+.ws-loading__timer { min-width: 40px; text-align: right; }
+.ws-loading__spinner {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ws-loading-spin 0.7s linear infinite;
+}
+.ws-loading__bar {
+  width: 100%;
+  height: 2px;
+  background: var(--bg-subtle);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.ws-loading__bar-fill {
+  width: 40%;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: ws-loading-slide 1.2s ease-in-out infinite;
+}
+@keyframes ws-loading-spin { to { transform: rotate(360deg); } }
+@keyframes ws-loading-slide {
+  0%   { transform: translateX(-100%); }
+  50%  { transform: translateX(150%); }
+  100% { transform: translateX(300%); }
 }
 
 /* ── PixiJS canvas fills container ─────────────────────────────── */
@@ -316,6 +372,17 @@
 .ws-controls__btn:hover {
   background: var(--bg-subtle);
   color: var(--fg);
+}
+
+.ws-controls__btn--toggle {
+  color: var(--fg-subtle);
+}
+.ws-controls__btn--toggle.is-on {
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+}
+.ws-controls__btn--toggle.is-on:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .ws-controls__scale {

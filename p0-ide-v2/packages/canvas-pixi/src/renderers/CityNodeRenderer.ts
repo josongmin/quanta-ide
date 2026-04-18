@@ -1,5 +1,5 @@
 import { Graphics, Container, Text } from "pixi.js";
-import type { FileNode, WorkspaceLayout, ViewState } from "@quanta/canvas-engine";
+import type { FileNode, WorkspaceLayout, ViewState, Viewport } from "@quanta/canvas-engine";
 
 function riskFill(score: number): number {
   if (score >= 70) return 0xfee2e2; // red tint
@@ -52,8 +52,8 @@ export class CityNodeRenderer {
     parent.addChild(this.container);
   }
 
-  update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState): void {
-    const invScale = Math.min(8, Math.max(0.5, 1 / viewState.viewport.scale));
+  update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState, viewport: Viewport): void {
+    const invScale = Math.min(8, Math.max(0.5, 1 / viewport.scale));
 
     this.bgGfx.clear();
     this.labelContainer.removeChildren();

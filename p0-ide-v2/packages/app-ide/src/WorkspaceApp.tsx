@@ -15,19 +15,19 @@ const REPO_PRESETS: { label: string; path: string; exts?: string[]; max?: number
     label: "quanta-v2 (Rust, ~6k files)",
     path: "/Users/songmin/Documents/code-new/semantica-codegraph-v2/packages/analysis/quanta-v2",
     exts: [".rs"],
-    max: 8000,
+    max: 50000,
   },
   {
-    label: "quanta-v2 · crates only (1k cap)",
+    label: "quanta-v2 · crates only",
     path: "/Users/songmin/Documents/code-new/semantica-codegraph-v2/packages/analysis/quanta-v2/crates",
     exts: [".rs"],
-    max: 1000,
+    max: 50000,
   },
 ];
 
 const DEFAULT_PATH = REPO_PRESETS[0].path;
 const DEFAULT_EXTS = ".rs,.ts,.tsx";
-const DEFAULT_MAX = 8000;
+const DEFAULT_MAX = 50000; // hard cap purely to protect against accidental huge loads; scanner handles any count
 
 type Status =
   | { kind: "idle" }

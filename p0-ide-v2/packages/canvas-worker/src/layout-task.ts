@@ -21,6 +21,22 @@ export async function runLayoutTask(
   }
 }
 
+// Sync grid layout — exported so the worker can send an immediate
+// LAYOUT_READY before (optionally) following up with a slower ELK pass.
+export function runGridLayout(graph: WorkspaceGraph): WorkspaceLayout {
+  return gridLayout(graph);
+}
+
+// ELK layered layout — expensive. The worker gates this behind a node-count
+// threshold so giant graphs (5000+ nodes) don't hang or exhaust memory.
+export async function runElkLayout(
+  graph: WorkspaceGraph,
+  gridFallback: WorkspaceLayout,
+  pinnedNodes?: Record<string, { x: number; y: number; w: number; h: number }>,
+): Promise<WorkspaceLayout> {
+  return elkLayout(graph, gridFallback, pinnedNodes);
+}
+
 async function elkLayout(
   graph: WorkspaceGraph,
   gridFallback: WorkspaceLayout,

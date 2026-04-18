@@ -18,21 +18,46 @@ function getWorker(): Worker {
 }
 
 function handleMessage(event: MessageEvent) {
-  const msg = event.data as { type: string; payload?: unknown; message?: string };
+  const msg = event.data as {
+    type: string;
+    payload?: unknown;
+    message?: string;
+    stage?: string;
+    filesCount?: number;
+    elapsedMs?: number;
+  };
+  console.log("[worker-bridge] recv", msg.type, "stage=", msg.stage);
   switch (msg.type) {
     case "LAYOUT_READY": {
       const layout = deserializeLayout(msg.payload as SerializedLayout);
+      const wasElk = msg.stage === "elk";
       workspaceCanvasStore.setLayout(layout);
       workspaceCanvasStore.setWorkerState("workerLayout", false);
-      // Auto-fit viewport to graph bounds
-      const vp = workspaceCanvasStore.getState().viewport;
-      const { w: graphW, h: graphH } = layout.totalBounds;
-      if (graphW > 0 && graphH > 0 && vp.width > 0 && vp.height > 0) {
-        const scale = Math.min(2.5, Math.max(0.05, Math.min(vp.width / graphW, vp.height / graphH) * 0.9));
-        const x = (vp.width - graphW * scale) / 2;
-        const y = (vp.height - graphH * scale) / 2;
-        workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+      if (wasElk) workspaceCanvasStore.setLayoutProgress("elk-done");
+      // Auto-fit viewport — only on the FIRST layout to avoid stomping user
+      // pan/zoom when ELK follows grid. The `layoutProgress` stage tells us
+      // which payload this is.
+      const progress = workspaceCanvasStore.getState().layoutProgress;
+      const isFirstLayout = !wasElk && progress.stage !== "grid-ready" && progress.stage !== "elk-running";
+      if (isFirstLayout || msg.stage === "grid") {
+        const vp = workspaceCanvasStore.getState().viewport;
+        const { w: graphW, h: graphH } = layout.totalBounds;
+        if (graphW > 0 && graphH > 0 && vp.width > 0 && vp.height > 0) {
+          const scale = Math.min(2.5, Math.max(0.05, Math.min(vp.width / graphW, vp.height / graphH) * 0.9));
+          const x = (vp.width - graphW * scale) / 2;
+          const y = (vp.height - graphH * scale) / 2;
+          workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+        }
       }
+      break;
+    }
+    case "LAYOUT_PROGRESS": {
+      const stage = msg.stage as "grid-ready" | "elk-start" | "elk-skipped" | "elk-failed";
+      const storeStage = stage === "elk-start" ? "elk-running" : stage;
+      workspaceCanvasStore.setLayoutProgress(storeStage, {
+        filesCount: msg.filesCount,
+        elapsedMs: msg.elapsedMs,
+      });
       break;
     }
     case "AGGREGATES_READY": {

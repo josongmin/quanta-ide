@@ -44,8 +44,11 @@ export interface EdgeGeometryBatch {
   edgeIds: string[];
 }
 
+export type LayoutStage = "grid-ready" | "elk-start" | "elk-skipped" | "elk-failed";
+
 export type WorkerResponse =
-  | { type: "LAYOUT_READY";     id: string; payload: SerializedLayout }
+  | { type: "LAYOUT_READY";     id: string; payload: SerializedLayout; stage: "grid" | "elk" }
+  | { type: "LAYOUT_PROGRESS";  id: string; stage: LayoutStage; filesCount: number; elapsedMs: number }
   | { type: "AGGREGATES_READY"; id: string; payload: SerializedAggregates }
   | { type: "GEOMETRY_READY";   id: string; payload: EdgeGeometryBatch }
   | { type: "WORKER_ERROR";     id: string; message: string };

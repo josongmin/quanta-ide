@@ -10,6 +10,7 @@ import { StreetCard } from "./StreetCard";
 import { GroundCard } from "./GroundCard";
 import { Minimap } from "./Minimap";
 import { CanvasControls } from "./CanvasControls";
+import { LoadingOverlay } from "./LoadingOverlay";
 
 interface Props {
   graph: WorkspaceGraph;
@@ -19,11 +20,30 @@ export function MultiFileCanvas({ graph }: Props) {
   useWorkspaceCanvasOrchestrator(graph);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const gridRef      = useRef<HTMLDivElement>(null);
+  const domLayerRef  = useRef<HTMLDivElement>(null);
   const { panBy, zoomAt, fitToGraph, setContainerSize, transform, viewport } = useCanvasViewport();
-  const lod          = useWorkspaceCanvas(s => s.lod);
-  const visibleScene = useWorkspaceCanvas(s => s.visibleScene);
-  const viewState    = useWorkspaceCanvas(s => s.viewState);
-  const layout       = useWorkspaceCanvas(s => s.layout);
+
+  // Stable callbacks so memoized cards don't re-render when unrelated state
+  // changes. Store references don't change across renders.
+  const selectFile = useCallback((id: string) => workspaceCanvasStore.selectFile(id), []);
+  const hoverFile = useCallback((id: string | null) => workspaceCanvasStore.hoverFile(id), []);
+
+  // Apply the pan/zoom transform imperatively rather than via `style={{transform}}`
+  // props. This bypasses React reconciliation for the two hottest-changing DOM
+  // nodes on the page (the grid background + DOM card layer). With 5000+ files
+  // at street LOD, React reconciling a fresh style object 60×/s alone produced
+  // measurable stutter.
+  useEffect(() => {
+    if (gridRef.current) gridRef.current.style.transform = transform;
+    if (domLayerRef.current) domLayerRef.current.style.transform = transform;
+  }, [transform]);
+  const lod            = useWorkspaceCanvas(s => s.lod);
+  const visibleScene   = useWorkspaceCanvas(s => s.visibleScene);
+  const viewState      = useWorkspaceCanvas(s => s.viewState);
+  const layout         = useWorkspaceCanvas(s => s.layout);
+  const layoutProgress = useWorkspaceCanvas(s => s.layoutProgress);
+  const showEdges      = useWorkspaceCanvas(s => s.showEdges);
   const edgeCacheRef = useRef(new EdgeGeometryCache());
 
   // Rebuild edge cache when layout changes
@@ -61,6 +81,32 @@ export function MultiFileCanvas({ graph }: Props) {
     return () => ro.disconnect();
   }, [setContainerSize, fitToGraph, layout]);
 
+  // RAF-batched pan/zoom: trackpad wheel + mousemove can fire 100+ Hz. Each
+  // event would otherwise round-trip through the store → re-render → Pixi
+  // camera effect. Coalesce into one flush per animation frame (~60 fps).
+  const pendingPan = useRef({ dx: 0, dy: 0 });
+  const pendingZoom = useRef<{ delta: number; x: number; y: number } | null>(null);
+  const rafId = useRef<number | null>(null);
+
+  const flush = useCallback(() => {
+    rafId.current = null;
+    if (pendingZoom.current) {
+      const { delta, x, y } = pendingZoom.current;
+      pendingZoom.current = null;
+      zoomAt(delta, x, y);
+    }
+    const { dx, dy } = pendingPan.current;
+    if (dx !== 0 || dy !== 0) {
+      pendingPan.current.dx = 0;
+      pendingPan.current.dy = 0;
+      panBy(dx, dy);
+    }
+  }, [panBy, zoomAt]);
+
+  const scheduleFlush = useCallback(() => {
+    if (rafId.current === null) rafId.current = requestAnimationFrame(flush);
+  }, [flush]);
+
   // Wheel handler (non-passive for preventDefault)
   useEffect(() => {
     const el = containerRef.current;
@@ -69,14 +115,31 @@ export function MultiFileCanvas({ graph }: Props) {
       e.preventDefault();
       const rect = el.getBoundingClientRect();
       if (e.ctrlKey || e.metaKey) {
-        zoomAt(e.deltaY * -0.004, e.clientX - rect.left, e.clientY - rect.top);
+        // Zoom deltas accumulate too — multiple wheel ticks in one frame
+        // collapse into one zoomAt call with summed delta around the last cursor.
+        const delta = e.deltaY * -0.004;
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        if (pendingZoom.current) {
+          pendingZoom.current.delta += delta;
+          pendingZoom.current.x = px;
+          pendingZoom.current.y = py;
+        } else {
+          pendingZoom.current = { delta, x: px, y: py };
+        }
       } else {
-        panBy(-e.deltaX, -e.deltaY);
+        pendingPan.current.dx += -e.deltaX;
+        pendingPan.current.dy += -e.deltaY;
       }
+      scheduleFlush();
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [zoomAt, panBy]);
+  }, [scheduleFlush]);
+
+  useEffect(() => () => {
+    if (rafId.current !== null) cancelAnimationFrame(rafId.current);
+  }, []);
 
   // Mouse drag for pan
   const dragging = useRef(false);
@@ -91,9 +154,11 @@ export function MultiFileCanvas({ graph }: Props) {
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragging.current) return;
-    panBy(e.clientX - lastMouse.current.x, e.clientY - lastMouse.current.y);
+    pendingPan.current.dx += e.clientX - lastMouse.current.x;
+    pendingPan.current.dy += e.clientY - lastMouse.current.y;
     lastMouse.current = { x: e.clientX, y: e.clientY };
-  }, [panBy]);
+    scheduleFlush();
+  }, [scheduleFlush]);
 
   const onMouseUp = useCallback(() => { dragging.current = false; }, []);
 
@@ -105,7 +170,11 @@ export function MultiFileCanvas({ graph }: Props) {
   }, [fitToGraph, layout]);
 
   if (!visibleScene) {
-    return <div ref={containerRef} className="workspace-canvas workspace-canvas--loading" />;
+    return (
+      <div ref={containerRef} className="workspace-canvas workspace-canvas--loading">
+        <LoadingOverlay progress={layoutProgress} hasGraph={!!graph.files.length} />
+      </div>
+    );
   }
 
   return (
@@ -117,10 +186,11 @@ export function MultiFileCanvas({ graph }: Props) {
       onMouseUp={onMouseUp}
       onMouseLeave={onMouseUp}
     >
-      {/* Grid dot background (moves with pan/zoom) */}
+      {/* Grid dot background (moves with pan/zoom; transform applied imperatively) */}
       <div
+        ref={gridRef}
         className="workspace-canvas__grid"
-        style={{ transform, transformOrigin: "0 0" }}
+        style={{ transformOrigin: "0 0" }}
       />
 
       {/* WebGL layer: always mounted when layout ready to avoid reinit on LOD transition */}
@@ -129,45 +199,41 @@ export function MultiFileCanvas({ graph }: Props) {
           visible={visibleScene}
           layout={layout}
           viewState={viewState}
+          viewport={viewport}
           lod={lod}
           edgeCache={edgeCacheRef.current}
-          onFileClick={(fileId) => workspaceCanvasStore.selectFile(fileId)}
-          onFileHover={(fileId) => workspaceCanvasStore.hoverFile(fileId)}
+          showEdges={showEdges}
+          onFileClick={selectFile}
+          onFileHover={hoverFile}
         />
       )}
 
-      {/* DOM layer: Street */}
-      {lod === "street" && (
-        <div className="workspace-canvas__dom-layer" style={{ transform, transformOrigin: "0 0", willChange: "transform" }}>
+      {/* DOM layer: Street/Ground (transform applied imperatively via domLayerRef) */}
+      {(lod === "street" || lod === "ground") && (
+        <div
+          ref={domLayerRef}
+          className="workspace-canvas__dom-layer"
+          style={{ transformOrigin: "0 0", willChange: "transform" }}
+        >
           {visibleScene.files.map(file => {
             const rect = layout?.fileRects.get(file.id);
             if (!rect) return null;
-            return (
+            const isSelected = viewState.selectedFileId === file.id;
+            return lod === "street" ? (
               <StreetCard
                 key={file.id}
                 file={file}
                 rect={rect}
-                isSelected={viewState.selectedFileId === file.id}
-                onSelect={(id) => workspaceCanvasStore.selectFile(id)}
+                isSelected={isSelected}
+                onSelect={selectFile}
               />
-            );
-          })}
-        </div>
-      )}
-
-      {/* DOM layer: Ground */}
-      {lod === "ground" && (
-        <div className="workspace-canvas__dom-layer" style={{ transform, transformOrigin: "0 0", willChange: "transform" }}>
-          {visibleScene.files.map(file => {
-            const rect = layout?.fileRects.get(file.id);
-            if (!rect) return null;
-            return (
+            ) : (
               <GroundCard
                 key={file.id}
                 file={file}
                 rect={rect}
-                isSelected={viewState.selectedFileId === file.id}
-                onSelect={(id) => workspaceCanvasStore.selectFile(id)}
+                isSelected={isSelected}
+                onSelect={selectFile}
               />
             );
           })}
@@ -181,6 +247,9 @@ export function MultiFileCanvas({ graph }: Props) {
         onZoomIn={onZoomIn}
         onZoomOut={onZoomOut}
         onFit={onFit}
+        showEdges={showEdges}
+        edgeCount={visibleScene.edges.length}
+        onToggleEdges={() => workspaceCanvasStore.setShowEdges(!showEdges)}
       />
     </div>
   );

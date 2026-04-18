@@ -4,6 +4,7 @@ import type {
   WorkspaceView,
   WorkspaceLayout,
   ViewState,
+  Viewport,
   LodLevel,
   EdgeGeometryCache,
 } from "@quanta/canvas-engine";
@@ -27,12 +28,19 @@ interface PixiBundle {
 const pixiByCanvas = new WeakMap<HTMLCanvasElement, PixiBundle>();
 const initInFlight = new WeakMap<HTMLCanvasElement, Promise<PixiBundle>>();
 
+// Stable reference used when we skip edge rendering. Using a fresh `[]` each
+// render would defeat React's dep comparison and rebuild every frame.
+const EMPTY_EDGES: WorkspaceView["edges"] = [];
+
 export interface PixiStageProps {
   visible: WorkspaceView;
   layout: WorkspaceLayout;
   viewState: ViewState;
+  viewport: Viewport;
   lod: LodLevel;
   edgeCache?: EdgeGeometryCache;
+  /** When false, edges are not rendered regardless of visible.edges content. */
+  showEdges?: boolean;
   onFileClick?: (fileId: string) => void;
   onFileHover?: (fileId: string | null) => void;
 }
@@ -41,8 +49,10 @@ export function PixiStage({
   visible,
   layout,
   viewState,
+  viewport,
   lod,
   edgeCache,
+  showEdges = true,
   onFileClick,
   onFileHover,
 }: PixiStageProps) {
@@ -172,44 +182,42 @@ export function PixiStage({
   useEffect(() => {
     const world = worldRef.current;
     if (!world) return;
-    world.x = viewState.viewport.x;
-    world.y = viewState.viewport.y;
-    world.scale.set(viewState.viewport.scale);
-  }, [pixiReady, viewState.viewport]);
+    world.x = viewport.x;
+    world.y = viewport.y;
+    world.scale.set(viewport.scale);
+  }, [pixiReady, viewport]);
 
-  // ── Node redraw — DELIBERATELY decoupled from viewport.x/y ──────
-  // Full rebuild is expensive (~200 Text objects for 31 files). The renderer
-  // uses viewState only for scale (invScale labels), selection, hover. Panning
-  // doesn't change any of those — don't rebuild on pan. Scale is bucketed to
-  // 0.05 steps so tiny zoom ticks don't thrash. File IDs are stringified so a
-  // fresh array with identical contents (common during pan) skips rebuild.
-  const scaleBucket = Math.round(viewState.viewport.scale * 20) / 20;
-  const fileIdsKey = visible.files.map(f => f.id).join("|");
+  // ── Node redraw — decoupled from viewport.x/y ──────────────────
+  // Full rebuild is expensive (Text objects dominate). Panning uses only
+  // world.x/y and must not trigger rebuild. Bucketed scale avoids thrash on
+  // tiny zoom ticks. visible.files reference is already stable (orchestrator
+  // dedupes) — so plain-ref deps are cheaper than stringifying ids.
+  const scaleBucket = Math.round(viewport.scale * 20) / 20;
   useEffect(() => {
     if (!pixiReady) return;
     if (lod === "city") {
-      cityRef.current?.update(visible.files, layout, viewState);
-      galaxyRef.current?.update([], layout, viewState);
+      cityRef.current?.update(visible.files, layout, viewState, viewport);
+      galaxyRef.current?.update([], layout, viewState, viewport);
     } else if (lod === "galaxy") {
-      galaxyRef.current?.update(visible.files, layout, viewState);
-      cityRef.current?.update([], layout, viewState);
+      galaxyRef.current?.update(visible.files, layout, viewState, viewport);
+      cityRef.current?.update([], layout, viewState, viewport);
     } else {
-      cityRef.current?.update([], layout, viewState);
-      galaxyRef.current?.update([], layout, viewState);
+      cityRef.current?.update([], layout, viewState, viewport);
+      galaxyRef.current?.update([], layout, viewState, viewport);
     }
-    // Intentional subset: viewport.x/y excluded (pan never triggers redraw).
+    // Intentional subset: viewport.x/y excluded (pan never triggers redraw);
+    // scaleBucket captures scale changes; selection/hover handled via viewState.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, fileIdsKey, layout, lod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
+  }, [pixiReady, visible.files, layout, lod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
 
-  // ── Edge static redraw — key off edge ID set (not array ref) ────
-  // visible.edges is a fresh array each pan; rebuilding all edge paths on
-  // every pan tick is expensive. Skip rebuild when the same edges are visible.
-  const edgeIdsKey = visible.edges.map(e => e.id).join("|");
+  // ── Edge static redraw ──────────────────────────────────────────
+  // Edge rendering is toggleable: thousands of bezier curves hurt scroll
+  // perf *and* add visual noise. Users can turn it off from CanvasControls.
+  const edgesToRender = showEdges ? visible.edges : EMPTY_EDGES;
   useEffect(() => {
     if (!pixiReady) return;
-    edgeStaticRef.current?.build(visible.edges, layout, edgeCache);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, edgeIdsKey, layout, edgeCache]);
+    edgeStaticRef.current?.build(edgesToRender, layout, edgeCache);
+  }, [pixiReady, edgesToRender, layout, edgeCache]);
 
   // ── Overlay redraw (selection/hover only — intentional partial deps) ─
   useEffect(() => {

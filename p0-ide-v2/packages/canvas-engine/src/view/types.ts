@@ -16,8 +16,10 @@ export interface WorkspaceView {
   comments: WorkspaceComment[];
 }
 
+// ViewState holds interaction state only (selection/hover/focus). Viewport
+// (pan/zoom) is kept in a *separate* store field so that fast-moving viewport
+// updates don't churn subscribers who only care about selection.
 export interface ViewState {
-  viewport: Viewport;
   lod: LodLevel;
   selectedFileId: string | null;
   hoveredFileId: string | null;

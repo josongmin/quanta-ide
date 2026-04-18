@@ -14,6 +14,15 @@ export interface GroundFileData {
   tokenized?: string[][];  // Tier 3
 }
 
+export type LayoutStage = "idle" | "requested" | "grid-ready" | "elk-running" | "elk-skipped" | "elk-done" | "elk-failed";
+
+export interface LayoutProgress {
+  stage: LayoutStage;
+  filesCount: number;
+  startedAt: number; // performance.now() when request was made
+  lastUpdateMs: number; // elapsed ms at last stage transition
+}
+
 export interface WorkspaceCanvasState {
   graph: WorkspaceGraph | null;
   layout: WorkspaceLayout | null;
@@ -29,6 +38,12 @@ export interface WorkspaceCanvasState {
   workerLayout: boolean;
   workerAggregates: boolean;
   workerGeometry: boolean;
+
+  layoutProgress: LayoutProgress;
+
+  // Render toggles — kept in the store so CanvasControls and PixiStage can
+  // subscribe independently without prop-drilling through MultiFileCanvas.
+  showEdges: boolean;
 }
 
 const listeners = new Set<() => void>();
@@ -40,12 +55,18 @@ function emit() {
 const initialViewport: Viewport = { x: 0, y: 0, scale: 0.1, width: 0, height: 0 };
 const initialLod: LodLevel = "galaxy";
 const initialViewState: ViewState = {
-  viewport: initialViewport,
   lod: "galaxy",
   selectedFileId: null,
   hoveredFileId: null,
   selectedEdgeId: null,
   focusedNodeId: null,
+};
+
+const initialLayoutProgress: LayoutProgress = {
+  stage: "idle",
+  filesCount: 0,
+  startedAt: 0,
+  lastUpdateMs: 0,
 };
 
 let state: WorkspaceCanvasState = {
@@ -63,6 +84,10 @@ let state: WorkspaceCanvasState = {
   workerLayout: false,
   workerAggregates: false,
   workerGeometry: false,
+
+  layoutProgress: initialLayoutProgress,
+
+  showEdges: true,
 };
 
 function getState(): WorkspaceCanvasState {
@@ -90,6 +115,31 @@ const actions = {
       viewState: { ...state.viewState, selectedFileId: null, hoveredFileId: null, selectedEdgeId: null, focusedNodeId: null },
       groundData: {},
       groundLoading: {},
+      layoutProgress: {
+        stage: "requested",
+        filesCount: graph.files.length,
+        startedAt: performance.now(),
+        lastUpdateMs: 0,
+      },
+    };
+    emit();
+  },
+
+  setShowEdges(show: boolean) {
+    if (state.showEdges === show) return;
+    state = { ...state, showEdges: show };
+    emit();
+  },
+
+  setLayoutProgress(stage: LayoutStage, extras?: { filesCount?: number; elapsedMs?: number }) {
+    state = {
+      ...state,
+      layoutProgress: {
+        ...state.layoutProgress,
+        stage,
+        filesCount: extras?.filesCount ?? state.layoutProgress.filesCount,
+        lastUpdateMs: extras?.elapsedMs ?? (performance.now() - state.layoutProgress.startedAt),
+      },
     };
     emit();
   },
@@ -105,11 +155,11 @@ const actions = {
   },
 
   setViewport(viewport: Viewport) {
-    state = {
-      ...state,
-      viewport,
-      viewState: { ...state.viewState, viewport },
-    };
+    // Do NOT spread viewState here. viewState carries only interaction fields
+    // (selection/hover/lod). Recreating it on every pan tick causes every
+    // `useWorkspaceCanvas(s => s.viewState)` subscriber to re-render — which
+    // at 60 Hz pan × 5000+ visible items dominates the frame budget.
+    state = { ...state, viewport };
     emit();
   },
 

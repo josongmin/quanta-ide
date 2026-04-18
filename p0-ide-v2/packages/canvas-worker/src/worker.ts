@@ -5,26 +5,47 @@ import {
   deserializeLayout,
   serializeAggregates,
 } from "./messages";
-import { runLayoutTask } from "./layout-task";
+import { runGridLayout } from "./layout-task";
 import { runAggregateTask } from "./aggregate-task";
 import { runGeometryTask } from "./geometry-task";
 
+// ELK is disabled: elkjs bundled build tries to spawn nested Workers from
+// inside our worker, which fails (`_Worker is not a constructor`) and leaves
+// the worker in a partially-broken state that blocks subsequent messages.
+// Grid layout is sufficient for the stress test. Re-enable by moving ELK to
+// the main thread or using elk-api.js with an explicit worker factory.
+
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data;
+  console.log("[worker] recv", req.type, "id=", (req as { id?: string }).id);
   try {
     switch (req.type) {
       case "BUILD_LAYOUT": {
-        const layout = await runLayoutTask(
-          req.payload.graph,
-          req.payload.strategy,
-          req.payload.pinnedNodes,
-        );
-        const resp: WorkerResponse = {
+        const t0 = Date.now();
+        const { graph } = req.payload;
+
+        const grid = runGridLayout(graph);
+        self.postMessage({
           type: "LAYOUT_READY",
           id: req.id,
-          payload: serializeLayout(layout),
-        };
-        self.postMessage(resp);
+          payload: serializeLayout(grid),
+          stage: "grid",
+        } satisfies WorkerResponse);
+        self.postMessage({
+          type: "LAYOUT_PROGRESS",
+          id: req.id,
+          stage: "grid-ready",
+          filesCount: graph.files.length,
+          elapsedMs: Date.now() - t0,
+        } satisfies WorkerResponse);
+        self.postMessage({
+          type: "LAYOUT_PROGRESS",
+          id: req.id,
+          stage: "elk-skipped",
+          filesCount: graph.files.length,
+          elapsedMs: Date.now() - t0,
+        } satisfies WorkerResponse);
+        console.log("[worker] BUILD_LAYOUT done", { files: graph.files.length, ms: Date.now() - t0 });
         break;
       }
 
@@ -36,6 +57,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           type: "LAYOUT_READY",
           id: req.id,
           payload: serializeLayout(layout),
+          stage: "grid",
         };
         self.postMessage(resp);
         break;
