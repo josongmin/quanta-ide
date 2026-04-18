@@ -4,13 +4,16 @@ import { FpsSection } from "./debug-hud/FpsSection";
 import { LodSection } from "./debug-hud/LodSection";
 import { SceneSection } from "./debug-hud/SceneSection";
 import { RecorderControls } from "./debug-hud/RecorderControls";
+import { SimulatorSection } from "./debug-hud/SimulatorSection";
+import { GraphSection } from "./debug-hud/GraphSection";
 
-type Tab = "fps" | "lod" | "scene" | "perf";
+type Tab = "fps" | "lod" | "scene" | "perf" | "graph";
 const TABS: readonly { id: Tab; label: string }[] = [
   { id: "fps", label: "fps" },
   { id: "lod", label: "lod" },
   { id: "scene", label: "scene" },
   { id: "perf", label: "perf" },
+  { id: "graph", label: "graph" },
 ] as const;
 
 // Floating corner overlay for development/debugging. Surfaces the LOD, scale,
@@ -102,7 +105,13 @@ export function DebugHud() {
         )}
         {tab === "lod" && <LodSection />}
         {tab === "scene" && <SceneSection />}
-        {tab === "perf" && <RecorderControls />}
+        {tab === "perf" && (
+          <>
+            <RecorderControls />
+            <SimulatorSection />
+          </>
+        )}
+        {tab === "graph" && <GraphSection />}
       </div>
     </div>
   );

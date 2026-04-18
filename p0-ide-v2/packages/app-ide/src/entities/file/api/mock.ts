@@ -2036,49 +2036,29 @@ export const ORCHESTRATOR: FileFacts = {
     { line: 1361, glyph: "typestate", title: "shared mutable state: module-level dict mutated from multiple paths, no lock" },
   ],
 
+  // ── AUXILIARY hot-spots only ──────────────────────────────────────
+  // Gutter glyphs are projected to the minimap automatically (see
+  // `deriveMinimap` in editor-risk-minimap). This array layers on
+  // top with **blast/cpx density** signals at lines that don't carry
+  // a specific anti-pattern glyph — to give the user a sense of where
+  // the file's weight lives, not just where the sins are.
+  // Rule: NO line in this array should already be present in `gutter`
+  // unless it adds a DIFFERENT kind (e.g. blast hub at a god-class line).
   minimap: [
-    // imports — architecture violation
-    { line: 64, severity: 3, kind: "arch" },
-    { line: 65, severity: 3, kind: "arch" },
-    // constants — dead code
-    { line: 78, severity: 1, kind: "dead" },
-    { line: 79, severity: 1, kind: "dead" },
-    // StepContext — blast radius hub
-    { line: 127, severity: 2, kind: "blast" },
-    // RetryPolicy — moderate complexity
-    { line: 278, severity: 2, kind: "cpx" },
-    // OldRetryPolicy — dead class
-    { line: 307, severity: 2, kind: "dead" },
-    // DeepReasoningOrchestrator — main class
-    { line: 484, severity: 4, kind: "blast" },
-    { line: 524, severity: 3, kind: "taint" },
-    { line: 549, severity: 4, kind: "taint" },
-    { line: 667, severity: 3, kind: "cpx" },
-    { line: 701, severity: 3, kind: "taint" },
-    // Strategy implementations
-    { line: 814, severity: 1, kind: "cpx" },
-    { line: 847, severity: 2, kind: "cpx" },
-    // Runners — taint analysis
-    { line: 995, severity: 2, kind: "taint" },
-    { line: 1044, severity: 2, kind: "blast" },
-    // Legacy bridge — dead
-    { line: 1092, severity: 3, kind: "dead" },
-    // ── Scenario Catalog ─────────────────────────────────────────────
-    { line: 1210, severity: 2, kind: "cpx" },     // typestate (open)
-    { line: 1212, severity: 3, kind: "cpx" },     // typestate (leak)
-    { line: 1220, severity: 3, kind: "arch" },    // N+1 query
-    { line: 1230, severity: 2, kind: "cpx" },     // TOCTOU check
-    { line: 1233, severity: 3, kind: "cpx" },     // TOCTOU act
-    { line: 1240, severity: 2, kind: "arch" },    // weak crypto
-    { line: 1244, severity: 4, kind: "taint" },   // secret leak
-    { line: 1247, severity: 3, kind: "taint" },   // secret use
-    { line: 1255, severity: 3, kind: "taint" },   // log injection
-    { line: 1261, severity: 3, kind: "taint" },   // SSRF source
-    { line: 1262, severity: 4, kind: "taint" },   // SSRF sink
-    { line: 1267, severity: 3, kind: "taint" },   // SQLi build
-    { line: 1268, severity: 4, kind: "taint" },   // SQLi sink
-    { line: 1273, severity: 2, kind: "arch" },    // timing attack
-    { line: 1278, severity: 1, kind: "taint" },   // sanitizer hint
+    { line: 127, severity: 2, kind: "blast" },    // StepContext — data hub
+    { line: 153, severity: 1, kind: "cpx" },      // ExecutionMetrics — light cpx
+    { line: 326, severity: 2, kind: "blast" },    // PlanBuilder — used by execute
+    { line: 391, severity: 2, kind: "cpx" },      // _BatchCollector — async batching
+    { line: 484, severity: 4, kind: "blast" },    // DeepReasoningOrchestrator — main blast hub (separate kind from god/silo glyphs)
+    { line: 524, severity: 4, kind: "blast" },    // execute() — direct caller of the sink (separate kind from taint-source glyph)
+    { line: 626, severity: 2, kind: "cpx" },      // _execute_plan — orchestration cpx
+    { line: 667, severity: 3, kind: "cpx" },      // _execute_step — retry/timer nested cpx
+    { line: 814, severity: 1, kind: "cpx" },      // FastStrategy — light
+    { line: 847, severity: 2, kind: "cpx" },      // DeepStrategy — heavier path
+    { line: 918, severity: 1, kind: "cpx" },      // HybridStrategy
+    { line: 995, severity: 2, kind: "blast" },    // TaintRunner — fan-out
+    { line: 1044, severity: 2, kind: "blast" },   // BlastRadiusRunner — fan-out
+    { line: 1174, severity: 1, kind: "blast" },   // create_orchestrator — factory entry
   ],
 
   imports: [],

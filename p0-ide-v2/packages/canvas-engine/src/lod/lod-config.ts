@@ -1,4 +1,5 @@
 import type { LodLevel } from "../view/types";
+import type { EdgeLayer, EdgeSeverity } from "../graph/types";
 
 // Declarative LOD tier registry. Zoom thresholds + per-tier rendering policy
 // live here so tuning one knob doesn't require touching LodManager, the
@@ -42,10 +43,27 @@ export interface LodTierConfig {
   /** Display flag — renderers may read for quick on/off of edges. */
   showEdges?: boolean;
   /**
+   * Per-layer render policy. Undefined value = use showEdges as a blanket on/off.
+   * When defined, renderer uses the per-layer map to gate which edge layers
+   * appear at this tier — critical edges (safety) can stay even when structural
+   * is hidden to reduce noise.
+   */
+  layerPolicy?: Partial<Record<EdgeLayer, boolean>>;
+  /** Minimum severity for safety/impact edges at this tier. */
+  minEdgeSeverity?: EdgeSeverity;
+  /**
    * Minimum world-px scale below which the tier suppresses extra detail
    * (e.g. city tier skips function labels under this). Renderer-interpreted.
    */
   minDetailScale?: number;
+  /**
+   * Render aggregated cluster-cluster super-edges at this tier. Orthogonal
+   * to `showEdges` / `layerPolicy` (which govern per-file edges) — cluster
+   * edges have their own dataset (`WorkspaceLayout.clusterEdges`) and own
+   * renderer (`ClusterEdgeRenderer`). Used only at the supergalaxy tier
+   * today; the flag keeps the LOD ladder in charge of the decision.
+   */
+  showClusterEdges?: boolean;
 }
 
 /**
@@ -62,6 +80,10 @@ export const LOD_TIERS: readonly LodTierConfig[] = [
     sceneKind: "files",
     showLabels: true,
     showEdges: true,
+    // Ground is the closest tier — the user is reading individual files, so
+    // every relationship matters. All four layers render at full severity.
+    layerPolicy: { structural: true, flow: true, safety: true, impact: true },
+    minEdgeSeverity: "low",
   },
   {
     name: "street",
@@ -71,6 +93,10 @@ export const LOD_TIERS: readonly LodTierConfig[] = [
     sceneKind: "files",
     showLabels: true,
     showEdges: true,
+    // Street still shows file cards with labels; keep the full relational
+    // picture visible — culling happens at city+.
+    layerPolicy: { structural: true, flow: true, safety: true, impact: true },
+    minEdgeSeverity: "low",
   },
   {
     name: "city",
@@ -84,6 +110,11 @@ export const LOD_TIERS: readonly LodTierConfig[] = [
     showLabels: true,
     showEdges: true,
     minDetailScale: 0.25,
+    // City starts thinning: flow edges (dataflow/effect/pdg) are visual noise
+    // at this distance, and safety is restricted to medium+ severity so only
+    // real concerns surface. Structural + impact still render thin.
+    layerPolicy: { structural: true, flow: false, safety: true, impact: true },
+    minEdgeSeverity: "medium",
   },
   {
     name: "galaxy",
@@ -96,7 +127,18 @@ export const LOD_TIERS: readonly LodTierConfig[] = [
     rendererKind: "galaxy",
     sceneKind: "files",
     showLabels: false,
-    showEdges: false,
+    // Flip to true so safety + impact edges can render; per-layer policy
+    // below gates the hairball of structural away. Renderer must consult
+    // resolveLayerPolicy — the blanket flag no longer tells the whole story.
+    showEdges: true,
+    // Galaxy drops the structural + flow "hairball" entirely. Safety alarms
+    // (taint, race, finding) still render, but only high/critical severity
+    // — these are the only edges dense enough to be worth the pixels at
+    // this zoom. Impact edges (blast radius, dependency) stay on because
+    // they're usually sparse and inform the "where is this change felt?"
+    // mental model.
+    layerPolicy: { structural: false, flow: false, safety: true, impact: true },
+    minEdgeSeverity: "high",
   },
   {
     name: "supergalaxy",
@@ -111,6 +153,11 @@ export const LOD_TIERS: readonly LodTierConfig[] = [
     sceneKind: "clusters",
     showLabels: true,
     showEdges: false,
+    // Cluster view owns the visualization here — aggregated super-edges
+    // between clusters, not file-level edges. All per-file layers off;
+    // `showClusterEdges` opts this tier into the cluster-level renderer.
+    layerPolicy: { structural: false, flow: false, safety: false, impact: false },
+    showClusterEdges: true,
     fallback: "galaxy",
   },
   {
@@ -123,6 +170,9 @@ export const LOD_TIERS: readonly LodTierConfig[] = [
     sceneKind: "superclusters",
     showLabels: true,
     showEdges: false,
+    // Supercluster tier — all file-level layers off, only supercluster
+    // boxes paint.
+    layerPolicy: { structural: false, flow: false, safety: false, impact: false },
     fallback: "supergalaxy",
   },
 ] as const;
@@ -144,6 +194,46 @@ export function getTierConfig(lod: LodLevel): LodTierConfig {
   const t = TIER_BY_NAME[lod];
   if (!t) throw new Error(`[lod-config] no tier entry for "${lod}"`);
   return t;
+}
+
+// Canonical list of edge layers. Kept local so the helper below doesn't have
+// to re-derive it from a union type at runtime.
+const ALL_EDGE_LAYERS: readonly EdgeLayer[] = [
+  "structural",
+  "flow",
+  "safety",
+  "impact",
+] as const;
+
+/**
+ * Resolve the effective layer visibility map for a tier. Falls back to:
+ *   - All layers = true when tier.layerPolicy is undefined AND showEdges !== false
+ *   - All layers = false when tier.showEdges === false
+ * So existing showEdges callers keep working; new callers get layer granularity.
+ */
+export function resolveLayerPolicy(tier: LodTierConfig): Record<EdgeLayer, boolean> {
+  // `showEdges: false` is the hard off-switch — layerPolicy cannot re-enable
+  // a layer the tier has globally disabled. This keeps the legacy flag as
+  // an unambiguous kill-switch for call-sites that only know about it.
+  if (tier.showEdges === false) {
+    const out: Partial<Record<EdgeLayer, boolean>> = {};
+    for (const l of ALL_EDGE_LAYERS) out[l] = false;
+    return out as Record<EdgeLayer, boolean>;
+  }
+  // No fine-grained policy → all layers visible (legacy behaviour).
+  if (!tier.layerPolicy) {
+    const out: Partial<Record<EdgeLayer, boolean>> = {};
+    for (const l of ALL_EDGE_LAYERS) out[l] = true;
+    return out as Record<EdgeLayer, boolean>;
+  }
+  // Merge: any layer omitted from the partial map defaults to true, so
+  // authors can write `{ flow: false }` to disable just one layer.
+  const out: Partial<Record<EdgeLayer, boolean>> = {};
+  for (const l of ALL_EDGE_LAYERS) {
+    const v = tier.layerPolicy[l];
+    out[l] = v === undefined ? true : v;
+  }
+  return out as Record<EdgeLayer, boolean>;
 }
 
 /**

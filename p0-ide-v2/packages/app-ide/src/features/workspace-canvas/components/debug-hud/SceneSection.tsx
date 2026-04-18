@@ -1,17 +1,48 @@
 import { useMemo } from "react";
+import { FilterDslInput } from "./FilterDslInput";
+import { diffSnapshots } from "@quanta/canvas-engine";
 import { viewportStore, useViewportStore } from "../../store/viewport-store";
 import { useSceneStore } from "../../store/scene-store";
-import { useSettingsStore, settingsStore, type EdgeKind } from "../../store/settings-store";
+import { useInteractionStore, interactionStore, type TemporalMode } from "../../store/interaction-store";
+import {
+  useSettingsStore,
+  settingsStore,
+  type EdgeKind,
+  type EdgeLayer,
+  type EdgeSeverity,
+} from "../../store/settings-store";
 
 const EDGE_KINDS: readonly EdgeKind[] = ["import", "taint-propagation", "blast"] as const;
+const EDGE_LAYERS: readonly EdgeLayer[] = ["structural", "flow", "safety", "impact"] as const;
+const EDGE_SEVERITIES: readonly EdgeSeverity[] = ["low", "medium", "high", "critical"] as const;
 
 function scenePct(n: number, total: number): number {
   return total > 0 ? Math.round((n / total) * 100) : 0;
 }
 
-function countByKind(edges: readonly { kind: EdgeKind }[]): Record<EdgeKind, number> {
-  const out: Record<EdgeKind, number> = { import: 0, "taint-propagation": 0, blast: 0 };
-  for (const e of edges) out[e.kind] = (out[e.kind] ?? 0) + 1;
+type LayerBreakdown = Record<EdgeLayer, { total: number; byKind: Record<string, number> }>;
+
+function emptyLayerBreakdown(): LayerBreakdown {
+  return {
+    structural: { total: 0, byKind: {} },
+    flow: { total: 0, byKind: {} },
+    safety: { total: 0, byKind: {} },
+    impact: { total: 0, byKind: {} },
+  };
+}
+
+function countByLayer(
+  edges: readonly { kind: string; layer?: EdgeLayer }[],
+): LayerBreakdown {
+  const out = emptyLayerBreakdown();
+  for (const e of edges) {
+    // Fallback: if an older edge somehow lacks layer, skip the layer bucket.
+    const layer = e.layer;
+    if (!layer) continue;
+    const bucket = out[layer];
+    bucket.total += 1;
+    bucket.byKind[e.kind] = (bucket.byKind[e.kind] ?? 0) + 1;
+  }
   return out;
 }
 
@@ -43,9 +74,25 @@ export function SceneSection() {
   const showEdges = useSettingsStore(s => s.showEdges);
   const showGridBg = useSettingsStore(s => s.showGridBg);
   const showHitLayers = useSettingsStore(s => s.showHitLayers);
+  const showHeatmap = useSettingsStore(s => s.showHeatmap);
   const edgeKinds = useSettingsStore(s => s.edgeKinds);
+  const edgeLayers = useSettingsStore(s => s.edgeLayers);
+  const showSccBubbles = useSettingsStore(s => s.showSccBubbles);
+  const showStartHereBadges = useSettingsStore(s => s.showStartHereBadges);
+  const startHereTopN = useSettingsStore(s => s.startHereTopN);
+  const showClusterEdges = useSettingsStore(s => s.showClusterEdges);
+  const pathQuery = useInteractionStore(s => s.pathQuery);
+  const pathResult = useInteractionStore(s => s.pathResult);
+  const temporal = useInteractionStore(s => s.temporal);
+  const highlightArchViolations = useSettingsStore(s => s.highlightArchViolations);
+  const archViolations = useSceneStore(s => s.layout?.archViolations);
+
+  const edgeMinSeverity = useSettingsStore(s => s.edgeMinSeverity);
   const edgeWidthMul = useSettingsStore(s => s.edgeWidthMul);
   const freezeScene = useSettingsStore(s => s.freezeScene);
+  const focusMode = useSettingsStore(s => s.focusMode);
+  const focusHops = useSettingsStore(s => s.focusHops);
+  const focusDimOpacity = useSettingsStore(s => s.focusDimOpacity);
 
   const tb = layout?.totalBounds;
   const clusterTotal = layout?.clusters?.length ?? 0;
@@ -54,13 +101,15 @@ export function SceneSection() {
   const superVisible = superclusters?.superclusters.length ?? 0;
 
   // Edge breakdown is cheap (linear scan) but visible.edges can be 10k+ —
-  // memoize so panning doesn't re-count every viewport tick.
-  const edgeBreakdown = useMemo(
-    () => countByKind(visible?.edges ?? []),
+  // memoize so panning doesn't re-count every viewport tick. Grouped
+  // primarily by EdgeLayer (structural/flow/safety/impact); each layer
+  // keeps its kind-level totals for the indented sub-rows.
+  const layerBreakdown = useMemo(
+    () => countByLayer(visible?.edges ?? []),
     [visible?.edges],
   );
-  const totalEdgeBreakdown = useMemo(
-    () => countByKind(graph?.fileEdges ?? []),
+  const totalLayerBreakdown = useMemo(
+    () => countByLayer(graph?.fileEdges ?? []),
     [graph?.fileEdges],
   );
 
@@ -98,12 +147,14 @@ export function SceneSection() {
           {visible ? `${visible.edges.length.toLocaleString()} / ${graph?.fileEdges.length.toLocaleString() ?? 0}` : "—"}
         </span>
 
-        {EDGE_KINDS.map(k => (
-          <EdgeKindRow
-            key={k}
-            kind={k}
-            visible={edgeBreakdown[k]}
-            total={totalEdgeBreakdown[k]}
+        {EDGE_LAYERS.map(layer => (
+          <EdgeLayerRow
+            key={layer}
+            layer={layer}
+            visible={layerBreakdown[layer].total}
+            total={totalLayerBreakdown[layer].total}
+            visibleByKind={layerBreakdown[layer].byKind}
+            totalByKind={totalLayerBreakdown[layer].byKind}
           />
         ))}
 
@@ -121,6 +172,37 @@ export function SceneSection() {
         <span className="ws-debug__v">
           {superclusters ? "supercluster" : clusters ? "cluster" : visible ? "file" : "—"}
         </span>
+      </div>
+
+      <div className="ws-debug__divider">layers</div>
+      <div className="ws-debug__lod" style={{ gap: 2 }}>
+        {EDGE_LAYERS.map(layer => (
+          <button
+            key={layer}
+            type="button"
+            className={`ws-debug__chip${edgeLayers[layer] ? " is-on" : ""}`}
+            onClick={() => settingsStore.setEdgeLayer(layer, !edgeLayers[layer])}
+            title={layer}
+          >
+            {layer}
+          </button>
+        ))}
+      </div>
+      <div className="ws-debug__row" style={{ alignItems: "center" }}>
+        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>min severity</span>
+        <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
+          {EDGE_SEVERITIES.map(sev => (
+            <button
+              key={sev}
+              type="button"
+              className={`ws-debug__chip${edgeMinSeverity === sev ? " is-on" : ""}`}
+              onClick={() => settingsStore.setEdgeMinSeverity(sev)}
+              title={`min severity: ${sev}`}
+            >
+              {sev}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="ws-debug__divider">render toggles</div>
@@ -187,6 +269,176 @@ export function SceneSection() {
         />
         <span>freeze scene</span>
       </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showHeatmap}
+          onChange={e => settingsStore.setShowHeatmap(e.target.checked)}
+        />
+        <span>minimap heatmap</span>
+      </label>
+
+      <div className="ws-debug__divider">overlays</div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showSccBubbles}
+          onChange={e => settingsStore.setShowSccBubbles(e.target.checked)}
+        />
+        <span>cycle bubbles (SCC)</span>
+      </label>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showStartHereBadges}
+          onChange={e => settingsStore.setShowStartHereBadges(e.target.checked)}
+        />
+        <span>start-here badges</span>
+      </label>
+      <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
+        {([3, 5, 10] as const).map(n => (
+          <button
+            key={n}
+            type="button"
+            className={`ws-debug__chip${startHereTopN === n ? " is-on" : ""}`}
+            onClick={() => settingsStore.setStartHereTopN(n)}
+            disabled={!showStartHereBadges}
+            title={`top-${n}`}
+          >
+            top-{n}
+          </button>
+        ))}
+      </div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={showClusterEdges}
+          onChange={e => settingsStore.setShowClusterEdges(e.target.checked)}
+        />
+        <span>cluster super-edges</span>
+      </label>
+
+      <div className="ws-debug__divider">focus</div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={focusMode === "on"}
+          onChange={e => settingsStore.setFocusMode(e.target.checked ? "on" : "off")}
+        />
+        <span>focus mode</span>
+      </label>
+      <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
+        {([1, 2] as const).map(h => (
+          <button
+            key={h}
+            type="button"
+            className={`ws-debug__chip${focusHops === h ? " is-on" : ""}`}
+            onClick={() => settingsStore.setFocusHops(h)}
+            disabled={focusMode !== "on"}
+            title={`${h}-hop`}
+          >
+            {h}-hop
+          </button>
+        ))}
+      </div>
+      <div className="ws-debug__row" style={{ alignItems: "center" }}>
+        <span style={{ flex: "0 0 82px", opacity: 0.75 }}>dim opacity</span>
+        <input
+          type="range"
+          min={0}
+          max={0.5}
+          step={0.01}
+          value={focusDimOpacity}
+          onChange={e => settingsStore.setFocusDimOpacity(parseFloat(e.target.value))}
+          disabled={focusMode !== "on"}
+          style={{ flex: 1 }}
+        />
+        <span style={{ flex: "0 0 42px", textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+          {focusDimOpacity.toFixed(2)}
+        </span>
+      </div>
+
+      <div className="ws-debug__divider">filter DSL</div>
+      <FilterDslInput />
+
+      <div className="ws-debug__divider">
+        arch violations
+        {archViolations && archViolations.edgeIds.length > 0 && (
+          <span style={{ color: "#f87171" }}> · {archViolations.edgeIds.length}</span>
+        )}
+      </div>
+      <label className="ws-debug__row">
+        <input
+          type="checkbox"
+          checked={highlightArchViolations}
+          onChange={e => settingsStore.setHighlightArchViolations(e.target.checked)}
+        />
+        <span>highlight violating edges</span>
+      </label>
+      {archViolations && Object.keys(archViolations.byPair).length > 0 && (
+        <div className="ws-debug__grid">
+          {Object.entries(archViolations.byPair).map(([pair, n]) => (
+            <>
+              <span key={`k-${pair}`} className="ws-debug__k" style={{ paddingLeft: 8, opacity: 0.75 }}>
+                · {pair}
+              </span>
+              <span key={`v-${pair}`} className="ws-debug__v" style={{ color: "#f87171" }}>
+                {n}
+              </span>
+            </>
+          ))}
+        </div>
+      )}
+
+      <div className="ws-debug__divider">
+        path query {pathQuery && <span style={{ color: "#7dd3fc" }}>· active</span>}
+      </div>
+      {pathQuery ? (
+        <>
+          <div className="ws-debug__grid">
+            <span className="ws-debug__k">src</span>
+            <span className="ws-debug__v" title={pathQuery.sourceFileId}>
+              {basename(pathQuery.sourceFileId)}
+            </span>
+            <span className="ws-debug__k">→ dst</span>
+            <span className="ws-debug__v" title={pathQuery.targetFileId}>
+              {basename(pathQuery.targetFileId)}
+            </span>
+            <span className="ws-debug__k">mode</span>
+            <span className="ws-debug__v">{pathQuery.mode}</span>
+            <span className="ws-debug__k">paths</span>
+            <span className="ws-debug__v">
+              {pathResult ? pathResult.paths.length : 0}
+              {pathResult?.truncated && (
+                <span style={{ color: "#f87171", marginLeft: 4 }}>· truncated</span>
+              )}
+            </span>
+            {pathResult && pathResult.paths.length > 0 && (
+              <>
+                <span className="ws-debug__k">hops</span>
+                <span className="ws-debug__v">
+                  {Math.min(...pathResult.paths.map(p => p.cost))}
+                  {pathResult.paths.length > 1 && `..${Math.max(...pathResult.paths.map(p => p.cost))}`}
+                </span>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            className="ws-debug__chip"
+            style={{ marginTop: 4, width: "100%" }}
+            onClick={() => interactionStore.clearPathQuery()}
+          >
+            clear
+          </button>
+        </>
+      ) : (
+        <div className="ws-debug__hint">
+          shift+click second file after selecting one to query a shortest path.
+        </div>
+      )}
+
+      <TemporalSection temporal={temporal} history={graph?.history} />
 
       <div className="ws-debug__divider">viewport</div>
       <div className="ws-debug__lod" style={{ gap: 2 }}>
@@ -204,14 +456,190 @@ export function SceneSection() {
   );
 }
 
-function EdgeKindRow({ kind, visible, total }: { kind: EdgeKind; visible: number; total: number }) {
-  const label = kind === "taint-propagation" ? "taint" : kind;
+const TEMPORAL_MODES: readonly TemporalMode[] = ["off", "live", "diff"] as const;
+
+function TemporalSection({
+  temporal,
+  history,
+}: {
+  temporal: ReturnType<typeof interactionStore.getState>["temporal"];
+  history: import("@quanta/canvas-engine").GraphHistory | undefined;
+}) {
+  // Memo the diff count so scrubbing only pays for the walk when the range
+  // actually changes. Cheap (O(|edges|)) but not free at 10k+ edges.
+  const diffCount = useMemo(() => {
+    if (temporal.mode !== "diff" || !history) return null;
+    const d = diffSnapshots(history, temporal.diffFrom, temporal.diffTo);
+    return { added: d.added.size, removed: d.removed.size };
+  }, [temporal.mode, temporal.diffFrom, temporal.diffTo, history]);
+
+  const snaps = history?.snapshots ?? [];
+  const count = snaps.length;
+
   return (
     <>
-      <span className="ws-debug__k" style={{ paddingLeft: 8, opacity: 0.75 }}>· {label}</span>
-      <span className="ws-debug__v" style={{ opacity: 0.85 }}>
+      <div className="ws-debug__divider">temporal</div>
+      {count < 2 ? (
+        <div className="ws-debug__hint">no history attached to this graph.</div>
+      ) : (
+        <>
+          <div className="ws-debug__lod" style={{ gap: 2 }}>
+            {TEMPORAL_MODES.map(m => (
+              <button
+                key={m}
+                type="button"
+                className={`ws-debug__chip${temporal.mode === m ? " is-on" : ""}`}
+                onClick={() => interactionStore.setTemporalMode(m)}
+                title={`temporal: ${m}`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+
+          {temporal.mode === "live" && (
+            <>
+              <div className="ws-debug__row" style={{ alignItems: "center" }}>
+                <span style={{ flex: "0 0 82px", opacity: 0.75 }}>
+                  {snaps[temporal.snapshotIndex]?.label ?? `#${temporal.snapshotIndex}`}
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={count - 1}
+                  step={1}
+                  value={temporal.snapshotIndex}
+                  onChange={e => interactionStore.setSnapshotIndex(parseInt(e.target.value, 10))}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className={`ws-debug__chip${temporal.playing ? " is-on" : ""}`}
+                  onClick={() => interactionStore.setTemporalPlaying(!temporal.playing)}
+                  style={{ flex: "0 0 42px" }}
+                  title={temporal.playing ? "pause" : "play"}
+                >
+                  {temporal.playing ? "pause" : "play"}
+                </button>
+              </div>
+              <div className="ws-debug__lod" style={{ gap: 2 }}>
+                {snaps.map((s, i) => (
+                  <button
+                    key={s.label + i}
+                    type="button"
+                    className={`ws-debug__chip${temporal.snapshotIndex === i ? " is-on" : ""}`}
+                    onClick={() => interactionStore.setSnapshotIndex(i)}
+                    title={new Date(s.timestamp).toISOString().slice(0, 10)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {temporal.mode === "diff" && (
+            <>
+              <div className="ws-debug__row" style={{ alignItems: "center" }}>
+                <span style={{ flex: "0 0 82px", opacity: 0.75 }}>from (A)</span>
+                <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
+                  {snaps.map((s, i) => (
+                    <button
+                      key={`from-${s.label}-${i}`}
+                      type="button"
+                      className={`ws-debug__chip${temporal.diffFrom === i ? " is-on" : ""}`}
+                      onClick={() => interactionStore.setDiffRange(i, temporal.diffTo)}
+                      title={`from: ${s.label}`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="ws-debug__row" style={{ alignItems: "center" }}>
+                <span style={{ flex: "0 0 82px", opacity: 0.75 }}>to (B)</span>
+                <div className="ws-debug__lod" style={{ gap: 2, flex: 1 }}>
+                  {snaps.map((s, i) => (
+                    <button
+                      key={`to-${s.label}-${i}`}
+                      type="button"
+                      className={`ws-debug__chip${temporal.diffTo === i ? " is-on" : ""}`}
+                      onClick={() => interactionStore.setDiffRange(temporal.diffFrom, i)}
+                      title={`to: ${s.label}`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {diffCount && (
+                <div className="ws-debug__grid">
+                  <span className="ws-debug__k">summary</span>
+                  <span className="ws-debug__v">
+                    <span style={{ color: "#22c55e" }}>+{diffCount.added}</span>
+                    {" / "}
+                    <span style={{ color: "#ef4444" }}>-{diffCount.removed}</span>
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+function basename(path: string): string {
+  const idx = path.lastIndexOf("/");
+  return idx >= 0 ? path.slice(idx + 1) : path;
+}
+
+function EdgeLayerRow({
+  layer,
+  visible,
+  total,
+  visibleByKind,
+  totalByKind,
+}: {
+  layer: EdgeLayer;
+  visible: number;
+  total: number;
+  visibleByKind: Record<string, number>;
+  totalByKind: Record<string, number>;
+}) {
+  // Show the per-layer total prominently; indent the kinds that actually
+  // exist under this layer so the HUD stays scannable instead of dumping
+  // 15+ zero rows for unseen kinds.
+  const kinds = Object.keys({ ...visibleByKind, ...totalByKind }).sort();
+  return (
+    <>
+      <span className="ws-debug__k" style={{ paddingLeft: 8, opacity: 0.9 }}>· {layer}</span>
+      <span className="ws-debug__v">
         {visible.toLocaleString()} / {total.toLocaleString()}
       </span>
+      {kinds.map(kind => {
+        const v = visibleByKind[kind] ?? 0;
+        const t = totalByKind[kind] ?? 0;
+        if (v === 0 && t === 0) return null;
+        const label = kind === "taint-propagation" ? "taint" : kind;
+        return (
+          <FragmentRow
+            key={`${layer}:${kind}`}
+            k={label}
+            v={`${v.toLocaleString()} / ${t.toLocaleString()}`}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+function FragmentRow({ k, v }: { k: string; v: string }) {
+  return (
+    <>
+      <span className="ws-debug__k" style={{ paddingLeft: 20, opacity: 0.6 }}>· {k}</span>
+      <span className="ws-debug__v" style={{ opacity: 0.75 }}>{v}</span>
     </>
   );
 }

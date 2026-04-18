@@ -3,6 +3,7 @@ import { viewportStore } from "../store/viewport-store";
 import { sceneStore } from "../store/scene-store";
 import { interactionStore } from "../store/interaction-store";
 import { settingsStore } from "../store/settings-store";
+import { estimateUniverseMemory } from "../lib/estimate-memory";
 
 // ───────────────────────────────────────────────────────────────────
 // Perf recorder — slow/recovery-aware.
@@ -37,8 +38,14 @@ const PRE_FRAMES = 180;                    // ring buffer size (3s @ 60fps)
 const MAX_SLOW_FRAMES = 600;               // hard cap on slow phase (10s @ 60fps)
 const FAST_TAIL_FRAMES = 120;              // frames to keep recording after recovery
 const COOLDOWN_MS = 30_000;
+// Manual-mode cap: 10 min @ 60fps ≈ 36000 frames. Prevents unbounded
+// captureBuf growth if the user forgets to stop.
+const MAX_MANUAL_FRAMES = 36_000;
+// Universe memory estimate is O(graph+groundData) — potentially thousands
+// of items. Sample at lower frequency and reuse the last value in between.
+const MEMORY_SAMPLE_EVERY_N_FRAMES = 6;    // ~10 Hz at 60fps
 
-type Phase = "pre" | "slow" | "recovering" | "fast";
+type Phase = "pre" | "slow" | "recovering" | "fast" | "manual";
 
 export interface FrameSample {
   t: number;
@@ -66,6 +73,14 @@ export interface FrameSample {
   drawCalls: number | null;
   workerLayout: boolean;
   workerAggregates: boolean;
+  // Universe memory estimate (bytes). Sampled at MEMORY_SAMPLE_EVERY_N_FRAMES;
+  // values between samples carry the last reading forward.
+  memUniverseTotal: number;
+  memGraph: number;
+  memLayout: number;
+  memGround: number;
+  // Chromium-only: performance.memory.usedJSHeapSize (null elsewhere).
+  heapUsed: number | null;
 }
 
 export interface Transition {
@@ -89,7 +104,9 @@ export interface Summary {
 export interface RecorderStatus {
   enabled: boolean;
   capturing: boolean;
+  manual: boolean;           // user-driven recording (vs FPS-triggered)
   phase: Phase | null;
+  capturedFrames: number;    // live frame count during manual capture
   dumpsSent: number;
   lastDumpAt: number | null;
   lastDumpPath: string | null;
@@ -103,6 +120,7 @@ interface RecorderRefs {
   ringFull: boolean;
   lowStreak: number;
   capturing: boolean;
+  manual: boolean;
   captureBuf: FrameSample[];
   phasePerFrame: Phase[];
   transitions: Transition[];
@@ -111,6 +129,19 @@ interface RecorderRefs {
   recoverStreak: number;
   tailCount: number;
   lastDumpTime: number;
+}
+
+// Cached memory sample — refreshed by sampleCurrentFrame at
+// MEMORY_SAMPLE_EVERY_N_FRAMES cadence. Module-level so ring-buffer
+// samples captured before the first refresh get a zero reading rather
+// than a stale one from a previous session.
+let memTickCounter = 0;
+let cachedMem: { total: number; graph: number; layout: number; ground: number } = {
+  total: 0, graph: 0, layout: 0, ground: 0,
+};
+function readHeapUsed(): number | null {
+  const perf = performance as Performance & { memory?: { usedJSHeapSize: number } };
+  return perf.memory?.usedJSHeapSize ?? null;
 }
 
 function sampleCurrentFrame(dtMs: number): FrameSample {
@@ -134,6 +165,17 @@ function sampleCurrentFrame(dtMs: number): FrameSample {
       (globalThis as { __pixi?: { app?: { renderer?: { statistics?: { drawCalls?: number } } } } })
         .__pixi?.app?.renderer?.statistics?.drawCalls ?? null;
   } catch { drawCalls = null; }
+
+  memTickCounter++;
+  if (memTickCounter % MEMORY_SAMPLE_EVERY_N_FRAMES === 0) {
+    const snap = estimateUniverseMemory();
+    cachedMem = {
+      total: snap.breakdown.total,
+      graph: snap.breakdown.graph,
+      layout: snap.breakdown.layout,
+      ground: snap.breakdown.groundData,
+    };
+  }
 
   return {
     t: performance.now(),
@@ -160,6 +202,11 @@ function sampleCurrentFrame(dtMs: number): FrameSample {
     drawCalls,
     workerLayout: scState.workerLayout,
     workerAggregates: scState.workerAggregates,
+    memUniverseTotal: cachedMem.total,
+    memGraph: cachedMem.graph,
+    memLayout: cachedMem.layout,
+    memGround: cachedMem.ground,
+    heapUsed: readHeapUsed(),
   };
 }
 
@@ -266,6 +313,170 @@ function buildSummary(
   };
 }
 
+// ───────────────────────────────────────────────────────────────────
+// Deterministic text summary — designed so an LLM reader (or human
+// skimming `head -30 perf-*.ndjson`) gets the key facts without
+// parsing the per-frame body.
+//
+// Contract: same input → same output bytes. No wall-clock values, no
+// iteration-order dependencies. Numeric formats use fixed decimals so
+// small float perturbations don't change strings. Key order is fixed.
+// ───────────────────────────────────────────────────────────────────
+function fmtMB(n: number): string {
+  return `${(n / (1024 * 1024)).toFixed(2)}MB`;
+}
+function stats(xs: number[]): { min: number; p50: number; p95: number; max: number; mean: number } {
+  if (xs.length === 0) return { min: 0, p50: 0, p95: 0, max: 0, mean: 0 };
+  const sorted = [...xs].sort((a, b) => a - b);
+  let sum = 0;
+  for (const x of sorted) sum += x;
+  return {
+    min: sorted[0],
+    p50: sorted[Math.floor(0.5 * sorted.length)],
+    p95: sorted[Math.min(sorted.length - 1, Math.floor(0.95 * sorted.length))],
+    max: sorted[sorted.length - 1],
+    mean: sum / sorted.length,
+  };
+}
+function histogram<T extends string>(xs: T[]): Record<T, number> {
+  const h = {} as Record<T, number>;
+  for (const x of xs) h[x] = (h[x] ?? 0) + 1;
+  return h;
+}
+function formatHistogram(h: Record<string, number>): string {
+  // Fixed order by value desc then key asc for determinism.
+  const entries = Object.entries(h).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return entries.map(([k, v]) => `${k}=${v}`).join(" ");
+}
+
+function buildLlmSummary(
+  trigger: string,
+  frames: FrameSample[],
+  phases: Phase[],
+  transitions: Transition[],
+): string {
+  const n = frames.length;
+  if (n === 0) {
+    return [
+      "# quanta-perf-summary v1",
+      `trigger: ${trigger}`,
+      "frames: 0",
+      "(no samples captured)",
+    ].join("\n");
+  }
+
+  const t0 = frames[0].t;
+  const tLast = frames[n - 1].t;
+  const durationMs = tLast - t0;
+
+  const dt = stats(frames.map(f => f.dtMs));
+  const fps = stats(frames.map(f => f.fps));
+  const scale = stats(frames.map(f => f.scale));
+  const mem = stats(frames.map(f => f.memUniverseTotal));
+  const memGraph = stats(frames.map(f => f.memGraph));
+  const memLayout = stats(frames.map(f => f.memLayout));
+  const memGround = stats(frames.map(f => f.memGround));
+  const heapVals = frames.map(f => f.heapUsed).filter((v): v is number => v !== null);
+  const heap = stats(heapVals);
+  const drawVals = frames.map(f => f.drawCalls).filter((v): v is number => v !== null);
+  const draws = stats(drawVals);
+
+  const lodHist = histogram(frames.map(f => f.lod));
+  const sceneHist = histogram(frames.map(f => f.sceneKind));
+  const phaseHist = histogram(phases);
+  const longFrames = frames.filter(f => f.dtMs >= 33).length;
+
+  const files0 = frames[0].graphFiles;
+  const edges0 = frames[0].graphEdges;
+
+  // Find the 3 biggest peaks in dtMs (slowest frames) — useful anchors.
+  const slowest = frames
+    .map((f, i) => ({ i, dt: f.dtMs, t: f.t - t0, lod: f.lod, scene: f.sceneKind, vis: f.visibleFiles, ve: f.visibleEdges }))
+    .sort((a, b) => b.dt - a.dt)
+    .slice(0, 3);
+
+  const lines: string[] = [];
+  lines.push("# quanta-perf-summary v1");
+  lines.push("# Fixed-format deterministic summary. See `frame` kind lines for raw samples.");
+  lines.push("");
+  lines.push("[session]");
+  lines.push(`trigger:        ${trigger}`);
+  lines.push(`frames:         ${n}`);
+  lines.push(`duration_ms:    ${durationMs.toFixed(0)}`);
+  lines.push(`long_frames:    ${longFrames} (${((longFrames / n) * 100).toFixed(1)}%)`);
+  lines.push(`graph_files:    ${files0}`);
+  lines.push(`graph_edges:    ${edges0}`);
+  lines.push("");
+  lines.push("[frame_dt_ms]");
+  lines.push(`min:  ${dt.min.toFixed(2)}`);
+  lines.push(`p50:  ${dt.p50.toFixed(2)}`);
+  lines.push(`p95:  ${dt.p95.toFixed(2)}`);
+  lines.push(`max:  ${dt.max.toFixed(2)}`);
+  lines.push(`mean: ${dt.mean.toFixed(2)}`);
+  lines.push("");
+  lines.push("[fps]");
+  lines.push(`min:  ${fps.min}`);
+  lines.push(`p50:  ${fps.p50}`);
+  lines.push(`p95:  ${fps.p95}`);
+  lines.push(`max:  ${fps.max}`);
+  lines.push(`mean: ${fps.mean.toFixed(1)}`);
+  lines.push("");
+  lines.push("[viewport_scale]");
+  lines.push(`min:  ${scale.min.toFixed(4)}`);
+  lines.push(`p50:  ${scale.p50.toFixed(4)}`);
+  lines.push(`max:  ${scale.max.toFixed(4)}`);
+  lines.push("");
+  lines.push("[universe_memory]");
+  lines.push(`total.min:  ${fmtMB(mem.min)}`);
+  lines.push(`total.p50:  ${fmtMB(mem.p50)}`);
+  lines.push(`total.max:  ${fmtMB(mem.max)}`);
+  lines.push(`total.mean: ${fmtMB(mem.mean)}`);
+  lines.push(`graph.mean:  ${fmtMB(memGraph.mean)}`);
+  lines.push(`layout.mean: ${fmtMB(memLayout.mean)}`);
+  lines.push(`ground.mean: ${fmtMB(memGround.mean)}`);
+  lines.push("");
+  if (heapVals.length > 0) {
+    lines.push("[js_heap_used]");
+    lines.push(`min:  ${fmtMB(heap.min)}`);
+    lines.push(`p50:  ${fmtMB(heap.p50)}`);
+    lines.push(`max:  ${fmtMB(heap.max)}`);
+    lines.push(`mean: ${fmtMB(heap.mean)}`);
+    lines.push(`universe_frac_of_heap.mean: ${heap.mean > 0 ? ((mem.mean / heap.mean) * 100).toFixed(1) : "0.0"}%`);
+    lines.push("");
+  }
+  if (drawVals.length > 0) {
+    lines.push("[pixi_draw_calls]");
+    lines.push(`min:  ${draws.min}`);
+    lines.push(`p50:  ${draws.p50}`);
+    lines.push(`max:  ${draws.max}`);
+    lines.push(`mean: ${draws.mean.toFixed(1)}`);
+    lines.push("");
+  }
+  lines.push("[lod_distribution]");
+  lines.push(formatHistogram(lodHist));
+  lines.push("");
+  lines.push("[scene_distribution]");
+  lines.push(formatHistogram(sceneHist));
+  lines.push("");
+  lines.push("[phase_distribution]");
+  lines.push(formatHistogram(phaseHist));
+  lines.push("");
+  lines.push("[transitions]");
+  if (transitions.length === 0) {
+    lines.push("(none)");
+  } else {
+    for (const tr of transitions) {
+      lines.push(`+${(tr.t - t0).toFixed(0)}ms ${tr.from}->${tr.to}`);
+    }
+  }
+  lines.push("");
+  lines.push("[slowest_frames]");
+  for (const s of slowest) {
+    lines.push(`+${s.t.toFixed(0)}ms dt=${s.dt.toFixed(2)}ms lod=${s.lod} scene=${s.scene} vis_files=${s.vis} vis_edges=${s.ve}`);
+  }
+  return lines.join("\n");
+}
+
 async function postDump(
   trigger: string,
   frames: FrameSample[],
@@ -276,9 +487,13 @@ async function postDump(
   const annotated = frames.map((f, i) => ({ ...f, phase: phases[i] ?? "slow" }));
   const summary = buildSummary(phases, frames);
 
-  // We send `frames` (flat) + `transitions` + `summary` as separate logical
-  // sections; the server plugin converts each to an NDJSON line.
+  // We send `frames` (flat) + `transitions` + `summary` + `llm-summary` as
+  // separate logical sections; the server plugin converts each to an NDJSON
+  // line. The `llm-summary` block is first so `head -N perf-*.ndjson` gives
+  // a human/LLM-readable digest without parsing the rest.
+  const llmSummary = buildLlmSummary(trigger, frames, phases, transitions);
   const extras: Array<Record<string, unknown>> = [
+    { _kind: "llm-summary", text: llmSummary },
     ...transitions.map(t => ({ _kind: "transition", ...t })),
     { _kind: "summary", ...summary },
   ];
@@ -299,7 +514,9 @@ async function postDump(
     const res = await fetch("/__perf/log", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trigger, frames: [...annotated, ...extras], meta }),
+      // Extras first (llm-summary, transitions, summary) so the digest is
+      // near the top of the file — readers can `head -30` for an overview.
+      body: JSON.stringify({ trigger, frames: [...extras, ...annotated], meta }),
     });
     if (!res.ok) return { error: `server ${res.status}` };
     const body = (await res.json()) as { path?: string };
@@ -316,12 +533,17 @@ export function usePerfRecorder(enabledInitial = false): {
   status: RecorderStatus;
   setEnabled: (v: boolean) => void;
   dumpNow: () => void;
+  startManual: () => void;
+  stopManual: () => void;
 } {
   const [enabled, setEnabled] = useState(enabledInitial);
+  const [manualOn, setManualOn] = useState(false);
   const [status, setStatus] = useState<RecorderStatus>({
     enabled: enabledInitial,
     capturing: false,
+    manual: false,
     phase: null,
+    capturedFrames: 0,
     dumpsSent: 0,
     lastDumpAt: null,
     lastDumpPath: null,
@@ -335,6 +557,7 @@ export function usePerfRecorder(enabledInitial = false): {
     ringFull: false,
     lowStreak: 0,
     capturing: false,
+    manual: false,
     captureBuf: [],
     phasePerFrame: [],
     transitions: [],
@@ -404,16 +627,33 @@ export function usePerfRecorder(enabledInitial = false): {
       const dt = now - lastT;
       lastT = now;
 
-      if (enabled) {
+      const r = refs.current;
+      const active = enabled || r.manual;
+      if (active) {
         const sample = sampleCurrentFrame(dt);
-        const r = refs.current;
 
         // Always fill the ring buffer — it's our "pre-drop" history.
         r.ring[r.ringIdx] = sample;
         r.ringIdx = (r.ringIdx + 1) % PRE_FRAMES;
         if (r.ringIdx === 0) r.ringFull = true;
 
-        if (r.capturing) {
+        if (r.manual && r.capturing) {
+          // Manual mode: accumulate every frame with phase "manual" until
+          // the user stops or we hit the hard cap.
+          r.captureBuf.push(sample);
+          r.phasePerFrame.push("manual");
+          // Publish live count so the HUD can show progress. Throttle to once
+          // per second so setState isn't in the RAF hot path every frame.
+          if (r.captureBuf.length % 60 === 0) {
+            const frames = r.captureBuf.length;
+            setStatus(s => (s.capturedFrames === frames ? s : { ...s, capturedFrames: frames }));
+          }
+          if (r.captureBuf.length >= MAX_MANUAL_FRAMES) {
+            r.manual = false;
+            setManualOn(false);
+            finalizeAndDump("manual-cap");
+          }
+        } else if (r.capturing) {
           // Decide the phase for THIS frame based on current fps + prior phase.
           let phaseForThisFrame: Phase = r.phase;
           if (r.phase === "slow") {
@@ -455,8 +695,9 @@ export function usePerfRecorder(enabledInitial = false): {
           if (hitFastTail || hitSlowCap) {
             finalizeAndDump(hitSlowCap ? "slow-cap" : "auto-slow-to-fast");
           }
-        } else {
-          // Not capturing — watch for trigger.
+        } else if (enabled && !r.manual) {
+          // Not capturing — watch for trigger. Skipped while manual mode is
+          // active so a user-initiated capture isn't interrupted.
           if (sample.fps < LOW_FPS_THRESHOLD) {
             r.lowStreak++;
             if (
@@ -500,6 +741,60 @@ export function usePerfRecorder(enabledInitial = false): {
     return () => cancelAnimationFrame(raf);
   }, [enabled]);
 
+  const startManual = () => {
+    const r = refs.current;
+    if (r.manual) return;
+    // Flush ring buffer as "pre" phase so the user sees what was on screen
+    // just before they hit record. Free context and usually short.
+    const buf: FrameSample[] = [];
+    const phaseBuf: Phase[] = [];
+    if (r.ringFull) {
+      for (let i = 0; i < PRE_FRAMES; i++) {
+        buf.push(r.ring[(r.ringIdx + i) % PRE_FRAMES]);
+        phaseBuf.push("pre");
+      }
+    } else {
+      for (let i = 0; i < r.ringIdx; i++) {
+        buf.push(r.ring[i]);
+        phaseBuf.push("pre");
+      }
+    }
+    r.captureBuf = buf;
+    r.phasePerFrame = phaseBuf;
+    r.transitions = [{ from: "fast", to: "manual", t: performance.now() }];
+    r.phase = "manual";
+    r.manual = true;
+    r.capturing = true;
+    setManualOn(true);
+    setStatus(s => ({ ...s, manual: true, capturing: true, phase: "manual", capturedFrames: 0 }));
+  };
+
+  const stopManual = () => {
+    const r = refs.current;
+    if (!r.manual) return;
+    const frames = [...r.captureBuf];
+    const phases = [...r.phasePerFrame];
+    const transitions = [...r.transitions, { from: "manual" as Phase, to: "fast" as Phase, t: performance.now() }];
+    r.capturing = false;
+    r.manual = false;
+    r.captureBuf.length = 0;
+    r.phasePerFrame.length = 0;
+    r.transitions.length = 0;
+    r.phase = "fast";
+    r.lastDumpTime = performance.now();
+    setManualOn(false);
+    setStatus(s => ({ ...s, manual: false, capturing: false, phase: null }));
+    void postDump("manual", frames, phases, transitions).then(result => {
+      setStatus(s => ({
+        ...s,
+        dumpsSent: s.dumpsSent + 1,
+        lastDumpAt: performance.now(),
+        lastDumpPath: result.path ?? s.lastDumpPath,
+        lastError: result.error ?? null,
+      }));
+    });
+  };
+
   const dumpNow = () => {
     const r = refs.current;
     const buf: FrameSample[] = [];
@@ -527,5 +822,9 @@ export function usePerfRecorder(enabledInitial = false): {
     });
   };
 
-  return { status, setEnabled, dumpNow };
+  // `manualOn` drives UI re-renders on start/stop; the tick loop reads
+  // `refs.current.manual` directly so the RAF closure never sees a stale value.
+  void manualOn;
+
+  return { status, setEnabled, dumpNow, startManual, stopManual };
 }

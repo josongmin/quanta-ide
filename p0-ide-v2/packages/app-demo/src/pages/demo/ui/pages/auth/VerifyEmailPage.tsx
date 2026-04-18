@@ -1,20 +1,10 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Mail } from "lucide-react";
 import { Brand } from "../../internal/Brand";
+import { OtpInput } from "../../internal/OtpInput";
 
 export function VerifyEmailPage() {
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
-  const refs = useRef<Array<HTMLInputElement | null>>([]);
-
-  const onChange = (i: number, v: string) => {
-    const next = [...code];
-    next[i] = v.slice(-1).replace(/\D/, "");
-    setCode(next);
-    if (next[i] && i < 5) refs.current[i + 1]?.focus();
-  };
-  const onKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Backspace" && !code[i] && i > 0) refs.current[i - 1]?.focus();
-  };
   const filled = code.every(Boolean);
 
   return (
@@ -38,21 +28,7 @@ export function VerifyEmailPage() {
         </p>
 
         <form className="demo-form" onSubmit={(e) => e.preventDefault()}>
-          <div className="demo-otp">
-            {code.map((v, i) => (
-              <input
-                key={i}
-                ref={(el) => { refs.current[i] = el; }}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={1}
-                value={v}
-                onChange={(e) => onChange(i, e.target.value)}
-                onKeyDown={(e) => onKeyDown(i, e)}
-                aria-label={`Digit ${i + 1}`}
-              />
-            ))}
-          </div>
+          <OtpInput value={code} onChange={setCode} />
           <button className="demo-btn demo-btn--primary demo-btn--block" type="submit" disabled={!filled}>
             Verify email
           </button>

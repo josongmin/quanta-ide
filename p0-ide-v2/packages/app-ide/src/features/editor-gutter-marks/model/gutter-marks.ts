@@ -1,6 +1,19 @@
 import { gutter, GutterMarker } from "@codemirror/view";
+import type { Extension } from "@codemirror/state";
 import { RangeSet } from "@codemirror/state";
 import type { GutterGlyph, GutterMark } from "@quanta/app-ide/entities/gutter";
+
+export interface GutterHoverAnchor {
+  glyph: GutterGlyph;
+  line: number;
+  title: string;
+  rect: { left: number; top: number; bottom: number; right: number };
+}
+
+export interface GutterHandlers {
+  onHover?: (a: GutterHoverAnchor | null) => void;
+  onActivate?: (glyph: GutterGlyph, line: number) => void;
+}
 
 const GLYPH_SVG: Record<GutterGlyph, string> = {
   "taint-source":
@@ -14,42 +27,95 @@ const GLYPH_SVG: Record<GutterGlyph, string> = {
   "arch-violation":
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4.2 4.2 L11.8 11.8 M11.8 4.2 L4.2 11.8"/></svg>',
   "cycle":
-    // Two arrows forming a circle (cyclic dep). 16x16 viewBox.
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 8a5 5 0 0 1 9-3"/><polyline points="11.5 2.8 12 5 9.7 5.3"/><path d="M13 8a5 5 0 0 1-9 3"/><polyline points="4.5 13.2 4 11 6.3 10.7"/></svg>',
   "god":
-    // Crown/spike rays (responsibility overload). Stroke only.
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 L4 5 L8 9 L12 5 L13 11 Z"/><line x1="3" y1="13.2" x2="13" y2="13.2"/></svg>',
   "dead":
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4.5 5 11 5 4.5 11 11 11"/></svg>',
   "typestate":
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 2.5 L13.2 8 L8 13.5 L2.8 8 Z"/></svg>',
   "silo":
-    // Single user silhouette (bus factor 1). Solid fill for emphasis.
     '<svg viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="5" r="2.4"/><path d="M3.5 13c0-2.5 2-4.2 4.5-4.2s4.5 1.7 4.5 4.2v.5h-9z"/></svg>',
   "flaky":
-    // Wave/zigzag (non-deterministic). Stroke only.
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="2.5 11 5 5 8 11 11 5 13.5 11"/></svg>',
   "incident-match":
     '<svg viewBox="0 0 16 16" fill="currentColor"><rect x="7.1" y="3.5" width="1.8" height="6" rx="0.5"/><circle cx="8" cy="11.6" r="1"/></svg>',
 };
 
 class GlyphMarker extends GutterMarker {
-  constructor(readonly glyph: GutterGlyph, readonly title: string) {
+  constructor(
+    readonly glyph: GutterGlyph,
+    readonly title: string,
+    readonly line: number,
+    readonly handlers?: GutterHandlers,
+  ) {
     super();
   }
   override eq(other: GutterMarker) {
-    return other instanceof GlyphMarker && other.glyph === this.glyph;
+    return (
+      other instanceof GlyphMarker &&
+      other.glyph === this.glyph &&
+      other.line === this.line
+    );
   }
   override toDOM() {
     const el = document.createElement("span");
     el.className = `cm-gm cm-gm--${this.glyph}`;
     el.innerHTML = GLYPH_SVG[this.glyph];
-    el.title = this.title;
+
+    // Non-interactive marker (no handlers passed): use native title only.
+    // CodeMirror's `EditorView.domEventHandlers` only fires for events on
+    // `.cm-content`; gutter elements live outside it, so we attach the
+    // listeners directly here.
+    if (!this.handlers) {
+      el.title = this.title;
+      return el;
+    }
+
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.setAttribute("aria-label", this.title);
+
+    const anchor = (): GutterHoverAnchor => {
+      const r = el.getBoundingClientRect();
+      return {
+        glyph: this.glyph,
+        line: this.line,
+        title: this.title,
+        rect: { left: r.left, top: r.top, bottom: r.bottom, right: r.right },
+      };
+    };
+
+    const fireHoverIn = () => this.handlers?.onHover?.(anchor());
+    const fireHoverOut = () => this.handlers?.onHover?.(null);
+    const fireActivate = () => this.handlers?.onActivate?.(this.glyph, this.line);
+
+    el.addEventListener("mouseenter", fireHoverIn);
+    el.addEventListener("mouseleave", fireHoverOut);
+    el.addEventListener("focus", fireHoverIn);
+    el.addEventListener("blur", fireHoverOut);
+
+    // Stop CodeMirror from moving the caret / blurring focus on click.
+    el.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      fireActivate();
+    });
+    el.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      fireActivate();
+    });
+
     return el;
   }
 }
 
-export function engineGutter(marks: GutterMark[]) {
+export function engineGutter(marks: GutterMark[], handlers?: GutterHandlers): Extension {
   const byLine = new Map<number, GutterMark>();
   for (const m of marks) {
     const prev = byLine.get(m.line);
@@ -66,13 +132,13 @@ export function engineGutter(marks: GutterMark[]) {
         const lineObj = doc.line(line);
         builder.push({
           from: lineObj.from,
-          value: new GlyphMarker(mark.glyph, mark.title),
+          value: new GlyphMarker(mark.glyph, mark.title, line, handlers),
         });
       }
       builder.sort((a, b) => a.from - b.from);
       return RangeSet.of(builder.map((b) => b.value.range(b.from)));
     },
-    initialSpacer: () => new GlyphMarker("taint-through", ""),
+    initialSpacer: () => new GlyphMarker("taint-through", "", 0, undefined),
   });
 }
 

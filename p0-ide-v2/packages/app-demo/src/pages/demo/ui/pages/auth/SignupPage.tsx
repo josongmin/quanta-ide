@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Chrome, Github } from "lucide-react";
+import { Globe, GitBranch } from "lucide-react";
 import { Brand } from "../../internal/Brand";
 import { useDemoNav } from "../../DemoPage";
 
@@ -29,8 +29,8 @@ export function SignupPage() {
         </p>
 
         <div className="demo-sso-row">
-          <button className="demo-sso-btn" type="button"><Chrome size={14} strokeWidth={1.8} /> Sign up with Google</button>
-          <button className="demo-sso-btn" type="button"><Github size={14} strokeWidth={1.8} /> Sign up with GitHub</button>
+          <button className="demo-sso-btn" type="button"><Globe size={14} strokeWidth={1.8} /> Sign up with Google</button>
+          <button className="demo-sso-btn" type="button"><GitBranch size={14} strokeWidth={1.8} /> Sign up with GitHub</button>
         </div>
         <div className="demo-divider">or with email</div>
 
@@ -80,9 +80,9 @@ export function SignupPage() {
           <label className="demo-check" style={{ marginTop: 4 }}>
             <input type="checkbox" />
             I agree to the{" "}
-            <button className="demo-link" onClick={() => nav.navigate("legal.terms")}>Terms of Service</button>{" "}
+            <button type="button" className="demo-link" onClick={() => nav.navigate("legal.terms")}>Terms of Service</button>{" "}
             and{" "}
-            <button className="demo-link" onClick={() => nav.navigate("legal.privacy")}>Privacy Policy</button>.
+            <button type="button" className="demo-link" onClick={() => nav.navigate("legal.privacy")}>Privacy Policy</button>.
           </label>
 
           <button className="demo-btn demo-btn--primary demo-btn--block" type="submit">Create account</button>

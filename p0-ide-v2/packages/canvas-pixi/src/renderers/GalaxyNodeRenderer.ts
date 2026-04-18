@@ -1,5 +1,5 @@
 import { Container } from "pixi.js";
-import type { FileNode, WorkspaceLayout, ViewState, Viewport } from "@quanta/canvas-engine";
+import type { FileNode, WorkspaceLayout, WorkspaceMetrics, ViewState, Viewport } from "@quanta/canvas-engine";
 import { FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { type PickRect } from "./shared/SpatialPickIndex";
 import { RectNodeRenderer } from "./shared/RectNodeRenderer";
@@ -21,6 +21,10 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
   // per-frame viewport/viewState without re-wiring every call site.
   private frameViewState: ViewState | null = null;
   private frameLayout: WorkspaceLayout | null = null;
+  // Per-file centrality metrics. When present, `renderInstance` scales the
+  // dot by log(1 + degree) — hub files render noticeably larger so users
+  // can spot them at a glance (Sourcegraph/Gephi-style centrality sizing).
+  private frameMetrics: WorkspaceMetrics | null = null;
   private frameStrokeW = 1;
 
   // File id → instance row index. Maintained across full rebuilds so a
@@ -60,24 +64,52 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     const borderAlpha = isSelected ? 1.0 : 0.7;
     const bw = isSelected ? this.frameStrokeW * 2 : this.frameStrokeW;
 
+    // Degree-based hub sizing. Scale = clamp(1 + log1p(degree) * 0.3, 1, 2.5)
+    // keeps leaves at their base size (scale=1) and makes a 30-degree hub
+    // render ≈2.0× wider — noticeable without breaking layout collisions
+    // because we scale around the rect centre rather than the top-left.
+    // Without `frameMetrics` this degenerates to the unscaled card.
+    let scale = 1;
+    if (this.frameMetrics) {
+      const m = this.frameMetrics.perFile.get(file.id);
+      const deg = m?.degree ?? 0;
+      if (deg > 0) {
+        const s = 1 + Math.log1p(deg) * 0.3;
+        scale = s < 1 ? 1 : s > 2.5 ? 2.5 : s;
+      }
+    }
+    const w = rect.w * scale;
+    const h = rect.h * scale;
+    const x = rect.x - (w - rect.w) * 0.5;
+    const y = rect.y - (h - rect.h) * 0.5;
+
     const o = i * FLOATS_PER_INSTANCE;
-    data[o] = rect.x;
-    data[o + 1] = rect.y;
-    data[o + 2] = rect.w;
-    data[o + 3] = rect.h;
+    data[o] = x;
+    data[o + 1] = y;
+    data[o + 2] = w;
+    data[o + 3] = h;
     unpackHexInto(fillColor, data, o + 4, fillAlpha);
     unpackHexInto(borderColor, data, o + 8, borderAlpha);
     data[o + 12] = bw;
     data[o + 13] = 6; // corner radius
 
     this.fileIdToInstanceIdx.set(file.id, i);
-    return { x: rect.x, y: rect.y, w: rect.w, h: rect.h, id: file.id };
+    // Pick rect mirrors the rendered (possibly scaled) AABB so hover targets
+    // the visually larger hub, not the underlying small card position.
+    return { x, y, w, h, id: file.id };
   }
 
-  update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState, viewport: Viewport): void {
+  update(
+    files: FileNode[],
+    layout: WorkspaceLayout,
+    viewState: ViewState,
+    viewport: Viewport,
+    metrics: WorkspaceMetrics | null = null,
+  ): void {
     this.frameStrokeW = Math.min(8, Math.max(0.5, 1 / viewport.scale));
     this.frameLayout = layout;
     this.frameViewState = viewState;
+    this.frameMetrics = metrics;
 
     // Build the id-set cache key (same rounding scheme as SpatialPickIndex
     // so the two caches invalidate in lockstep).
@@ -188,7 +220,7 @@ registerRenderer("galaxy", (parent, callbacks): RendererHandle => {
       // is a PixiStage dispatch bug — ignore rather than throw (a console
       // warn would drown the hot path; silent no-op is safest).
       if (ctx.sceneKind !== "files") return;
-      inst.update(ctx.files, ctx.layout, ctx.viewState, ctx.viewport);
+      inst.update(ctx.files, ctx.layout, ctx.viewState, ctx.viewport, ctx.metrics ?? null);
     },
     clear(): void { inst.clear(); },
     destroy(): void { inst.destroy(); },

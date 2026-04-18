@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Application, Container } from "pixi.js";
 import type {
   WorkspaceView,
@@ -10,13 +10,20 @@ import type {
   LodLevel,
   LodRendererKind,
   EdgeGeometryCache,
+  EdgeKind,
+  EdgeLayer,
+  EdgeSeverity,
+  FileEdge,
 } from "@quanta/canvas-engine";
-import { resolveEffectiveTier, getTierConfig } from "@quanta/canvas-engine";
+import { resolveEffectiveTier, getTierConfig, resolveLayerPolicy } from "@quanta/canvas-engine";
 // Side-effect import — populates RENDERER_REGISTRY with every tier factory.
 // Without this the registry is empty and `coldInit` below finds no handles.
 import { RENDERER_REGISTRY, type RendererHandle, type RenderContext } from "../renderers";
 import { EdgeStaticRenderer } from "../renderers/EdgeStaticRenderer";
 import { EdgeOverlayRenderer } from "../renderers/EdgeOverlayRenderer";
+import { ClusterEdgeRenderer } from "../renderers/ClusterEdgeRenderer";
+import { SCCBubbleRenderer } from "../renderers/SCCBubbleRenderer";
+import { StartHereBadgeRenderer } from "../renderers/StartHereBadgeRenderer";
 import { installCityFonts } from "../renderers/shared/BitmapFontAtlas";
 
 // Module-level cache keyed by canvas element. In React StrictMode (dev),
@@ -32,6 +39,15 @@ interface PixiBundle {
   // handle, which the update effect treats as "nothing to draw at Pixi".
   nodeHandles: Map<LodRendererKind, RendererHandle>;
   edgeOverlay: EdgeOverlayRenderer;
+  // Direct-mount companion to the cluster node renderer at supergalaxy
+  // tier. Kept out of RENDERER_REGISTRY because the registry is keyed 1:1
+  // by LodRendererKind and the cluster tier already owns the "cluster"
+  // slot — cluster-edges are a second pass, not a tier of their own.
+  clusterEdge: ClusterEdgeRenderer;
+  // Cycle bubble overlay — draws soft orange hulls around SCCs at galaxy+.
+  sccBubble: SCCBubbleRenderer;
+  // "Start here" numbered badges at galaxy/city/street/ground tiers.
+  startHereBadge: StartHereBadgeRenderer;
 }
 const pixiByCanvas = new WeakMap<HTMLCanvasElement, PixiBundle>();
 const initInFlight = new WeakMap<HTMLCanvasElement, Promise<PixiBundle>>();
@@ -61,9 +77,40 @@ export interface PixiStageProps {
   /** When false, edges are not rendered regardless of visible.edges content. */
   showEdges?: boolean;
   /** Per-kind edge visibility. Missing/undefined = visible. */
-  edgeKinds?: Partial<Record<"import" | "taint-propagation" | "blast", boolean>>;
+  edgeKinds?: Partial<Record<EdgeKind, boolean>>;
+  /** Per-layer edge visibility. Missing/undefined = visible. Union'd with edgeKinds. */
+  edgeLayers?: Partial<Record<EdgeLayer, boolean>>;
+  /** Hide edges whose severity ranks below this. Missing severity treated as "low". */
+  edgeMinSeverity?: EdgeSeverity;
   /** Multiplier applied to each edge's base stroke width (0.25..3). */
   edgeWidthMul?: number;
+  /**
+   * Master toggle for the aggregated cluster-cluster super-edges rendered
+   * at the supergalaxy tier. Undefined = follow tier config (default on).
+   * Set false to force off regardless of tier policy (HUD kill-switch).
+   */
+  showClusterEdges?: boolean;
+  /**
+   * Focus-mode dimming: edges NOT in `edgeIds` render at base alpha * `dimAlpha`.
+   * Undefined → no dimming (normal render).
+   */
+  edgeFocus?: { edgeIds: ReadonlySet<string>; dimAlpha: number };
+  /** Live filter DSL predicate — edges failing it are skipped entirely. */
+  edgePredicate?: (edge: FileEdge) => boolean;
+  /** Arch-violating edge ids — rendered with a red halo pass. */
+  edgeViolations?: ReadonlySet<string>;
+  /** Live temporal mode: restrict edge rendering to this set of ids. */
+  temporalEdgeSet?: ReadonlySet<string>;
+  /** Diff mode: edges added between A and B (green halo). */
+  diffAdded?: ReadonlySet<string>;
+  /** Diff mode: edges removed between A and B (red dashed ghost). */
+  diffRemoved?: ReadonlySet<string>;
+  /** Master toggle for SCC cycle bubble overlay. Default true. */
+  showSccBubbles?: boolean;
+  /** Master toggle for "start here" numbered badges. Default true. */
+  showStartHereBadges?: boolean;
+  /** Badge cap — only render top-N entries. Default 5. */
+  startHereTopN?: number;
   onFileClick?: (fileId: string) => void;
   onFileHover?: (fileId: string | null) => void;
   onClusterClick?: (clusterId: string) => void;
@@ -90,6 +137,9 @@ function destroyBundle(bundle: PixiBundle): void {
     for (const handle of bundle.nodeHandles.values()) handle.destroy();
     bundle.edgeStatic.destroy();
     bundle.edgeOverlay.destroy();
+    bundle.clusterEdge.destroy();
+    bundle.sccBubble.destroy();
+    bundle.startHereBadge.destroy();
   } catch (e) {
     // A failure in one renderer's destroy shouldn't block the app teardown —
     // the GL context still needs to be released.
@@ -113,7 +163,19 @@ export function PixiStage({
   edgeCache,
   showEdges = true,
   edgeKinds,
+  edgeLayers,
+  edgeMinSeverity,
   edgeWidthMul,
+  edgeFocus,
+  edgePredicate,
+  edgeViolations,
+  temporalEdgeSet,
+  diffAdded,
+  diffRemoved,
+  showClusterEdges,
+  showSccBubbles,
+  showStartHereBadges,
+  startHereTopN = 5,
   onFileClick,
   onFileHover,
   onClusterClick,
@@ -128,6 +190,9 @@ export function PixiStage({
   const nodeHandlesRef = useRef<Map<LodRendererKind, RendererHandle> | null>(null);
   const edgeStaticRef = useRef<EdgeStaticRenderer | null>(null);
   const edgeOverlayRef = useRef<EdgeOverlayRenderer | null>(null);
+  const clusterEdgeRef = useRef<ClusterEdgeRenderer | null>(null);
+  const sccBubbleRef = useRef<SCCBubbleRenderer | null>(null);
+  const startHereBadgeRef = useRef<StartHereBadgeRenderer | null>(null);
   // State (not ref) so render effects re-run when pixi finishes async init.
   // If readyRef were a plain ref, data that arrived before init completed
   // would be silently dropped — the effect skips and never re-fires.
@@ -177,6 +242,9 @@ export function PixiStage({
       edgeStaticRef.current = bundle.edgeStatic;
       nodeHandlesRef.current = bundle.nodeHandles;
       edgeOverlayRef.current = bundle.edgeOverlay;
+      clusterEdgeRef.current = bundle.clusterEdge;
+      sccBubbleRef.current = bundle.sccBubble;
+      startHereBadgeRef.current = bundle.startHereBadge;
       setPixiReady(true);
     };
 
@@ -284,7 +352,13 @@ export function PixiStage({
         nodeHandles.set(kind, factory(world, callbacks));
       }
       const edgeOverlay = new EdgeOverlayRenderer(world);
-      const bundle: PixiBundle = { app, world, edgeStatic, nodeHandles, edgeOverlay };
+      const clusterEdge = new ClusterEdgeRenderer(world);
+      const sccBubble = new SCCBubbleRenderer(world);
+      const startHereBadge = new StartHereBadgeRenderer(world);
+      const bundle: PixiBundle = {
+        app, world, edgeStatic, nodeHandles, edgeOverlay, clusterEdge,
+        sccBubble, startHereBadge,
+      };
       pixiByCanvas.set(el, bundle);
       return bundle;
     }
@@ -334,6 +408,7 @@ export function PixiStage({
       nodeHandlesRef.current = null;
       edgeStaticRef.current = null;
       edgeOverlayRef.current = null;
+      clusterEdgeRef.current = null;
       // Schedule destroy. Real unmount vs StrictMode double-mount is
       // distinguished purely by *whether the effect re-runs within the
       // grace window* — the next-mount closure clearTimeout()s this.
@@ -397,6 +472,14 @@ export function PixiStage({
   const hasClusters = !!(clusters && clusters.clusters.length > 0);
   const hasSuperclusters = !!(superclusters && superclusters.superclusters.length > 0);
   const effectiveLod: LodLevel = resolveEffectiveTier(lod, { hasClusters, hasSuperclusters });
+  // Per-file loc lookup for line-anchored edges. Rebuilt only when the
+  // visible file list changes (which happens once per layout, not per
+  // viewport tick).
+  const fileLookup = useMemo(() => {
+    const m = new Map<string, { loc: number }>();
+    for (const f of visible.files) m.set(f.id, { loc: f.loc });
+    return m;
+  }, [visible.files]);
   useEffect(() => {
     if (!pixiReady) return;
     const handles = nodeHandlesRef.current;
@@ -409,7 +492,9 @@ export function PixiStage({
     let ctx: RenderContext | null = null;
     switch (tier.sceneKind) {
       case "files":
-        ctx = { sceneKind: "files", files: visible.files, layout, viewState, viewport };
+        // `layout.metrics` is populated once at layout time and is stable for
+        // the lifetime of the layout — safe to pass by reference every frame.
+        ctx = { sceneKind: "files", files: visible.files, layout, viewState, viewport, metrics: layout.metrics };
         break;
       case "clusters":
         ctx = { sceneKind: "clusters", clusters: clusters?.clusters ?? [], viewport };
@@ -435,29 +520,138 @@ export function PixiStage({
   }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
 
   // ── Edge static redraw ──────────────────────────────────────────
-  // Two gates: the user's `showEdges` toggle AND the LOD tier config's
-  // `showEdges` flag. LOD wins when tier declares `showEdges: false` —
-  // rationale: at galaxy+ zoom, thousands of bezier curves are the
-  // dominant bottleneck per the perf recorder (galaxy + 3k edges + 220
-  // files = 58ms/frame vs. 17ms when files=94). The tier config declares
-  // where edges are viable; we enforce that here instead of hoping the
-  // user remembers to toggle off.
-  const tierAllowsEdges = getTierConfig(effectiveLod).showEdges !== false;
-  const edgesToRender = showEdges && tierAllowsEdges ? visible.edges : EMPTY_EDGES;
+  // Three gates, applied in order:
+  //
+  //   1. User's `showEdges` master toggle — false ⇒ nothing renders.
+  //   2. Per-tier layer policy (`resolveLayerPolicy(tier)`) — the tier
+  //      decides which EdgeLayers are admissible at this zoom. Galaxy
+  //      kills structural+flow to drop the hairball; ground allows all
+  //      four layers. `showEdges: false` on a tier ⇒ all layers false.
+  //   3. Optional user `edgeLayers` prop — intersected with the tier map
+  //      via AND semantics (user OFF wins; tier OFF wins; both must be
+  //      ON for a layer to render). This lets the HUD hide a layer the
+  //      tier would otherwise show without letting the HUD *revive* a
+  //      layer the tier has suppressed — which would defeat the perf
+  //      motivation for tier-level gating.
+  //
+  // Severity floor: `tier.minEdgeSeverity` sets a tier-driven baseline
+  // (e.g. galaxy: high); the user's `edgeMinSeverity` prop overrides
+  // when higher — we take the MAX of the two ranks so neither the tier
+  // nor the user can loosen what the other tightened. Missing user
+  // value falls back to the tier's value.
+  const tier = getTierConfig(effectiveLod);
+  const tierLayers = resolveLayerPolicy(tier);
+  // Effective layer map = AND of tier and user (if user supplied one).
+  // Compute once per render so the build() call below stays cheap.
+  const effectiveLayerFilter: Record<EdgeLayer, boolean> = {
+    structural: tierLayers.structural && (edgeLayers?.structural ?? true),
+    flow:       tierLayers.flow       && (edgeLayers?.flow       ?? true),
+    safety:     tierLayers.safety     && (edgeLayers?.safety     ?? true),
+    impact:     tierLayers.impact     && (edgeLayers?.impact     ?? true),
+  };
+  // Fast path: master toggle off OR every layer gated off → feed the
+  // renderer an empty list so it short-circuits on the unchanged-empty
+  // check and skips the per-edge filter loop entirely. Without this,
+  // supergalaxy/universe would still iterate visible.edges only to
+  // discard every one — the old `showEdges: false` path did this as a
+  // hard tier-level cutoff and we preserve it here.
+  const anyLayerOn =
+    effectiveLayerFilter.structural ||
+    effectiveLayerFilter.flow ||
+    effectiveLayerFilter.safety ||
+    effectiveLayerFilter.impact;
+  const edgesToRender = showEdges && anyLayerOn ? visible.edges : EMPTY_EDGES;
+  // Severity: take the stricter of (tier floor, user floor). Both optional.
+  const SEV_RANK: Record<EdgeSeverity, number> = {
+    low: 0, medium: 1, high: 2, critical: 3,
+  };
+  const tierSev = tier.minEdgeSeverity;
+  const userSev = edgeMinSeverity;
+  let effectiveMinSeverity: EdgeSeverity | undefined;
+  if (tierSev && userSev) {
+    effectiveMinSeverity = SEV_RANK[userSev] > SEV_RANK[tierSev] ? userSev : tierSev;
+  } else {
+    effectiveMinSeverity = userSev ?? tierSev;
+  }
   useEffect(() => {
     if (!pixiReady) return;
+    // Filters compose as a union: an edge is drawn iff it passes *all* of
+    // kind, layer, and minSeverity gates. EdgeStaticRenderer applies them
+    // in that order per-edge.
     edgeStaticRef.current?.build(edgesToRender, layout, edgeCache, viewport, {
       kindFilter: edgeKinds,
+      layerFilter: effectiveLayerFilter,
+      minSeverity: effectiveMinSeverity,
       widthMul: edgeWidthMul,
+      focus: edgeFocus,
+      lod: effectiveLod,
+      fileById: fileLookup,
+      customPredicate: edgePredicate,
+      violatingEdgeIds: edgeViolations,
+      temporalEdgeSet,
+      diffAdded,
+      diffRemoved,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, edgesToRender, layout, edgeCache, scaleBucket, edgeKinds, edgeWidthMul]);
+  }, [pixiReady, edgesToRender, layout, edgeCache, scaleBucket, edgeKinds, effectiveLayerFilter.structural, effectiveLayerFilter.flow, effectiveLayerFilter.safety, effectiveLayerFilter.impact, effectiveMinSeverity, edgeWidthMul, edgeFocus, effectiveLod, fileLookup, edgePredicate, edgeViolations, temporalEdgeSet, diffAdded, diffRemoved]);
 
   // ── Overlay redraw (selection/hover only — intentional partial deps) ─
   useEffect(() => {
     if (!pixiReady) return;
     edgeOverlayRef.current?.update(viewState, layout, edgeCache);
-  }, [pixiReady, viewState.selectedEdgeId, viewState.hoveredFileId, layout, edgeCache]); // viewState.* intentional subset
+  }, [pixiReady, viewState.selectedEdgeId, viewState.hoveredEdgeId, viewState.hoveredFileId, layout, edgeCache]); // viewState.* intentional subset
+
+  // ── Cluster-edge redraw ────────────────────────────────────────────
+  // Gate: tier must opt in via `tier.showClusterEdges`, layout must carry
+  // `clusterEdges`, and the user `showClusterEdges` prop (if set) must not
+  // force-off. When the gate fails we call `.clear()` so stale strokes
+  // from a previous supergalaxy visit don't leak into the next tier.
+  const tierShowClusterEdges = tier.showClusterEdges === true;
+  const userClusterEdgesOff = showClusterEdges === false;
+  const clusterEdgesToRender =
+    tierShowClusterEdges && !userClusterEdgesOff ? (layout.clusterEdges ?? null) : null;
+  useEffect(() => {
+    if (!pixiReady) return;
+    const r = clusterEdgeRef.current;
+    if (!r) return;
+    if (clusterEdgesToRender && clusterEdgesToRender.length > 0) {
+      r.update(clusterEdgesToRender, viewport);
+    } else {
+      r.clear();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pixiReady, clusterEdgesToRender, scaleBucket]);
+
+  // ── SCC bubble overlay ─────────────────────────────────────────
+  // Only at galaxy+ (where file rects exist and are dense enough to form
+  // cycles). At supergalaxy/universe the cluster view would swallow them.
+  const sccBubblesAllowed =
+    showSccBubbles !== false && (effectiveLod === "galaxy" || effectiveLod === "city" || effectiveLod === "street" || effectiveLod === "ground");
+  useEffect(() => {
+    if (!pixiReady) return;
+    const r = sccBubbleRef.current;
+    if (!r) return;
+    if (sccBubblesAllowed && layout.sccs && layout.sccs.length > 0) {
+      r.build(layout.sccs, layout.fileRects, viewport);
+    } else {
+      r.clear();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pixiReady, sccBubblesAllowed, layout.sccs, layout.fileRects, scaleBucket]);
+
+  // ── Start-here badges ─────────────────────────────────────────
+  const startHereAllowed = showStartHereBadges !== false;
+  useEffect(() => {
+    if (!pixiReady) return;
+    const r = startHereBadgeRef.current;
+    if (!r) return;
+    if (startHereAllowed && layout.startHere && layout.startHere.length > 0) {
+      r.build(layout.startHere, layout.fileRects, effectiveLod, startHereTopN, viewport);
+    } else {
+      r.clear();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pixiReady, startHereAllowed, layout.startHere, layout.fileRects, effectiveLod, startHereTopN, scaleBucket]);
 
   return (
     <canvas

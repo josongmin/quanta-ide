@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Eye, EyeOff, Github, Chrome } from "lucide-react";
+import { Eye, EyeOff, GitBranch, Globe } from "lucide-react";
 import { Brand } from "../../internal/Brand";
 import { useDemoNav } from "../../DemoPage";
 
@@ -20,10 +20,10 @@ export function LoginPage() {
 
         <div className="demo-sso-row">
           <button className="demo-sso-btn" type="button">
-            <Chrome size={14} strokeWidth={1.8} /> Continue with Google
+            <Globe size={14} strokeWidth={1.8} /> Continue with Google
           </button>
           <button className="demo-sso-btn" type="button">
-            <Github size={14} strokeWidth={1.8} /> Continue with GitHub
+            <GitBranch size={14} strokeWidth={1.8} /> Continue with GitHub
           </button>
         </div>
 

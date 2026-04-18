@@ -20,6 +20,7 @@ import type { Container } from "pixi.js";
 import type {
   FileNode,
   WorkspaceLayout,
+  WorkspaceMetrics,
   ViewState,
   Viewport,
   ClusterMeta,
@@ -47,6 +48,14 @@ export type RenderContext =
       layout: WorkspaceLayout;
       viewState: ViewState;
       viewport: Viewport;
+      /**
+       * Optional per-file centrality metrics. When present the galaxy tier
+       * uses `metrics.perFile.get(id).degree` to scale hub dots. Absent on
+       * graphs where `layout.metrics` was skipped (computeMetrics:false).
+       * Derived from layout but passed separately so renderers don't have
+       * to introspect layout.metrics inside their hot path.
+       */
+      metrics?: WorkspaceMetrics;
     }
   | {
       sceneKind: "clusters";

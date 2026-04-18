@@ -3,6 +3,12 @@ import type { WorkspaceLayout, BezierRoute } from "./types";
 import { FILE_CARD_W, FILE_CARD_H } from "./types";
 import { buildOrthogonalRoutes } from "./orthogonal-routing";
 import { buildBundledEdges, buildFileToClusterMap } from "./edge-bundling";
+import { aggregateClusterEdges, routeClusterEdges } from "./cluster-edge-aggregate";
+import type { ClusterEdge } from "./cluster-edge-aggregate";
+import { computeWorkspaceMetrics } from "../graph/metrics";
+import { findStronglyConnectedComponents } from "../graph/scc";
+import { rankStartHere } from "../graph/start-here";
+import { detectArchViolations } from "../graph/arch-violations";
 
 /**
  * Directory-based squarified treemap layout.
@@ -397,6 +403,8 @@ export interface TreemapResult extends WorkspaceLayout {
   clusters: ClusterInfo[];
   superclusterRects: Map<string, Rect>;
   superclusters: ClusterInfo[];
+  /** Populated when `opts.aggregateClusterEdges !== false`. */
+  clusterEdges?: ClusterEdge[];
 }
 
 /**
@@ -409,6 +417,23 @@ export interface TreemapResult extends WorkspaceLayout {
 export interface TreemapOptions {
   computeOrthoRoutes?: boolean;
   computeBundledEdges?: boolean;
+  /**
+   * Aggregate file edges into directional cluster-cluster super-edges
+   * (one per (fromCluster, toCluster, kind) bucket) and attach center-to-
+   * center bezier routes. Default `true` because the supergalaxy renderer
+   * depends on it and the cost is negligible (O(E) over file edges).
+   */
+  aggregateClusterEdges?: boolean;
+  /**
+   * Compute per-file centrality metrics (degree always; betweenness gated
+   * on graph size — see `computeWorkspaceMetrics`). Attached to
+   * `WorkspaceLayout.metrics`. Default `true`; degree-only is O(E) and
+   * negligible. The betweenness sub-pass runs exactly for graphs
+   * ≤ `betweennessExactThreshold` (default 500) and samples otherwise.
+   */
+  computeMetrics?: boolean;
+  /** Override the threshold below which Brandes runs exactly. Default 500. */
+  betweennessExactThreshold?: number;
 }
 
 export function treemapLayout(
@@ -543,6 +568,18 @@ export function treemapLayout(
       })()
     : undefined;
 
+  // Directional cluster super-edges — default-on because the supergalaxy
+  // renderer hard-depends on this shape. Shares the fileToCluster map with
+  // bundledEdges when both are enabled; recomputing the same map twice
+  // would be wasteful at large graph sizes.
+  const aggregateEdges = opts.aggregateClusterEdges !== false;
+  let clusterEdges: ClusterEdge[] | undefined;
+  if (aggregateEdges && clusters.length > 0) {
+    const clusterOf = buildFileToClusterMap(graph.files, fileRects, clusters);
+    const raw = aggregateClusterEdges({ fileEdges: graph.fileEdges, clusterOf });
+    clusterEdges = routeClusterEdges(raw, clusters);
+  }
+
   // Total bounds.
   let maxX = 0, maxY = 0;
   for (const r of fileRects.values()) {
@@ -574,6 +611,31 @@ export function treemapLayout(
     commentedLines: new Map<string, Set<number>>(),
   };
 
+  // Metrics pass — O(E) for degree, optional Brandes (exact or sampled).
+  // Gated on a size threshold so repos over the threshold only pay for
+  // degree-based ordering in the HUD. Absent flag defaults to `true` —
+  // the galaxy tier expects `layout.metrics` at least for degree-scaled
+  // dot sizing.
+  const metrics = (opts.computeMetrics ?? true)
+    ? computeWorkspaceMetrics(graph, {
+        computeBetweenness: true,
+        exactBetweennessThreshold: opts.betweennessExactThreshold,
+      })
+    : undefined;
+
+  // SCC + startHere + arch violations computed alongside metrics. All cheap
+  // (O(V+E) each) and live on the same frozen layout snapshot.
+  const sccRes = findStronglyConnectedComponents(graph);
+  const sccs = sccRes.components;
+  const startHere = metrics ? rankStartHere(graph, metrics) : undefined;
+  const archRes = detectArchViolations(graph);
+  const archViolations = archRes.violatingEdgeIds.size > 0
+    ? {
+        edgeIds: Array.from(archRes.violatingEdgeIds),
+        byPair: Object.fromEntries(archRes.byPair),
+      }
+    : undefined;
+
   return {
     fileRects,
     edgeRoutes,
@@ -585,5 +647,10 @@ export function treemapLayout(
     superclusters,
     edgeRoutesOrtho,
     bundledEdges,
+    clusterEdges,
+    metrics,
+    sccs,
+    startHere,
+    archViolations,
   };
 }

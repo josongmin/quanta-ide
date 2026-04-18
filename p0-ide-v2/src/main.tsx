@@ -19,6 +19,7 @@ import { REVIEWS_FEATURES } from "@quanta/app-reviews/seed";
 import { RULES_FEATURES } from "@quanta/app-rules/seed";
 import { SCENARIO_FEATURES } from "@quanta/app-scenario/seed";
 import { POLICY_FEATURES } from "@quanta/app-policy/seed";
+import { DEMO_FEATURES } from "@quanta/app-demo/seed";
 
 // ---------------------------------------------------------------------------
 // Lazy app registrations — each app's Component is code-split via dynamic
@@ -117,6 +118,14 @@ appRegistry.register({
   ),
 });
 
+appRegistry.register({
+  id: "demo",
+  label: "Try demo",
+  Component: lazy(() =>
+    import("@quanta/app-demo").then((m) => ({ default: m.DemoApp })),
+  ),
+});
+
 // Register all app feature manifests eagerly.
 registerFeatureManifests(IDE_FEATURES);
 registerFeatureManifests(AGENT_FEATURES);
@@ -124,6 +133,7 @@ registerFeatureManifests(REVIEWS_FEATURES);
 registerFeatureManifests(RULES_FEATURES);
 registerFeatureManifests(SCENARIO_FEATURES);
 registerFeatureManifests(POLICY_FEATURES);
+registerFeatureManifests(DEMO_FEATURES);
 
 if ("__TAURI_INTERNALS__" in window) {
   document.documentElement.classList.add("is-tauri");

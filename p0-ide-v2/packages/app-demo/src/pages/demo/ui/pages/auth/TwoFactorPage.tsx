@@ -1,18 +1,11 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { ShieldCheck, KeyRound } from "lucide-react";
 import { Brand } from "../../internal/Brand";
+import { OtpInput } from "../../internal/OtpInput";
 
 export function TwoFactorPage() {
   const [mode, setMode] = useState<"totp" | "backup">("totp");
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
-  const refs = useRef<Array<HTMLInputElement | null>>([]);
-
-  const onChange = (i: number, v: string) => {
-    const next = [...code];
-    next[i] = v.slice(-1).replace(/\D/, "");
-    setCode(next);
-    if (next[i] && i < 5) refs.current[i + 1]?.focus();
-  };
   const filled = code.every(Boolean);
 
   return (
@@ -43,21 +36,7 @@ export function TwoFactorPage() {
         </div>
 
         {mode === "totp" ? (
-          <>
-            <div className="demo-otp">
-              {code.map((v, i) => (
-                <input
-                  key={i}
-                  ref={(el) => { refs.current[i] = el; }}
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={v}
-                  onChange={(e) => onChange(i, e.target.value)}
-                  aria-label={`Digit ${i + 1}`}
-                />
-              ))}
-            </div>
-          </>
+          <OtpInput value={code} onChange={setCode} />
         ) : (
           <div className="demo-field">
             <label className="demo-field__label" htmlFor="bk">Backup code</label>

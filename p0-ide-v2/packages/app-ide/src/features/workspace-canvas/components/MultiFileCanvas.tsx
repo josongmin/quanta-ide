@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from "react";
+import { useRef, useCallback, useEffect, useMemo } from "react";
 import "../workspace-canvas.css";
 import { useWorkspaceCanvasOrchestrator } from "../hooks/use-workspace-canvas";
 import { useCanvasViewport } from "../hooks/use-canvas-viewport";
@@ -6,7 +6,8 @@ import { viewportStore } from "../store/viewport-store";
 import { sceneStore, useSceneStore } from "../store/scene-store";
 import { interactionStore, useInteractionStore } from "../store/interaction-store";
 import { settingsStore, useSettingsStore } from "../store/settings-store";
-import { EdgeGeometryCache } from "@quanta/canvas-engine";
+import { EdgeGeometryCache, computeNeighborhood, compileEdgeFilter, createEdgePickIndex, materializeEdgeSet, diffSnapshots } from "@quanta/canvas-engine";
+import type { EdgePickIndex } from "@quanta/canvas-engine";
 import { PixiStage } from "@quanta/canvas-pixi";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import { StreetCard } from "./StreetCard";
@@ -15,6 +16,7 @@ import { Minimap } from "./Minimap";
 import { CanvasControls } from "./CanvasControls";
 import { LoadingOverlay } from "./LoadingOverlay";
 import { DebugHud } from "./DebugHud";
+import { EvidencePanel } from "./EvidencePanel";
 
 interface Props {
   graph: WorkspaceGraph;
@@ -37,10 +39,59 @@ export function MultiFileCanvas({ graph }: Props) {
   const CLICK_SLOP_PX = 5;
   const wasDragGesture = () => dragDistance.current > CLICK_SLOP_PX;
 
-  // Stable callbacks so memoized cards don't re-render when unrelated state
-  // changes. Store references don't change across renders.
+  // Shift-key tracking for the shift+click → path-query shortcut. The click
+  // delivery path (PixiStage.onFileClick, StreetCard.onSelect) only carries
+  // an id, not the originating MouseEvent, so we observe modifier state at
+  // the window level and consult the ref when a click lands.
+  const shiftHeldRef = useRef(false);
+  const metaHeldRef = useRef(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      shiftHeldRef.current = e.shiftKey;
+      metaHeldRef.current = e.metaKey || e.ctrlKey;
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keyup", onKey);
+    };
+  }, []);
+
+  const edgeClickConsumedRef = useRef(false);
+
   const selectFile = useCallback((id: string) => {
     if (wasDragGesture()) return;
+    if (edgeClickConsumedRef.current) {
+      edgeClickConsumedRef.current = false;
+      return;
+    }
+    if (metaHeldRef.current) {
+      const g = sceneStore.getState().graph;
+      const proofs = g?.proofs;
+      if (proofs) {
+        const hit = g.fileEdges.find(
+          e => (e.from === id || e.to === id) && e.evidenceId && proofs[e.evidenceId],
+        );
+        if (hit?.evidenceId) {
+          interactionStore.setInspectedEvidence(hit.evidenceId);
+          return;
+        }
+      }
+    }
+    // Shift+click with an existing selection = (source → target) query.
+    // Plain click always replaces selection and clears any prior query so
+    // the user can return to normal focus-mode behaviour.
+    const prevSel = interactionStore.getState().viewState.selectedFileId;
+    if (shiftHeldRef.current && prevSel && prevSel !== id) {
+      interactionStore.setPathQuery({
+        sourceFileId: prevSel,
+        targetFileId: id,
+        mode: "shortest",
+      });
+      return;
+    }
+    if (interactionStore.getState().pathQuery) interactionStore.clearPathQuery();
     interactionStore.selectFile(id);
   }, []);
   const hoverFile = useCallback((id: string | null) => interactionStore.hoverFile(id), []);
@@ -73,8 +124,98 @@ export function MultiFileCanvas({ graph }: Props) {
   const layoutProgress    = useSceneStore(s => s.layoutProgress);
   const showEdges         = useSettingsStore(s => s.showEdges);
   const edgeKinds         = useSettingsStore(s => s.edgeKinds);
+  const edgeLayers        = useSettingsStore(s => s.edgeLayers);
+  const edgeMinSeverity   = useSettingsStore(s => s.edgeMinSeverity);
   const edgeWidthMul      = useSettingsStore(s => s.edgeWidthMul);
+  const focusMode         = useSettingsStore(s => s.focusMode);
+  const focusHops         = useSettingsStore(s => s.focusHops);
+  const focusDimOpacity   = useSettingsStore(s => s.focusDimOpacity);
+  const showClusterEdges  = useSettingsStore(s => s.showClusterEdges);
+  const showSccBubbles    = useSettingsStore(s => s.showSccBubbles);
+  const showStartHereBadges = useSettingsStore(s => s.showStartHereBadges);
+  const startHereTopN     = useSettingsStore(s => s.startHereTopN);
+  const edgeFilterQuery   = useSettingsStore(s => s.edgeFilterQuery);
+  const highlightArchViolations = useSettingsStore(s => s.highlightArchViolations);
+  const pathQuery         = useInteractionStore(s => s.pathQuery);
+  const pathResult        = useInteractionStore(s => s.pathResult);
+  const temporal          = useInteractionStore(s => s.temporal);
   const edgeCacheRef = useRef(new EdgeGeometryCache());
+  const edgePickIndexRef = useRef<EdgePickIndex>(createEdgePickIndex());
+
+  // Focus target: selection wins over hover (same derivation as getFocusFileId).
+  // Local derivation avoids an extra store round-trip; the inputs are already
+  // subscribed above.
+  const focusId = viewState.selectedFileId ?? viewState.hoveredFileId ?? null;
+  // Memo keyed on graph edges + focus state so panning/zooming doesn't re-BFS.
+  // BFS is O(V+E) which is cheap but rebuilding the undirected adjacency every
+  // frame would be wasteful at 10k+ edges.
+  const focusEdgeIds = useMemo<ReadonlySet<string> | null>(() => {
+    if (focusMode !== "on" || !focusId || !graph.fileEdges) return null;
+    return computeNeighborhood({ fileEdges: graph.fileEdges }, focusId, focusHops).edges;
+  }, [graph.fileEdges, focusId, focusHops, focusMode]);
+  // Path-query wins over selection focus. We could intersect the two, but a
+  // non-empty intersection frequently collapses to a tiny set that hides the
+  // query answer — path-wins keeps the user's explicit query dominant.
+  const pathEdgeIds = useMemo<ReadonlySet<string> | null>(() => {
+    if (!pathQuery || !pathResult || pathResult.paths.length === 0) return null;
+    const out = new Set<string>();
+    for (const p of pathResult.paths) for (const id of p.edgeIds) out.add(id);
+    return out;
+  }, [pathQuery, pathResult]);
+  const edgeFocus = pathEdgeIds
+    ? { edgeIds: pathEdgeIds, dimAlpha: focusDimOpacity }
+    : focusEdgeIds
+      ? { edgeIds: focusEdgeIds, dimAlpha: focusDimOpacity }
+      : undefined;
+
+  // Compile the live DSL query each time it changes. Memo'd on the raw
+  // string so typing re-compiles at 60fps is still cheap (tokenizer + parser
+  // run in single-digit microseconds on a ~40-char query).
+  const edgePredicate = useMemo(() => {
+    const res = compileEdgeFilter(edgeFilterQuery);
+    return res.predicate;
+  }, [edgeFilterQuery]);
+
+  // Arch violations surface from layout; wrap as Set for O(1) renderer lookup.
+  const edgeViolations = useMemo<ReadonlySet<string> | undefined>(() => {
+    if (!highlightArchViolations) return undefined;
+    const v = layout?.archViolations?.edgeIds;
+    return v && v.length > 0 ? new Set(v) : undefined;
+  }, [highlightArchViolations, layout?.archViolations]);
+
+  // ── Temporal slider / diff mode ───────────────────────────────────
+  // Scrubbing changes `snapshotIndex` / `diffFrom` / `diffTo`; we keep the
+  // derived edge sets memoised so dragging the slider at 60fps doesn't
+  // re-walk the delta chain or diff sets on every viewport tick.
+  const temporalEdgeSet = useMemo<ReadonlySet<string> | undefined>(() => {
+    if (temporal.mode !== "live") return undefined;
+    const h = graph.history;
+    if (!h || h.snapshots.length === 0) return undefined;
+    return materializeEdgeSet(h, temporal.snapshotIndex);
+  }, [graph.history, temporal.mode, temporal.snapshotIndex]);
+
+  const diffSets = useMemo<{ added?: ReadonlySet<string>; removed?: ReadonlySet<string> }>(() => {
+    if (temporal.mode !== "diff") return {};
+    const h = graph.history;
+    if (!h || h.snapshots.length === 0) return {};
+    const d = diffSnapshots(h, temporal.diffFrom, temporal.diffTo);
+    return { added: d.added, removed: d.removed };
+  }, [graph.history, temporal.mode, temporal.diffFrom, temporal.diffTo]);
+
+  // Live-mode auto-advance — `playing` toggles a setInterval that bumps the
+  // index every 1200ms and wraps at the end. We pause when the tab is
+  // backgrounded via the visibility API so a play-then-forget session
+  // doesn't pin the main thread.
+  useEffect(() => {
+    if (temporal.mode !== "live" || !temporal.playing) return;
+    const count = graph.history?.snapshots.length ?? 0;
+    if (count < 2) return;
+    const id = window.setInterval(() => {
+      const cur = interactionStore.getState().temporal.snapshotIndex;
+      interactionStore.setSnapshotIndex((cur + 1) % count);
+    }, 1200);
+    return () => window.clearInterval(id);
+  }, [temporal.mode, temporal.playing, graph.history]);
 
   // Rebuild edge cache when layout changes
   useEffect(() => {
@@ -85,6 +226,15 @@ export function MultiFileCanvas({ graph }: Props) {
     );
     // intentionally exclude visibleScene.edges — rebuild on layout change only
   }, [layout]);
+
+  useEffect(() => {
+    if (!layout) {
+      edgePickIndexRef.current.clear();
+      return;
+    }
+    const edges = visibleScene?.edges ?? [];
+    edgePickIndexRef.current.build(edges, layout);
+  }, [layout, visibleScene?.edges]);
 
   // ResizeObserver for container size — also triggers initial fit if layout
   // already arrived while container was still 0×0 (worker is fast).
@@ -203,6 +353,87 @@ export function MultiFileCanvas({ graph }: Props) {
     if (layout) fitToGraph(layout.totalBounds.w, layout.totalBounds.h);
   }, [fitToGraph, layout]);
 
+  // Container-level double-click: toggle between "zoom to selected file"
+  // (or cluster) and "fit-to-graph" (fold back out). Mirrors the cluster
+  // click behaviour but at the file level and with an explicit gesture so
+  // plain clicks stay reserved for selection.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onDblClick = () => {
+      const lay = sceneStore.getState().layout;
+      const sel = interactionStore.getState().viewState.selectedFileId;
+      if (!lay) return;
+      const vp = viewportStore.getState().viewport;
+      let rect: { x: number; y: number; w: number; h: number } | undefined;
+      if (sel) rect = lay.fileRects.get(sel);
+      if (!rect) rect = lay.totalBounds;
+      if (!rect || rect.w <= 0 || rect.h <= 0 || vp.width <= 0 || vp.height <= 0) return;
+      const FILL = sel ? 0.85 : 0.9;
+      const rawScale = Math.min(vp.width / rect.w, vp.height / rect.h) * FILL;
+      const scale = Math.min(2.5, Math.max(0.001, rawScale));
+      const cx = rect.x + rect.w / 2;
+      const cy = rect.y + rect.h / 2;
+      const x = vp.width / 2 - cx * scale;
+      const y = vp.height / 2 - cy * scale;
+      viewportStore.setViewport({ ...vp, x, y, scale });
+    };
+    el.addEventListener("dblclick", onDblClick);
+    return () => el.removeEventListener("dblclick", onDblClick);
+  }, []);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onMove = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      const vp = viewportStore.getState().viewport;
+      if (vp.scale <= 0) return;
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const worldX = (cx - vp.x) / vp.scale;
+      const worldY = (cy - vp.y) / vp.scale;
+      const tol = 8 / vp.scale;
+      const hit = edgePickIndexRef.current.pickAt(worldX, worldY, tol);
+      const currentHover = interactionStore.getState().viewState.hoveredEdgeId;
+      const nextId = hit?.id ?? null;
+      if (currentHover !== nextId) interactionStore.hoverEdge(nextId);
+    };
+    const onClick = (e: MouseEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (wasDragGesture()) return;
+      const rect = el.getBoundingClientRect();
+      const vp = viewportStore.getState().viewport;
+      if (vp.scale <= 0) return;
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const worldX = (cx - vp.x) / vp.scale;
+      const worldY = (cy - vp.y) / vp.scale;
+      const tol = 8 / vp.scale;
+      const hit = edgePickIndexRef.current.pickAt(worldX, worldY, tol);
+      if (!hit) return;
+      const g = sceneStore.getState().graph;
+      const proofs = g?.proofs;
+      if (hit.evidenceId && proofs && proofs[hit.evidenceId]) {
+        edgeClickConsumedRef.current = true;
+        interactionStore.setInspectedEvidence(hit.evidenceId);
+      }
+    };
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("click", onClick, true);
+    const onLeave = () => {
+      if (interactionStore.getState().viewState.hoveredEdgeId !== null) {
+        interactionStore.hoverEdge(null);
+      }
+    };
+    el.addEventListener("mouseleave", onLeave);
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("click", onClick, true);
+      el.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
   // Cluster click → zoom-to-fit that cluster's rect. Reads layout + viewport
   // directly from the owning sub-stores at click time so this callback stays
   // referentially stable (important: PixiStage stores the ref inside a
@@ -287,7 +518,19 @@ export function MultiFileCanvas({ graph }: Props) {
           edgeCache={edgeCacheRef.current}
           showEdges={showEdges}
           edgeKinds={edgeKinds}
+          edgeLayers={edgeLayers}
+          edgeMinSeverity={edgeMinSeverity}
           edgeWidthMul={edgeWidthMul}
+          edgeFocus={edgeFocus}
+          showClusterEdges={showClusterEdges}
+          showSccBubbles={showSccBubbles}
+          showStartHereBadges={showStartHereBadges}
+          startHereTopN={startHereTopN}
+          edgePredicate={edgePredicate}
+          edgeViolations={edgeViolations}
+          temporalEdgeSet={temporalEdgeSet}
+          diffAdded={diffSets.added}
+          diffRemoved={diffSets.removed}
           onFileClick={selectFile}
           onFileHover={hoverFile}
           onClusterClick={onClusterClick}
@@ -339,6 +582,7 @@ export function MultiFileCanvas({ graph }: Props) {
         onToggleEdges={toggleEdges}
       />
       <DebugHud />
+      <EvidencePanel />
     </div>
   );
 }

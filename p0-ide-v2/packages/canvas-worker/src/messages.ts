@@ -5,6 +5,8 @@ import type {
   BezierRoute,
   ClusterMeta,
   Rect,
+  FileMetrics,
+  WorkspaceMetrics,
 } from "@quanta/canvas-engine";
 
 // ── Requests (main → worker) ─────────────────────────────────────
@@ -73,6 +75,27 @@ export interface SerializedLayout {
   /** Parent boxes of clusters for the `universe` LOD tier. */
   superclusterRects?: [string, Rect][];
   superclusters?: ClusterMeta[];
+  /** Optional centrality metrics — Map<string,FileMetrics> flattened. */
+  metrics?: SerializedMetrics;
+  /** Optional SCC components (cycles). Plain nested string arrays — cheap to clone. */
+  sccs?: readonly (readonly string[])[];
+  /** Optional start-here ranking. Plain data — structured-clone-safe. */
+  startHere?: readonly import("@quanta/canvas-engine").StartHereEntry[];
+  /** Optional arch-violation edge ids + pair counts. */
+  archViolations?: {
+    edgeIds: readonly string[];
+    byPair: Readonly<Record<string, number>>;
+  };
+}
+
+export interface SerializedMetrics {
+  perFile: [string, FileMetrics][];
+  topByDegree: string[];
+  topByBetweenness: string[];
+  fileCount: number;
+  edgeCount: number;
+  computeMs: number;
+  betweennessSampled: boolean;
 }
 
 export interface SerializedAggregates {
@@ -100,6 +123,18 @@ export function serializeLayout(layout: WorkspaceLayout): SerializedLayout {
   if (layout.superclusters) {
     base.superclusters = layout.superclusters;
   }
+  if (layout.metrics) {
+    base.metrics = serializeMetrics(layout.metrics);
+  }
+  if (layout.sccs) {
+    base.sccs = layout.sccs;
+  }
+  if (layout.startHere) {
+    base.startHere = layout.startHere;
+  }
+  if (layout.archViolations) {
+    base.archViolations = layout.archViolations;
+  }
   return base;
 }
 
@@ -113,6 +148,34 @@ export function deserializeLayout(s: SerializedLayout): WorkspaceLayout {
     clusters: s.clusters,
     superclusterRects: s.superclusterRects ? new Map(s.superclusterRects) : undefined,
     superclusters: s.superclusters,
+    metrics: s.metrics ? deserializeMetrics(s.metrics) : undefined,
+    sccs: s.sccs,
+    startHere: s.startHere,
+    archViolations: s.archViolations,
+  };
+}
+
+export function serializeMetrics(m: WorkspaceMetrics): SerializedMetrics {
+  return {
+    perFile: Array.from(m.perFile.entries()),
+    topByDegree: m.topByDegree,
+    topByBetweenness: m.topByBetweenness,
+    fileCount: m.fileCount,
+    edgeCount: m.edgeCount,
+    computeMs: m.computeMs,
+    betweennessSampled: m.betweennessSampled,
+  };
+}
+
+export function deserializeMetrics(s: SerializedMetrics): WorkspaceMetrics {
+  return {
+    perFile: new Map(s.perFile),
+    topByDegree: s.topByDegree,
+    topByBetweenness: s.topByBetweenness,
+    fileCount: s.fileCount,
+    edgeCount: s.edgeCount,
+    computeMs: s.computeMs,
+    betweennessSampled: s.betweennessSampled,
   };
 }
 

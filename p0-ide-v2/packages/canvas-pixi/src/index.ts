@@ -4,3 +4,4 @@ export { GalaxyNodeRenderer } from "./renderers/GalaxyNodeRenderer";
 export { CityNodeRenderer } from "./renderers/CityNodeRenderer";
 export { EdgeStaticRenderer } from "./renderers/EdgeStaticRenderer";
 export { EdgeOverlayRenderer } from "./renderers/EdgeOverlayRenderer";
+export { ClusterEdgeRenderer } from "./renderers/ClusterEdgeRenderer";

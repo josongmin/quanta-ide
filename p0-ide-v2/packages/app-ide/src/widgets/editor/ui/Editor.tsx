@@ -8,10 +8,15 @@ import { ORCHESTRATOR, ORCHESTRATOR_SOURCE } from "@quanta/app-ide/entities/file
 import { focusStore, useFocusStore } from "@quanta/app-ide/stores/focus-store";
 import { symbolHover, SymbolPopup, type HoverAnchor } from "@quanta/app-ide/features/editor-symbol-hover";
 import { callSiteHover, CallSitePopup, type CallSiteAnchor } from "@quanta/app-ide/features/editor-call-site-hover";
-import { engineGutter } from "@quanta/app-ide/features/editor-gutter-marks";
+import {
+  engineGutter,
+  GutterPopup,
+  GLYPH_META,
+  type GutterHoverAnchor,
+} from "@quanta/app-ide/features/editor-gutter-marks";
 import { fnHeaders } from "@quanta/app-ide/features/editor-fn-header";
 import { fileHeader } from "@quanta/app-ide/features/editor-file-header";
-import { RiskMinimap } from "@quanta/app-ide/features/editor-risk-minimap";
+import { RiskMinimap, deriveMinimap } from "@quanta/app-ide/features/editor-risk-minimap";
 import { CanvasView } from "@quanta/app-ide/features/editor-canvas";
 import { SecurityRulesView } from "@quanta/app-ide/features/security-rules";
 import "./editor.css";
@@ -89,6 +94,7 @@ export function Editor() {
 
   const [symAnchor, setSymAnchor] = useState<HoverAnchor | null>(null);
   const [callAnchor, setCallAnchor] = useState<CallSiteAnchor | null>(null);
+  const [gutterAnchor, setGutterAnchor] = useState<GutterHoverAnchor | null>(null);
   const dismissTimer = useRef<number | null>(null);
 
   const cancelDismiss = () => {
@@ -102,15 +108,43 @@ export function Editor() {
     dismissTimer.current = window.setTimeout(() => {
       setSymAnchor(null);
       setCallAnchor(null);
+      setGutterAnchor(null);
       dismissTimer.current = null;
     }, 140);
+  };
+
+  const activateGutter = (glyph: GutterHoverAnchor["glyph"], line: number) => {
+    const meta = GLYPH_META[glyph];
+    if (meta.mode === "flow") {
+      const path = file.taintPaths.find((p) => p.steps.some((s) => s.line === line)) ?? file.taintPaths[0];
+      if (path) focusStore.openFlow(path.id);
+      else focusStore.setMode("flow");
+    } else {
+      focusStore.setMode(meta.mode);
+    }
+    focusStore.jumpTo(line);
+    setGutterAnchor(null);
+    setSymAnchor(null);
+    setCallAnchor(null);
   };
 
   const extensions = useMemo(
     () => [
       python(),
       EditorView.lineWrapping,
-      engineGutter(file.gutter),
+      engineGutter(file.gutter, {
+        onHover: (a) => {
+          if (a) {
+            cancelDismiss();
+            setGutterAnchor(a);
+            setSymAnchor(null);
+            setCallAnchor(null);
+          } else {
+            scheduleDismiss();
+          }
+        },
+        onActivate: activateGutter,
+      }),
       lineNumbers(),
       fileHeader(file),
       fnHeaders(file.functionHeaders),
@@ -207,7 +241,10 @@ export function Editor() {
               className="editor__cm"
             />
             <RiskMinimap
-              points={file.minimap}
+              // SOTA-aligned: gutter[] is the source of truth, file.minimap
+              // adds auxiliary blast/cpx hot-spots on top. Same-line collisions
+              // resolve to the higher severity. See `deriveMinimap` contract.
+              points={deriveMinimap(file.gutter, file.minimap)}
               totalLines={ORCHESTRATOR_SOURCE.split("\n").length}
               onJump={jumpTo}
             />
@@ -262,6 +299,14 @@ export function Editor() {
           onMouseEnter={cancelDismiss}
           onMouseLeave={scheduleDismiss}
           onOpenFlow={(pathId) => openFlow(pathId)}
+        />
+      )}
+      {gutterAnchor && (
+        <GutterPopup
+          anchor={gutterAnchor}
+          onMouseEnter={cancelDismiss}
+          onMouseLeave={scheduleDismiss}
+          onActivate={() => activateGutter(gutterAnchor.glyph, gutterAnchor.line)}
         />
       )}
     </main>

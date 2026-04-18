@@ -6,10 +6,13 @@ export type {
   EdgeGeometryBatch,
   SerializedLayout,
   SerializedAggregates,
+  SerializedMetrics,
 } from "./messages";
 export {
   serializeLayout,
   deserializeLayout,
   serializeAggregates,
   deserializeAggregates,
+  serializeMetrics,
+  deserializeMetrics,
 } from "./messages";

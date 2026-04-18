@@ -24,6 +24,7 @@ export default defineConfig({
       "@quanta/app-settings": path.resolve(__dirname, "packages/app-settings/src"),
       "@quanta/app-home": path.resolve(__dirname, "packages/app-home/src"),
       "@quanta/app-policy": path.resolve(__dirname, "packages/app-policy/src"),
+      "@quanta/app-demo": path.resolve(__dirname, "packages/app-demo/src"),
       "@quanta/canvas-engine": path.resolve(__dirname, "packages/canvas-engine/src"),
       "@quanta/canvas-pixi": path.resolve(__dirname, "packages/canvas-pixi/src"),
       "@quanta/canvas-worker": path.resolve(__dirname, "packages/canvas-worker/src"),

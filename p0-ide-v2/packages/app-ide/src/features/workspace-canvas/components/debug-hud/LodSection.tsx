@@ -1,4 +1,4 @@
-import { LOD_TIERS, getTierConfig, resolveEffectiveTier } from "@quanta/canvas-engine";
+import { getTierConfig, resolveEffectiveTier } from "@quanta/canvas-engine";
 import { useInteractionStore } from "../../store/interaction-store";
 import { useSceneStore } from "../../store/scene-store";
 import { useViewportStore } from "../../store/viewport-store";

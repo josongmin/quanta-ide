@@ -4,7 +4,7 @@ import { buildSceneQuery, isClusterView, isSuperclusterView } from "@quanta/canv
 import { workspaceCanvasStore } from "../store/workspace-canvas-store";
 import { useViewportStore } from "../store/viewport-store";
 import { sceneStore, useSceneStore } from "../store/scene-store";
-import { useInteractionStore } from "../store/interaction-store";
+import { interactionStore, useInteractionStore } from "../store/interaction-store";
 import { useSettingsStore } from "../store/settings-store";
 import { useLodSync } from "./use-lod-sync";
 import { requestLayout, requestAggregates } from "./use-worker-bridge";
@@ -23,6 +23,9 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
   //    scene swap + selection reset happen atomically (one facade emit).
   useEffect(() => {
     workspaceCanvasStore.setGraph(graph);
+    // Pathfinding store needs the edges too; inject so the setter can solve
+    // synchronously without pulling the whole graph through a selector tree.
+    interactionStore.setPathGraph({ fileEdges: graph.fileEdges });
     // Trigger initial grid layout immediately (fast), then ELK (slow)
     requestLayout(graph, "grid-then-elk");
     requestAggregates(graph);

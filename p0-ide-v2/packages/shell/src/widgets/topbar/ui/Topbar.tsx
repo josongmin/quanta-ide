@@ -9,7 +9,7 @@ import "./topbar.css";
 /** Show floating title when tab is this narrow (px), or when the label is truncated. */
 const TAB_TITLE_TIP_NARROW_PX = 128;
 
-export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings";
+export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "demo";
 export interface Tab { id: string; app: AppKind; label: string; }
 
 const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
@@ -23,6 +23,7 @@ const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   reviews: CodeIcon,
   policy: CodeIcon,
   settings: SettingsTabIcon,
+  demo: DemoTabIcon,
 };
 
 interface TopbarProps {
@@ -307,6 +308,14 @@ function SettingsTabIcon() {
     <svg {...SVG} width="13" height="13">
       <circle cx="12" cy="12" r="2.5" />
       <path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12" />
+    </svg>
+  );
+}
+function DemoTabIcon() {
+  return (
+    <svg {...SVG} width="13" height="13">
+      <path d="M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4L12 3z" />
+      <path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z" />
     </svg>
   );
 }

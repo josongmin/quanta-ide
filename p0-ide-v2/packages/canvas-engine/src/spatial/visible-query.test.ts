@@ -27,6 +27,7 @@ function makeEdge(from: string, to: string): FileEdge {
     from,
     to,
     kind: "import",
+    layer: "structural",
     weight: 1,
   };
 }

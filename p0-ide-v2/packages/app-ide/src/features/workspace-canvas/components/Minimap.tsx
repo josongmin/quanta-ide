@@ -1,11 +1,19 @@
-import { memo, useMemo } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import type { WorkspaceLayout, Viewport } from "@quanta/canvas-engine";
 import { useWorkspaceCanvas } from "../store/workspace-canvas-store";
+import { useSceneStore } from "../store/scene-store";
+import { settingsStore, useSettingsStore } from "../store/settings-store";
+import { computeRiskHeatmap, type HeatCell } from "../lib/heatmap";
 
 interface Props {
   layout: WorkspaceLayout | null;
   viewport: Viewport;
 }
+
+const MINIMAP_W = 180;
+const MINIMAP_H = 110;
+const HEAT_PX_PER_CELL = 8;
+const HEAT_MAX_OPACITY = 0.55;
 
 // Static rect grid for the file cards. Memoized on layout only — panning
 // the main canvas must NOT re-render 5000+ <rect> elements (that reconciliation
@@ -81,10 +89,94 @@ const SuperclusterRects = memo(function SuperclusterRects({ layout }: { layout: 
   );
 });
 
+// Canvas-backed heatmap layer. SVG was viable at ~200 cells but a 24×40
+// grid = 960 rects; SVG reconciliation + paint for that count on every
+// layout change is measurably slower than a single <canvas> fill loop,
+// and canvas also lets us paint with partial alpha cheaply.
+const HeatmapLayer = memo(function HeatmapLayer({
+  cells,
+  tb,
+}: {
+  cells: HeatCell[];
+  tb: { x: number; y: number; w: number; h: number };
+}) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    // Devicepixel-scaled backing store for crisp cells on retina. We size
+    // the CSS box to minimap dims and multiply the backing store by DPR.
+    const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+    const cssW = MINIMAP_W;
+    const cssH = MINIMAP_H;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (cells.length === 0 || tb.w <= 0 || tb.h <= 0) return;
+
+    // Fit minimap content the same way the SVG does (xMidYMid meet),
+    // so the heatmap aligns pixel-for-pixel with the rect overlay.
+    const sx = (cssW * dpr) / tb.w;
+    const sy = (cssH * dpr) / tb.h;
+    const s = Math.min(sx, sy);
+    const offX = ((cssW * dpr) - tb.w * s) * 0.5;
+    const offY = ((cssH * dpr) - tb.h * s) * 0.5;
+
+    ctx.globalAlpha = HEAT_MAX_OPACITY;
+    for (const c of cells) {
+      const px = (c.x - tb.x) * s + offX;
+      const py = (c.y - tb.y) * s + offY;
+      const pw = c.w * s;
+      const ph = c.h * s;
+      ctx.fillStyle = heatColor(c.heat);
+      ctx.fillRect(px, py, pw + 0.5, ph + 0.5);
+    }
+    ctx.globalAlpha = 1;
+
+    return () => {
+      // Explicit clear-on-unmount — React will drop the element, but on
+      // hot-reload we've seen stale backing stores flash for a frame.
+      const ctx2 = canvas.getContext("2d");
+      ctx2?.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [cells, tb.x, tb.y, tb.w, tb.h]);
+
+  return <canvas ref={ref} className="ws-minimap__heat" aria-hidden="true" />;
+});
+
+// transparent → amber → red gradient, keyed on heat 0..1. Using HSL so
+// the ramp is perceptually smooth without shipping a lookup table: hue
+// sweeps from amber (~45) at low heat down to red (0) at peak, saturation
+// stays saturated, lightness dips slightly as heat climbs.
+function heatColor(heat: number): string {
+  const hue = heat <= 0.5 ? 45 : 45 * (1 - (heat - 0.5) / 0.5);
+  const light = 50 - heat * 5;
+  return `hsl(${hue.toFixed(1)}, 95%, ${light}%)`;
+}
+
 export function Minimap({ layout, viewport }: Props) {
   // Subscribe directly to LOD so the minimap can swap between file-level
   // and cluster-level rendering without prop-drilling from MultiFileCanvas.
   const lod = useWorkspaceCanvas(s => s.lod);
+  const graph = useSceneStore(s => s.graph);
+  const showHeatmap = useSettingsStore(s => s.showHeatmap);
+
+  // Grid resolution scales with minimap pixel size — roughly 1 cell per
+  // ~8px so the heatmap reads as a density field, not a pixelated block.
+  const gridCols = Math.max(4, Math.round(MINIMAP_W / HEAT_PX_PER_CELL));
+  const gridRows = Math.max(4, Math.round(MINIMAP_H / HEAT_PX_PER_CELL));
+
+  const heatCells = useMemo(() => {
+    if (!layout || !graph || !showHeatmap) return [];
+    return computeRiskHeatmap(layout, graph, gridCols, gridRows);
+  }, [layout, graph, gridCols, gridRows, showHeatmap]);
 
   if (!layout || layout.fileRects.size === 0) return null;
   const tb = layout.totalBounds;
@@ -106,9 +198,10 @@ export function Minimap({ layout, viewport }: Props) {
 
   return (
     <div className="ws-minimap">
+      {showHeatmap && <HeatmapLayer cells={heatCells} tb={tb} />}
       <svg
-        width={180}
-        height={110}
+        width={MINIMAP_W}
+        height={MINIMAP_H}
         viewBox={`${tb.x} ${tb.y} ${tb.w} ${tb.h}`}
         preserveAspectRatio="xMidYMid meet"
       >
@@ -124,6 +217,14 @@ export function Minimap({ layout, viewport }: Props) {
           strokeWidth={strokeW * 1.5}
         />
       </svg>
+      <button
+        type="button"
+        className={`ws-minimap__chip${showHeatmap ? " is-on" : ""}`}
+        onClick={() => settingsStore.setShowHeatmap(!showHeatmap)}
+        title="toggle risk heatmap"
+      >
+        heat
+      </button>
     </div>
   );
 }

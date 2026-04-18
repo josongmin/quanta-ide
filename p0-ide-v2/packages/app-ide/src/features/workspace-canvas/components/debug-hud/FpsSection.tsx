@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { estimateUniverseMemory, type UniverseMemorySnapshot } from "../../lib/estimate-memory";
 
 // Rolling frame-time window for p50/p95. 120 samples ≈ 2s at 60fps which is
 // the right horizon for "how smooth does it feel right now" without being
@@ -107,6 +108,7 @@ export function FpsSection() {
   const [drawCalls, setDrawCalls] = useState<number | null>(null);
   const [mem, setMem] = useState<PixiMem>({ textures: null, buffers: null, batches: null });
   const [heap, setHeap] = useState<HeapStats | null>(null);
+  const [universe, setUniverse] = useState<UniverseMemorySnapshot | null>(null);
 
   const frameCount = useRef(0);
   const lastSample = useRef(performance.now());
@@ -132,6 +134,7 @@ export function FpsSection() {
         setDrawCalls(stats.drawCalls);
         setMem(stats.mem);
         setHeap(readHeap());
+        setUniverse(estimateUniverseMemory());
       }
       raf = requestAnimationFrame(tick);
     };
@@ -178,6 +181,24 @@ export function FpsSection() {
           <span className="ws-debug__k">heap</span>
           <span className="ws-debug__v" title={`${fmtBytes(heap.used)} / ${fmtBytes(heap.limit)}`}>
             {fmtBytes(heap.used)} ({((heap.used / heap.limit) * 100).toFixed(0)}%)
+          </span>
+        </>
+      )}
+
+      {universe && universe.breakdown.total > 0 && (
+        <>
+          <span className="ws-debug__k" title="estimated bytes owned by Code Universe data structures (graph+layout+ground). Excludes GPU buffers and worker heaps.">universe</span>
+          <span
+            className="ws-debug__v"
+            title={
+              `graph:  ${fmtBytes(universe.breakdown.graph)}\n` +
+              `layout: ${fmtBytes(universe.breakdown.layout)}\n` +
+              `scenes: ${fmtBytes(universe.breakdown.visibleScene + universe.breakdown.clusterScene + universe.breakdown.superclusterScene)}\n` +
+              `ground: ${fmtBytes(universe.breakdown.groundData)}  (${universe.counts.groundEntries} files)\n` +
+              (heap ? `≈ ${((universe.breakdown.total / heap.used) * 100).toFixed(0)}% of heap` : "")
+            }
+          >
+            {fmtBytes(universe.breakdown.total)}
           </span>
         </>
       )}

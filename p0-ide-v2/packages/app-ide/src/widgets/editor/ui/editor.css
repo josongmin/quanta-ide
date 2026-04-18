@@ -536,6 +536,15 @@
 .cm-gm:hover { opacity: 1; }
 .cm-activeLineGutter .cm-gm,
 .cm-engine-gutter .cm-gutterElement:hover .cm-gm { opacity: 1; }
+.cm-gm[role="button"] { cursor: pointer; }
+.cm-gm[role="button"]:focus { outline: none; }
+.cm-gm[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.cm-gm[role="button"]:hover {
+  background: color-mix(in srgb, var(--fg) 8%, transparent);
+}
 
 .cm-gm svg {
   width: 12px;
@@ -574,6 +583,67 @@
 
 .cm-gm:hover,
 .cm-activeLineGutter .cm-gm { color: var(--fg); }
+
+/* ── Gutter glyph popover (L2 hover over L1 gutter) ── */
+.gmtip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+  padding: var(--space-2) var(--space-3);
+}
+.gmtip__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+.gmtip__glyph {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  display: inline-block;
+  border-radius: 50%;
+  background: currentColor;
+}
+.gmtip--info  .gmtip__glyph { color: var(--fg-muted); }
+.gmtip--warn  .gmtip__glyph { color: var(--warn); }
+.gmtip--danger .gmtip__glyph { color: var(--danger); }
+.gmtip--warn  { border-color: color-mix(in srgb, var(--warn) 35%, var(--border)); }
+.gmtip--danger { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+.gmtip__detail {
+  color: var(--fg);
+  line-height: var(--lh-normal);
+}
+.gmtip__why {
+  display: flex;
+  gap: var(--space-1h);
+  align-items: baseline;
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+.gmtip__action {
+  align-self: flex-start;
+  margin-top: var(--space-0h);
+  padding: var(--space-0h) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.gmtip__action:hover {
+  background: var(--bg-muted);
+  border-color: var(--fg-muted);
+}
+.gmtip__action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 
 /* ── Inline chip bar (block widget above each notable fn) ──
    Outer wrapper owns ALL spacing (vertical padding + horizontal gutter

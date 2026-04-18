@@ -29,11 +29,15 @@ interface FileNode {
   functions: FunctionBlock[];
 }
 
+// Mirrors the subset of @quanta/canvas-engine `FileEdge` we emit from the
+// dev-server scanner. Only `import` edges come out of static import parsing
+// (no taint/blast/impact synthesis here), so `layer` is always "structural".
 interface FileEdge {
   id: string;
   from: string;
   to: string;
-  kind: "import" | "taint-propagation" | "blast";
+  kind: "import";
+  layer: "structural";
   weight: number;
 }
 
@@ -382,7 +386,7 @@ function resolveTsImports(
     }
     if (target && target !== fileId && !seen.has(target)) {
       seen.add(target);
-      edges.push({ id: `e:${fileId}→${target}`, from: fileId, to: target, kind: "import", weight: 1 });
+      edges.push({ id: `e:${fileId}→${target}`, from: fileId, to: target, kind: "import", layer: "structural", weight: 1 });
     }
   }
   return edges;
@@ -684,7 +688,7 @@ export async function scanRepo(
         droppedEdges++;
         continue;
       }
-      fileEdges.push({ id: `e:${id}→${target}`, from: id, to: target, kind: "import", weight: 1 });
+      fileEdges.push({ id: `e:${id}→${target}`, from: id, to: target, kind: "import", layer: "structural", weight: 1 });
     }
   }
 

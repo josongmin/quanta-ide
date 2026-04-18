@@ -101,5 +101,6 @@ export interface ViewState {
   selectedFileId: string | null;
   hoveredFileId: string | null;
   selectedEdgeId: string | null;
+  hoveredEdgeId: string | null;
   focusedNodeId: string | null;
 }

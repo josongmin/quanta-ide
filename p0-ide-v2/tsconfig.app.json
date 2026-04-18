@@ -44,6 +44,8 @@
       "@quanta/app-home/*": ["packages/app-home/src/*"],
       "@quanta/app-policy": ["packages/app-policy/src"],
       "@quanta/app-policy/*": ["packages/app-policy/src/*"],
+      "@quanta/app-demo": ["packages/app-demo/src"],
+      "@quanta/app-demo/*": ["packages/app-demo/src/*"],
       "@quanta/ui-kit": ["packages/ui-kit/src"],
       "@quanta/ui-kit/*": ["packages/ui-kit/src/*"],
       "@quanta/canvas-engine": ["packages/canvas-engine/src"],
