@@ -1,12 +1,13 @@
 import path from "path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { repoScannerPlugin } from "./vite-plugins/repo-scanner";
 
 const isTauri = Boolean(process.env.TAURI_ENV_PLATFORM);
 
 export default defineConfig({
   base: isTauri ? "/" : "/ide/",
-  plugins: [react()],
+  plugins: [react(), repoScannerPlugin()],
   resolve: {
     alias: {
       "@quanta/domain-types": path.resolve(__dirname, "packages/domain-types/src"),

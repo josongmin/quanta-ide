@@ -19,14 +19,17 @@
   cursor: default;
 }
 
-/* Shared transform layer for DOM nodes */
+/* Shared transform layer for DOM nodes.
+   width/height 100% so absolute children aren't affected by a 0×0 layout box.
+   No `contain: layout` — it interferes with transformed absolute descendants. */
 .workspace-canvas__dom-layer {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 0;
-  height: 0;
-  contain: layout style;
+  inset: 0;
+  pointer-events: none;
+}
+
+.workspace-canvas__dom-layer > * {
+  pointer-events: auto;
 }
 
 /* ── File card (Galaxy / City placeholder) ──────────────────────── */

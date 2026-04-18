@@ -66,31 +66,32 @@ export class GalaxyNodeRenderer {
 
       const fillColor = riskFill(file.riskScore);
       const borderColor = riskBorder(file.riskScore);
-      const shadowAlpha = isSelected ? 0.35 : isHovered ? 0.25 : 0.15;
+      const strokeW = invScale; // scale-independent: always ≥1 screen pixel
+      const fillAlpha = isSelected ? 1.0 : isHovered ? 0.95 : 0.88;
 
       // Background fill
       this.bgGfx
         .roundRect(rect.x, rect.y, rect.w, rect.h, 6)
-        .fill({ color: fillColor, alpha: shadowAlpha + 0.15 });
+        .fill({ color: fillColor, alpha: fillAlpha });
 
       // Border stroke
       this.bgGfx
         .roundRect(rect.x, rect.y, rect.w, rect.h, 6)
         .stroke({
           color: isSelected ? 0x4f46e5 : borderColor,
-          width: isSelected ? 2 : 1,
-          alpha: isSelected ? 0.9 : 0.6,
+          width: isSelected ? strokeW * 2 : strokeW,
+          alpha: isSelected ? 1.0 : 0.85,
         });
 
       // Header bar (rounded top)
       this.bgGfx
         .roundRect(rect.x, rect.y, rect.w, 28 * invScale, 6)
-        .fill({ color: borderColor, alpha: 0.25 });
+        .fill({ color: borderColor, alpha: 0.75 });
 
       // Fill the lower portion of header to square off bottom of header bar
       this.bgGfx
         .rect(rect.x, rect.y + 12 * invScale, rect.w, 16 * invScale)
-        .fill({ color: borderColor, alpha: 0.15 });
+        .fill({ color: borderColor, alpha: 0.55 });
 
       // File name label
       const nameLabel = new Text({

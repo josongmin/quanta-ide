@@ -78,7 +78,19 @@ function subscribe(listener: () => void): () => void {
 
 const actions = {
   setGraph(graph: WorkspaceGraph) {
-    state = { ...state, graph };
+    // Reset derived state when the graph changes — the old layout/visibleScene
+    // reference the previous graph's file IDs and would render incorrectly
+    // (or crash spatial queries) against the new graph. MultiFileCanvas shows
+    // the loading div until the worker posts a fresh layout for this graph.
+    state = {
+      ...state,
+      graph,
+      layout: null,
+      visibleScene: null,
+      viewState: { ...state.viewState, selectedFileId: null, hoveredFileId: null, selectedEdgeId: null, focusedNodeId: null },
+      groundData: {},
+      groundLoading: {},
+    };
     emit();
   },
 

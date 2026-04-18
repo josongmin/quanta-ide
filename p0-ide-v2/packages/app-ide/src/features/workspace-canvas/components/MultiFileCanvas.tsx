@@ -39,6 +39,12 @@ export function MultiFileCanvas({ graph }: Props) {
   // ResizeObserver for container size — also triggers initial fit if layout
   // already arrived while container was still 0×0 (worker is fast).
   const fittedRef = useRef(false);
+  // When the graph is replaced (setGraph resets layout to null), allow a fresh
+  // fit once the new layout arrives. Without this, loading a new repo would
+  // leave the old graph's zoom/pan.
+  useEffect(() => {
+    if (!layout) fittedRef.current = false;
+  }, [layout]);
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
