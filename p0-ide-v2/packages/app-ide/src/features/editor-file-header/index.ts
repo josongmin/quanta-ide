@@ -1,1 +1,1 @@
-export { fileHeader } from "./model/file-header";
+export { fileHeader, setFileHeaderFacts } from "./model/file-header";

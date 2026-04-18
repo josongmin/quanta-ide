@@ -1,3 +1,7 @@
+// MOCK — Dev-only fetcher hitting the local scanner plugin.
+// Production paths should go through a `GraphSource` implementation
+// (see `./graph-source.ts`) instead of calling these helpers directly.
+// Kept exported for backwards compatibility with existing callers.
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 
 export interface LoadRepoResult {

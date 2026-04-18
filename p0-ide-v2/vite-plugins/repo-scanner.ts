@@ -1,3 +1,7 @@
+// MOCK DEV SERVER — this plugin simulates a code-graph engine via regex
+// parsing over the filesystem. Production swaps this for a real engine
+// (gRPC / WebSocket / API). See `GraphSource` interface in
+// `packages/app-ide/src/features/workspace-canvas/data/graph-source.ts`.
 import type { Plugin } from "vite";
 import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";

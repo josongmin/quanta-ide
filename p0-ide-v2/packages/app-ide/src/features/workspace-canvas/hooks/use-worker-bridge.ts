@@ -1,19 +1,21 @@
-import type { WorkspaceGraph } from "@quanta/canvas-engine";
+import type { WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import type { SerializedLayout, SerializedAggregates } from "@quanta/canvas-worker";
-import { deserializeLayout, deserializeAggregates } from "@quanta/canvas-worker";
+import { deserializeLayout, deserializeAggregates, serializeLayout } from "@quanta/canvas-worker";
 import { workspaceCanvasStore } from "../store/workspace-canvas-store";
 
 let worker: Worker | null = null;
 
-// Tracks the id of the MOST-RECENTLY-REQUESTED layout/aggregates job. When
-// the user swaps graphs quickly (or we request a re-layout while a previous
-// one is still running), late messages from the superseded job arrive with
-// an older id. Applying them would stomp the current layout with stale
-// results and potentially crash downstream consumers that just read fresh
-// file ids. Guard: any LAYOUT_READY / AGGREGATES_READY whose id does not
-// match the current request is dropped with a debug log.
+// Tracks the id of the MOST-RECENTLY-REQUESTED layout/aggregates/geometry
+// job. When the user swaps graphs quickly (or we request a re-layout while
+// a previous one is still running), late messages from the superseded job
+// arrive with an older id. Applying them would stomp the current layout
+// with stale results and potentially crash downstream consumers that just
+// read fresh file ids. Guard: any LAYOUT_READY / AGGREGATES_READY /
+// GEOMETRY_READY whose id does not match the current request is dropped
+// with a debug log.
 let currentLayoutRequestId: string | null = null;
 let currentAggregatesRequestId: string | null = null;
+let currentGeometryRequestId: string | null = null;
 
 function getWorker(): Worker {
   if (!worker) {
@@ -63,7 +65,9 @@ function handleMessage(event: MessageEvent) {
         const vp = workspaceCanvasStore.getState().viewport;
         const { w: graphW, h: graphH } = layout.totalBounds;
         if (graphW > 0 && graphH > 0 && vp.width > 0 && vp.height > 0) {
-          const scale = Math.min(2.5, Math.max(0.05, Math.min(vp.width / graphW, vp.height / graphH) * 0.9));
+          // Bounds matched to useCanvasViewport MIN/MAX_SCALE so auto-fit can
+          // land on universe LOD for huge treemap layouts (quanta-v2 ≈ 140k×98k).
+          const scale = Math.min(2.5, Math.max(0.001, Math.min(vp.width / graphW, vp.height / graphH) * 0.9));
           const x = (vp.width - graphW * scale) / 2;
           const y = (vp.height - graphH * scale) / 2;
           workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
@@ -96,9 +100,14 @@ function handleMessage(event: MessageEvent) {
       workspaceCanvasStore.setWorkerState("workerAggregates", false);
       break;
     }
-    case "GEOMETRY_READY":
+    case "GEOMETRY_READY": {
+      if (msg.id && msg.id !== currentGeometryRequestId) {
+        console.log("[worker-bridge] stale GEOMETRY_READY dropped", msg.id, "!=", currentGeometryRequestId);
+        return;
+      }
       workspaceCanvasStore.setWorkerState("workerGeometry", false);
       break;
+    }
     case "WORKER_ERROR": {
       // Promote worker errors into the store so the LoadingOverlay can
       // render a red error state with a reload CTA. Also flip busy flags
@@ -128,7 +137,18 @@ export function requestAggregates(graph: WorkspaceGraph) {
   getWorker().postMessage({ type: "BUILD_AGGREGATES", id, payload: { graph } });
 }
 
+export function requestEdgeGeometry(graph: WorkspaceGraph, layout: WorkspaceLayout) {
+  const id = `geom-${Date.now()}`;
+  currentGeometryRequestId = id;
+  workspaceCanvasStore.setWorkerState("workerGeometry", true);
+  getWorker().postMessage({
+    type: "BUILD_EDGE_GEOMETRY",
+    id,
+    payload: { graph, layout: serializeLayout(layout) },
+  });
+}
+
 export function useWorkerBridge() {
   // just returns the request functions — worker lifecycle managed globally
-  return { requestLayout, requestAggregates };
+  return { requestLayout, requestAggregates, requestEdgeGeometry };
 }

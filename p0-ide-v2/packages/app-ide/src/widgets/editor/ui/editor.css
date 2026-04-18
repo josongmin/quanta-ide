@@ -561,20 +561,21 @@
 .cm-gm:hover,
 .cm-activeLineGutter .cm-gm { color: var(--fg); }
 
-/* ── Inline function header (block widget above each notable fn) ──
+/* ── Inline chip bar (block widget above each notable fn) ──
    Outer wrapper owns ALL spacing (vertical padding + horizontal gutter
    overhang) — CodeMirror measures wrapper.offsetHeight (excludes margins)
    to keep gutter line numbers aligned with content. The inner chip bar
    is visual-only: no margin, no width clamping against the wrapper. */
-.cm-fnhead-wrap {
+.cm-chip-bar-wrap {
   padding-top: var(--space-1h);
 }
-.cm-fnhead-wrap--file {
-  margin-left: calc(-1 * var(--cm-gutter-w));
+.cm-chip-bar-wrap--file {
+  /* No negative margin — `cm-content` clips overflow, so any leftward
+     overhang gets cut. The chip bar starts at content's left edge. */
   padding: 4px 0 var(--space-2h) 0;
 }
 
-.cm-fnhead {
+.cm-chip-bar {
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -591,12 +592,12 @@
   line-height: var(--lh-normal);
   transition: color 140ms ease, border-color 140ms ease;
 }
-.cm-fnhead:hover {
+.cm-chip-bar:hover {
   border-color: var(--border-strong);
   color: var(--fg);
 }
 
-.cm-fnhead__chip {
+.cm-chip {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-0h);
@@ -606,7 +607,7 @@
   font-size: var(--fs-10);
   transition: color 140ms ease;
 }
-.cm-fnhead__ico {
+.cm-chip__ico {
   color: var(--fg-muted);
   font-size: 8px;
   font-weight: var(--fw-medium);
@@ -615,32 +616,32 @@
   margin-right: var(--space-1);
   opacity: 0.88;
 }
-.cm-fnhead__sub {
+.cm-chip__sub {
   color: var(--fg-muted);
   font-size: var(--fs-9);
   margin-left: 1px;
   opacity: 0.92;
 }
-.cm-fnhead__chip em {
+.cm-chip em {
   font-style: normal;
   color: var(--fg-muted);
   font-size: var(--fs-9);
   margin-left: 1px;
 }
-.cm-fnhead__chip.is-bad { color: color-mix(in srgb, var(--danger) 62%, var(--fg-muted)); }
-.cm-fnhead:hover .cm-fnhead__chip.is-bad { color: var(--danger); }
-.cm-fnhead:hover .cm-fnhead__chip.is-bad em { color: var(--danger); }
-.cm-fnhead__chip.is-warn { color: color-mix(in srgb, var(--warn) 58%, var(--fg-muted)); }
-.cm-fnhead:hover .cm-fnhead__chip.is-warn { color: var(--warn); }
-.cm-fnhead__chip.is-muted { color: var(--fg-muted); opacity: 0.82; }
-.cm-fnhead__chip--taint-sink { color: color-mix(in srgb, var(--danger) 58%, var(--fg-muted)); }
-.cm-fnhead:hover .cm-fnhead__chip--taint-sink { color: var(--danger); }
-.cm-fnhead__chip--taint-source { color: color-mix(in srgb, var(--warn) 55%, var(--fg-muted)); }
-.cm-fnhead:hover .cm-fnhead__chip--taint-source { color: var(--warn); }
-.cm-fnhead__chip--taint-passthrough { color: var(--fg-muted); }
-.cm-fnhead__chip--taint-sanitized { color: color-mix(in srgb, var(--success) 55%, var(--fg-muted)); }
-.cm-fnhead:hover .cm-fnhead__chip--taint-sanitized { color: var(--success); }
-.cm-fnhead__risk {
+.cm-chip.is-bad { color: color-mix(in srgb, var(--danger) 62%, var(--fg-muted)); }
+.cm-chip-bar:hover .cm-chip.is-bad { color: var(--danger); }
+.cm-chip-bar:hover .cm-chip.is-bad em { color: var(--danger); }
+.cm-chip.is-warn { color: color-mix(in srgb, var(--warn) 58%, var(--fg-muted)); }
+.cm-chip-bar:hover .cm-chip.is-warn { color: var(--warn); }
+.cm-chip.is-muted { color: var(--fg-muted); opacity: 0.82; }
+.cm-chip--taint-sink { color: color-mix(in srgb, var(--danger) 58%, var(--fg-muted)); }
+.cm-chip-bar:hover .cm-chip--taint-sink { color: var(--danger); }
+.cm-chip--taint-source { color: color-mix(in srgb, var(--warn) 55%, var(--fg-muted)); }
+.cm-chip-bar:hover .cm-chip--taint-source { color: var(--warn); }
+.cm-chip--taint-passthrough { color: var(--fg-muted); }
+.cm-chip--taint-sanitized { color: color-mix(in srgb, var(--success) 55%, var(--fg-muted)); }
+.cm-chip-bar:hover .cm-chip--taint-sanitized { color: var(--success); }
+.cm-chip-bar__risk {
   padding: 0 5px;
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
@@ -650,21 +651,21 @@
   font-variant-numeric: tabular-nums;
   transition: color 140ms ease, background 140ms ease;
 }
-.cm-fnhead--mid .cm-fnhead__risk { color: color-mix(in srgb, var(--warn) 62%, var(--fg-muted)); }
-.cm-fnhead--high .cm-fnhead__risk { color: color-mix(in srgb, var(--danger) 62%, var(--fg-muted)); }
-.cm-fnhead--mid:hover .cm-fnhead__risk { color: var(--warn); background: var(--bg-warn-subtle); }
-.cm-fnhead--high:hover .cm-fnhead__risk { color: var(--danger); background: var(--bg-danger-subtle); }
+.cm-chip-bar--mid .cm-chip-bar__risk { color: color-mix(in srgb, var(--warn) 62%, var(--fg-muted)); }
+.cm-chip-bar--high .cm-chip-bar__risk { color: color-mix(in srgb, var(--danger) 62%, var(--fg-muted)); }
+.cm-chip-bar--mid:hover .cm-chip-bar__risk { color: var(--warn); background: var(--bg-warn-subtle); }
+.cm-chip-bar--high:hover .cm-chip-bar__risk { color: var(--danger); background: var(--bg-danger-subtle); }
 
 /* File-level variant (appears above line 1 — full file summary).
-   ALL spacing lives on .cm-fnhead-wrap--file (vertical padding +
+   ALL spacing lives on .cm-chip-bar-wrap--file (vertical padding +
    horizontal gutter overhang). The inner element keeps only its own
    visual padding so wrapper.offsetHeight reflects total widget height. */
-.cm-fnhead--file {
+.cm-chip-bar--file {
   padding: 3px var(--cm-line-pad);
   position: relative;
   z-index: 2;
 }
-.cm-fnhead__meta {
+.cm-chip-bar__meta {
   margin-left: auto;
   padding-right: var(--space-0h);
   font-family: var(--font-mono);
@@ -672,7 +673,7 @@
   color: var(--fg-muted);
   font-variant-numeric: tabular-nums;
 }
-.cm-fnhead--file .cm-fnhead__risk { margin-left: 0; }
+.cm-chip-bar--file .cm-chip-bar__risk { margin-left: 0; }
 
 /* ── Tab banner (file summary, above canvas) — compact, monochrome ── */
 .tab-banner {

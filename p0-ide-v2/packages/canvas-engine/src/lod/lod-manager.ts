@@ -1,60 +1,74 @@
 import type { LodLevel } from "../view/types";
+import { LOD_TIERS, getTierConfig, lodFromScale as lodFromScaleConfig } from "./lod-config";
 
-const UP = {
-  universe_supergalaxy: 0.025,
-  supergalaxy_galaxy: 0.08,
-  galaxy_city: 0.15,
-  city_street: 0.35,
-  street_ground: 0.75,
-};
-const DOWN = {
-  universe_supergalaxy: 0.02,
-  supergalaxy_galaxy: 0.065,
-  galaxy_city: 0.12,
-  city_street: 0.32,
-  street_ground: 0.72,
-};
+// LOD transition manager. Thresholds are read from `LOD_TIERS` (in
+// ./lod-config.ts) so tuning lives in one place. The algorithm remains
+// identical to the previous hardcoded ladder:
+//
+//   - Each tier owns `upThreshold` (move into this tier from the one below)
+//     and `downThreshold` (leave this tier back to the one below).
+//   - Hysteresis — `downThreshold < upThreshold` — prevents thrashing in the
+//     dead band between the two.
+//   - `update(scale)` runs a single-step transition in a fixpoint loop so a
+//     large zoom jump (e.g. ground → universe) cascades across all tiers
+//     within one call.
+
+// Tier ladder ordered coarse → fine (universe first, ground last). The
+// config file stores tiers fine → coarse for readability; we reverse here
+// once at module load so `adjacent(i, +1)` means "finer" everywhere below.
+// Index into this array = the tier's rung on the ladder.
+const LADDER: readonly LodLevel[] = (() => {
+  // Sort by upThreshold ascending so universe (0) is rung 0 and ground is top.
+  // Ties should not occur; if they do we fall back to original insertion order.
+  const sorted = [...LOD_TIERS].sort((a, b) => a.upThreshold - b.upThreshold);
+  return sorted.map(t => t.name) as LodLevel[];
+})();
+
+// Reverse index for O(1) ladder-position lookup.
+const LADDER_INDEX: Readonly<Record<LodLevel, number>> = (() => {
+  const out: Partial<Record<LodLevel, number>> = {};
+  LADDER.forEach((name, i) => { out[name] = i; });
+  return out as Record<LodLevel, number>;
+})();
 
 export class LodManager {
-  // Default stays "galaxy" to match app-ide store's `initialLod`. The
-  // first `update()` tick will downshift to "supergalaxy" if the auto-fit
-  // scale is below DOWN.supergalaxy_galaxy (0.065). Callers that know
-  // they're opening a huge graph can `reset("supergalaxy")` up front.
-  // TODO(app-ide): consider defaulting store's `initialLod` to
-  // "supergalaxy" for repos with > TREEMAP_THRESHOLD files so we skip
-  // the initial galaxy tick.
+  // Default stays "galaxy" to match app-ide store's `initialLod`. First
+  // `update()` tick will downshift to "supergalaxy" if the auto-fit scale
+  // sits below the galaxy tier's downThreshold. Callers opening a huge
+  // graph can `reset("supergalaxy")` up front.
   private current: LodLevel = "galaxy";
 
   /**
-   * Single-step transition between adjacent tiers at the given scale.
-   * Returns the *next* tier after one hop, or the same tier if no
-   * transition fires. Used by `update()` as a fixpoint kernel so rapid
-   * zoom jumps that cross multiple tiers are handled in one call
-   * (e.g. user wheel-zooms from "ground" to "universe" — a single
-   * pre-fixpoint tick would only downshift one level).
+   * One-step transition from `c` at scale `s`. Returns the new tier after
+   * at most one rung change, or `c` if the scale is within the hysteresis
+   * band. `update()` calls this in a fixpoint loop so multi-tier jumps
+   * still settle in one `update` call.
    */
-  private transitionOnce(c: LodLevel, scale: number): LodLevel {
-    if (c === "universe"    && scale >= UP.universe_supergalaxy)   return "supergalaxy";
-    if (c === "supergalaxy" && scale <  DOWN.universe_supergalaxy) return "universe";
-    if (c === "supergalaxy" && scale >= UP.supergalaxy_galaxy)     return "galaxy";
-    if (c === "galaxy"      && scale <  DOWN.supergalaxy_galaxy)   return "supergalaxy";
-    if (c === "galaxy"      && scale >= UP.galaxy_city)            return "city";
-    if (c === "city"        && scale <  DOWN.galaxy_city)          return "galaxy";
-    if (c === "city"        && scale >= UP.city_street)            return "street";
-    if (c === "street"      && scale <  DOWN.city_street)          return "city";
-    if (c === "street"      && scale >= UP.street_ground)          return "ground";
-    if (c === "ground"      && scale <  DOWN.street_ground)        return "street";
+  private transitionOnce(c: LodLevel, s: number): LodLevel {
+    const idx = LADDER_INDEX[c];
+    // Move up one rung (coarse → fine) when we cross the *next* tier's
+    // upThreshold. The next tier is at idx+1 (ground is at the top).
+    if (idx < LADDER.length - 1) {
+      const upTier = getTierConfig(LADDER[idx + 1]);
+      if (s >= upTier.upThreshold) return upTier.name;
+    }
+    // Move down one rung (fine → coarse) when we drop below our *own*
+    // downThreshold — i.e. the scale is no longer tall enough to sustain
+    // the current tier.
+    if (idx > 0) {
+      const self = getTierConfig(c);
+      if (s < self.downThreshold) return LADDER[idx - 1];
+    }
     return c;
   }
 
   update(scale: number): LodLevel {
-    // Fixpoint iteration: apply single-step transitions until stable.
-    // The previous sequential if-chain captured a stale `c` at entry, so
-    // a zoom jump crossing ≥2 tiers only advanced one tier per tick —
-    // producing visible LOD "catch-up" during fast wheel-zooms. The
-    // safety cap (10) is an order of magnitude above the worst-case
-    // depth (6 tiers → 5 hops) to guard against logic bugs.
-    let safety = 10;
+    // Fixpoint iteration — the previous sequential if-chain captured a
+    // stale `c` at entry, so a rapid wheel-zoom crossing ≥2 tiers only
+    // advanced one tier per tick and produced visible "catch-up" lag.
+    // Safety cap (LOD_TIERS.length+1 hops) is strictly larger than the
+    // worst case of walking the full ladder.
+    let safety = LOD_TIERS.length + 1;
     while (safety-- > 0) {
       const c = this.current;
       const next = this.transitionOnce(c, scale);
@@ -68,11 +82,10 @@ export class LodManager {
   reset(lod: LodLevel = "galaxy"): void { this.current = lod; }
 }
 
+/**
+ * Stateless scale → LOD lookup. Re-exported from the config module so
+ * legacy import paths (`from "@quanta/canvas-engine"`) keep working.
+ */
 export function lodFromScale(scale: number): LodLevel {
-  if (scale >= UP.street_ground)         return "ground";
-  if (scale >= UP.city_street)           return "street";
-  if (scale >= UP.galaxy_city)           return "city";
-  if (scale >= UP.supergalaxy_galaxy)    return "galaxy";
-  if (scale >= UP.universe_supergalaxy)  return "supergalaxy";
-  return "universe";
+  return lodFromScaleConfig(scale);
 }

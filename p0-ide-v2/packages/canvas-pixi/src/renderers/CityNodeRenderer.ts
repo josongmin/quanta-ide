@@ -3,6 +3,16 @@ import type { FileNode, WorkspaceLayout, ViewState, Viewport } from "@quanta/can
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, CITY_MONO_FONT_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
+import {
+  riskFill,
+  riskBorder,
+  riskText,
+  complexityFill,
+  complexityBorder,
+  SELECTION_ACCENT,
+  SIGNAL_ACCENT,
+} from "./shared/colors";
+import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
 
 // City LOD: zoomed in enough to see the file card, its header, and (when
 // zoomed far enough) per-function blocks. The old renderer called
@@ -20,24 +30,6 @@ import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 //   smudge but ~10× faster.
 // - Hit-tests via shared RBush SpatialPickIndex (O(log n)), not a linear
 //   scan, so pointermove on 5000 nodes doesn't cost 0.3 ms per event.
-
-function riskFill(score: number): number {
-  if (score >= 70) return 0xfee2e2;
-  if (score >= 40) return 0xfef3c7;
-  return 0xdcfce7;
-}
-
-function riskBorder(score: number): number {
-  if (score >= 70) return 0xfca5a5;
-  if (score >= 40) return 0xfcd34d;
-  return 0x86efac;
-}
-
-function riskText(score: number): number {
-  if (score >= 70) return 0xdc2626;
-  if (score >= 40) return 0xd97706;
-  return 0x16a34a;
-}
 
 const HEADER_H = 32;
 const FN_H = 22;
@@ -235,7 +227,7 @@ export class CityNodeRenderer {
 
       const fillColor = riskFill(file.riskScore);
       const borderColor = riskBorder(file.riskScore);
-      const selBorder = isSelected ? 0x4f46e5 : borderColor;
+      const selBorder = isSelected ? SELECTION_ACCENT : borderColor;
       const fillAlpha = isSelected ? 1.0 : isHovered ? 0.95 : 0.88;
       const borderAlpha = isSelected ? 1.0 : 0.85;
       const bw = isSelected ? invScale * 2 : invScale;
@@ -282,8 +274,8 @@ export class CityNodeRenderer {
         if (fnY + fnH > rect.y + rect.h - 4) break;
         const fn = file.functions[k];
         const cpx = fn.complexity;
-        const fnFill = cpx >= 10 ? 0xfee2e2 : cpx >= 5 ? 0xfef3c7 : 0xf0fdf4;
-        const fnBorder = cpx >= 10 ? 0xfca5a5 : cpx >= 5 ? 0xfde68a : 0xbbf7d0;
+        const fnFill = complexityFill(cpx);
+        const fnBorder = complexityBorder(cpx);
 
         const o = ri * FLOATS_PER_INSTANCE;
         data[o] = fnX;
@@ -309,7 +301,7 @@ export class CityNodeRenderer {
             const sigLabel = this.acquireText(CITY_FONT_BOLD_NAME);
             sigLabel.text = String(fn.signalCount);
             sigLabel.style.fontSize = 9;
-            sigLabel.style.fill = 0xdc2626;
+            sigLabel.style.fill = SIGNAL_ACCENT;
             sigLabel.scale.set(invScale);
             sigLabel.x = fnX + fnW - 16 * invScale;
             sigLabel.y = fnY + 6 * invScale;
@@ -350,7 +342,7 @@ export class CityNodeRenderer {
           const taintLabel = this.acquireText(CITY_FONT_NAME);
           taintLabel.text = `⚡ ${file.signals.taintCount}`;
           taintLabel.style.fontSize = 9;
-          taintLabel.style.fill = 0xdc2626;
+          taintLabel.style.fill = SIGNAL_ACCENT;
           taintLabel.scale.set(invScale);
           taintLabel.x = rect.x + 8 * invScale;
           taintLabel.y = rect.y + 34 * invScale;
@@ -383,6 +375,17 @@ export class CityNodeRenderer {
     this.pickIndex.load(this.pickRects, "city");
   }
 
+  // Parity with the other tier renderers — PixiStage clears every
+  // non-active tier per frame. City already de facto clears via `update([])`
+  // but exposing clear() lets the registry hand PixiStage a uniform handle.
+  clear(): void {
+    this.rectMesh.setInstanceCount(0);
+    this.hitLayer.clear();
+    this.pickRects.length = 0;
+    this.pickIndex.clear();
+    this.releaseAllText();
+  }
+
   destroy(): void {
     this.rectMesh.destroy();
     this.pickIndex.clear();
@@ -391,3 +394,18 @@ export class CityNodeRenderer {
     this.container.destroy({ children: true });
   }
 }
+
+registerRenderer("city", (parent, callbacks): RendererHandle => {
+  const inst = new CityNodeRenderer(parent, {
+    onClick: callbacks.onFileClick,
+    onHover: callbacks.onFileHover,
+  });
+  return {
+    update(ctx: RenderContext): void {
+      if (ctx.sceneKind !== "files") return;
+      inst.update(ctx.files, ctx.layout, ctx.viewState, ctx.viewport);
+    },
+    clear(): void { inst.clear(); },
+    destroy(): void { inst.destroy(); },
+  };
+});

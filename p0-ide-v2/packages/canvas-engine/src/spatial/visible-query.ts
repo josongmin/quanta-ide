@@ -10,6 +10,7 @@ import type {
 } from "../view/types";
 import { FileIndex } from "./file-index";
 import { EdgeFilter } from "./edge-filter";
+import { getTierConfig } from "../lod/lod-config";
 
 interface SpatialCache {
   fileIndex: FileIndex;
@@ -138,14 +139,16 @@ export function buildVisibleQuery(
 }
 
 /**
- * LOD-aware scene builder.
- *   - `universe`    → supercluster view (cascades: superclusters → clusters → files).
- *   - `supergalaxy` → cluster view (cascades: clusters → files).
- *   - any other LOD → standard file view.
+ * LOD-aware scene builder. The tier's `sceneKind` (from lod-config) decides
+ * which query helper runs:
+ *   - `"superclusters"` → supercluster view (universe).
+ *   - `"clusters"`      → cluster view (supergalaxy).
+ *   - `"files"`         → standard file view (galaxy / city / street / ground).
  *
- * Cascading fallback means if a tier has no data (e.g. grid layout emits
- * neither clusters nor superclusters), we degrade gracefully instead of
- * rendering an empty scene.
+ * Cascading fallback is honored via each tier's `fallback` chain: if the
+ * requested kind has no data (e.g. layout emits no superclusters), we walk
+ * down to the next tier whose data is available. This degrades gracefully
+ * on grid-layout graphs that produce neither clusters nor superclusters.
  */
 export function buildSceneQuery(
   graph: WorkspaceGraph,
@@ -153,15 +156,26 @@ export function buildSceneQuery(
   viewport: Viewport,
   lod: LodLevel,
 ): WorkspaceScene {
-  if (lod === "universe" && layout.superclusters && layout.superclusters.length > 0) {
-    return buildSuperclusterQuery(layout, viewport);
-  }
-  if (
-    (lod === "supergalaxy" || lod === "universe") &&
-    layout.clusters &&
-    layout.clusters.length > 0
-  ) {
-    return buildClusterQuery(layout, viewport);
+  // Walk the config-declared fallback chain until we reach a `sceneKind`
+  // whose backing data exists. File-level is the universal terminus.
+  let cursor = getTierConfig(lod);
+  // Bounded by ladder depth; defensive against accidentally circular chains.
+  for (let hop = 0; hop < 8; hop++) {
+    if (cursor.sceneKind === "superclusters") {
+      if (layout.superclusters && layout.superclusters.length > 0) {
+        return buildSuperclusterQuery(layout, viewport);
+      }
+    } else if (cursor.sceneKind === "clusters") {
+      if (layout.clusters && layout.clusters.length > 0) {
+        return buildClusterQuery(layout, viewport);
+      }
+    } else {
+      // "files" — always satisfiable (empty scene is handled inside the helper).
+      return buildVisibleQuery(graph, layout, viewport);
+    }
+    // Fallback wasn't satisfied — descend one rung.
+    if (!cursor.fallback) break;
+    cursor = getTierConfig(cursor.fallback);
   }
   return buildVisibleQuery(graph, layout, viewport);
 }

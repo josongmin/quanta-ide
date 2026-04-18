@@ -1,1 +1,1 @@
-export { fnHeaders } from "./model/fn-header";
+export { fnHeaders, setFnHeaderFacts } from "./model/fn-header";

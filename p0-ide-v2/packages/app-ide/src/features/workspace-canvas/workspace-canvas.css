@@ -509,6 +509,13 @@
   color: #7dd3fc;
   border-color: rgba(56, 189, 248, 0.5);
 }
+.ws-debug__hint {
+  margin-top: 2px;
+  font-size: 9.5px;
+  color: #64748b;
+  word-break: break-all;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
 .ws-debug__toggle {
   position: absolute;
   top: 12px;

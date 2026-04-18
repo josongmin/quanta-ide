@@ -27,19 +27,22 @@ import {
   type ForceLod,
 } from "./settings-store";
 
-// Backward-compatible facade
+// Thin coordination facade.
 // -------------------------------------------------------------------
-// @deprecated Prefer the four focused stores — `viewportStore`,
-// `sceneStore`, `interactionStore`, `settingsStore` — and their
-// matching `useXxxStore(selector)` hooks. This facade fans reads and
-// writes out to the right sub-store so the ~20 existing callsites do
-// not need to migrate in one PR.
+// Primary API is now the four focused stores (`viewportStore`,
+// `sceneStore`, `interactionStore`, `settingsStore`) and their
+// `useXxxStore` hooks — import from the sub-store file directly for
+// frame-hot code.
 //
-// Perf caveat: `useWorkspaceCanvas(selector)` here subscribes to ALL
-// FOUR sub-stores, so any mutation in any store wakes this hook. That
-// is fine for non-hot callsites (LoadingOverlay, CanvasControls, cards)
-// but hot paths (MultiFileCanvas, DebugHud, Minimap) should migrate to
-// the specific stores to get the isolation benefit.
+// This facade only exists for:
+//   1. `batch()` — microtask-coalesced multi-sub-store writes so
+//      facade subscribers never observe intermediate state.
+//   2. Cross-cutting actions that mutate more than one sub-store
+//      (e.g. `setGraph` also resets selection).
+//   3. Compat shims (`useWorkspaceCanvas`, single-sub-store action
+//      delegates, merged `getState`) for cold-path callers we
+//      haven't migrated. All three are `@deprecated` — frame-hot
+//      code MUST NOT touch them.
 
 export type {
   GroundFileData,
@@ -78,12 +81,12 @@ export interface WorkspaceCanvasState {
   forceLod: ForceLod;
 }
 
-// Combined snapshot is memoized by identity of each sub-store's state
-// object. Because sub-stores return referentially-stable snapshots until
-// they emit, this cache is invalidated only when any of them emits —
-// which is exactly when useSyncExternalStore re-reads. Required for
-// `useSyncExternalStore` to see a stable object between renders when
-// nothing has changed (otherwise React will tear).
+// Memoized by identity of each sub-store's snapshot. Sub-stores return
+// referentially-stable state until they emit, so this cache is
+// invalidated only when one of them actually changes — the same moment
+// `useSyncExternalStore` re-reads. Required so React sees a stable
+// object between renders (otherwise tearing) on the deprecated merged
+// `getState` path.
 let cached: {
   vp: ViewportState;
   sc: SceneState;
@@ -92,6 +95,12 @@ let cached: {
   combined: WorkspaceCanvasState;
 } | null = null;
 
+/**
+ * @deprecated Allocates a merged snapshot across all four sub-stores.
+ * Frame-hot code MUST read directly from the relevant sub-store
+ * (`viewportStore.getState()`, `sceneStore.getState()`, etc.). Kept
+ * only to back the deprecated `useWorkspaceCanvas` hook.
+ */
 function getState(): WorkspaceCanvasState {
   const vp = viewportStore.getState();
   const sc = sceneStore.getState();
@@ -107,7 +116,6 @@ function getState(): WorkspaceCanvasState {
     return cached.combined;
   }
   const combined: WorkspaceCanvasState = {
-    // Scene
     graph: sc.graph,
     layout: sc.layout,
     visibleScene: sc.visibleScene,
@@ -121,12 +129,9 @@ function getState(): WorkspaceCanvasState {
     workerGeometry: sc.workerGeometry,
     layoutProgress: sc.layoutProgress,
     pixiError: sc.pixiError,
-    // Viewport
     viewport: vp.viewport,
-    // Interaction
     lod: it.lod,
     viewState: it.viewState,
-    // Settings
     showEdges: st.showEdges,
     debugHudOpen: st.debugHudOpen,
     showGridBg: st.showGridBg,
@@ -137,153 +142,192 @@ function getState(): WorkspaceCanvasState {
   return combined;
 }
 
-// Fan-out subscribe. Any sub-store emission wakes the facade listener.
-// Returns a composite cleanup so unmount in StrictMode symmetrically
-// removes itself from all four sub-stores.
+// Microtask-batching for atomic multi-sub-store writes.
+// ---------------------------------------------------------------
+// Some cross-cutting actions (notably `setGraph`) mutate multiple
+// sub-stores in one logical step. Each sub-store emits synchronously,
+// so without coordination the facade listener would wake N times per
+// batch — and briefly expose states where e.g. the graph has changed
+// but selection has not yet cleared. This counter suspends facade
+// emits during the batch; at depth 0 we flush ONE combined emit via a
+// microtask so React's `useSyncExternalStore` sees exactly one coherent
+// snapshot. Direct sub-store subscribers still see their own per-store
+// emit — that's the isolation each sub-store is designed to provide.
+let _batchDepth = 0;
+const _facadeListeners = new Set<() => void>();
+let _pendingFlush = false;
+
+function _flushFacadeEmit() {
+  _pendingFlush = false;
+  // Snapshot to an array so a listener that mutates _facadeListeners
+  // during its callback (e.g. React unmounting) doesn't disturb iteration.
+  for (const l of [..._facadeListeners]) l();
+}
+
+function _notifyFacade() {
+  if (_batchDepth > 0) {
+    if (!_pendingFlush) {
+      _pendingFlush = true;
+      queueMicrotask(_flushFacadeEmit);
+    }
+    return;
+  }
+  for (const l of [..._facadeListeners]) l();
+}
+
+/**
+ * Run `fn` as an atomic batch: every sub-store mutation inside fn still
+ * runs synchronously (and still wakes that sub-store's own direct
+ * subscribers), but the FACADE's combined listener is only notified once
+ * via a microtask after fn returns. Re-entrant via `_batchDepth`.
+ */
+function batch<T>(fn: () => T): T {
+  _batchDepth++;
+  try {
+    return fn();
+  } finally {
+    _batchDepth--;
+    if (_batchDepth === 0 && !_pendingFlush) {
+      _pendingFlush = true;
+      queueMicrotask(_flushFacadeEmit);
+    }
+  }
+}
+
+// Fan-out subscribe. Each sub-store emission wakes `_notifyFacade`,
+// which honors the batch depth. The module-level handler is registered
+// ONCE per sub-store below, so each facade `subscribe` is O(1).
 function subscribe(listener: () => void): () => void {
-  const un1 = viewportStore.subscribe(listener);
-  const un2 = sceneStore.subscribe(listener);
-  const un3 = interactionStore.subscribe(listener);
-  const un4 = settingsStore.subscribe(listener);
+  _facadeListeners.add(listener);
   return () => {
-    un1();
-    un2();
-    un3();
-    un4();
+    _facadeListeners.delete(listener);
   };
 }
 
-// Action facade — each one dispatches to its owning sub-store. Names
-// and signatures preserved from the original monolithic store so
-// existing callers need no change.
+// Module-load singletons outlive every component, so these subscriptions
+// are lifelong and intentionally un-released.
+viewportStore.subscribe(_notifyFacade);
+sceneStore.subscribe(_notifyFacade);
+interactionStore.subscribe(_notifyFacade);
+settingsStore.subscribe(_notifyFacade);
+
+// Compat action shims.
+// -------------------------------------------------------------------
+// Delegates to the owning sub-store. Cross-cutting actions live here;
+// the rest are pure forwarders kept only so pre-refactor callers
+// (DebugHud, use-worker-bridge, WorkspaceApp, …) don't break.
+// Frame-hot code should call the sub-store directly.
 const actions = {
-  // --- Scene ---
-  // Invariant: setGraph is the one multi-sub-store write that used to emit
-  // twice (scene, then interaction). We keep the single-action API but
-  // serialize the two mutations back-to-back; consumers that subscribe
-  // via the facade see at most TWO notifications per graph swap, and any
-  // selector that reads from both sub-stores runs at most once per pulse
-  // (useSyncExternalStore debounces identical snapshots). Emitting in
-  // this order — scene first, then interaction — ensures no downstream
-  // effect sees a fresh graph paired with stale selection ids.
+  // Cross-cutting: graph swap must also reset stale selection/hover/edge
+  // ids so UI never dereferences a node that no longer exists.
   setGraph(graph: WorkspaceGraph) {
-    sceneStore.setGraph(graph);
-    interactionStore.resetSelection();
+    batch(() => {
+      sceneStore.setGraph(graph);
+      interactionStore.resetSelection();
+    });
   },
 
+  // --- Scene delegates ---
   setRepoRoot(root: string | null) {
     sceneStore.setRepoRoot(root);
   },
-
   setLayout(layout: WorkspaceLayout) {
     sceneStore.setLayout(layout);
   },
-
   setLayoutProgress(
     stage: LayoutStage,
     extras?: { filesCount?: number; elapsedMs?: number; error?: string },
   ) {
     sceneStore.setLayoutProgress(stage, extras);
   },
-
   setPixiError(err: string | null) {
     sceneStore.setPixiError(err);
   },
-
   setVisibleScene(scene: WorkspaceView) {
     sceneStore.setVisibleScene(scene);
   },
-
   setClusterScene(scene: WorkspaceClusterView) {
     sceneStore.setClusterScene(scene);
   },
-
   setSuperclusterScene(scene: WorkspaceSuperclusterView) {
     sceneStore.setSuperclusterScene(scene);
   },
-
   setGroundData(fileId: string, data: GroundFileData) {
     sceneStore.setGroundData(fileId, data);
   },
-
   setGroundDataBatch(
     entries: Array<{ id: string; data: GroundFileData }>,
     setLoadingFalseFor?: readonly string[],
   ) {
     sceneStore.setGroundDataBatch(entries, setLoadingFalseFor);
   },
-
   setGroundLoading(fileId: string, loading: boolean) {
     sceneStore.setGroundLoading(fileId, loading);
   },
-
   setGroundLoadingBatch(fileIds: readonly string[], loading: boolean) {
     sceneStore.setGroundLoadingBatch(fileIds, loading);
   },
-
   setWorkerState(key: "workerLayout" | "workerAggregates" | "workerGeometry", val: boolean) {
     sceneStore.setWorkerState(key, val);
   },
 
-  // --- Viewport ---
+  // --- Viewport delegates ---
   setViewport(viewport: Viewport) {
     viewportStore.setViewport(viewport);
   },
-
   setContainerSize(width: number, height: number) {
     viewportStore.setContainerSize(width, height);
   },
 
-  // --- Interaction ---
+  // --- Interaction delegates ---
   setLod(lod: LodLevel) {
     interactionStore.setLod(lod);
   },
-
   selectFile(fileId: string | null) {
     interactionStore.selectFile(fileId);
   },
-
   hoverFile(fileId: string | null) {
     interactionStore.hoverFile(fileId);
   },
-
   selectEdge(edgeId: string | null) {
     interactionStore.selectEdge(edgeId);
   },
 
-  // --- Settings ---
+  // --- Settings delegates ---
   setShowEdges(show: boolean) {
     settingsStore.setShowEdges(show);
   },
-
   toggleDebugHud() {
     settingsStore.toggleDebugHud();
   },
-
   setShowGridBg(v: boolean) {
     settingsStore.setShowGridBg(v);
   },
-
   setShowHitLayers(v: boolean) {
     settingsStore.setShowHitLayers(v);
   },
-
   setForceLod(v: ForceLod) {
     settingsStore.setForceLod(v);
   },
 };
 
-export const workspaceCanvasStore = { getState, subscribe, ...actions };
+export const workspaceCanvasStore = {
+  getState,
+  subscribe,
+  batch,
+  ...actions,
+};
 
 /**
- * @deprecated Subscribes to all four sub-stores. For hot paths, prefer
- * `useViewportStore`, `useSceneStore`, `useInteractionStore`, or
- * `useSettingsStore` directly.
+ * @deprecated Subscribes to all four sub-stores and reads via the
+ * merged snapshot, so any mutation in any store wakes this hook. For
+ * frame-hot paths, use `useViewportStore`, `useSceneStore`,
+ * `useInteractionStore`, or `useSettingsStore` directly.
  */
 export function useWorkspaceCanvas<T>(selector: (s: WorkspaceCanvasState) => T): T {
   return useSyncExternalStore(
-    workspaceCanvasStore.subscribe,
-    () => selector(workspaceCanvasStore.getState()),
-    () => selector(workspaceCanvasStore.getState()),
+    subscribe,
+    () => selector(getState()),
+    () => selector(getState()),
   );
 }

@@ -3,6 +3,11 @@ import type { ClusterMeta } from "../layout/types";
 
 export type LodLevel = "universe" | "supergalaxy" | "galaxy" | "city" | "street" | "ground";
 
+// Re-export the tier-config types so public consumers can import them from
+// `view/types` alongside `LodLevel` — keeps the "one import" DX while the
+// canonical declaration lives next to `LOD_TIERS` in `../lod/lod-config`.
+export type { LodTierConfig, LodRendererKind } from "../lod/lod-config";
+
 export interface Viewport {
   x: number;
   y: number;

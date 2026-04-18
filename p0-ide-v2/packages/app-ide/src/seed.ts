@@ -138,6 +138,20 @@ export const IDE_FEATURES: readonly FeatureManifest[] = [
     },
   },
   {
+    id: "code-universe",
+    title: "Code Universe",
+    description: "Navigate the whole repository as a zoomable multi-file canvas.",
+    category: "intelligence",
+    visibility: "user",
+    version: "0.1.0",
+    badge: "new",
+    primary: {
+      tileLabel: "Code Universe",
+      tileHint: "⌘⇧O",
+      tileRun: () => tabBus.open("workspace", "Code Universe"),
+    },
+  },
+  {
     id: "security-rules",
     title: "Security Rules",
     description:

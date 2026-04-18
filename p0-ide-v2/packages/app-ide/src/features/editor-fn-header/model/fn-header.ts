@@ -1,6 +1,6 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { DecorationSet } from "@codemirror/view";
-import { RangeSetBuilder, StateField } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import type { EditorState } from "@codemirror/state";
 import type { FunctionHeader } from "@quanta/app-ide/entities/function";
 import { RISK_NOTABLE } from "@quanta/app-ide/entities/risk";
@@ -49,7 +49,8 @@ class FnHeaderWidget extends WidgetType {
     // line's leading whitespace — chip bar lands directly above the
     // def's first char.
     const wrap = document.createElement("div");
-    wrap.className = "cm-fnhead-wrap";
+    wrap.className = "cm-chip-bar-wrap";
+    wrap.setAttribute("role", "presentation");
     // `1ch` resolves against the wrapper's own font. Force the mono font
     // here so the indent matches the editor's monospace columns exactly
     // (sans-serif `ch` would drift ~1-2px per indent level).
@@ -57,7 +58,12 @@ class FnHeaderWidget extends WidgetType {
     wrap.style.paddingLeft = `calc(${CM_LINE_PAD_PX}px + ${this.indent}ch)`;
 
     const el = document.createElement("div");
-    el.className = `cm-fnhead cm-fnhead--${tone(this.h.riskScore)}`;
+    el.className = `cm-chip-bar cm-chip-bar--${tone(this.h.riskScore)}`;
+    el.setAttribute("role", "group");
+    el.setAttribute(
+      "aria-label",
+      `${this.h.name} (${this.h.kind}) risk summary, risk score ${this.h.riskScore}`,
+    );
 
     const chips: HTMLElement[] = [];
 
@@ -96,14 +102,14 @@ class FnHeaderWidget extends WidgetType {
 
     if (this.h.dead) {
       // Label-only chip — omit `ico` so we get
-      // `<span class="cm-fnhead__chip is-muted">dead</span>` (pre-refactor shape).
+      // `<span class="cm-chip-bar__chip is-muted">dead</span>` (pre-refactor shape).
       chips.push(createChip({ value: "dead", kind: "muted" }));
     }
 
-    // Risk pill carries the `cm-fnhead__risk` class (its own padding/
-    // border-radius/hover bg in editor.css). Pass `ico: true` to keep the
+    // Risk pill carries the `cm-chip-bar__risk` class (its own padding/
+    // border-radius/hover bg in editor.css). Pass `"risk"` to keep the
     // small "risk" label that fn-header has historically shown.
-    chips.push(createRisk(this.h.riskScore, { ico: true }));
+    chips.push(createRisk(this.h.riskScore, "risk"));
 
     for (const c of chips) el.appendChild(c);
     wrap.appendChild(el);
@@ -133,31 +139,46 @@ function leadingCols(text: string, tabSize: number): number {
   return col;
 }
 
-export function fnHeaders(headers: FunctionHeader[]) {
+function buildFnHeaderDecos(state: EditorState, headers: FunctionHeader[]): DecorationSet {
   const notable = headers.filter(isNotable);
   const byLine = new Map<number, FunctionHeader>();
   for (const h of notable) byLine.set(h.line, h);
   const sortedLines = [...byLine.keys()].sort((a, b) => a - b);
 
+  const b = new RangeSetBuilder<Decoration>();
+  const doc = state.doc;
+  const tab = state.tabSize;
+  for (const line of sortedLines) {
+    if (line < 1 || line > doc.lines) continue;
+    const lineObj = doc.line(line);
+    const indent = leadingCols(lineObj.text, tab);
+    const h = byLine.get(line)!;
+    b.add(
+      lineObj.from,
+      lineObj.from,
+      Decoration.widget({ widget: new FnHeaderWidget(h, indent), side: -1, block: true }),
+    );
+  }
+  return b.finish();
+}
+
+/**
+ * Dispatch with `view.dispatch({ effects: setFnHeaderFacts.of(newHeaders) })`
+ * to swap the chip bars for all notable functions without recreating the
+ * editor. The widget's signature-based `eq()` reuses unchanged DOM, so a
+ * dispatch with an identical-content array is effectively a no-op.
+ */
+export const setFnHeaderFacts = StateEffect.define<FunctionHeader[]>();
+
+export function fnHeaders(initial: FunctionHeader[]) {
   return StateField.define<DecorationSet>({
-    create(state: EditorState) {
-      const b = new RangeSetBuilder<Decoration>();
-      const doc = state.doc;
-      const tab = state.tabSize;
-      for (const line of sortedLines) {
-        if (line < 1 || line > doc.lines) continue;
-        const lineObj = doc.line(line);
-        const indent = leadingCols(lineObj.text, tab);
-        const h = byLine.get(line)!;
-        b.add(
-          lineObj.from,
-          lineObj.from,
-          Decoration.widget({ widget: new FnHeaderWidget(h, indent), side: -1, block: true }),
-        );
-      }
-      return b.finish();
+    create(state) {
+      return buildFnHeaderDecos(state, initial);
     },
     update(deco, tr) {
+      for (const e of tr.effects) {
+        if (e.is(setFnHeaderFacts)) return buildFnHeaderDecos(tr.state, e.value);
+      }
       return tr.docChanged ? deco.map(tr.changes) : deco;
     },
     provide: (f) => EditorView.decorations.from(f),

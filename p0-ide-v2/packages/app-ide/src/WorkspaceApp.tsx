@@ -6,9 +6,20 @@ import {
   SAMPLE_GRAPH,
   loadRepoGraph,
   workspaceCanvasStore,
+  setActiveGraphSource,
+  type GraphSource,
   type LoadRepoResult,
 } from "@quanta/app-ide/features/workspace-canvas";
 import "./WorkspaceApp.css";
+
+// ─── Engine integration TODO ─────────────────────────────────────────
+// To swap the mock dev scanner for a real code-graph engine:
+//   1. Implement `GraphSource` (see features/workspace-canvas/data/graph-source.ts).
+//      e.g. `createEngineGraphSource({ endpoint: "grpc://…" })`.
+//   2. Pass it in as `<WorkspaceApp graphSource={engineSource} />`.
+//      The toolbar's path / presets / reset will then drive the engine
+//      instead of the dev-server scanner; nothing else in the UI changes.
+// ─────────────────────────────────────────────────────────────────────
 
 // Presets: quick switches to repos we stress-test against.
 const REPO_PRESETS: { label: string; path: string; exts?: string[]; max?: number }[] = [
@@ -36,7 +47,18 @@ type Status =
   | { kind: "loaded"; result: LoadRepoResult; path: string }
   | { kind: "error"; message: string };
 
-export function WorkspaceApp(_props: TabAppProps) {
+export interface WorkspaceAppProps extends TabAppProps {
+  /**
+   * Optional adapter providing the WorkspaceGraph. When omitted, a
+   * MockGraphSource backed by the dev-server scanner is used so existing
+   * behavior is preserved bit-for-bit. Pass an engine-backed source in
+   * production — see the top-of-file TODO.
+   */
+  graphSource?: GraphSource;
+}
+
+export function WorkspaceApp(props: WorkspaceAppProps) {
+  const { graphSource: externalSource } = props;
   const [graph, setGraph] = useState<WorkspaceGraph>(SAMPLE_GRAPH);
   const [pathInput, setPathInput] = useState(DEFAULT_PATH);
   const [extsInput, setExtsInput] = useState(DEFAULT_EXTS);
@@ -44,15 +66,41 @@ export function WorkspaceApp(_props: TabAppProps) {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [collapsed, setCollapsed] = useState(false);
 
+  // Publish the active source so loaders (e.g. loadGroundData) can route
+  // per-file reads through the engine's own channel when appropriate.
+  useEffect(() => {
+    if (externalSource) {
+      setActiveGraphSource(externalSource);
+      return () => setActiveGraphSource(null);
+    }
+    return undefined;
+  }, [externalSource]);
+
   const load = async (path: string, exts?: string[], max?: number) => {
     setStatus({ kind: "loading", path });
     try {
-      const result = await loadRepoGraph({ path, extensions: exts, maxFiles: max });
+      let graph: WorkspaceGraph;
+      let stats: LoadRepoResult["stats"];
+      if (externalSource) {
+        // Route through the adapter. We still drive the toolbar inputs,
+        // but the engine decides what path / exts / max mean.
+        const t0 = performance.now();
+        graph = await externalSource.loadGraph({ path, extensions: exts, maxFiles: max });
+        stats = {
+          totalFiles: graph.files.length,
+          skipped: 0,
+          durationMs: Math.round(performance.now() - t0),
+        };
+      } else {
+        const result = await loadRepoGraph({ path, extensions: exts, maxFiles: max });
+        graph = result.graph;
+        stats = result.stats;
+      }
       // Record the repo root BEFORE setGraph so any ground-card effects
       // that fire on the new graph see the correct root.
       workspaceCanvasStore.setRepoRoot(path);
-      setGraph(result.graph);
-      setStatus({ kind: "loaded", result, path });
+      setGraph(graph);
+      setStatus({ kind: "loaded", result: { graph, stats }, path });
     } catch (err) {
       setStatus({ kind: "error", message: String(err) });
     }

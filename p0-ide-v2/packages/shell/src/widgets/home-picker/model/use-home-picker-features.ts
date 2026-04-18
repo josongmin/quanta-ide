@@ -14,7 +14,7 @@ export function useHomePickerFeatures(): HomePickerFeatures {
   const allFeatures = useMemo(() => sortFeaturesForUser(featuresMap.values()), [featuresMap]);
 
   const primaryFeatures = useMemo(
-    () => allFeatures.filter((f) => f.primary).slice(0, 3),
+    () => allFeatures.filter((f) => f.primary).slice(0, 4),
     [allFeatures],
   );
   const primaryIds = useMemo(

@@ -8,12 +8,13 @@ import type {
   ViewState,
   Viewport,
   LodLevel,
+  LodRendererKind,
   EdgeGeometryCache,
 } from "@quanta/canvas-engine";
-import { GalaxyNodeRenderer } from "../renderers/GalaxyNodeRenderer";
-import { CityNodeRenderer } from "../renderers/CityNodeRenderer";
-import { ClusterNodeRenderer } from "../renderers/ClusterNodeRenderer";
-import { SuperclusterNodeRenderer } from "../renderers/SuperclusterNodeRenderer";
+import { resolveEffectiveTier, getTierConfig } from "@quanta/canvas-engine";
+// Side-effect import — populates RENDERER_REGISTRY with every tier factory.
+// Without this the registry is empty and `coldInit` below finds no handles.
+import { RENDERER_REGISTRY, type RendererHandle, type RenderContext } from "../renderers";
 import { EdgeStaticRenderer } from "../renderers/EdgeStaticRenderer";
 import { EdgeOverlayRenderer } from "../renderers/EdgeOverlayRenderer";
 import { installCityFonts } from "../renderers/shared/BitmapFontAtlas";
@@ -26,10 +27,10 @@ interface PixiBundle {
   app: Application;
   world: Container;
   edgeStatic: EdgeStaticRenderer;
-  galaxy: GalaxyNodeRenderer;
-  city: CityNodeRenderer;
-  cluster: ClusterNodeRenderer;
-  supercluster: SuperclusterNodeRenderer;
+  // Handles are keyed by `LodRendererKind`. Only tiers with a registered
+  // factory appear here — DOM-rendered tiers (street, ground) map to no
+  // handle, which the update effect treats as "nothing to draw at Pixi".
+  nodeHandles: Map<LodRendererKind, RendererHandle>;
   edgeOverlay: EdgeOverlayRenderer;
 }
 const pixiByCanvas = new WeakMap<HTMLCanvasElement, PixiBundle>();
@@ -59,6 +60,10 @@ export interface PixiStageProps {
   edgeCache?: EdgeGeometryCache;
   /** When false, edges are not rendered regardless of visible.edges content. */
   showEdges?: boolean;
+  /** Per-kind edge visibility. Missing/undefined = visible. */
+  edgeKinds?: Partial<Record<"import" | "taint-propagation" | "blast", boolean>>;
+  /** Multiplier applied to each edge's base stroke width (0.25..3). */
+  edgeWidthMul?: number;
   onFileClick?: (fileId: string) => void;
   onFileHover?: (fileId: string | null) => void;
   onClusterClick?: (clusterId: string) => void;
@@ -82,10 +87,7 @@ function destroyBundle(bundle: PixiBundle): void {
   // alive when their buffers unload. App.destroy() last — it nukes the GL
   // context itself.
   try {
-    bundle.galaxy.destroy();
-    bundle.city.destroy();
-    bundle.cluster.destroy();
-    bundle.supercluster.destroy();
+    for (const handle of bundle.nodeHandles.values()) handle.destroy();
     bundle.edgeStatic.destroy();
     bundle.edgeOverlay.destroy();
   } catch (e) {
@@ -110,6 +112,8 @@ export function PixiStage({
   lod,
   edgeCache,
   showEdges = true,
+  edgeKinds,
+  edgeWidthMul,
   onFileClick,
   onFileHover,
   onClusterClick,
@@ -119,10 +123,9 @@ export function PixiStage({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<Application | null>(null);
   const worldRef = useRef<Container | null>(null);
-  const galaxyRef = useRef<GalaxyNodeRenderer | null>(null);
-  const cityRef = useRef<CityNodeRenderer | null>(null);
-  const clusterRef = useRef<ClusterNodeRenderer | null>(null);
-  const superclusterRef = useRef<SuperclusterNodeRenderer | null>(null);
+  // Registry-driven handles — one ref holds the whole map so render effects
+  // can loop without knowing the concrete renderer class names.
+  const nodeHandlesRef = useRef<Map<LodRendererKind, RendererHandle> | null>(null);
   const edgeStaticRef = useRef<EdgeStaticRenderer | null>(null);
   const edgeOverlayRef = useRef<EdgeOverlayRenderer | null>(null);
   // State (not ref) so render effects re-run when pixi finishes async init.
@@ -172,10 +175,7 @@ export function PixiStage({
       appRef.current = bundle.app;
       worldRef.current = bundle.world;
       edgeStaticRef.current = bundle.edgeStatic;
-      galaxyRef.current = bundle.galaxy;
-      cityRef.current = bundle.city;
-      clusterRef.current = bundle.cluster;
-      superclusterRef.current = bundle.supercluster;
+      nodeHandlesRef.current = bundle.nodeHandles;
       edgeOverlayRef.current = bundle.edgeOverlay;
       setPixiReady(true);
     };
@@ -267,22 +267,24 @@ export function PixiStage({
       app.stage.addChild(world);
       app.stage.eventMode = "static";
       const edgeStatic = new EdgeStaticRenderer(world);
-      const galaxy = new GalaxyNodeRenderer(world, {
-        onClick: (id: string) => onFileClickRef.current?.(id),
-        onHover: (id: string | null) => onFileHoverRef.current?.(id),
-      });
-      const city = new CityNodeRenderer(world, {
-        onClick: (id: string) => onFileClickRef.current?.(id),
-        onHover: (id: string | null) => onFileHoverRef.current?.(id),
-      });
-      const cluster = new ClusterNodeRenderer(world, {
-        onClick: (id: string) => onClusterClickRef.current?.(id),
-      });
-      const supercluster = new SuperclusterNodeRenderer(world, {
-        onClick: (id: string) => onSuperclusterClickRef.current?.(id),
-      });
+      // Callback bag forwards to the parent-supplied props via refs so a
+      // new arrow identity on re-render doesn't invalidate the handle.
+      const callbacks = {
+        onFileClick: (id: string) => onFileClickRef.current?.(id),
+        onFileHover: (id: string | null) => onFileHoverRef.current?.(id),
+        onClusterClick: (id: string) => onClusterClickRef.current?.(id),
+        onSuperclusterClick: (id: string) => onSuperclusterClickRef.current?.(id),
+      };
+      // Walk the registry — each entry owns its own Pixi object hierarchy.
+      // `LodRendererKind`s that don't have a factory (street, ground) stay
+      // absent from `nodeHandles`; the dispatch effect treats absence as
+      // "DOM tier, Pixi does nothing".
+      const nodeHandles = new Map<LodRendererKind, RendererHandle>();
+      for (const [kind, factory] of RENDERER_REGISTRY) {
+        nodeHandles.set(kind, factory(world, callbacks));
+      }
       const edgeOverlay = new EdgeOverlayRenderer(world);
-      const bundle: PixiBundle = { app, world, edgeStatic, galaxy, city, cluster, supercluster, edgeOverlay };
+      const bundle: PixiBundle = { app, world, edgeStatic, nodeHandles, edgeOverlay };
       pixiByCanvas.set(el, bundle);
       return bundle;
     }
@@ -329,10 +331,7 @@ export function PixiStage({
       // window can't dispatch to a bundle that's about to be destroyed.
       appRef.current = null;
       worldRef.current = null;
-      galaxyRef.current = null;
-      cityRef.current = null;
-      clusterRef.current = null;
-      superclusterRef.current = null;
+      nodeHandlesRef.current = null;
       edgeStaticRef.current = null;
       edgeOverlayRef.current = null;
       // Schedule destroy. Real unmount vs StrictMode double-mount is
@@ -389,47 +388,46 @@ export function PixiStage({
   // dedupes) — so plain-ref deps are cheaper than stringifying ids.
   const scaleBucket = Math.round(viewport.scale * 20) / 20;
   // Effective LOD cascade — a higher tier with no data to draw falls
-  // through to the next finer tier so the user never sees an empty canvas:
-  //   universe → supergalaxy  (no superclusters in layout)
-  //   supergalaxy → galaxy    (grid layouts with no clusters)
-  // This keeps the experience sane on small graphs (< TREEMAP_THRESHOLD
-  // files produce neither clusters nor superclusters) and on a fresh
-  // layout tick before coarser tiers are populated.
-  let effectiveLod: typeof lod = lod;
-  if (effectiveLod === "universe" && !(superclusters && superclusters.superclusters.length > 0)) {
-    effectiveLod = "supergalaxy";
-  }
-  if (effectiveLod === "supergalaxy" && !(clusters && clusters.clusters.length > 0)) {
-    effectiveLod = "galaxy";
-  }
+  // through to the next finer tier so the user never sees an empty canvas.
+  // The fallback chain itself (universe → supergalaxy → galaxy → …) is
+  // declared once in `lod-config.ts`'s `LOD_TIERS[*].fallback` and walked
+  // here via `resolveEffectiveTier`. Previously this was a hand-written
+  // pair of `if` branches; keeping it in the config means adding a new
+  // intermediate tier doesn't require editing PixiStage.
+  const hasClusters = !!(clusters && clusters.clusters.length > 0);
+  const hasSuperclusters = !!(superclusters && superclusters.superclusters.length > 0);
+  const effectiveLod: LodLevel = resolveEffectiveTier(lod, { hasClusters, hasSuperclusters });
   useEffect(() => {
     if (!pixiReady) return;
-    if (effectiveLod === "universe") {
-      superclusterRef.current?.update(superclusters?.superclusters ?? [], viewport);
-      clusterRef.current?.clear();
-      cityRef.current?.update([], layout, viewState, viewport);
-      galaxyRef.current?.update([], layout, viewState, viewport);
-    } else if (effectiveLod === "supergalaxy") {
-      clusterRef.current?.update(clusters?.clusters ?? [], viewport);
-      superclusterRef.current?.clear();
-      cityRef.current?.update([], layout, viewState, viewport);
-      galaxyRef.current?.update([], layout, viewState, viewport);
-    } else if (effectiveLod === "city") {
-      cityRef.current?.update(visible.files, layout, viewState, viewport);
-      galaxyRef.current?.update([], layout, viewState, viewport);
-      clusterRef.current?.clear();
-      superclusterRef.current?.clear();
-    } else if (effectiveLod === "galaxy") {
-      galaxyRef.current?.update(visible.files, layout, viewState, viewport);
-      cityRef.current?.update([], layout, viewState, viewport);
-      clusterRef.current?.clear();
-      superclusterRef.current?.clear();
-    } else {
-      // street / ground — DOM layer renders
-      cityRef.current?.update([], layout, viewState, viewport);
-      galaxyRef.current?.update([], layout, viewState, viewport);
-      clusterRef.current?.clear();
-      superclusterRef.current?.clear();
+    const handles = nodeHandlesRef.current;
+    if (!handles) return;
+
+    const tier = getTierConfig(effectiveLod);
+    // Build the tagged-union context from tier.sceneKind. The registry
+    // handle then dispatches internally — PixiStage no longer knows which
+    // concrete renderer services which scene.
+    let ctx: RenderContext | null = null;
+    switch (tier.sceneKind) {
+      case "files":
+        ctx = { sceneKind: "files", files: visible.files, layout, viewState, viewport };
+        break;
+      case "clusters":
+        ctx = { sceneKind: "clusters", clusters: clusters?.clusters ?? [], viewport };
+        break;
+      case "superclusters":
+        ctx = { sceneKind: "superclusters", superclusters: superclusters?.superclusters ?? [], viewport };
+        break;
+    }
+
+    // Drive the active tier's handle; every other registered handle gets
+    // a `clear()` so stale Pixi objects from a previous tier don't paint.
+    // DOM-layer tiers (street, ground) have no registered factory — the
+    // `activeHandle` lookup will simply return undefined and every other
+    // handle gets cleared, which is the correct "nothing drawn" state.
+    const activeHandle = handles.get(tier.rendererKind);
+    if (activeHandle && ctx) activeHandle.update(ctx);
+    for (const [kind, handle] of handles) {
+      if (kind !== tier.rendererKind) handle.clear();
     }
     // Intentional subset: viewport.x/y excluded (pan never triggers redraw);
     // scaleBucket captures scale changes; selection/hover handled via viewState.
@@ -437,13 +435,23 @@ export function PixiStage({
   }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
 
   // ── Edge static redraw ──────────────────────────────────────────
-  // Edge rendering is toggleable: thousands of bezier curves hurt scroll
-  // perf *and* add visual noise. Users can turn it off from CanvasControls.
-  const edgesToRender = showEdges ? visible.edges : EMPTY_EDGES;
+  // Two gates: the user's `showEdges` toggle AND the LOD tier config's
+  // `showEdges` flag. LOD wins when tier declares `showEdges: false` —
+  // rationale: at galaxy+ zoom, thousands of bezier curves are the
+  // dominant bottleneck per the perf recorder (galaxy + 3k edges + 220
+  // files = 58ms/frame vs. 17ms when files=94). The tier config declares
+  // where edges are viable; we enforce that here instead of hoping the
+  // user remembers to toggle off.
+  const tierAllowsEdges = getTierConfig(effectiveLod).showEdges !== false;
+  const edgesToRender = showEdges && tierAllowsEdges ? visible.edges : EMPTY_EDGES;
   useEffect(() => {
     if (!pixiReady) return;
-    edgeStaticRef.current?.build(edgesToRender, layout, edgeCache);
-  }, [pixiReady, edgesToRender, layout, edgeCache]);
+    edgeStaticRef.current?.build(edgesToRender, layout, edgeCache, viewport, {
+      kindFilter: edgeKinds,
+      widthMul: edgeWidthMul,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pixiReady, edgesToRender, layout, edgeCache, scaleBucket, edgeKinds, edgeWidthMul]);
 
   // ── Overlay redraw (selection/hover only — intentional partial deps) ─
   useEffect(() => {

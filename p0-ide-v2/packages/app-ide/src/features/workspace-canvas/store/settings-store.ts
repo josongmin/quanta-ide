@@ -17,12 +17,17 @@ export type ForceLod =
   | "street"
   | "ground";
 
+export type EdgeKind = "import" | "taint-propagation" | "blast";
+
 export interface SettingsState {
   showEdges: boolean;
   debugHudOpen: boolean;
   showGridBg: boolean;
   showHitLayers: boolean;
   forceLod: ForceLod;
+  edgeKinds: Record<EdgeKind, boolean>;
+  edgeWidthMul: number;
+  freezeScene: boolean;
 }
 
 let state: SettingsState = {
@@ -31,6 +36,9 @@ let state: SettingsState = {
   showGridBg: true,
   showHitLayers: false,
   forceLod: "auto",
+  edgeKinds: { import: true, "taint-propagation": true, blast: true },
+  edgeWidthMul: 1,
+  freezeScene: false,
 };
 
 const listeners = new Set<() => void>();
@@ -77,6 +85,25 @@ const actions = {
   setForceLod(v: ForceLod) {
     if (state.forceLod === v) return;
     state = { ...state, forceLod: v };
+    emit();
+  },
+
+  setEdgeKind(kind: EdgeKind, v: boolean) {
+    if (state.edgeKinds[kind] === v) return;
+    state = { ...state, edgeKinds: { ...state.edgeKinds, [kind]: v } };
+    emit();
+  },
+
+  setEdgeWidthMul(v: number) {
+    const clamped = Math.max(0.25, Math.min(3, v));
+    if (state.edgeWidthMul === clamped) return;
+    state = { ...state, edgeWidthMul: clamped };
+    emit();
+  },
+
+  setFreezeScene(v: boolean) {
+    if (state.freezeScene === v) return;
+    state = { ...state, freezeScene: v };
     emit();
   },
 };

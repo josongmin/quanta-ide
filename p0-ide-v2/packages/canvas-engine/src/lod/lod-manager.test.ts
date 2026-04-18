@@ -1,23 +1,32 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { LodManager, lodFromScale } from "./lod-manager";
 
-// Hysteresis thresholds copied verbatim from lod-manager.ts. Keeping them
+// Hysteresis thresholds copied verbatim from lod-config.ts. Keeping them
 // duplicated here is intentional — the test pins the *contract* so any
 // future tweak to the LOD ladder forces a corresponding update to these
 // expectations (which is what we want for a regression suite).
+//
+// Thresholds retuned 2026-04-19 — shifted ~25% earlier so tier upgrades
+// trigger sooner on zoom-in. Adjacent tiers now share handoff points in
+// the lower ladder (city.down=galaxy.up=0.10, galaxy.down=supergalaxy.up=0.07,
+// supergalaxy.down=universe.up=0.03).
+// The naming convention A_B is "scale at which we transition between
+// adjacent tiers A↔B". For UP: the upThreshold of the FINER tier (B).
+// For DOWN: the downThreshold of the FINER tier (B) — when we're in the
+// finer tier and drop below that, we fall back to the coarser tier (A).
 const UP = {
-  universe_supergalaxy: 0.025,
-  supergalaxy_galaxy: 0.08,
-  galaxy_city: 0.15,
-  city_street: 0.35,
-  street_ground: 0.75,
+  universe_supergalaxy: 0.07,   // supergalaxy.upThreshold
+  supergalaxy_galaxy:   0.10,   // galaxy.upThreshold
+  galaxy_city:          0.13,   // city.upThreshold
+  city_street:          0.25,
+  street_ground:        0.60,
 };
 const DOWN = {
-  universe_supergalaxy: 0.02,
-  supergalaxy_galaxy: 0.065,
-  galaxy_city: 0.12,
-  city_street: 0.32,
-  street_ground: 0.72,
+  universe_supergalaxy: 0.015,  // supergalaxy.downThreshold (widened for user)
+  supergalaxy_galaxy:   0.07,   // galaxy.downThreshold
+  galaxy_city:          0.10,   // city.downThreshold
+  city_street:          0.22,
+  street_ground:        0.57,
 };
 
 describe("LodManager", () => {

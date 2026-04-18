@@ -1,6 +1,6 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { DecorationSet } from "@codemirror/view";
-import { RangeSetBuilder, StateField } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField } from "@codemirror/state";
 import type { FileFacts } from "@quanta/app-ide/entities/file";
 import {
   createChip,
@@ -42,14 +42,20 @@ class FileHeaderWidget extends WidgetType {
   // textContent. The outer wrapper owns vertical spacing so its
   // offsetHeight matches what CodeMirror sees → gutter line numbers stay
   // aligned. The wrapper also owns the leftward gutter overhang via the
-  // `cm-fnhead-wrap--file` modifier in CSS (no inline horizontal style
+  // `cm-chip-bar-wrap--file` modifier in CSS (no inline horizontal style
   // on the inner element).
   override toDOM(): HTMLElement {
     const wrap = document.createElement("div");
-    wrap.className = "cm-fnhead-wrap cm-fnhead-wrap--file";
+    wrap.className = "cm-chip-bar-wrap cm-chip-bar-wrap--file";
+    wrap.setAttribute("role", "presentation");
 
     const el = document.createElement("div");
-    el.className = `cm-fnhead cm-fnhead--${tone(this.file.riskScore)} cm-fnhead--file`;
+    el.className = `cm-chip-bar cm-chip-bar--${tone(this.file.riskScore)} cm-chip-bar--file`;
+    el.setAttribute("role", "group");
+    el.setAttribute(
+      "aria-label",
+      `${this.file.name} risk summary, risk score ${this.file.riskScore}`,
+    );
 
     const chips: HTMLElement[] = [];
 
@@ -99,18 +105,33 @@ class FileHeaderWidget extends WidgetType {
   }
 }
 
-export function fileHeader(file: FileFacts) {
+function buildFileHeaderDeco(file: FileFacts): DecorationSet {
+  const b = new RangeSetBuilder<Decoration>();
+  b.add(
+    0,
+    0,
+    Decoration.widget({ widget: new FileHeaderWidget(file), side: -1, block: true }),
+  );
+  return b.finish();
+}
+
+/**
+ * Dispatch with `view.dispatch({ effects: setFileHeaderFacts.of(newFacts) })`
+ * to swap the file-header chip bar contents without recreating the editor.
+ * The widget's signature-based `eq()` will short-circuit when the rendered
+ * fields haven't actually changed, so spurious dispatches are cheap.
+ */
+export const setFileHeaderFacts = StateEffect.define<FileFacts>();
+
+export function fileHeader(initial: FileFacts) {
   return StateField.define<DecorationSet>({
     create(_state) {
-      const b = new RangeSetBuilder<Decoration>();
-      b.add(
-        0,
-        0,
-        Decoration.widget({ widget: new FileHeaderWidget(file), side: -1, block: true }),
-      );
-      return b.finish();
+      return buildFileHeaderDeco(initial);
     },
     update(deco, tr) {
+      for (const e of tr.effects) {
+        if (e.is(setFileHeaderFacts)) return buildFileHeaderDeco(e.value);
+      }
       return tr.docChanged ? deco.map(tr.changes) : deco;
     },
     provide: (f) => EditorView.decorations.from(f),

@@ -3,6 +3,7 @@ import type { ClusterMeta, Viewport } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_BOLD_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
+import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
 
 // Universe LOD renderer — draws one chunky architectural box per supercluster
 // (e.g. `crates/`, `tests/`, future service groups). Shares the same
@@ -251,3 +252,17 @@ export class SuperclusterNodeRenderer {
     this.container.destroy({ children: true });
   }
 }
+
+registerRenderer("supercluster", (parent, callbacks): RendererHandle => {
+  const inst = new SuperclusterNodeRenderer(parent, {
+    onClick: callbacks.onSuperclusterClick,
+  });
+  return {
+    update(ctx: RenderContext): void {
+      if (ctx.sceneKind !== "superclusters") return;
+      inst.update(ctx.superclusters, ctx.viewport);
+    },
+    clear(): void { inst.clear(); },
+    destroy(): void { inst.destroy(); },
+  };
+});

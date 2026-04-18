@@ -3,6 +3,7 @@ import type { ClusterMeta, Viewport } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_BOLD_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
+import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
 
 // Supergalaxy LOD renderer — draws one soft-coloured box per top-level
 // directory / crate. There are at most a couple hundred of these, so the
@@ -190,3 +191,17 @@ export class ClusterNodeRenderer {
     this.container.destroy({ children: true });
   }
 }
+
+registerRenderer("cluster", (parent, callbacks): RendererHandle => {
+  const inst = new ClusterNodeRenderer(parent, {
+    onClick: callbacks.onClusterClick,
+  });
+  return {
+    update(ctx: RenderContext): void {
+      if (ctx.sceneKind !== "clusters") return;
+      inst.update(ctx.clusters, ctx.viewport);
+    },
+    clear(): void { inst.clear(); },
+    destroy(): void { inst.destroy(); },
+  };
+});

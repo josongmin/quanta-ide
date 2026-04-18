@@ -1,9 +1,14 @@
 import { useEffect, useRef } from "react";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import { buildSceneQuery, isClusterView, isSuperclusterView } from "@quanta/canvas-engine";
-import { workspaceCanvasStore, useWorkspaceCanvas as useStore } from "../store/workspace-canvas-store";
+import { workspaceCanvasStore } from "../store/workspace-canvas-store";
+import { useViewportStore } from "../store/viewport-store";
+import { sceneStore, useSceneStore } from "../store/scene-store";
+import { useInteractionStore } from "../store/interaction-store";
+import { useSettingsStore } from "../store/settings-store";
 import { useLodSync } from "./use-lod-sync";
 import { requestLayout, requestAggregates } from "./use-worker-bridge";
+import { getActiveGraphSource } from "../data/loaders";
 
 type SceneKind = "files" | "clusters" | "superclusters";
 
@@ -14,7 +19,8 @@ function setEq(a: Set<string>, b: Set<string>): boolean {
 }
 
 export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
-  // 1. Push graph into store
+  // 1. Push graph into store via the facade's cross-cutting setGraph so
+  //    scene swap + selection reset happen atomically (one facade emit).
   useEffect(() => {
     workspaceCanvasStore.setGraph(graph);
     // Trigger initial grid layout immediately (fast), then ELK (slow)
@@ -22,17 +28,18 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
     requestAggregates(graph);
   }, [graph]);
 
-  // 2. LOD sync
-  useLodSync();
+  // 2. LOD sync — graphKey resets the LOD manager's hysteretic tier when
+  // the user swaps repos so a different graph's zoom state doesn't leak.
+  const graphKey = getActiveGraphSource()?.graphKey ?? "default";
+  useLodSync(graphKey);
 
-  // 3. Rebuild visible scene whenever viewport/layout/lod changes.
-  //    `buildSceneQuery` is LOD-aware: it returns a cluster view at
-  //    supergalaxy and a file view elsewhere. Dedupe by id-sets so panning
-  //    inside a stable visible region doesn't emit a fresh scene.
-  const viewport = useStore(s => s.viewport);
-  const layout   = useStore(s => s.layout);
-  const lod      = useStore(s => s.lod);
-  const forceLod = useStore(s => s.forceLod);
+  // 3. Rebuild visible scene whenever viewport/layout/lod changes. Each
+  //    dependency subscribes to its owning sub-store so unrelated state
+  //    mutations (hover, selection, settings toggles) don't re-run this.
+  const viewport = useViewportStore(s => s.viewport);
+  const layout   = useSceneStore(s => s.layout);
+  const lod      = useInteractionStore(s => s.lod);
+  const forceLod = useSettingsStore(s => s.forceLod);
 
   const lastIdsRef = useRef<{
     kind: SceneKind;
@@ -64,7 +71,7 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
         clusterIds: new Set(),
         superclusterIds,
       };
-      workspaceCanvasStore.setSuperclusterScene(scene);
+      sceneStore.setSuperclusterScene(scene);
     } else if (isClusterView(scene)) {
       const clusterIds = new Set(scene.clusters.map(c => c.id));
       const prev = lastIdsRef.current;
@@ -76,7 +83,7 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
         clusterIds,
         superclusterIds: new Set(),
       };
-      workspaceCanvasStore.setClusterScene(scene);
+      sceneStore.setClusterScene(scene);
     } else {
       const fileIds = new Set(scene.files.map(f => f.id));
       const edgeIds = new Set(scene.edges.map(e => e.id));
@@ -89,7 +96,7 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
         clusterIds: new Set(),
         superclusterIds: new Set(),
       };
-      workspaceCanvasStore.setVisibleScene(scene);
+      sceneStore.setVisibleScene(scene);
     }
   }, [graph, layout, viewport, lod]);
 }

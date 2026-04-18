@@ -30,6 +30,8 @@ export {
 // View types
 export type {
   LodLevel,
+  LodTierConfig,
+  LodRendererKind,
   Viewport,
   WorkspaceView,
   WorkspaceClusterView,
@@ -40,8 +42,14 @@ export type {
 } from "./view/types";
 export { isClusterView, isSuperclusterView } from "./view/types";
 
-// LOD manager
+// LOD manager + declarative tier config
 export { LodManager, lodFromScale } from "./lod/lod-manager";
+export {
+  LOD_TIERS,
+  getTierConfig,
+  resolveEffectiveTier,
+} from "./lod/lod-config";
+export type { SceneDataAvailability } from "./lod/lod-config";
 
 // Grid layout
 export { gridLayout } from "./layout/grid-layout";

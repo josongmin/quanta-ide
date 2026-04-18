@@ -33,9 +33,15 @@ let flushScheduled = false;
 // unmounts (user zooms out / scrolls away) we want to drop its pending
 // result — writing data into the store for a non-visible card is pure
 // waste and, worse, re-emits sceneStore listeners. `unregisterMount`
-// removes from this set; before flushing, we filter entries to only
-// those still in this set.
-const mountedCards = new Set<string>();
+// removes from this set; before flushing, we filter entries + clearingIds
+// to only those still in this set. Unmounted ids are dropped silently;
+// any already-resolved fetch still populates the in-flight cache so a
+// later remount is instant (see the loadGroundDataBatch module cache).
+//
+// StrictMode: React double-invokes effects (mount → cleanup → mount).
+// `registerMount` is idempotent (Set.add), and `unregisterMount` is a
+// pure delete — the second mount re-adds the id, so entries don't leak.
+const mountedFileIds = new Set<string>();
 
 function flush(): void {
   flushScheduled = false;
@@ -52,18 +58,24 @@ function flush(): void {
   const promise = (async () => {
     try {
       const results = await loadGroundDataBatch(ids);
-      // Unmount guard: filter entries to only those whose GroundCard is
-      // still mounted. A user who zooms in → out before fetch resolves
-      // would otherwise see store writes for cards that are no longer on
-      // screen (wasted ground data cache + sceneStore emits that wake
-      // every subscriber). `ids` is still used as the loading-flag reset
-      // set so stale `true` loading flags don't linger on unmounted cards.
-      const liveEntries = ids
-        .filter(id => mountedCards.has(id))
-        .map(id => ({ id, data: results[id] ?? { source: "" } }));
-      // One atomic store update: writes data only for mounted cards +
-      // clears loading flags for ALL requested ids.
-      workspaceCanvasStore.setGroundDataBatch(liveEntries, ids);
+      // Unmount guard: filter entries AND clearingIds to only those whose
+      // GroundCard is still mounted. A user who zooms in → out before fetch
+      // resolves would otherwise see store writes for cards that are no
+      // longer on screen (wasted ground data cache + sceneStore emits that
+      // wake every subscriber). The in-flight Promise cache (inFlight,
+      // plus loadGroundDataBatch's internal module-level cache) still
+      // populates, so a subsequent remount gets instant data without
+      // re-fetching — only the store write is skipped for unmounted ids.
+      const liveIds = ids.filter(id => mountedFileIds.has(id));
+      const liveEntries = liveIds.map(id => ({
+        id,
+        data: results[id] ?? { source: "" },
+      }));
+      // One atomic store update: writes data + clears loading flags for
+      // the currently-mounted subset only. Unmounted ids are dropped
+      // silently (their loading flag would also be meaningless since no
+      // card is listening).
+      workspaceCanvasStore.setGroundDataBatch(liveEntries, liveIds);
     } finally {
       // In case setGroundDataBatch was not reached (shouldn't happen, but
       // guard against a thrown store update), ensure loading is cleared.
@@ -91,7 +103,7 @@ export function enqueueGroundFetch(fileId: string): Promise<void> {
   // Any enqueuer is by definition a mounted consumer — register here so
   // even if the caller forgets to call registerMount explicitly, the
   // mount tracking still works.
-  mountedCards.add(fileId);
+  mountedFileIds.add(fileId);
 
   const existing = inFlight.get(fileId);
   if (existing) return existing;
@@ -119,13 +131,27 @@ export function enqueueGroundFetch(fileId: string): Promise<void> {
 }
 
 /**
+ * Explicitly register that a GroundCard for this file has mounted.
+ * `enqueueGroundFetch` auto-registers, but when the hook short-circuits
+ * because data is already cached it never enqueues — callers should call
+ * this from the same useEffect to keep the mount counter honest.
+ * Idempotent (Set.add) so StrictMode double-mount is safe.
+ */
+export function registerMount(fileId: string): void {
+  mountedFileIds.add(fileId);
+}
+
+/**
  * Notify the batch coordinator that a GroundCard for this file has
  * unmounted. Removes from the mounted set so an in-flight fetch's result
- * is dropped rather than written to the store. Safe to call even if the
+ * is dropped rather than written to the store. The in-flight Promise
+ * itself is NOT cancelled — it runs to completion so the underlying
+ * loadGroundDataBatch cache is populated for a potential remount, but
+ * the store write is filtered out in `flush`. Safe to call even if the
  * id was never enqueued — it's a pure set delete.
  */
 export function unregisterMount(fileId: string): void {
-  mountedCards.delete(fileId);
+  mountedFileIds.delete(fileId);
 }
 
 // Exported for tests: lets tests reset coordinator state between cases.
@@ -133,6 +159,6 @@ export function __resetGroundFetchCoordinator(): void {
   pending = null;
   pendingResolvers = null;
   inFlight.clear();
-  mountedCards.clear();
+  mountedFileIds.clear();
   flushScheduled = false;
 }

@@ -3,6 +3,8 @@ import type { FileNode, WorkspaceLayout, ViewState, Viewport } from "@quanta/can
 import { FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { type PickRect } from "./shared/SpatialPickIndex";
 import { RectNodeRenderer } from "./shared/RectNodeRenderer";
+import { riskFill, riskBorder, SELECTION_ACCENT } from "./shared/colors";
+import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
 
 // Galaxy LOD (scale < 0.15): the whole codebase from far away. Each file card
 // is tens of CSS pixels — text would be unreadable. This renderer is stripped
@@ -13,18 +15,6 @@ import { RectNodeRenderer } from "./shared/RectNodeRenderer";
 // a near-zero-alpha fill so Pixi's event system can detect pointerover the
 // whole node region, but the actual per-rect lookup is done via
 // SpatialPickIndex (RBush).
-
-function riskFill(score: number): number {
-  if (score >= 70) return 0xfee2e2;
-  if (score >= 40) return 0xfef3c7;
-  return 0xdcfce7;
-}
-
-function riskBorder(score: number): number {
-  if (score >= 70) return 0xfca5a5;
-  if (score >= 40) return 0xfcd34d;
-  return 0x86efac;
-}
 
 export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
   // Scratch — captured from update() so renderInstance() can see the
@@ -65,7 +55,7 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     const isHovered = viewState.hoveredFileId === file.id;
 
     const fillColor = riskFill(file.riskScore);
-    const borderColor = isSelected ? 0x4f46e5 : riskBorder(file.riskScore);
+    const borderColor = isSelected ? SELECTION_ACCENT : riskBorder(file.riskScore);
     const fillAlpha = isSelected ? 1.0 : isHovered ? 0.95 : 0.88;
     const borderAlpha = isSelected ? 1.0 : 0.7;
     const bw = isSelected ? this.frameStrokeW * 2 : this.frameStrokeW;
@@ -184,3 +174,23 @@ export class GalaxyNodeRenderer extends RectNodeRenderer<FileNode> {
     super.destroy();
   }
 }
+
+// Self-register with the LOD tier registry. Import side-effect; the renderers
+// barrel pulls this module at app init so `PixiStage` finds the factory.
+registerRenderer("galaxy", (parent, callbacks): RendererHandle => {
+  const inst = new GalaxyNodeRenderer(parent, {
+    onClick: callbacks.onFileClick,
+    onHover: callbacks.onFileHover,
+  });
+  return {
+    update(ctx: RenderContext): void {
+      // Galaxy only activates at `sceneKind === "files"`. Any other ctx here
+      // is a PixiStage dispatch bug — ignore rather than throw (a console
+      // warn would drown the hot path; silent no-op is safest).
+      if (ctx.sceneKind !== "files") return;
+      inst.update(ctx.files, ctx.layout, ctx.viewState, ctx.viewport);
+    },
+    clear(): void { inst.clear(); },
+    destroy(): void { inst.destroy(); },
+  };
+});

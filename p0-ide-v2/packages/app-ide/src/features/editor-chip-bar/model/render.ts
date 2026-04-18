@@ -44,13 +44,31 @@ export function taintChipKind(t: Taint | undefined): ChipKind {
   }
 }
 
+/**
+ * ChipKind → trailing class-name fragment.
+ * Single source of truth: TS exhaustiveness on `Record<ChipKind, …>`
+ * catches any missing key at compile time. Each value is either ""
+ * (no extra class) or a leading-space-prefixed class string ready to
+ * be concatenated onto the base `cm-chip` token.
+ */
+const CHIP_KIND_CLASS: Record<ChipKind, string> = {
+  default: "",
+  bad: " is-bad",
+  warn: " is-warn",
+  muted: " is-muted",
+  "taint-source": " cm-chip--taint-source",
+  "taint-sink": " cm-chip--taint-sink",
+  "taint-passthrough": " cm-chip--taint-passthrough",
+  "taint-sanitized": " cm-chip--taint-sanitized",
+};
+
 export function createChip(spec: ChipSpec): HTMLElement {
   const span = document.createElement("span");
-  span.className = "cm-fnhead__chip" + chipKindSuffix(spec.kind ?? "default");
+  span.className = "cm-chip" + CHIP_KIND_CLASS[spec.kind ?? "default"];
 
   if (spec.ico) {
     const ico = document.createElement("span");
-    ico.className = "cm-fnhead__ico";
+    ico.className = "cm-chip__ico";
     ico.textContent = spec.ico;
     span.appendChild(ico);
   }
@@ -64,30 +82,46 @@ export function createChip(spec: ChipSpec): HTMLElement {
   }
   if (spec.sub) {
     const sub = document.createElement("span");
-    sub.className = "cm-fnhead__sub";
+    sub.className = "cm-chip__sub";
     sub.textContent = ` ${spec.sub}`;
     span.appendChild(sub);
   }
+
+  // a11y: build a flat label by concatenating ico, value, em, sub.
+  // Skip nullish parts; `value` always coerces. The chip itself stays
+  // presentational (no role) — the bar container owns role="group".
+  const parts = [spec.ico, String(spec.value), spec.em, spec.sub].filter(Boolean);
+  span.setAttribute("aria-label", parts.join(" ").trim());
+
   return span;
 }
 
 export function createMeta(text: string): HTMLElement {
   const span = document.createElement("span");
-  span.className = "cm-fnhead__meta";
+  span.className = "cm-chip-bar__meta";
   span.textContent = text;
+  span.setAttribute("aria-label", text);
   return span;
 }
 
-export function createRisk(score: number, opts?: { ico?: boolean }): HTMLElement {
+/**
+ * Risk score pill.
+ * - `createRisk(78)` — bare pill (file-header use).
+ * - `createRisk(78, "risk")` — pill prefixed with an ico span carrying
+ *   the given label as text (fn-header use). Pass any short label, not
+ *   a boolean — the caller decides what reads inside the badge.
+ */
+export function createRisk(score: number, icoLabel?: string): HTMLElement {
   const span = document.createElement("span");
-  span.className = "cm-fnhead__risk";
-  if (opts?.ico) {
+  span.className = "cm-chip-bar__risk";
+  if (icoLabel) {
     const ico = document.createElement("span");
-    ico.className = "cm-fnhead__ico";
-    ico.textContent = "risk";
+    ico.className = "cm-chip__ico";
+    ico.textContent = icoLabel;
     span.appendChild(ico);
   }
   span.appendChild(document.createTextNode(String(score)));
+  span.setAttribute("aria-label", `risk score ${score}`);
   return span;
 }
 
@@ -99,25 +133,4 @@ export function createRisk(score: number, opts?: { ico?: boolean }): HTMLElement
  */
 export function signature(...parts: (string | number | boolean | null | undefined)[]): string {
   return parts.map((p) => (p == null ? "" : String(p))).join("\u001f");
-}
-
-function chipKindSuffix(kind: ChipKind): string {
-  switch (kind) {
-    case "bad":
-      return " is-bad";
-    case "warn":
-      return " is-warn";
-    case "muted":
-      return " is-muted";
-    case "taint-source":
-      return " cm-fnhead__chip--taint-source";
-    case "taint-sink":
-      return " cm-fnhead__chip--taint-sink";
-    case "taint-passthrough":
-      return " cm-fnhead__chip--taint-passthrough";
-    case "taint-sanitized":
-      return " cm-fnhead__chip--taint-sanitized";
-    default:
-      return "";
-  }
 }

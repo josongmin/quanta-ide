@@ -25,9 +25,13 @@ export function buildWorkspaceView(input: BuildViewInput): WorkspaceView {
 }
 
 /**
- * LOD-aware scene builder. At the `supergalaxy` LOD, returns a cluster
- * view (one box per top-level directory); at other LODs returns the file
- * view. Use `isClusterView` (from ../view/types) to discriminate.
+ * LOD-aware scene builder. Dispatch is driven by each tier's `sceneKind`
+ * (declared in `lod/lod-config.ts`) — `"superclusters"` → supercluster view
+ * (universe), `"clusters"` → cluster view (supergalaxy), `"files"` → file
+ * view (galaxy / city / street / ground). Fallback chains are also honored
+ * so a tier with no data gracefully degrades to the next available one.
+ * Use `isClusterView` / `isSuperclusterView` (from ../view/types) to
+ * discriminate the return type at call sites.
  */
 export function buildWorkspaceScene(input: BuildViewInput): WorkspaceScene {
   return buildSceneQuery(input.graph, input.layout, input.viewport, input.lod);

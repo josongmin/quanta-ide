@@ -2,7 +2,10 @@ import { useRef, useCallback, useEffect } from "react";
 import "../workspace-canvas.css";
 import { useWorkspaceCanvasOrchestrator } from "../hooks/use-workspace-canvas";
 import { useCanvasViewport } from "../hooks/use-canvas-viewport";
-import { useWorkspaceCanvas, workspaceCanvasStore } from "../store/workspace-canvas-store";
+import { viewportStore } from "../store/viewport-store";
+import { sceneStore, useSceneStore } from "../store/scene-store";
+import { interactionStore, useInteractionStore } from "../store/interaction-store";
+import { settingsStore, useSettingsStore } from "../store/settings-store";
 import { EdgeGeometryCache } from "@quanta/canvas-engine";
 import { PixiStage } from "@quanta/canvas-pixi";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
@@ -27,13 +30,14 @@ export function MultiFileCanvas({ graph }: Props) {
 
   // Stable callbacks so memoized cards don't re-render when unrelated state
   // changes. Store references don't change across renders.
-  const selectFile = useCallback((id: string) => workspaceCanvasStore.selectFile(id), []);
-  const hoverFile = useCallback((id: string | null) => workspaceCanvasStore.hoverFile(id), []);
-  // Reads the current value from the store at click time so we don't need
-  // `showEdges` in deps — keeps this callback referentially stable for the
-  // CanvasControls memo boundary (and for our own render budget).
+  const selectFile = useCallback((id: string) => interactionStore.selectFile(id), []);
+  const hoverFile = useCallback((id: string | null) => interactionStore.hoverFile(id), []);
+  // Reads the current value from the settings store at click time so we
+  // don't need `showEdges` in deps — keeps this callback referentially
+  // stable for the CanvasControls memo boundary (and for our own render
+  // budget).
   const toggleEdges = useCallback(() => {
-    workspaceCanvasStore.setShowEdges(!workspaceCanvasStore.getState().showEdges);
+    settingsStore.setShowEdges(!settingsStore.getState().showEdges);
   }, []);
 
   // Apply the pan/zoom transform imperatively rather than via `style={{transform}}`
@@ -45,14 +49,19 @@ export function MultiFileCanvas({ graph }: Props) {
     if (gridRef.current) gridRef.current.style.transform = transform;
     if (domLayerRef.current) domLayerRef.current.style.transform = transform;
   }, [transform]);
-  const lod               = useWorkspaceCanvas(s => s.lod);
-  const visibleScene      = useWorkspaceCanvas(s => s.visibleScene);
-  const clusterScene      = useWorkspaceCanvas(s => s.clusterScene);
-  const superclusterScene = useWorkspaceCanvas(s => s.superclusterScene);
-  const viewState         = useWorkspaceCanvas(s => s.viewState);
-  const layout            = useWorkspaceCanvas(s => s.layout);
-  const layoutProgress    = useWorkspaceCanvas(s => s.layoutProgress);
-  const showEdges         = useWorkspaceCanvas(s => s.showEdges);
+  // Fix #5: migrate hot-path selectors onto focused sub-stores so pan/zoom
+  // ticks (viewport store) don't wake scene/settings subscribers, and vice
+  // versa. Each field is read from the store that owns it.
+  const lod               = useInteractionStore(s => s.lod);
+  const visibleScene      = useSceneStore(s => s.visibleScene);
+  const clusterScene      = useSceneStore(s => s.clusterScene);
+  const superclusterScene = useSceneStore(s => s.superclusterScene);
+  const viewState         = useInteractionStore(s => s.viewState);
+  const layout            = useSceneStore(s => s.layout);
+  const layoutProgress    = useSceneStore(s => s.layoutProgress);
+  const showEdges         = useSettingsStore(s => s.showEdges);
+  const edgeKinds         = useSettingsStore(s => s.edgeKinds);
+  const edgeWidthMul      = useSettingsStore(s => s.edgeWidthMul);
   const edgeCacheRef = useRef(new EdgeGeometryCache());
 
   // Rebuild edge cache when layout changes
@@ -126,7 +135,7 @@ export function MultiFileCanvas({ graph }: Props) {
       if (e.ctrlKey || e.metaKey) {
         // Zoom deltas accumulate too — multiple wheel ticks in one frame
         // collapse into one zoomAt call with summed delta around the last cursor.
-        const delta = e.deltaY * -0.004;
+        const delta = e.deltaY * -0.008;
         const px = e.clientX - rect.left;
         const py = e.clientY - rect.top;
         if (pendingZoom.current) {
@@ -179,14 +188,15 @@ export function MultiFileCanvas({ graph }: Props) {
   }, [fitToGraph, layout]);
 
   // Cluster click → zoom-to-fit that cluster's rect. Reads layout + viewport
-  // from the store at click time so this callback stays referentially stable
-  // (important: PixiStage stores the ref inside a useEffect([]) init path).
+  // directly from the owning sub-stores at click time so this callback stays
+  // referentially stable (important: PixiStage stores the ref inside a
+  // useEffect([]) init path).
   const onClusterClick = useCallback((clusterId: string) => {
-    const s = workspaceCanvasStore.getState();
-    const rect = s.layout?.clusterRects?.get(clusterId)
-      ?? s.layout?.clusters?.find(c => c.id === clusterId)?.rect;
+    const layout = sceneStore.getState().layout;
+    const rect = layout?.clusterRects?.get(clusterId)
+      ?? layout?.clusters?.find(c => c.id === clusterId)?.rect;
     if (!rect) return;
-    const vp = s.viewport;
+    const vp = viewportStore.getState().viewport;
     if (vp.width <= 0 || vp.height <= 0 || rect.w <= 0 || rect.h <= 0) return;
     // Fill ~80% of the viewport with the cluster; center it.
     const FILL = 0.8;
@@ -197,17 +207,17 @@ export function MultiFileCanvas({ graph }: Props) {
     const cy = rect.y + rect.h / 2;
     const x = vp.width / 2 - cx * scale;
     const y = vp.height / 2 - cy * scale;
-    workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+    viewportStore.setViewport({ ...vp, x, y, scale });
   }, []);
 
   // Supercluster click → same zoom-to-fit behavior as clusters, indexed into
   // layout.superclusters. Referentially stable so PixiStage's init-path ref
   // capture doesn't churn.
   const onSuperclusterClick = useCallback((superclusterId: string) => {
-    const s = workspaceCanvasStore.getState();
-    const rect = s.layout?.superclusters?.find(c => c.id === superclusterId)?.rect;
+    const layout = sceneStore.getState().layout;
+    const rect = layout?.superclusters?.find(c => c.id === superclusterId)?.rect;
     if (!rect) return;
-    const vp = s.viewport;
+    const vp = viewportStore.getState().viewport;
     if (vp.width <= 0 || vp.height <= 0 || rect.w <= 0 || rect.h <= 0) return;
     const FILL = 0.8;
     const rawScale = Math.min(vp.width / rect.w, vp.height / rect.h) * FILL;
@@ -216,7 +226,7 @@ export function MultiFileCanvas({ graph }: Props) {
     const cy = rect.y + rect.h / 2;
     const x = vp.width / 2 - cx * scale;
     const y = vp.height / 2 - cy * scale;
-    workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+    viewportStore.setViewport({ ...vp, x, y, scale });
   }, []);
 
   // Show the loading overlay only when none of the three scene tiers has
@@ -258,6 +268,8 @@ export function MultiFileCanvas({ graph }: Props) {
           lod={lod}
           edgeCache={edgeCacheRef.current}
           showEdges={showEdges}
+          edgeKinds={edgeKinds}
+          edgeWidthMul={edgeWidthMul}
           onFileClick={selectFile}
           onFileHover={hoverFile}
           onClusterClick={onClusterClick}

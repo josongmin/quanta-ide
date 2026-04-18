@@ -15,3 +15,9 @@ export { fileFactsToWorkspaceGraph } from "./data/adapters";
 export { SAMPLE_GRAPH } from "./data/sample-graph";
 export { loadRepoGraph, loadFileSource, loadFileSourceBatch } from "./data/repo-loader";
 export type { LoadRepoOptions, LoadRepoResult, LoadFileSourceOptions } from "./data/repo-loader";
+
+// Adapter layer — plug a real engine in here without touching the UI.
+export type { GraphSource, GraphSourceDescription } from "./data/graph-source";
+export { createMockGraphSource } from "./data/mock-graph-source";
+export type { MockGraphSourceConfig } from "./data/mock-graph-source";
+export { setActiveGraphSource, getActiveGraphSource } from "./data/loaders";
