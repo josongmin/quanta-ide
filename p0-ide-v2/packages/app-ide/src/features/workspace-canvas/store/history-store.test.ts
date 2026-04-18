@@ -81,8 +81,13 @@ describe("historyStore", () => {
     expect(s.loading).toBe(false);
   });
 
-  it("loadCommits with no source yields a clear error", async () => {
+  it("loadCommits falls through to the provider when no factory is registered", async () => {
+    // WHY: post-V3, the store no longer errors when no factory is
+    // registered — it falls back to `getHistorySource()` from the
+    // provider, which returns a mock source seeded from SAMPLE_GRAPH.
     await historyStore.loadCommits();
-    expect(historyStore.getState().error).toBe("no history source");
+    const s = historyStore.getState();
+    expect(s.error).toBeNull();
+    expect(s.source).not.toBeNull();
   });
 });

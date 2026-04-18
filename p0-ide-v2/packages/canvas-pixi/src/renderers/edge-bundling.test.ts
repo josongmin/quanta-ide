@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import type { FileEdge, Rect } from "@quanta/canvas-engine";
+import type { FileEdge, EdgeKind, Rect } from "@quanta/canvas-engine";
 import {
   collapseParallelEdges,
   bundleByFolder,
   bundleWidthMultiplier,
   folderPrefix,
+  pickDominantKind,
 } from "./edge-bundling";
 
 // Helper — terse edge factory so the test bodies stay focused on the
@@ -112,6 +113,90 @@ describe("bundleByFolder", () => {
     ];
     const { bundles } = bundleByFolder(edges, rects, 3);
     expect(bundles).toHaveLength(0);
+  });
+});
+
+describe("pickDominantKind", () => {
+  it("returns fallback on empty tally", () => {
+    const tally = new Map<EdgeKind, number>();
+    expect(pickDominantKind(tally, "call")).toBe("call");
+  });
+
+  it("picks the highest-count kind when there is no tie", () => {
+    const tally = new Map<EdgeKind, number>([
+      ["call", 3],
+      ["reference", 1],
+    ]);
+    expect(pickDominantKind(tally, "dataflow")).toBe("call");
+  });
+
+  it("breaks ties alphabetically regardless of Map insertion order", () => {
+    // "call" and "reference" both at count 2 — lexicographic order
+    // says "call" < "reference", so "call" wins independent of
+    // insertion order.
+    const t1 = new Map<EdgeKind, number>([
+      ["reference", 2],
+      ["call", 2],
+    ]);
+    const t2 = new Map<EdgeKind, number>([
+      ["call", 2],
+      ["reference", 2],
+    ]);
+    expect(pickDominantKind(t1, "dataflow")).toBe("call");
+    expect(pickDominantKind(t2, "dataflow")).toBe("call");
+  });
+
+  it("produces the same dominant kind across edge-order permutations", () => {
+    // Guards the full collapse path: reordering the underlying edge
+    // list must not change the bundle's reported `kind`. Two edges
+    // each of `call` and `reference` → tie → alphabetical → "call".
+    const makeEdges = (order: readonly [string, string][]): FileEdge[] =>
+      order.map(([f, t], i) => ({
+        id: `e${i}`, from: f, to: t,
+        kind: (i % 2 === 0 ? "call" : "reference") as EdgeKind,
+        layer: "structural",
+        weight: 1,
+      }));
+    const a = collapseParallelEdges(makeEdges([["a.ts", "b.ts"], ["a.ts", "b.ts"], ["a.ts", "b.ts"], ["a.ts", "b.ts"]]));
+    const b = collapseParallelEdges(
+      makeEdges([["a.ts", "b.ts"], ["a.ts", "b.ts"], ["a.ts", "b.ts"], ["a.ts", "b.ts"]]).reverse(),
+    );
+    expect(a[0].kind).toBe(b[0].kind);
+  });
+});
+
+describe("collapseParallelEdges — edge cases", () => {
+  it("returns empty array for empty input", () => {
+    expect(collapseParallelEdges([])).toEqual([]);
+  });
+
+  it("preserves fromLine/toLine for singleton bundles", () => {
+    const edges = [e("a.ts", "b.ts", { fromLine: 12, toLine: 34 })];
+    const out = collapseParallelEdges(edges);
+    expect(out).toHaveLength(1);
+    expect(out[0].bundleCount).toBe(1);
+    expect(out[0].fromLine).toBe(12);
+    expect(out[0].toLine).toBe(34);
+  });
+
+  it("drops fromLine/toLine for merged bundles (ambiguous)", () => {
+    const edges = [
+      e("a.ts", "b.ts", { fromLine: 10, toLine: 20 }),
+      e("a.ts", "b.ts", { fromLine: 11, toLine: 21 }),
+    ];
+    const out = collapseParallelEdges(edges);
+    expect(out[0].bundleCount).toBe(2);
+    expect(out[0].fromLine).toBeUndefined();
+    expect(out[0].toLine).toBeUndefined();
+  });
+});
+
+describe("bundleByFolder — edge cases", () => {
+  it("returns empty bundles for empty edge input", () => {
+    const rects = new Map<string, Rect>();
+    const { bundles, folderCenters } = bundleByFolder([], rects, 3);
+    expect(bundles).toEqual([]);
+    expect(folderCenters.size).toBe(0);
   });
 });
 

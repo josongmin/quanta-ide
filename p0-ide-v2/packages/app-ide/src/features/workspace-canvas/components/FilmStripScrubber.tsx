@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { GraphSnapshot, WorkspaceGraph } from "@quanta/canvas-engine";
 import { interactionStore, useInteractionStore } from "../store/interaction-store";
@@ -25,6 +25,9 @@ interface Props {
 //    monitor widths; overflow is shown via horizontal scroll.
 //  - Keyboard events are captured at the strip root so the user can
 //    focus the strip (tabindex) and scrub without touching the mouse.
+//  - Pointer scrub reads pre-computed cell x-ranges via index math rather
+//    than iterating the DOM on every pointermove. The x-range layout is
+//    memoized on commit count + container width so drag costs are O(1).
 
 const MAX_CELLS = 30;
 
@@ -98,8 +101,53 @@ function FilmStripScrubberImpl({ graph }: Props) {
   const enabled = useFeature("temporal.filmStrip");
   const snapshotIndex = useInteractionStore(s => s.temporal.snapshotIndex);
   const rootRef = useRef<HTMLDivElement>(null);
+  const railRef = useRef<HTMLDivElement>(null);
 
   const cells = useMemo(() => buildCells(graph.history), [graph.history]);
+
+  // Container width is tracked via ResizeObserver so the memoized cell
+  // layout stays invariant across pointer events (no getBoundingClientRect
+  // inside the hot path). Initial 0 is fine — the layout effect below
+  // will set the real width before interactions.
+  const [railWidth, setRailWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const el = railRef.current;
+    if (!el) return;
+    // Seed synchronously so the first pointer event has a valid layout.
+    setRailWidth(el.getBoundingClientRect().width);
+  }, [cells.length]);
+
+  useEffect(() => {
+    const el = railRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        setRailWidth(prev => (Math.abs(prev - w) < 0.5 ? prev : w));
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Pre-compute each cell's horizontal extent once per (count, width)
+  // tuple. The pointer handlers then map clientX → cellArrayIndex via a
+  // single divide instead of iterating every rect.
+  interface CellLayout {
+    readonly cellWidth: number;
+    readonly commitIndices: readonly number[];
+  }
+  const layout = useMemo<CellLayout>(() => {
+    const count = cells.length;
+    if (count === 0 || railWidth <= 0) {
+      return { cellWidth: 0, commitIndices: [] };
+    }
+    return {
+      cellWidth: railWidth / count,
+      commitIndices: cells.map(c => c.index),
+    };
+  }, [cells, railWidth]);
 
   const setIndex = useCallback((index: number): void => {
     const max = (graph.history?.snapshots.length ?? 1) - 1;
@@ -108,23 +156,23 @@ function FilmStripScrubberImpl({ graph }: Props) {
   }, [graph.history]);
 
   // Pointer scrub: element captures pointer on down, setting the index for
-  // each cell the pointer enters. Release drops capture. This is a lot
-  // cheaper than wiring mousemove on each cell because the work per move
-  // is just a closest-cell lookup on the pointerId root.
+  // each cell the pointer enters. Release drops capture. Per-move work is
+  // a constant-time index math lookup against the memoized layout.
   const dragging = useRef(false);
+
   const pickCellFromPoint = useCallback((clientX: number): number | null => {
-    const root = rootRef.current;
-    if (!root) return null;
-    const cellEls = root.querySelectorAll<HTMLButtonElement>(".ws-filmstrip__cell");
-    for (let i = 0; i < cellEls.length; i++) {
-      const r = cellEls[i].getBoundingClientRect();
-      if (clientX >= r.left && clientX <= r.right) {
-        const idxAttr = cellEls[i].dataset.index;
-        if (idxAttr !== undefined) return Number(idxAttr);
-      }
-    }
-    return null;
-  }, []);
+    const rail = railRef.current;
+    const { cellWidth, commitIndices } = layout;
+    if (!rail || cellWidth <= 0 || commitIndices.length === 0) return null;
+    const r = rail.getBoundingClientRect();
+    const local = clientX - r.left;
+    if (local < 0 || local > r.width) return null;
+    const arrayIdx = Math.max(
+      0,
+      Math.min(commitIndices.length - 1, Math.floor(local / cellWidth)),
+    );
+    return commitIndices[arrayIdx];
+  }, [layout]);
 
   const onPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
     const idx = pickCellFromPoint(e.clientX);
@@ -187,7 +235,7 @@ function FilmStripScrubberImpl({ graph }: Props) {
       onPointerCancel={onPointerUp}
       onKeyDown={onKeyDown}
     >
-      <div className="ws-filmstrip__rail">
+      <div ref={railRef} className="ws-filmstrip__rail">
         {cells.map(cell => (
           <FilmStripCell
             key={cell.index}

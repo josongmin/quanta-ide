@@ -558,15 +558,15 @@ function GraphEmptyState() {
   const hasGraph = (graph?.files.length ?? 0) > 0;
 
   const label = computing
-    ? "Layout is computing…"
+    ? "레이아웃 계산 중…"
     : hasGraph
-      ? "No metrics yet"
-      : "No graph loaded";
+      ? "아직 메트릭이 없습니다"
+      : "로드된 그래프가 없습니다";
   const hint = computing
-    ? `Processing ${progress?.filesCount ?? 0} files — centrality will appear shortly.`
+    ? `${progress?.filesCount ?? 0}개 파일 처리 중 — 곧 중심성이 표시됩니다.`
     : hasGraph
-      ? "Run workspace layout to see centrality, SCC, and hot-path rankings."
-      : "Load a workspace to populate the graph view.";
+      ? "워크스페이스 레이아웃을 실행하면 중심성·SCC·핫패스 순위가 보입니다."
+      : "워크스페이스를 로드해서 그래프 뷰를 채워주세요.";
 
   return (
     <div className="ws-graph-empty" role="status">

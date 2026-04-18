@@ -27,7 +27,7 @@ const CATEGORY_LABEL: Record<FeatureCategory, string> = {
   overlay: "오버레이",
   ai: "AI",
   temporal: "시간 흐름",
-  "action-terrain": "액션 지형",
+  actionTerrain: "액션 지형",
   experimental: "실험적 기능",
 };
 
@@ -42,7 +42,7 @@ const CATEGORY_ORDER: readonly FeatureCategory[] = [
   "overlay",
   "ai",
   "temporal",
-  "action-terrain",
+  "actionTerrain",
   "experimental",
 ];
 

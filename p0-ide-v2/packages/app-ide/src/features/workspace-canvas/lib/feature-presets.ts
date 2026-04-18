@@ -103,6 +103,7 @@ export const FEATURE_PRESETS: readonly FeaturePreset[] = [
     order: 40,
     features: [
       "overlay.*",
+      "archaeology.panel",
       "archaeology.driftDetector",
       "archaeology.cycleGenesis",
       "archaeology.smellGenesis",

@@ -13,11 +13,12 @@ import { FeaturesSection } from "./debug-hud/FeaturesSection";
 import { FollowSection } from "./debug-hud/FollowSection";
 import { ReviewSection } from "./debug-hud/ReviewSection";
 import { ActionTerrainSection } from "./debug-hud/ActionTerrainSection";
+import { ArchaeologyPanel } from "./debug-hud/ArchaeologyPanel";
 
 // Panel is grouped into 4 top-level categories, each with a handful of sub-tabs.
 // Two-level nav beats a flat 9-tab strip for scanability and lets us drop
 // related sections into a single tab body without inventing more tabs.
-type Tab = "fps" | "lod" | "scene" | "graph" | "perf" | "agents" | "review" | "features" | "terrain";
+type Tab = "fps" | "lod" | "scene" | "graph" | "archaeology" | "perf" | "agents" | "review" | "features" | "terrain";
 type GroupId = "status" | "perf" | "collab" | "features";
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -25,6 +26,7 @@ const TAB_LABELS: Record<Tab, string> = {
   lod: "LOD",
   scene: "씬",
   graph: "그래프",
+  archaeology: "고고학",
   perf: "레코더/시뮬",
   agents: "에이전트",
   review: "리뷰",
@@ -33,7 +35,7 @@ const TAB_LABELS: Record<Tab, string> = {
 };
 
 const GROUPS: readonly { id: GroupId; label: string; tabs: readonly Tab[] }[] = [
-  { id: "status", label: "상태", tabs: ["scene", "fps", "lod", "graph"] },
+  { id: "status", label: "상태", tabs: ["scene", "fps", "lod", "graph", "archaeology"] },
   { id: "perf", label: "성능", tabs: ["perf"] },
   { id: "collab", label: "협업", tabs: ["agents", "review"] },
   { id: "features", label: "기능", tabs: ["features", "terrain"] },
@@ -127,6 +129,7 @@ export function DebugHud() {
         {tab === "lod" && <LodSection />}
         {tab === "scene" && <SceneSection />}
         {tab === "graph" && <GraphSection />}
+        {tab === "archaeology" && <ArchaeologyPanel />}
         {tab === "perf" && (
           <>
             <RecorderControls />

@@ -34,6 +34,20 @@ export interface GitHistorySourceOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * Factory for a git-backed HistorySource. Prefer this over constructing
+ * the class directly: the class is not exported from the `@quanta/canvas-engine`
+ * barrel, so consumers only see the `HistorySource` interface.
+ */
+export function createGitHistorySource(
+  opts: GitHistorySourceOptions = {},
+): HistorySource {
+  return new GitHistorySource(opts);
+}
+
+// WHY: same sealing rationale as MockHistorySource — class is `export`ed
+// here so sibling tests can instantiate it, but NOT re-exported from the
+// package barrel. Production callers route through `createGitHistorySource`.
 export class GitHistorySource implements HistorySource {
   readonly id: string;
   private readonly baseUrl: string;

@@ -67,17 +67,13 @@ function getSpatialCache(graph: WorkspaceGraph, layout: WorkspaceLayout): Spatia
     fileById,
     edgeById,
     graphRef: graph,
+    // Sized to the current file count so the first frame avoids a
+    // subsequent grow. Contents are zero by default (Uint8Array spec).
+    visibleFileBitset: new Uint8Array(graph.files.length),
   };
   spatialCache.set(layout, entry);
   return entry;
 }
-
-// Module-scoped scratch bitset for "is fileId visible?" membership tests
-// during the comments filter. Reused across frames — `.fill(0)` at the
-// top of each `buildVisibleQuery` call. Grows on demand via
-// `ensureBitsetCapacity`; never shrinks (frame-to-frame the file count
-// is near-stable).
-let visibleFileBitset: Uint8Array = new Uint8Array(0);
 
 function viewportToCanvas(viewport: Viewport): { x: number; y: number; w: number; h: number } {
   return {
@@ -189,11 +185,17 @@ export function buildVisibleQuery(
   let fileWriteIdx = 0;
 
   // Zero the bitset and grow if the graph has more files than we've seen.
-  visibleFileBitset = ensureBitsetCapacity(visibleFileBitset, graph.files.length);
+  // Bitset lives on the per-cache entry (keyed by layout), so concurrent
+  // queries against other layouts — e.g. a dual-canvas side-by-side —
+  // each use their own buffer and can't race.
+  const bitset = (cache.visibleFileBitset = ensureBitsetCapacity(
+    cache.visibleFileBitset,
+    graph.files.length,
+  ));
   // `.fill(0, 0, length)` restricts the clear to the live portion — the
   // bitset may be larger than graph.files.length if it was sized for a
   // previous, bigger graph.
-  visibleFileBitset.fill(0, 0, graph.files.length);
+  bitset.fill(0, 0, graph.files.length);
 
   for (let i = 0; i < fileItems.length; i++) {
     const id = fileItems[i].fileId;
@@ -201,7 +203,7 @@ export function buildVisibleQuery(
     if (!node) continue; // graph/layout mismatch (rare; swap in flight)
     files[fileWriteIdx++] = node;
     const idx = fileIdToIndex.get(id);
-    if (idx !== undefined) visibleFileBitset[idx] = 1;
+    if (idx !== undefined) bitset[idx] = 1;
   }
   if (fileWriteIdx !== files.length) files.length = fileWriteIdx;
 
@@ -225,7 +227,7 @@ export function buildVisibleQuery(
   for (let i = 0; i < commentsIn.length; i++) {
     const c = commentsIn[i];
     const idx = fileIdToIndex.get(c.fileId);
-    if (idx !== undefined && visibleFileBitset[idx] === 1) comments.push(c);
+    if (idx !== undefined && bitset[idx] === 1) comments.push(c);
   }
 
   return { kind: "files", files, edges, comments };

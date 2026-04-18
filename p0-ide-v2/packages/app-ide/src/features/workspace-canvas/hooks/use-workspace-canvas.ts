@@ -20,11 +20,14 @@ type SceneKind = "files" | "clusters" | "superclusters";
  * position-by-position equal. This lets us sidestep Set construction
  * entirely in the frequently-hit equality check.
  *
- * In the rare case rbush returns the same ids in a different order, we
- * fall through to a small inline hash: XOR-sum the string length and
- * a cheap rolling hash so order-independent equality is still O(n) with
- * no allocations. False negatives here are harmless — they just cause a
- * redundant setState that React/Zustand will coalesce.
+ * If the incoming ids match the last dispatch by position we skip the
+ * setter call. Both the id arrays coming from `buildVisibleQuery` and
+ * the stored refs share the rbush traversal order (deterministic for
+ * unchanged layouts), so ordered equality is sufficient — we don't need
+ * a hash. In the rare case rbush returns the same ids in a different
+ * order (e.g. right after a layout rebuild) the ordered check yields a
+ * false negative; the only cost is one redundant setState that Zustand
+ * short-circuits via shallow equality downstream.
  */
 function idsEqOrdered(a: ReadonlyArray<string>, b: ReadonlyArray<string>): boolean {
   if (a === b) return true;

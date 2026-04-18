@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import type { GraphHistory, GraphSnapshot } from "@quanta/canvas-engine";
+import type { GraphHistory } from "@quanta/canvas-engine";
 import { interactionStore, useInteractionStore } from "../store/interaction-store";
 import { featureFlagsStore } from "../store/feature-flags-store";
 import { useFeature } from "../store/feature-flags-store";
+import { buildBuckets, bucketIndexForCommit } from "../lib/temporal-bucket";
 
 interface Props {
   history: GraphHistory | undefined;
@@ -13,26 +14,20 @@ interface Props {
 
 // TemporalMinimapStrip (temporal.minimapStrip)
 // ─────────────────────────────────────────────────────────────────────
-// A 1px-tall pixel strip rendered underneath the minimap. Each column is
-// one commit; the column's color encodes churn intensity (additions +
-// removals per snapshot). Clicking a column jumps the snapshot index;
-// hovering shows a tiny tooltip with the commit's label.
+// A short pixel strip rendered underneath the minimap. Each column is one
+// *bucket* of commits; the column's color encodes aggregated churn. Clicks
+// jump the snapshot index to the representative commit of the bucket.
 //
 // The strip handles all commits, not just the ~30 rendered by the film
 // strip, so long histories are visible at-a-glance as a density band.
+// For histories ≤ BUCKET_CAP the bucketing collapses to 1:1, preserving
+// behavior; for longer histories columns aggregate so the strip still
+// fits in a single minimap-width canvas.
 // When power.smoothCamera is on, the interaction store update is the
 // signal — the actual camera easing is handled elsewhere by the scene
 // reacting to the new snapshot index.
 
 const STRIP_HEIGHT = 8; // a hair taller than 1px so clicks actually hit
-
-function churnFor(s: GraphSnapshot): number {
-  const a = s.added?.length ?? 0;
-  const r = s.removed?.length ?? 0;
-  if (a + r > 0) return a + r;
-  // If the snapshot is an absolute-set replacement, approximate by length.
-  return s.edgeIds ? Math.min(50, s.edgeIds.length) : 0;
-}
 
 function churnColor(heat: number): string {
   // Green (low) → amber → red (high). Piecewise-linear in HSL.
@@ -50,11 +45,11 @@ function TemporalMinimapStripImpl({ history, width }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; text: string } | null>(null);
 
-  const maxChurn = useMemo(() => {
-    if (!history) return 1;
-    let m = 0;
-    for (const s of history.snapshots) m = Math.max(m, churnFor(s));
-    return Math.max(1, m);
+  // Bucketing is keyed only on the snapshot list — independent of width
+  // and selectedIndex so resizing / scrubbing never rebuilds buckets.
+  const layout = useMemo(() => {
+    if (!history) return { buckets: [], maxChurn: 1 };
+    return buildBuckets(history.snapshots);
   }, [history]);
 
   useEffect(() => {
@@ -72,52 +67,70 @@ function TemporalMinimapStripImpl({ history, width }: Props) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
 
-    const N = history.snapshots.length;
-    if (N === 0) return;
-    const colW = cssW / N;
-    for (let i = 0; i < N; i++) {
-      const heat = Math.min(1, churnFor(history.snapshots[i]) / maxChurn);
+    const buckets = layout.buckets;
+    const B = buckets.length;
+    if (B === 0) return;
+    const colW = cssW / B;
+    for (let i = 0; i < B; i++) {
+      const heat = Math.min(1, buckets[i].churn / layout.maxChurn);
       ctx.fillStyle = churnColor(heat);
+      // +0.5 avoids hairline gaps when colW is fractional.
       ctx.fillRect(i * colW, 0, Math.max(1, colW + 0.5), cssH);
     }
 
-    // Highlight the active column — thin white outline at the top/bottom.
-    if (snapshotIndex >= 0 && snapshotIndex < N) {
-      const x = snapshotIndex * colW;
+    // Highlight the active bucket (the one containing the selected commit).
+    const N = history.snapshots.length;
+    if (N > 0 && snapshotIndex >= 0 && snapshotIndex < N) {
+      const bIdx = bucketIndexForCommit(snapshotIndex, N, B);
+      const x = bIdx * colW;
       ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
       ctx.fillRect(x, 0, Math.max(1, colW), 1);
       ctx.fillRect(x, cssH - 1, Math.max(1, colW), 1);
     }
-  }, [history, maxChurn, snapshotIndex, width]);
+  }, [history, layout, snapshotIndex, width]);
 
-  const indexForX = useCallback((clientX: number): number | null => {
+  /** Map a pointer X to the bucket index beneath it. */
+  const bucketForX = useCallback((clientX: number): number | null => {
     const canvas = canvasRef.current;
-    if (!canvas || !history) return null;
+    const B = layout.buckets.length;
+    if (!canvas || B === 0) return null;
     const r = canvas.getBoundingClientRect();
     const frac = (clientX - r.left) / Math.max(1, r.width);
-    const N = history.snapshots.length;
-    if (N === 0) return null;
-    return Math.max(0, Math.min(N - 1, Math.floor(frac * N)));
-  }, [history]);
+    return Math.max(0, Math.min(B - 1, Math.floor(frac * B)));
+  }, [layout]);
 
   const onClick = useCallback((e: ReactMouseEvent<HTMLCanvasElement>) => {
-    const idx = indexForX(e.clientX);
-    if (idx === null) return;
-    interactionStore.setSnapshotIndex(idx);
+    const bIdx = bucketForX(e.clientX);
+    if (bIdx === null) return;
+    const bucket = layout.buckets[bIdx];
+    if (!bucket) return;
+    // Round-trip: click → bucket → representative commit. The
+    // representative is the middle commit of the bucket so the scrub lands
+    // on the visual center of the column, not an edge.
+    interactionStore.setSnapshotIndex(bucket.representativeIndex);
     // If the smooth-camera power feature is on, we leave the actual
     // camera animation to the scene-level code that reacts to the new
     // snapshot (which also applies on arrow-key scrubs, etc.). The
     // lookup here just documents the dependency for future readers.
     void featureFlagsStore.isEnabled("power.smoothCamera");
-  }, [indexForX]);
+  }, [bucketForX, layout]);
 
   const onMouseMove = useCallback((e: ReactMouseEvent<HTMLCanvasElement>) => {
-    const idx = indexForX(e.clientX);
-    if (idx === null || !history) { setTooltip(null); return; }
-    const s = history.snapshots[idx];
-    const sha = s.commitSha ? s.commitSha.slice(0, 7) : `s${idx.toString(16).padStart(3, "0")}`;
-    setTooltip({ x: e.nativeEvent.offsetX, text: `${sha} · ${s.label}` });
-  }, [history, indexForX]);
+    const bIdx = bucketForX(e.clientX);
+    if (bIdx === null || !history) { setTooltip(null); return; }
+    const bucket = layout.buckets[bIdx];
+    if (!bucket) { setTooltip(null); return; }
+    const s = history.snapshots[bucket.representativeIndex];
+    const sha = s.commitSha
+      ? s.commitSha.slice(0, 7)
+      : `s${bucket.representativeIndex.toString(16).padStart(3, "0")}`;
+    // Show a commit-range suffix when the bucket covers multiple commits so
+    // the user knows they are scrubbing aggregated history.
+    const range = bucket.startIndex === bucket.endIndex
+      ? ""
+      : ` (+${bucket.endIndex - bucket.startIndex} more)`;
+    setTooltip({ x: e.nativeEvent.offsetX, text: `${sha} · ${s.label}${range}` });
+  }, [history, bucketForX, layout]);
 
   const onMouseLeave = useCallback(() => setTooltip(null), []);
 

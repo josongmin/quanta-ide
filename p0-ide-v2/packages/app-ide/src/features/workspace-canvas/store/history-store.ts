@@ -4,6 +4,12 @@ import type {
   HistorySource,
 } from "@quanta/canvas-engine";
 import { featureFlagsStore } from "./feature-flags-store";
+import {
+  getHistorySource,
+  getPreferredHistoryKind,
+  type HistorySourceKind,
+} from "../lib/history-provider";
+export type { HistorySourceKind };
 
 // History store (T1 — time-travel data foundation)
 // -------------------------------------------------------------------
@@ -24,8 +30,6 @@ import { featureFlagsStore } from "./feature-flags-store";
 // is already memoized inside the source. Keeping that out of the store
 // avoids accidental sync→async mismatches in the UI.
 
-export type HistorySourceKind = "mock" | "git";
-
 export interface HistoryState {
   /** Active source. Undefined before the app wires one in. */
   source: HistorySource | null;
@@ -44,17 +48,27 @@ export interface HistoryState {
 }
 
 type Factories = Partial<Record<HistorySourceKind, () => HistorySource>>;
-// Mutable, module-scoped factory registry. The app bootstrap calls
-// `registerSourceFactory("mock", () => new MockHistorySource(...))`
-// once on startup, and again for "git" when `GitHistorySource` is
-// wired. We don't construct sources here to avoid a hard import of
-// MockHistorySource (which needs live data) into the store barrel.
+// Mutable, module-scoped factory registry. Tests call
+// `registerSourceFactory("mock", () => fakeSource)` to inject a fake.
+// In production no factory is registered: `buildSource` falls back to
+// `getHistorySource()` from `../lib/history-provider`, which picks the
+// mock or git implementation based on the build-time flag.
 const factories: Factories = {};
 
 function initialState(): HistoryState {
+  // Seed `source` via the provider so the time-travel UI works out of the
+  // box in production. Tests that want to override the source still call
+  // `registerSourceFactory(...)` which rebuilds `state.source`.
+  const kind = getPreferredHistoryKind();
+  let source: HistorySource | null = null;
+  try {
+    source = getHistorySource(kind);
+  } catch {
+    source = null;
+  }
   return {
-    source: null,
-    kind: "mock",
+    source,
+    kind,
     commits: [],
     currentSha: null,
     loadEpoch: 0,
@@ -83,9 +97,11 @@ function kindFromFlag(): HistorySourceKind {
 
 function buildSource(kind: HistorySourceKind): HistorySource | null {
   const f = factories[kind];
-  if (!f) return null;
   try {
-    return f();
+    // Prefer a test-registered factory; otherwise fall back to the
+    // production provider. The provider is the single place that knows
+    // how to construct Mock vs Git sources; the store stays oblivious.
+    return f ? f() : getHistorySource(kind);
   } catch {
     return null;
   }

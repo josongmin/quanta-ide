@@ -39,10 +39,14 @@ export type {
 } from "./history-source";
 export { emptyDelta } from "./history-source";
 
-export { MockHistorySource } from "./mock-history-source";
+// WHY: only the factories escape the package barrel — the concrete
+// MockHistorySource / GitHistorySource classes stay internal so we can
+// change their shape without breaking any external caller. Options
+// interfaces are re-exported because the factories accept them.
+export { createMockHistorySource } from "./mock-history-source";
 export type { MockHistorySourceOptions } from "./mock-history-source";
 
-export { GitHistorySource, deltaFromFileChanges } from "./git-history-source";
+export { createGitHistorySource, deltaFromFileChanges } from "./git-history-source";
 export type { GitHistorySourceOptions } from "./git-history-source";
 
 // ── Archaeology (temporal analysis) ─────────────────────────────────

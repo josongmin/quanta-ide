@@ -274,13 +274,26 @@ export function folderPrefix(fileId: string, depth: number): string {
   return parts.slice(0, depth).join("/");
 }
 
-function pickDominantKind(tally: Map<EdgeKind, number>, fallback: EdgeKind): EdgeKind {
+/**
+ * Pick the most frequent kind from a tally, breaking ties
+ * deterministically. Without a tie-break, the result depends on Map
+ * insertion order — which depends on edge arrival order — which means
+ * the same graph can bundle with different colours across frames when
+ * the upstream reorders edges (filter toggles, snapshot swaps). We
+ * resolve ties by kind-string alphabetical order. Alphabetical (not
+ * severity) because dominant-kind is a *display* decision; severity is
+ * tracked separately on the bundle via `maxSeverity`.
+ */
+export function pickDominantKind(tally: Map<EdgeKind, number>, fallback: EdgeKind): EdgeKind {
   let best: EdgeKind = fallback;
   let bestCount = -1;
   for (const [k, c] of tally) {
     if (c > bestCount) {
       best = k;
       bestCount = c;
+    } else if (c === bestCount && k < best) {
+      // Deterministic tie-break: lexicographically earlier kind wins.
+      best = k;
     }
   }
   return best;

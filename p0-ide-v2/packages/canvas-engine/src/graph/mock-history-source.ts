@@ -85,6 +85,24 @@ export interface MockHistorySourceOptions {
   id?: string;
 }
 
+/**
+ * Factory for a mock HistorySource. Prefer this over constructing the
+ * class directly: the concrete implementation is intentionally not part
+ * of the `@quanta/canvas-engine` barrel, so consumers stay insulated
+ * from its shape and we're free to rework internals without breaking them.
+ */
+export function createMockHistorySource(
+  history: GraphHistory,
+  edges: readonly FileEdge[],
+  opts: MockHistorySourceOptions = {},
+): HistorySource {
+  return new MockHistorySource(history, edges, opts);
+}
+
+// WHY: the class remains `export`ed from this module so sibling tests can
+// instantiate it directly, but the package barrel (`@quanta/canvas-engine`)
+// does NOT re-export it. External callers must use `createMockHistorySource`
+// so we can swap internals without breaking them.
 export class MockHistorySource implements HistorySource {
   readonly id: string;
   private readonly history: GraphHistory;

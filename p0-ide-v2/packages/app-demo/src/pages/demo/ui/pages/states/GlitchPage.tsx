@@ -406,20 +406,28 @@ function pickSteveIdleMode(): SteveMode {
   return "idle";
 }
 
+interface DepthPos {
+  y: number;
+  scale: number;
+}
+
+function yToScale(y: number, yMin: number, yRange: number, scaleMin: number, scaleRange: number) {
+  const depth = 1 - (y - yMin) / yRange;
+  return scaleMin + depth * scaleRange;
+}
+
 function MinecraftSteve() {
-  const [pos, setPos] = useState({ y: 8, scale: 1 });
+  const [pos, setPos] = useState<DepthPos>({ y: 12, scale: 0.95 });
   const [mode, setMode] = useState<SteveMode>("walk");
   const marchRef = useRef<HTMLDivElement>(null);
 
-  // Randomize Y + scale at the start of each march cycle (depth variation)
+  // At each march loop, pick a fresh Y (and its matching depth scale). Hold for the whole walk.
   useEffect(() => {
     const el = marchRef.current;
     if (!el) return;
     const reroll = () => {
-      const y = 2 + Math.random() * 26;      // 2% (foreground) — 28% (horizon)
-      const depth = 1 - (y - 2) / 26;        // 1 = close, 0 = far
-      const scale = 0.45 + depth * 0.95;     // 0.45 → 1.4
-      setPos({ y, scale });
+      const y = 2 + Math.random() * 26; // 2% — 28%
+      setPos({ y, scale: yToScale(y, 2, 26, 0.45, 0.95) });
     };
     reroll();
     el.addEventListener("animationiteration", reroll);
@@ -437,11 +445,11 @@ function MinecraftSteve() {
     return () => { if (id !== undefined) clearTimeout(id); };
   }, [mode]);
 
-  const style: CSSProperties = {
-    bottom: `${pos.y}%`,
-    transform: `scale(${pos.scale})`,
+  const style = {
+    ["--mc-y"     as string]: `${pos.y}%`,
+    ["--mc-scale" as string]: pos.scale,
     zIndex: Math.round(pos.scale * 4),
-  };
+  } as CSSProperties;
 
   return (
     <div
@@ -526,78 +534,6 @@ function MinecraftSteve() {
   );
 }
 
-function MinecraftCreeper() {
-  const [pos, setPos] = useState({ y: 6, scale: 1 });
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const reroll = () => {
-      const y = 3 + Math.random() * 22;
-      const depth = 1 - (y - 3) / 22;
-      const scale = 0.4 + depth * 0.9;
-      setPos({ y, scale });
-    };
-    reroll();
-    el.addEventListener("animationiteration", reroll);
-    return () => el.removeEventListener("animationiteration", reroll);
-  }, []);
-
-  const style = {
-    bottom: `${pos.y}%`,
-    zIndex: Math.round(pos.scale * 4),
-    ["--depth-scale" as string]: pos.scale,
-  } as CSSProperties;
-
-  return (
-    <div
-      ref={ref}
-      className="mc-creeper"
-      style={style}
-      aria-hidden
-    >
-      <div className="mc-creeper__rig">
-        {/* Creeper head */}
-        <div className="mc-cube mc-creeper__head">
-          <div className="mc-face mc-face--front mc-creeper__face">
-            <span className="mc-creeper__eye mc-creeper__eye--l" />
-            <span className="mc-creeper__eye mc-creeper__eye--r" />
-            <span className="mc-creeper__mouth" />
-          </div>
-          <div className="mc-face mc-face--back" />
-          <div className="mc-face mc-face--left" />
-          <div className="mc-face mc-face--right" />
-          <div className="mc-face mc-face--top" />
-          <div className="mc-face mc-face--bottom" />
-        </div>
-        {/* Body */}
-        <div className="mc-cube mc-creeper__body">
-          <div className="mc-face mc-face--front" />
-          <div className="mc-face mc-face--back" />
-          <div className="mc-face mc-face--left" />
-          <div className="mc-face mc-face--right" />
-          <div className="mc-face mc-face--top" />
-          <div className="mc-face mc-face--bottom" />
-        </div>
-        {/* Four stubby legs */}
-        {["fl", "fr", "bl", "br"].map((id) => (
-          <div key={id} className={`mc-creeper__leg mc-creeper__leg--${id}`}>
-            <div className="mc-cube mc-creeper__foot">
-              <div className="mc-face mc-face--front" />
-              <div className="mc-face mc-face--back" />
-              <div className="mc-face mc-face--left" />
-              <div className="mc-face mc-face--right" />
-              <div className="mc-face mc-face--top" />
-              <div className="mc-face mc-face--bottom" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function GlitchApparitions() {
   return (
     <div className="glitch-apparitions" aria-hidden>
@@ -631,7 +567,6 @@ export function GlitchPage() {
       <div className="glitch-ground-layer" aria-hidden>
         <GroundScene />
       </div>
-      <MinecraftCreeper />
       <MinecraftSteve />
       <GlitchApparitions />
       <div className="glitch-scanlines" aria-hidden />
@@ -1156,13 +1091,14 @@ const GLITCH_CSS = `
 
 .mc-steve {
   position: absolute;
-  bottom: 8%;
+  bottom: var(--mc-y, 8%);
   left: 0;
   z-index: 1;
   width: 40px;
   height: 160px;
   perspective: 700px;
   pointer-events: none;
+  transform: scale(var(--mc-scale, 1));
   transform-origin: bottom center;
   animation: mc-march 26s linear infinite;
 }
@@ -1455,127 +1391,6 @@ const GLITCH_CSS = `
 .mc-leg .mc-limb--leg .mc-face--top    { background: #384080; }
 .mc-leg .mc-limb--leg .mc-face--bottom { background: #1a1a1a; }
 
-/* =========================================================================
-   Minecraft Creeper — sneaks in from the right every now and then
-   ========================================================================= */
-
-.mc-creeper {
-  position: absolute;
-  bottom: 7%;
-  left: 0;
-  z-index: 1;
-  width: 50px;
-  height: 160px;
-  perspective: 700px;
-  pointer-events: none;
-  opacity: 0;
-  transform-origin: bottom center;
-  --depth-scale: 1;
-  animation: mc-creeper-enter 34s linear infinite;
-  animation-delay: 12s;
-}
-@keyframes mc-creeper-enter {
-  0%, 3%       { opacity: 0; left: 108%; transform: scale(var(--depth-scale)); }
-  4%           { opacity: 1; left: 106%; transform: scale(var(--depth-scale)); }
-  48%          { opacity: 1; left: 32%;  transform: scale(var(--depth-scale)); }
-  52%          { opacity: 1; left: 32%;  transform: scale(var(--depth-scale)) translateY(-4px); }
-  53%, 57%     { opacity: 1;             transform: scale(calc(var(--depth-scale) * 1.12)) translateY(-4px); filter: saturate(3) brightness(1.3); }
-  60%          { opacity: 0;             transform: scale(calc(var(--depth-scale) * 1.8)); filter: brightness(3) blur(4px); }
-  61%, 100%    { opacity: 0; left: -10%; transform: scale(var(--depth-scale)); }
-}
-
-.mc-creeper__rig {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-  transform: rotateX(-4deg) rotateY(18deg);
-  animation: mc-creeper-bob 0.8s ease-in-out infinite;
-}
-@keyframes mc-creeper-bob {
-  0%, 100% { transform: rotateX(-4deg) rotateY(18deg) translateY(0); }
-  50%      { transform: rotateX(-4deg) rotateY(18deg) translateY(-2px); }
-}
-
-/* Head 40x40x40 */
-.mc-creeper__head {
-  --w: 40px; --h: 40px; --d: 40px;
-  width: var(--w); height: var(--h);
-  top: 0; left: 5px;
-}
-.mc-creeper__head .mc-face { background: #5a9c45; }
-.mc-creeper__head .mc-face--left,
-.mc-creeper__head .mc-face--right { background: #3c7c30; }
-.mc-creeper__head .mc-face--top { background: #6eb855; }
-.mc-creeper__head .mc-face--bottom { background: #2f5a22; }
-
-.mc-creeper__face { position: relative; }
-.mc-creeper__eye {
-  position: absolute;
-  width: 6px; height: 8px;
-  background: #111;
-  top: 14px;
-  box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.08);
-}
-.mc-creeper__eye--l { left: 10px; }
-.mc-creeper__eye--r { right: 10px; }
-.mc-creeper__mouth {
-  position: absolute;
-  left: 13px;
-  top: 22px;
-  width: 14px;
-  height: 12px;
-  background:
-    linear-gradient(to bottom,
-      #111 0, #111 3px,
-      transparent 3px, transparent 5px,
-      #111 5px, #111 9px,
-      transparent 9px, transparent 12px);
-  clip-path: polygon(
-    30% 0, 70% 0, 70% 25%, 100% 25%, 100% 75%, 70% 75%, 70% 100%, 30% 100%, 30% 75%, 0 75%, 0 25%, 30% 25%
-  );
-}
-
-/* Body 40x30x20 */
-.mc-creeper__body {
-  --w: 40px; --h: 30px; --d: 20px;
-  width: var(--w); height: var(--h);
-  top: 40px; left: 5px;
-}
-.mc-creeper__body .mc-face { background: #5a9c45; }
-.mc-creeper__body .mc-face--left,
-.mc-creeper__body .mc-face--right { background: #3c7c30; }
-.mc-creeper__body .mc-face--top { background: #6eb855; }
-
-/* Four legs 10x20x14 */
-.mc-creeper__leg {
-  position: absolute;
-  top: 70px;
-  width: 10px;
-  height: 20px;
-  transform-style: preserve-3d;
-  transform-origin: 50% 0 50%;
-  animation: mc-creeper-leg 0.8s ease-in-out infinite;
-}
-.mc-creeper__leg--fl { left: 6px;  }
-.mc-creeper__leg--fr { left: 34px; animation-delay: -0.4s; }
-.mc-creeper__leg--bl { left: 6px;  top: 70px; transform: translateZ(-10px); animation-delay: -0.4s; }
-.mc-creeper__leg--br { left: 34px; top: 70px; transform: translateZ(-10px); }
-@keyframes mc-creeper-leg {
-  0%, 100% { transform: rotateX(12deg); }
-  50%      { transform: rotateX(-12deg); }
-}
-
-.mc-creeper__foot {
-  --w: 10px; --h: 20px; --d: 14px;
-  width: var(--w); height: var(--h);
-  top: 0; left: 0;
-}
-.mc-creeper__foot .mc-face { background: #5a9c45; }
-.mc-creeper__foot .mc-face--left,
-.mc-creeper__foot .mc-face--right { background: #3c7c30; }
-.mc-creeper__foot .mc-face--bottom { background: #1a1a1a; }
-
 @media (prefers-reduced-motion: reduce) {
   .anim-sun, .anim-cloud-a, .anim-cloud-b, .anim-cloud-c, .anim-cloud-d,
   .anim-rainbow, .anim-island-big, .anim-island-sm, .anim-tree-l, .anim-tree-r,
@@ -1587,7 +1402,6 @@ const GLITCH_CSS = `
   .mc-steve[data-mode="dance"] .mc-steve__rig,
   .mc-steve[data-mode="dance"] .mc-arm--left,
   .mc-steve[data-mode="dance"] .mc-arm--right,
-  .mc-creeper, .mc-creeper__rig, .mc-creeper__leg,
   .glitch-card__heading::before, .glitch-card__heading::after {
     animation: none !important;
   }

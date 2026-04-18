@@ -50,7 +50,7 @@ export type FeatureCategory =
   | "overlay"     // existing visual overlays (kept as features for consistency)
   | "ai"          // AI-assisted helpers (summaries, clustering, tour)
   | "temporal"    // time-travel surfaces: film strip, dual split, blame time travel, DSL ops, AI hunt/replay/bisect
-  | "action-terrain" // isometric refactor-ROI mode: leverage topography, blast/fix cones, before/after sim
+  | "actionTerrain" // isometric refactor-ROI mode: leverage topography, blast/fix cones, before/after sim
   | "experimental"; // unproven / gated
 
 export type FeatureMaturity = "stable" | "beta" | "experimental";
@@ -532,6 +532,15 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
 
   // ── Archaeology (T3) ─────────────────────────────────────────────
   {
+    id: "archaeology.panel",
+    category: "temporal",
+    label: "Archaeology HUD panel",
+    description: "Collapsible debug-HUD section surfacing drift findings, cycle genesis, smell genesis, and debt trajectory in one place.",
+    defaultEnabled: false,
+    maturity: "beta",
+    introducedIn: "t3",
+  },
+  {
     id: "archaeology.driftDetector",
     category: "temporal",
     label: "Architectural drift detector",
@@ -627,7 +636,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   // ── Action Terrain (Batch 9) ─────────────────────────────────────
   {
     id: "action-terrain.mode",
-    category: "action-terrain",
+    category: "actionTerrain",
     label: "Action Terrain mode",
     description: "Isometric 3D-style mode — extruded bars where height = refactor ROI. Cmd+Shift+A to toggle.",
     defaultEnabled: false,
@@ -636,7 +645,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "action-terrain.leverage-topography",
-    category: "action-terrain",
+    category: "actionTerrain",
     label: "Leverage topography",
     description: "Bar height encodes composite refactor-ROI score (churn × complexity × fan-in × test-debt × cycle-membership).",
     defaultEnabled: false,
@@ -646,7 +655,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "action-terrain.blast-fix-cone",
-    category: "action-terrain",
+    category: "actionTerrain",
     label: "Blast / fix cone",
     description: "Click a file to see upward blast (change-breaks) and downward fix (change-stabilizes) cones.",
     defaultEnabled: false,
@@ -656,7 +665,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "action-terrain.before-after-sim",
-    category: "action-terrain",
+    category: "actionTerrain",
     label: "Before / after simulation",
     description: "Apply an AI-suggested refactor and see projected terrain delta numerically.",
     defaultEnabled: false,

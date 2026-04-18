@@ -514,6 +514,9 @@ export class EdgeStaticRenderer {
         if (!cachedRoute) continue;
       }
 
+      // Resolve style early so per-kind curve factor drives anchor math.
+      const style = resolveEdgeStyle(edge as FileEdge);
+
       // Compute the anchor pair based on tier + line-anchor availability.
       const anchors = computeAnchors({
         edge: edge as FileEdge,
@@ -524,11 +527,10 @@ export class EdgeStaticRenderer {
         // line-anchor math is meaningless there — drop to centre mode.
         anchorMode: isFolderBundle ? "centre" : anchorMode,
         fileById,
+        curveFactor: style.curveFactor,
       });
       if (!anchors) continue;
       const { a, b, cp1x, cp1y, cp2x, cp2y } = anchors;
-
-      const style = resolveEdgeStyle(edge as FileEdge);
       // Bundles thicken with log(count). Single edges (count<=1) pass
       // through at multiplier 1 so non-bundled tiers look identical.
       const bundleWidth = bundleWidthMultiplier(bundleCount);
@@ -664,26 +666,120 @@ export class EdgeStaticRenderer {
     this.previousLength = drawn;
   }
 
+  /**
+   * Reset all cached state without tearing down the Graphics node. Safe
+   * to call between frames — the next `build()` will recompute from
+   * scratch. Used by LOD transitions that need a hard reset (workspace
+   * swap, overlay toggle, etc). O(1) — no heap scan, just drops refs so
+   * GC can reclaim the previous frame's edge array + bundle slice.
+   *
+   * Differs from `destroy()` in that Graphics, ticker, and event
+   * listener survive — this is a state reset, not teardown.
+   */
+  clear(): void {
+    this.gfx.clear();
+    this.lastEdges = [];
+    this.lastLayout = null;
+    this.lastCache = undefined;
+    this.lastViewport = undefined;
+    this.lastOpts = undefined;
+    this.previousLength = 0;
+    this.appliedMode = null;
+    this.appliedScale = 1;
+    this.lastCacheKey = "";
+    this.budgetedSlice = null;
+    this.budgetedSliceSourceRef = null;
+    this.bundleCacheEdgesRef = null;
+    this.bundleCacheRectsRef = null;
+    this.bundleCacheLod = null;
+    this.bundledEdges = null;
+    this.bundledFolderCenters = null;
+    this.hasAnimatedEdges = false;
+    this.internalDashOffset = 0;
+  }
+
   destroy(): void {
     if (this.ticker && this.tickerHandle) {
       this.ticker.remove(this.tickerHandle);
     }
     this.tickerHandle = null;
     this.ticker = null;
+    // Release all retained input references (edges, layout, opts,
+    // bundle cache) so the caller's workspace snapshot can be GC'd.
+    // `clear()` handles the data-side reset; the Graphics destroy
+    // below handles the Pixi-side teardown.
+    this.clear();
     this.gfx.destroy();
+  }
+
+  // ── Cache-key helpers (instance) ────────────────────────────────
+
+  /**
+   * Assign a stable numeric id to a Set-shaped input so we can fold its
+   * identity into the cache key. Upstream contract: replace the Set when
+   * membership changes (immutable-write pattern). A mutated-in-place Set
+   * aliases in the cache — that's a caller bug, not something this class
+   * defends against.
+   */
+  private setId(s: ReadonlySet<unknown> | undefined): number {
+    if (!s) return 0;
+    const existing = this.setIdRegistry.get(s as object);
+    if (existing !== undefined) return existing;
+    const id = this.nextSetId++;
+    this.setIdRegistry.set(s as object, id);
+    return id;
+  }
+
+  private fnId(f: ((...args: unknown[]) => unknown) | undefined): number {
+    if (!f) return 0;
+    const existing = this.fnIdRegistry.get(f);
+    if (existing !== undefined) return existing;
+    const id = this.nextFnId++;
+    this.fnIdRegistry.set(f, id);
+    return id;
+  }
+
+  /**
+   * Stable fingerprint of every opts field that can change the rendered
+   * output. Anything that flips an alpha, colour overlay, filter, or
+   * visible subset MUST be reflected here — otherwise the budgeted-slice
+   * reuse path serves stale frames when the user toggles
+   * focus/diff/violating/cross-graph/temporal state (see audit H7).
+   *
+   * Set inputs hashed by identity via `setId` — assumes callers replace
+   * the Set when membership changes (WorkspaceCanvas reducer contract).
+   * `customPredicate` hashed by function identity via `fnId`.
+   */
+  private computeFilterHash(opts: EdgeStaticBuildOpts | undefined): string {
+    if (!opts) return "";
+    const k = opts.kindFilter ? Object.keys(opts.kindFilter).sort().join(",") : "";
+    const l = opts.layerFilter ? Object.keys(opts.layerFilter).sort().join(",") : "";
+    const s = opts.minSeverity ?? "";
+    const w = opts.widthMul ?? 1;
+    const cg = opts.showCrossGraphEdges === false ? "0" : "1";
+    const hc = opts.highlightCrossGraph === false ? "0" : "1";
+    // Focus — different edge sets produce different dim vs full alpha.
+    const focusId = this.setId(opts.focus?.edgeIds);
+    const focusDim = opts.focus?.dimAlpha ?? -1;
+    // Temporal — only members render at all.
+    const temporalId = this.setId(opts.temporalEdgeSet);
+    // Diff — added gets green halo; removed gets red ghost pass.
+    const diffAddId = this.setId(opts.diffAdded);
+    const diffRemId = this.setId(opts.diffRemoved);
+    // Violation — extra red outline pass under these edges.
+    const violatingId = this.setId(opts.violatingEdgeIds);
+    // Cross-graph flash — dims non-flashed cross-graph edges.
+    const flashId = this.setId(opts.crossGraphFlash);
+    // Custom predicate — any identity change invalidates the slice.
+    const customId = this.fnId(
+      opts.customPredicate as ((...args: unknown[]) => unknown) | undefined,
+    );
+    return `${k}|${l}|${s}|${w}|${cg}|${hc}|f${focusId}:${focusDim}|t${temporalId}|da${diffAddId}|dr${diffRemId}|v${violatingId}|cf${flashId}|p${customId}`;
   }
 }
 
-// ── Cache-key helpers ───────────────────────────────────────────────
+// ── Bundle-id / geometry helpers (module-scope) ─────────────────────
 
-/**
- * Cheap stable-ish fingerprint of the filter-shape inputs. Used only as
- * a cache key for the budgeted-mode top-N slice — collisions just cause
- * an extra sort, never a visual bug. We intentionally avoid hashing the
- * contents of `edgeFocus` / temporal sets since those flip every frame
- * in some modes and would defeat the cache; when the user changes those,
- * the rebuild is appropriate anyway.
- */
 /**
  * Parse the folder path back out of a folder-bundle edge id. The id
  * format is `folder-bundle:<fromFolder>-><toFolder>` — we can't store
@@ -725,17 +821,6 @@ function bundleSortWeight(e: FileEdge | BundledEdge): number {
   return (e as FileEdge).weight ?? 0;
 }
 
-function computeFilterHash(opts: EdgeStaticBuildOpts | undefined): string {
-  if (!opts) return "";
-  const k = opts.kindFilter ? Object.keys(opts.kindFilter).sort().join(",") : "";
-  const l = opts.layerFilter ? Object.keys(opts.layerFilter).sort().join(",") : "";
-  const s = opts.minSeverity ?? "";
-  const w = opts.widthMul ?? 1;
-  const cg = opts.showCrossGraphEdges === false ? "0" : "1";
-  const hc = opts.highlightCrossGraph === false ? "0" : "1";
-  return `${k}|${l}|${s}|${w}|${cg}|${hc}`;
-}
-
 // ── Anchor computation ──────────────────────────────────────────────
 
 interface Anchors {
@@ -745,6 +830,15 @@ interface Anchors {
   cp2x: number; cp2y: number;
 }
 
+// Deterministic per-kind arc direction so "cycle" always bows up and
+// "taint" always bows down (or vice versa) even between the same pair
+// of cards — prevents multiple edges from stacking into a single line.
+function arcDirectionForKind(kind: string): 1 | -1 {
+  let h = 0;
+  for (let i = 0; i < kind.length; i++) h = (h * 31 + kind.charCodeAt(i)) | 0;
+  return (h & 1) === 0 ? 1 : -1;
+}
+
 function computeAnchors(args: {
   edge: FileEdge;
   fromRect?: Rect;
@@ -752,8 +846,12 @@ function computeAnchors(args: {
   fallbackRoute?: { x1: number; y1: number; cx1: number; cy1: number; cx2: number; cy2: number; x2: number; y2: number };
   anchorMode: AnchorMode;
   fileById?: Map<string, Pick<FileNode, "loc">>;
+  /** Bezier spread multiplier from the resolved style. 0.35 is baseline
+   *  "gentle arc"; higher factors produce deeper bows so different kinds
+   *  between the same two cards don't render as one thick line. */
+  curveFactor?: number;
 }): Anchors | null {
-  const { edge, fromRect, toRect, fallbackRoute, anchorMode, fileById } = args;
+  const { edge, fromRect, toRect, fallbackRoute, anchorMode, fileById, curveFactor } = args;
 
   // Centre mode: just use the cached route. This is the coarse-tier path.
   if (anchorMode === "centre" || !fromRect || !toRect) {
@@ -790,16 +888,25 @@ function computeAnchors(args: {
     b = sideAnchor(toRect, fromCx);
   }
 
-  // Bezier control points — kink direction based on anchor side so the curve
-  // exits the card perpendicular to the edge it attaches to.
+  // Bezier control points. `curveFactor` scales the x-spread so a near-
+  // straight kind (0.10) and a deep-arc kind (0.95) produce visibly
+  // different silhouettes. The perpendicular "bow" shifts the control-
+  // point Y when factor exceeds the baseline, giving the curve a clear
+  // above/below bias locked per kind by `arcDirectionForKind`.
+  const factor = curveFactor ?? 0.35;
   const dx = b.x - a.x;
-  const spread = Math.max(40, Math.abs(dx) * 0.35);
+  const dy = b.y - a.y;
+  const spread = Math.max(40, Math.abs(dx) * factor);
   const cp1x = a.side === "left" ? a.x - spread : a.x + spread;
   const cp2x = b.side === "left" ? b.x - spread : b.x + spread;
+
+  const bowStrength = Math.max(0, factor - 0.35) * Math.max(120, Math.hypot(dx, dy)) * 0.6;
+  const bow = bowStrength * arcDirectionForKind(edge.kind);
+
   return {
     a, b,
-    cp1x, cp1y: a.y,
-    cp2x, cp2y: b.y,
+    cp1x, cp1y: a.y + bow,
+    cp2x, cp2y: b.y + bow,
   };
 }
 
