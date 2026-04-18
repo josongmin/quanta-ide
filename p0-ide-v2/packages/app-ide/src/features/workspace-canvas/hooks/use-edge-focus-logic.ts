@@ -1,8 +1,13 @@
 import { useMemo } from "react";
-import { computeNeighborhood, compileEdgeFilter } from "@quanta/canvas-engine";
+import {
+  computeNeighborhood,
+  compileEdgeFilter,
+  compileEdgeFilterWithContext,
+} from "@quanta/canvas-engine";
 import type { FileEdge, WorkspaceGraph, WorkspaceLayout, ViewState } from "@quanta/canvas-engine";
 import { useInteractionStore } from "../store/interaction-store";
 import { useRenderSettings } from "../store/render-settings-store";
+import { featureFlagsStore } from "../store/feature-flags-store";
 
 export interface EdgeFocusLogic {
   edgeFocus: { edgeIds: ReadonlySet<string>; dimAlpha: number } | undefined;
@@ -65,10 +70,26 @@ export function useEdgeFocusLogic(
 
   // Compile the live DSL query each time it changes. Typing re-compiles at
   // 60fps is still cheap (single-digit microseconds on a ~40-char query).
+  //
+  // When `temporal.dslExtensions` is enabled and history is present we use
+  // the context-aware compile so temporal keys (added_since, churn, etc.)
+  // have a history + current-snapshot timestamp to evaluate against.
+  const temporalSnapshotIndex = useInteractionStore(s => s.temporal.snapshotIndex);
   const edgePredicate = useMemo(() => {
+    const useTemporalDsl =
+      featureFlagsStore.isEnabled("temporal.dslExtensions") && !!graph.history;
+    if (useTemporalDsl && graph.history) {
+      const snap = graph.history.snapshots[temporalSnapshotIndex];
+      const commitTimestamp = snap?.timestamp;
+      const res = compileEdgeFilterWithContext(edgeFilterQuery, {
+        history: graph.history,
+        commitTimestamp,
+      });
+      return res.predicate;
+    }
     const res = compileEdgeFilter(edgeFilterQuery);
     return res.predicate;
-  }, [edgeFilterQuery]);
+  }, [edgeFilterQuery, graph.history, temporalSnapshotIndex]);
 
   const edgeViolations = useMemo<ReadonlySet<string> | undefined>(() => {
     if (!highlightArchViolations) return undefined;

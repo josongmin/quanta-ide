@@ -4,6 +4,7 @@ import { useInteractionStore } from "../store/interaction-store";
 import { useSceneStore } from "../store/scene-store";
 import { uxSettingsStore, useUxSettings } from "../store/ux-settings-store";
 import { computeRiskHeatmap, type HeatCell } from "../lib/heatmap";
+import { TemporalMinimapStrip } from "./TemporalMinimapStrip";
 
 interface Props {
   layout: WorkspaceLayout | null;
@@ -197,6 +198,8 @@ export function Minimap({ layout, viewport }: Props) {
   const useClusterRects = !useSuperclusterRects && lod === "supergalaxy" && (layout.clusters?.length ?? 0) > 0;
 
   return (
+    <>
+    <TemporalMinimapStrip history={graph?.history} width={MINIMAP_W} />
     <div className="ws-minimap">
       {showHeatmap && <HeatmapLayer cells={heatCells} tb={tb} />}
       <svg
@@ -226,5 +229,6 @@ export function Minimap({ layout, viewport }: Props) {
         heat
       </button>
     </div>
+    </>
   );
 }

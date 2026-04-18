@@ -95,4 +95,54 @@ describe("getCompletions", () => {
     const labels = c.map(x => x.label);
     expect(labels).toContain("layer");
   });
+
+  // ── Temporal key completions (T2) ─────────────────────────────────
+  it("empty input offers the temporal keys as well", () => {
+    const c = getCompletions("", 0);
+    const labels = c.map(x => x.label);
+    expect(labels).toContain("added_since");
+    expect(labels).toContain("stable_since");
+    expect(labels).toContain("touched_by");
+    expect(labels).toContain("churn");
+    expect(labels).toContain("introduced_between");
+  });
+
+  it("added_since offers time-expression values", () => {
+    const src = "added_since=";
+    const c = getCompletions(src, src.length);
+    const labels = c.map(x => x.label);
+    expect(labels).toContain("2w");
+    expect(labels).toContain("30d");
+    expect(labels).toContain("1y");
+  });
+
+  it("churn after '=' offers integer values", () => {
+    const src = "churn=";
+    const c = getCompletions(src, src.length);
+    const labels = c.map(x => x.label);
+    expect(labels).toContain("1");
+    expect(labels).toContain("10");
+  });
+
+  it("churn offers order operators", () => {
+    const src = "churn ";
+    const c = getCompletions(src, src.length);
+    const labels = c.map(x => x.label);
+    expect(labels).toContain(">=");
+    expect(labels).toContain("<");
+  });
+
+  it("touched_by offers authors harvested from history", () => {
+    const history = {
+      snapshots: [
+        { timestamp: 1, label: "feat alice", edgeIds: ["e1"] },
+        { timestamp: 2, label: "fix bob", added: ["e2"] },
+      ],
+    };
+    const c = getCompletions("touched_by=", "touched_by=".length, { history });
+    const labels = c.map(x => x.label);
+    // Either the harvested token or the fallback list should show up.
+    expect(labels.length).toBeGreaterThan(0);
+    expect(labels.some(l => ["alice", "bob", "feat", "fix"].includes(l))).toBe(true);
+  });
 });

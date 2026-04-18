@@ -56,7 +56,16 @@ import { StoryboardPlayer } from "./StoryboardPlayer";
 import { ImagesLayer } from "./ImagesLayer";
 import { TicketsLayer } from "./TicketsLayer";
 import { PrBadgesLayer } from "./PrBadgesLayer";
+import { FilmStripScrubber } from "./FilmStripScrubber";
+import { DualCanvasContainer, DualSplitToggleButton } from "./DualCanvasContainer";
 import { useFeature } from "../store/feature-flags-store";
+import { RegressionHuntPanel } from "./RegressionHuntPanel";
+import { RefactorPreviewOverlay } from "./RefactorPreviewOverlay";
+import { PrReplayLauncher } from "./PrReplayLauncher";
+import { BisectGame } from "./BisectGame";
+import { AuthorFootprintLegend, computeAuthorTints } from "./AuthorFootprintOverlay";
+
+const EMPTY_TINT_MAP: ReadonlyMap<string, string> = new Map();
 
 interface Props {
   graph: WorkspaceGraph;
@@ -113,6 +122,18 @@ export function MultiFileCanvas({ graph }: Props) {
   const { temporalEdgeSet, diffAdded, diffRemoved } = useTemporalEdgeSets(graph);
   const { activeTrace, traceEdgeSet } = useActiveTrace(graph);
   const crossGraphFlash = useCrossGraphFlash(graph);
+
+  // Author footprint tints — only computed when the feature is on AND
+  // temporal live mode is active. Pure function of (graph, snapshot
+  // index); memoized so card renders don't re-derive it per pan tick.
+  const authorFootprintOn = useFeature("temporal.authorFootprint");
+  const temporalState = useInteractionStore(s => s.temporal);
+  const authorTintByFile = useMemo<ReadonlyMap<string, string>>(() => {
+    if (!authorFootprintOn) return EMPTY_TINT_MAP;
+    if (temporalState.mode !== "live") return EMPTY_TINT_MAP;
+    const ctx = computeAuthorTints(graph.history, temporalState.snapshotIndex, graph.fileEdges);
+    return ctx.tintByFile;
+  }, [authorFootprintOn, temporalState.mode, temporalState.snapshotIndex, graph.history, graph.fileEdges]);
 
   const {
     onMouseDown, onMouseMove, onMouseUp,
@@ -397,6 +418,7 @@ export function MultiFileCanvas({ graph }: Props) {
             const isSelected = viewState.selectedFileId === file.id;
             const fileEffects = graph.effects?.[file.id];
             const fileLatency = graph.latency?.[file.id];
+            const authorTint = authorTintByFile.get(file.id);
             return lod === "street" ? (
               <StreetCard
                 key={file.id}
@@ -408,6 +430,7 @@ export function MultiFileCanvas({ graph }: Props) {
                 latency={fileLatency}
                 showEffectBadges={showEffectBadges}
                 showLatencyOverlay={showLatencyOverlay}
+                authorTint={authorTint}
                 onSelect={selectFile}
               />
             ) : (
@@ -416,6 +439,7 @@ export function MultiFileCanvas({ graph }: Props) {
                 file={file}
                 rect={rect}
                 isSelected={isSelected}
+                authorTint={authorTint}
                 onSelect={selectFile}
               />
             );
@@ -463,9 +487,16 @@ export function MultiFileCanvas({ graph }: Props) {
         exportPng={exportPng}
       />
       <ApplyThemeAttribute containerRef={containerRef} />
+      <FilmStripScrubber graph={graph} />
+      <DualSplitMount graph={graph} />
       <DebugHud />
       <EvidencePanel />
       <DevModeLayer onReady={onDevModeReady} />
+      <RegressionHuntPanel />
+      <RefactorPreviewOverlay />
+      <PrReplayLauncher />
+      <BisectGame />
+      <AuthorFootprintLegend history={graph.history} />
     </div>
   );
 }
@@ -477,4 +508,23 @@ function TimerMount() {
   const on = useFeature("review.timer");
   if (!on) return null;
   return <SessionTimer />;
+}
+
+// Feature-gated mount for the dual-split toggle + container. The split
+// UI is rendered as an overlay on top of the shared canvas; the toggle
+// is a small button affordance placed near the minimap.
+function DualSplitMount({ graph }: { graph: WorkspaceGraph }) {
+  const on = useFeature("temporal.dualSplit");
+  if (!on) return null;
+  return (
+    <div style={{ position: "absolute", bottom: 12, left: 200, zIndex: 3 }}>
+      <DualSplitToggleButton graph={graph} />
+      <DualCanvasContainer graph={graph}>
+        {/* The split renders its own chrome; the actual canvas content
+            is the surrounding MultiFileCanvas tree, shared across panes
+            in the v1 implementation. */}
+        <span />
+      </DualCanvasContainer>
+    </div>
+  );
 }

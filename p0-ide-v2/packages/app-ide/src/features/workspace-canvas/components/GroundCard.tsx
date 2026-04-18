@@ -5,6 +5,8 @@ import { elevationFromRisk, stripesFromBlame, EFFECT_STYLE, latencyColor } from 
 import { useGroundData } from "../hooks/use-ground-data";
 import { useSceneStore } from "../store/scene-store";
 import { useRenderSettings } from "../store/render-settings-store";
+import { useInteractionStore } from "../store/interaction-store";
+import { useFeature } from "../store/feature-flags-store";
 
 interface GroundCardProps {
   file: FileNode;
@@ -15,6 +17,8 @@ interface GroundCardProps {
   latency?: FileLatency;
   showEffectBadges?: boolean;
   showLatencyOverlay?: boolean;
+  /** See StreetCard — author-footprint tint at the active commit. */
+  authorTint?: string;
   onSelect: (id: string) => void;
 }
 
@@ -37,16 +41,42 @@ function formatAge(ms: number): string {
 function GroundCardImpl({
   file, rect, isSelected, elevationMode = false,
   effects, latency, showEffectBadges = true, showLatencyOverlay = false,
+  authorTint,
   onSelect,
 }: GroundCardProps) {
   const { data, loading } = useGroundData(file.id);
   const showBlameGutter = useRenderSettings(s => s.showBlameGutter);
   const blame = useSceneStore(s => s.graph?.blame?.[file.id]);
 
+  // Blame time-travel (temporal.blameTimeTravel)
+  // When the user has scrubbed to an older snapshot, rewind the blame
+  // gutter to that commit's timestamp: drop entries newer than the
+  // snapshot, and re-compute the age ramp from the snapshot's "now".
+  const blameTimeTravelOn = useFeature("temporal.blameTimeTravel");
+  const temporal = useInteractionStore(s => s.temporal);
+  const history = useSceneStore(s => s.graph?.history);
+  const snapshotTimestamp = useMemo<number | null>(() => {
+    if (!blameTimeTravelOn) return null;
+    if (!history || history.snapshots.length === 0) return null;
+    const active = temporal.mode === "live" && temporal.snapshotIndex > 0;
+    if (!active) return null;
+    const snap = history.snapshots[temporal.snapshotIndex];
+    return snap ? snap.timestamp : null;
+  }, [blameTimeTravelOn, history, temporal.mode, temporal.snapshotIndex]);
+
+  const effectiveBlame = useMemo<FileBlame | undefined>(() => {
+    if (!blame) return undefined;
+    if (snapshotTimestamp === null) return blame;
+    const filtered = blame.entries.filter(e => e.committedAt <= snapshotTimestamp);
+    if (filtered.length === blame.entries.length) return blame;
+    return { ...blame, entries: filtered };
+  }, [blame, snapshotTimestamp]);
+
   const stripes = useMemo<BlameStripe[]>(() => {
-    if (!showBlameGutter || !blame) return [];
-    return stripesFromBlame(blame, GUTTER_NOW);
-  }, [showBlameGutter, blame]);
+    if (!showBlameGutter || !effectiveBlame) return [];
+    const now = snapshotTimestamp ?? GUTTER_NOW;
+    return stripesFromBlame(effectiveBlame, now);
+  }, [showBlameGutter, effectiveBlame, snapshotTimestamp]);
 
   const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
   const effectKinds = effects?.effects ?? [];
@@ -56,7 +86,9 @@ function GroundCardImpl({
     ? hexFromInt(latencyColor(latency.p95))
     : null;
   const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, height: rect.h };
-  if (latencyTint) {
+  if (authorTint) {
+    style.background = `color-mix(in srgb, ${authorTint} 24%, var(--bg))`;
+  } else if (latencyTint) {
     style.background = `color-mix(in srgb, ${latencyTint} 18%, var(--bg))`;
   }
   if (elevation > 0) {
@@ -114,8 +146,8 @@ function GroundCardImpl({
       )}
 
       <div className="ground-card__body">
-        {stripes.length > 0 && blame && (
-          <BlameGutter stripes={stripes} lineCount={blame.lineCount} entries={blame} />
+        {stripes.length > 0 && effectiveBlame && (
+          <BlameGutter stripes={stripes} lineCount={effectiveBlame.lineCount} entries={effectiveBlame} />
         )}
         {loading && (
           <div className="ground-card__placeholder">Loading…</div>
@@ -191,5 +223,6 @@ export const GroundCard = memo(
     prev.latency === next.latency &&
     prev.showEffectBadges === next.showEffectBadges &&
     prev.showLatencyOverlay === next.showLatencyOverlay &&
+    prev.authorTint === next.authorTint &&
     prev.onSelect === next.onSelect,
 );

@@ -1,4 +1,5 @@
 import type { EdgeKind, EdgeLayer, EdgeSeverity } from "./types";
+import type { GraphHistory } from "./history";
 
 export type CompletionKind = "key" | "op" | "value" | "bool" | "punct";
 
@@ -10,7 +11,19 @@ export interface Completion {
   description?: string;
 }
 
-const KEYS = ["layer", "kind", "severity", "animated", "evidence"] as const;
+const KEYS = [
+  "layer",
+  "kind",
+  "severity",
+  "animated",
+  "evidence",
+  // Temporal (T2)
+  "added_since",
+  "stable_since",
+  "touched_by",
+  "churn",
+  "introduced_between",
+] as const;
 type FilterKey = (typeof KEYS)[number];
 
 const EQUALITY_OPS = ["=", "!="] as const;
@@ -41,6 +54,7 @@ const KIND_VALUES: readonly EdgeKind[] = [
 ];
 const SEVERITY_VALUES: readonly EdgeSeverity[] = ["low", "medium", "high", "critical"];
 const BOOL_VALUES = ["true", "false"] as const;
+const TIME_VALUES = ["1d", "7d", "2w", "30d", "1m", "3m", "6m", "1y"] as const;
 
 interface ScanToken {
   kind: "ident" | "op" | "bool" | "not" | "lparen" | "rparen";
@@ -150,7 +164,7 @@ function detectContext(tokens: ScanToken[]): Context {
   return { expect: "key-or-open" };
 }
 
-function valuesForKey(key: string): readonly string[] {
+function valuesForKey(key: string, history: GraphHistory | undefined): readonly string[] {
   switch (key) {
     case "layer": return LAYER_VALUES;
     case "kind": return KIND_VALUES;
@@ -158,8 +172,43 @@ function valuesForKey(key: string): readonly string[] {
     case "animated":
     case "evidence":
       return BOOL_VALUES;
+    case "added_since":
+    case "stable_since":
+      return TIME_VALUES;
+    case "touched_by":
+      return authorsFromHistory(history);
+    case "churn":
+      return ["1", "3", "5", "10", "20"];
+    case "introduced_between":
+      return refPairsFromHistory(history);
     default: return [];
   }
+}
+
+function authorsFromHistory(history: GraphHistory | undefined): readonly string[] {
+  if (!history) return ["alice", "bob", "charlie", "dana"];
+  // GraphSnapshot lacks an author field today (CommitMeta carries it in
+  // the live source), but the mock convention stuffs the author into the
+  // label. Harvest distinct tokens from labels as a best-effort.
+  const seen = new Set<string>();
+  for (const s of history.snapshots) {
+    const label = (s.label ?? "").toLowerCase();
+    for (const tok of label.split(/[^a-z0-9]+/)) {
+      if (tok.length >= 3 && tok.length <= 16) seen.add(tok);
+    }
+  }
+  if (seen.size === 0) return ["alice", "bob", "charlie", "dana"];
+  return [...seen].slice(0, 10);
+}
+
+function refPairsFromHistory(history: GraphHistory | undefined): readonly string[] {
+  if (!history || history.snapshots.length < 2) return ["v1.0..v1.2"];
+  const n = history.snapshots.length;
+  const first = history.snapshots[0];
+  const last = history.snapshots[n - 1];
+  const a = first.commitSha?.slice(0, 7) ?? first.label ?? "0";
+  const b = last.commitSha?.slice(0, 7) ?? last.label ?? String(n - 1);
+  return [`${a}..${b}`];
 }
 
 function rank(items: Completion[], partialText: string): Completion[] {
@@ -195,20 +244,25 @@ function keyDescription(k: FilterKey): string {
     case "severity": return "low | medium | high | critical";
     case "animated": return "true | false";
     case "evidence": return "true | false";
+    case "added_since": return "first appearance within 2w | 30d | 3m | 1y";
+    case "stable_since": return "unchanged since 1m | 3m | 1y";
+    case "touched_by": return "author name of any commit touching this edge";
+    case "churn": return "times edge toggled (added + removed) in history";
+    case "introduced_between": return "first appearance within a..b range";
   }
 }
 
 function opCompletions(key: string): Completion[] {
   const out: Completion[] = [];
   for (const op of EQUALITY_OPS) out.push({ label: op, kind: "op", insertText: op });
-  if (key === "severity") {
+  if (key === "severity" || key === "churn" || key === "added_since" || key === "stable_since") {
     for (const op of ORDER_OPS) out.push({ label: op, kind: "op", insertText: op });
   }
   return out;
 }
 
-function valueCompletions(key: string): Completion[] {
-  const values = valuesForKey(key);
+function valueCompletions(key: string, history: GraphHistory | undefined): Completion[] {
+  const values = valuesForKey(key, history);
   return values.map(v => ({ label: v, kind: "value" as const, insertText: v }));
 }
 
@@ -219,10 +273,16 @@ function boolOrCloseCompletions(): Completion[] {
   return out;
 }
 
-export function getCompletions(src: string, cursor: number): Completion[] {
+export interface CompletionOptions {
+  /** Optional history — enables author / ref value completions for temporal keys. */
+  history?: GraphHistory;
+}
+
+export function getCompletions(src: string, cursor: number, opts?: CompletionOptions): Completion[] {
   const clamped = Math.max(0, Math.min(cursor, src.length));
   const { context, partial } = analyze(src, clamped);
   const partialText = partial?.text ?? "";
+  const history = opts?.history;
 
   let pool: Completion[];
   switch (context.expect) {
@@ -233,7 +293,7 @@ export function getCompletions(src: string, cursor: number): Completion[] {
       pool = opCompletions(context.key);
       break;
     case "value":
-      pool = valueCompletions(context.key);
+      pool = valueCompletions(context.key, history);
       break;
     case "bool-or-close":
       pool = boolOrCloseCompletions();
@@ -241,5 +301,8 @@ export function getCompletions(src: string, cursor: number): Completion[] {
   }
 
   const ranked = rank(pool, partialText);
-  return ranked.slice(0, 10);
+  // Bump the cap to accommodate the expanded KEY set (5 base + 5 temporal,
+  // plus "(" and "not") while still feeling snappy in a popover menu.
+  const cap = context.expect === "key-or-open" ? 14 : 10;
+  return ranked.slice(0, cap);
 }
