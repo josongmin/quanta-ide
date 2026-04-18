@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { findPage } from "./demo-registry";
 import { DemoSidebar } from "./internal/DemoSidebar";
 import { DemoCrumbs } from "./internal/DemoCrumbs";
@@ -22,9 +22,10 @@ export function DemoPage() {
   const didFirstSync = useRef(false);
 
   useEffect(() => {
+    const wasFirst = !didFirstSync.current;
+    didFirstSync.current = true;
     if (window.location.hash.slice(1) === pageId) return;
-    if (!didFirstSync.current) {
-      didFirstSync.current = true;
+    if (wasFirst) {
       window.history.replaceState(null, "", `#${pageId}`);
     } else {
       window.location.hash = pageId;

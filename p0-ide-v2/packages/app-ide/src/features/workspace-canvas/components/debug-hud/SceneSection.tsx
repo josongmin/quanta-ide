@@ -9,7 +9,6 @@ import { useInteractionStore, interactionStore, type TemporalMode } from "../../
 import {
   useRenderSettings,
   renderSettingsStore,
-  type EdgeKind,
   type EdgeLayer,
   type EdgeSeverity,
 } from "../../store/render-settings-store";
@@ -38,7 +37,6 @@ import {
   resetWorkspaceUrlState,
 } from "../../lib/apply-workspace-url";
 
-const EDGE_KINDS: readonly EdgeKind[] = ["import", "taint-propagation", "blast"] as const;
 const EDGE_LAYERS: readonly EdgeLayer[] = ["structural", "flow", "safety", "impact"] as const;
 const EDGE_SEVERITIES: readonly EdgeSeverity[] = ["low", "medium", "high", "critical"] as const;
 
@@ -102,7 +100,6 @@ export function SceneSection() {
   const showHitLayers = useUxSettings(s => s.showHitLayers);
   const showHeatmap = useUxSettings(s => s.showHeatmap);
   const showBlameGutter = useRenderSettings(s => s.showBlameGutter);
-  const edgeKinds = useRenderSettings(s => s.edgeKinds);
   const edgeLayers = useRenderSettings(s => s.edgeLayers);
   const showSccBubbles = useRenderSettings(s => s.showSccBubbles);
   const showStartHereBadges = useRenderSettings(s => s.showStartHereBadges);
@@ -247,20 +244,6 @@ export function SceneSection() {
         />
         <span>엣지 (전체)</span>
       </label>
-      <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
-        {EDGE_KINDS.map(k => (
-          <button
-            key={k}
-            type="button"
-            className={`ws-debug__chip${edgeKinds[k] ? " is-on" : ""}`}
-            onClick={() => renderSettingsStore.setEdgeKind(k, !edgeKinds[k])}
-            title={k}
-            disabled={!showEdges}
-          >
-            {k === "taint-propagation" ? "taint" : k.slice(0, 3)}
-          </button>
-        ))}
-      </div>
 
       <div className="ws-debug__row" style={{ alignItems: "center" }}>
         <span style={{ flex: "0 0 82px", opacity: 0.75 }}>엣지 두께</span>
