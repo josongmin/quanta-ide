@@ -44,6 +44,7 @@
   transform-origin: 0 0;
   pointer-events: none;
   z-index: 1;
+  contain: layout style; /* isolate repaints — not "paint" to allow overflow */
 }
 
 /* Re-enable pointer events on interactive elements */

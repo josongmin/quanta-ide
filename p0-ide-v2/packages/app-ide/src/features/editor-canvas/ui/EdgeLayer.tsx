@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { CanvasEdge, CanvasGraph, CodePane } from "@quanta/app-ide/entities/canvas";
 import { cn } from "@quanta/ui-kit/lib";
 
@@ -48,11 +49,17 @@ interface Props {
   onEdgeClick?: (edgeId: string) => void;
 }
 
-export function EdgeLayer({ graph, activeEdges, onEdgeClick }: Props) {
+export const EdgeLayer = memo(function EdgeLayer({ graph, activeEdges, onEdgeClick }: Props) {
   const { codePane } = graph;
 
   const extRects = new Map<string, { x: number; y: number; w: number; h: number }>();
   for (const n of graph.externalNodes) extRects.set(n.id, n);
+
+  // ── Precompute taint routes once O(n) — avoids O(n²) inside render ──
+  const taintRouteSet = new Set<string>();
+  for (const e of graph.edges) {
+    if (e.kind === "taint") taintRouteSet.add(`${e.line}:${e.extNodeId}`);
+  }
 
   // ── 1. Representative edge per dot key ────────────────────────────────
   const dotRep = new Map<string, CanvasEdge>();
@@ -156,12 +163,7 @@ export function EdgeLayer({ graph, activeEdges, onEdgeClick }: Props) {
         if (!extRects.has(edge.extNodeId)) return null;
 
         // If a taint edge exists on the same line→node, hide the dep/call edge
-        if (edge.kind !== "taint") {
-          const hasTaintOnSameRoute = graph.edges.some(
-            (e) => e.kind === "taint" && e.line === edge.line && e.extNodeId === edge.extNodeId,
-          );
-          if (hasTaintOnSameRoute) return null;
-        }
+        if (edge.kind !== "taint" && taintRouteSet.has(`${edge.line}:${edge.extNodeId}`)) return null;
 
         const dot = getPos(edge);
         const isActive = activeEdges?.has(edge.id);
@@ -211,9 +213,8 @@ export function EdgeLayer({ graph, activeEdges, onEdgeClick }: Props) {
       {[...dotRep.entries()].map(([key, rep]) => {
         const pos = dotPos.get(key);
         if (!pos) return null;
-        const isActive = graph.edges
-          .filter((e) => dotKey(e) === key)
-          .some((e) => activeEdges?.has(e.id));
+        // activeEdges가 없으면 false, 있으면 rep.id가 포함되어 있는지만 확인
+        const isActive = activeEdges?.has(rep.id) ?? false;
 
         return (
           <circle
@@ -228,4 +229,4 @@ export function EdgeLayer({ graph, activeEdges, onEdgeClick }: Props) {
       })}
     </svg>
   );
-}
+});

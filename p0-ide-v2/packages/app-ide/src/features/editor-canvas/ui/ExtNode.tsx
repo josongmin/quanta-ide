@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import type { ExternalNode } from "@quanta/app-ide/entities/canvas";
 import { cn } from "@quanta/ui-kit/lib";
 
@@ -44,7 +44,7 @@ const TERMINAL_LABELS: Record<string, string> = {
   storage: "Storage",
 };
 
-export function ExtNode({ node, active, expandable, onNodeClick, onExpand }: Props) {
+export const ExtNode = memo(function ExtNode({ node, active, expandable, onNodeClick, onExpand }: Props) {
   const hasFileGroup = !!node.file;
 
   const handleClick = (e: React.MouseEvent) => {
@@ -105,4 +105,4 @@ export function ExtNode({ node, active, expandable, onNodeClick, onExpand }: Pro
       )}
     </div>
   );
-}
+});
