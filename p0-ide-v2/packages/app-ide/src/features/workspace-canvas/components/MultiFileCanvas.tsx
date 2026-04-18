@@ -45,13 +45,14 @@ export function MultiFileCanvas({ graph }: Props) {
     if (gridRef.current) gridRef.current.style.transform = transform;
     if (domLayerRef.current) domLayerRef.current.style.transform = transform;
   }, [transform]);
-  const lod            = useWorkspaceCanvas(s => s.lod);
-  const visibleScene   = useWorkspaceCanvas(s => s.visibleScene);
-  const clusterScene   = useWorkspaceCanvas(s => s.clusterScene);
-  const viewState      = useWorkspaceCanvas(s => s.viewState);
-  const layout         = useWorkspaceCanvas(s => s.layout);
-  const layoutProgress = useWorkspaceCanvas(s => s.layoutProgress);
-  const showEdges      = useWorkspaceCanvas(s => s.showEdges);
+  const lod               = useWorkspaceCanvas(s => s.lod);
+  const visibleScene      = useWorkspaceCanvas(s => s.visibleScene);
+  const clusterScene      = useWorkspaceCanvas(s => s.clusterScene);
+  const superclusterScene = useWorkspaceCanvas(s => s.superclusterScene);
+  const viewState         = useWorkspaceCanvas(s => s.viewState);
+  const layout            = useWorkspaceCanvas(s => s.layout);
+  const layoutProgress    = useWorkspaceCanvas(s => s.layoutProgress);
+  const showEdges         = useWorkspaceCanvas(s => s.showEdges);
   const edgeCacheRef = useRef(new EdgeGeometryCache());
 
   // Rebuild edge cache when layout changes
@@ -199,10 +200,29 @@ export function MultiFileCanvas({ graph }: Props) {
     workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
   }, []);
 
-  // Show the loading overlay only when neither a file view nor a cluster
-  // view has been computed. At supergalaxy LOD visibleScene is null (we use
-  // clusterScene instead) — treat that as "ready".
-  if (!visibleScene && !clusterScene) {
+  // Supercluster click → same zoom-to-fit behavior as clusters, indexed into
+  // layout.superclusters. Referentially stable so PixiStage's init-path ref
+  // capture doesn't churn.
+  const onSuperclusterClick = useCallback((superclusterId: string) => {
+    const s = workspaceCanvasStore.getState();
+    const rect = s.layout?.superclusters?.find(c => c.id === superclusterId)?.rect;
+    if (!rect) return;
+    const vp = s.viewport;
+    if (vp.width <= 0 || vp.height <= 0 || rect.w <= 0 || rect.h <= 0) return;
+    const FILL = 0.8;
+    const rawScale = Math.min(vp.width / rect.w, vp.height / rect.h) * FILL;
+    const scale = Math.min(2.5, Math.max(0.05, rawScale));
+    const cx = rect.x + rect.w / 2;
+    const cy = rect.y + rect.h / 2;
+    const x = vp.width / 2 - cx * scale;
+    const y = vp.height / 2 - cy * scale;
+    workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+  }, []);
+
+  // Show the loading overlay only when none of the three scene tiers has
+  // been computed. At supergalaxy / universe LOD visibleScene is null (we
+  // use clusterScene / superclusterScene instead) — either one is "ready".
+  if (!visibleScene && !clusterScene && !superclusterScene) {
     return (
       <div ref={containerRef} className="workspace-canvas workspace-canvas--loading">
         <LoadingOverlay progress={layoutProgress} hasGraph={!!graph.files.length} />
@@ -229,8 +249,9 @@ export function MultiFileCanvas({ graph }: Props) {
       {/* WebGL layer: always mounted when layout ready to avoid reinit on LOD transition */}
       {layout && (
         <PixiStage
-          visible={visibleScene ?? { files: [], edges: [], comments: [] }}
+          visible={visibleScene ?? { kind: "files", files: [], edges: [], comments: [] }}
           clusters={clusterScene}
+          superclusters={superclusterScene}
           layout={layout}
           viewState={viewState}
           viewport={viewport}
@@ -240,6 +261,7 @@ export function MultiFileCanvas({ graph }: Props) {
           onFileClick={selectFile}
           onFileHover={hoverFile}
           onClusterClick={onClusterClick}
+          onSuperclusterClick={onSuperclusterClick}
         />
       )}
 

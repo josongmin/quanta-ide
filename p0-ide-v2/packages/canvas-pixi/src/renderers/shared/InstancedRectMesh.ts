@@ -200,12 +200,19 @@ export class InstancedRectMesh {
     this.capacity = next;
     // Drop the old Float32Array reference *before* allocating the new one so
     // the JS GC can reclaim it on the next sweep without being pinned by
-    // this.data. Buffer.data setter below also releases the prior view that
-    // Pixi holds internally.
+    // this.data.
     this.data = null as unknown as Float32Array;
-    this.data = new Float32Array(next * FLOATS_PER_INSTANCE);
-    // Buffer.data setter emits 'change' → Pixi reallocates GPU-side on next draw.
-    this.instanceBuffer.data = this.data;
+    const fresh = new Float32Array(next * FLOATS_PER_INSTANCE);
+    this.data = fresh;
+    // Pixi v8: setDataWithSize(value, size, syncGPU) — when `value.length` ≠
+    // old length it emits 'change' which drops the existing GlBuffer (via
+    // _gpuData[ctx].destroy() inside unload()) and allocates a fresh one on
+    // the next draw. Setting `buffer.data = x` calls this same path with
+    // syncGPU=true, but going through the explicit API documents the
+    // reallocation intent and saves one redundant 'update' emit (syncGPU=false
+    // — the first setInstanceCount() below after ensureCapacity will emit
+    // 'update' to upload the bytes we actually wrote).
+    this.instanceBuffer.setDataWithSize(fresh, fresh.length, false);
   }
 
   // Returns a writable view into the backing Float32Array starting at instance i.

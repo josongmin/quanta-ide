@@ -1304,7 +1304,7 @@ export const ORCHESTRATOR: FileFacts = {
       name: "DeepReasoningOrchestrator",
       kind: "class",
       detail: "Coordinates multi-step reasoning across analysis ports.",
-      line: 483,
+      line: 484,
       layer: "app",
       role: "Orchestrator",
       contract: { verb: "implements", name: "ReasoningPort" },
@@ -1327,7 +1327,7 @@ export const ORCHESTRATOR: FileFacts = {
           name: "execute",
           kind: "method",
           detail: "Runs the selected strategy plan and stores the trace.",
-          line: 523,
+          line: 524,
           layer: "app",
           why: { label: "RFC-02 §3 · plan → run → persist" },
           riskScore: 78,
@@ -1346,10 +1346,10 @@ export const ORCHESTRATOR: FileFacts = {
           tags: ["taint-sink", "no-tests"],
           incidentMatch: { id: "INC-47", similarity: 0.87, reason: "same source→sink shape" },
           flowsTo: [
-            { line: 523, symbol: "request", hop: "source: request.ctx" },
-            { line: 700, symbol: "step.run", hop: "propagate: request.ctx → result" },
-            { line: 543, symbol: "trace", hop: "propagate: result → trace" },
-            { line: 548, symbol: "_store.save", hop: "sink: trace → save(unvalidated)" },
+            { line: 524, symbol: "request", hop: "source: request.ctx" },
+            { line: 701, symbol: "step.run", hop: "propagate: request.ctx → result" },
+            { line: 545, symbol: "trace", hop: "propagate: result → trace" },
+            { line: 549, symbol: "_store.save", hop: "sink: trace → save(unvalidated)" },
           ],
           deps: {
             incoming: [
@@ -1383,7 +1383,7 @@ export const ORCHESTRATOR: FileFacts = {
               name: "request",
               kind: "parameter",
               detail: "Inbound Request — carries untrusted ctx.",
-              line: 523,
+              line: 524,
               taint: "source",
               tags: ["taint-source"],
             },
@@ -1397,7 +1397,7 @@ export const ORCHESTRATOR: FileFacts = {
               name: "trace",
               kind: "variable",
               detail: "Ordered step results — flows into store.save (sink).",
-              line: 543,
+              line: 545,
               taint: "passthrough",
             },
           ],
@@ -1406,7 +1406,7 @@ export const ORCHESTRATOR: FileFacts = {
           name: "_select_strategy",
           kind: "method",
           detail: "Picks fast vs deep strategy based on request kind.",
-          line: 588,
+          line: 589,
           riskScore: 38,
           complexity: 4,
           bigO: "O(1)",
@@ -1418,7 +1418,7 @@ export const ORCHESTRATOR: FileFacts = {
           name: "strategy",
           kind: "parameter",
           detail: "Injected Strategy port.",
-          line: 499,
+          line: 500,
           taint: "source",
           tags: ["taint-source"],
         },
@@ -1426,7 +1426,7 @@ export const ORCHESTRATOR: FileFacts = {
           name: "store",
           kind: "parameter",
           detail: "Injected ExperienceStore port.",
-          line: 499,
+          line: 500,
         },
       ],
     },
@@ -1434,7 +1434,7 @@ export const ORCHESTRATOR: FileFacts = {
       name: "Strategy",
       kind: "class",
       detail: "Abstract reasoning strategy port (fast | deep).",
-      line: 202,
+      line: 203,
       riskScore: 12,
       blame: { author: "@devops-bot", when: "1mo" },
     },
@@ -1442,7 +1442,7 @@ export const ORCHESTRATOR: FileFacts = {
       name: "ExperienceStore",
       kind: "class",
       detail: "Persists reasoning traces for later replay.",
-      line: 63,
+      line: 64,
       layer: "infra",
       role: "Store",
       contract: { verb: "implements", name: "ExperiencePort" },
@@ -1507,7 +1507,7 @@ export const ORCHESTRATOR: FileFacts = {
 
   functionHeaders: [
     {
-      line: 483,
+      line: 484,
       name: "DeepReasoningOrchestrator",
       kind: "class",
       blast: 38,
@@ -1518,7 +1518,7 @@ export const ORCHESTRATOR: FileFacts = {
       budgetPct: 91,
     },
     {
-      line: 499,
+      line: 500,
       name: "__init__",
       kind: "method",
       blast: 2,
@@ -1529,7 +1529,7 @@ export const ORCHESTRATOR: FileFacts = {
       riskScore: 8,
     },
     {
-      line: 523,
+      line: 524,
       name: "execute",
       kind: "method",
       blast: 31,
@@ -1543,7 +1543,7 @@ export const ORCHESTRATOR: FileFacts = {
       budgetPct: 91,
     },
     {
-      line: 588,
+      line: 589,
       name: "_select_strategy",
       kind: "method",
       blast: 3,
@@ -1553,62 +1553,207 @@ export const ORCHESTRATOR: FileFacts = {
       owner: "@songmin",
       riskScore: 38,
     },
+    // ── Scenario Catalog (lines 1199+) ───────────────────────────────
+    {
+      line: 1209,
+      name: "_emit_audit",
+      kind: "function",
+      blast: 1,
+      complexity: 2,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 62,
+    },
+    {
+      line: 1218,
+      name: "_hydrate_steps",
+      kind: "function",
+      blast: 4,
+      complexity: 3,
+      bigO: "O(n)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 58,
+      budgetPct: 70,
+    },
+    {
+      line: 1229,
+      name: "_cache_or_compute",
+      kind: "function",
+      blast: 6,
+      complexity: 3,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 55,
+    },
+    {
+      line: 1238,
+      name: "_trace_signature",
+      kind: "function",
+      blast: 2,
+      complexity: 1,
+      bigO: "O(n)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 51,
+    },
+    {
+      line: 1246,
+      name: "_push_dashboard",
+      kind: "function",
+      blast: 3,
+      complexity: 2,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      taint: "sink",
+      riskScore: 67,
+    },
+    {
+      line: 1254,
+      name: "_audit_request",
+      kind: "function",
+      blast: 2,
+      complexity: 1,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      taint: "sink",
+      riskScore: 56,
+    },
+    {
+      line: 1259,
+      name: "_fetch_metadata",
+      kind: "function",
+      blast: 2,
+      complexity: 2,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      taint: "sink",
+      riskScore: 71,
+    },
+    {
+      line: 1266,
+      name: "_query_traces_by_owner",
+      kind: "function",
+      blast: 4,
+      complexity: 1,
+      bigO: "O(n)",
+      tests: "0/0",
+      owner: "@songmin",
+      taint: "sink",
+      riskScore: 74,
+    },
+    {
+      line: 1272,
+      name: "_verify_replay_token",
+      kind: "function",
+      blast: 5,
+      complexity: 1,
+      bigO: "O(n)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 59,
+    },
+    {
+      line: 1277,
+      name: "_persist_trace",
+      kind: "function",
+      blast: 1,
+      complexity: 1,
+      bigO: "O(1)",
+      tests: "0/0",
+      owner: "@songmin",
+      riskScore: 50,
+    },
   ],
 
   gutter: [
-    { line: 48, glyph: "taint-source", title: "infra import: ExperienceStore (domain→infra violation)" },
-    { line: 49, glyph: "taint-source", title: "infra import: postgres (domain→infra violation)" },
-    { line: 365, glyph: "taint-source", title: "taint source: request.ctx (user input)" },
-    { line: 412, glyph: "taint-sink", title: "taint sink: _store.save(trace) — unvalidated" },
-    { line: 412, glyph: "incident-match", title: "matches incident #47 (2024-11-15): db_use_after_close" },
-    { line: 478, glyph: "taint-through", title: "propagates: runner.run(step, child_ctx)" },
-    { line: 680, glyph: "dead", title: "dead code: _legacy_inference_bridge — unused" },
-    { line: 700, glyph: "arch-violation", title: "CPX 14 exceeds threshold 10" },
+    // ── Existing scenarios (aligned to actual source lines) ──────────
+    { line: 64, glyph: "arch-violation", title: "infra import: ExperienceStore (domain→infra violation)" },
+    { line: 65, glyph: "arch-violation", title: "infra import: postgres (domain→infra violation)" },
+    { line: 524, glyph: "taint-source", title: "taint source: request.ctx (user input)" },
+    { line: 549, glyph: "taint-sink", title: "taint sink: _store.save(trace) — unvalidated" },
+    { line: 549, glyph: "incident-match", title: "matches incident #47 (2024-11-15): same source→sink shape" },
+    { line: 701, glyph: "taint-through", title: "propagates: runner.run(step, child_ctx)" },
+    { line: 1092, glyph: "dead", title: "dead code: _legacy_inference_bridge — unused" },
+    // ── Scenario Catalog (1199+) ────────────────────────────────────
+    { line: 1210, glyph: "typestate", title: "typestate: file handle opened" },
+    { line: 1212, glyph: "typestate", title: "typestate: handle leaked on early-return path" },
+    { line: 1220, glyph: "arch-violation", title: "N+1 query: DB roundtrip per loop iteration" },
+    { line: 1230, glyph: "typestate", title: "TOCTOU: read-then-act check on shared map" },
+    { line: 1233, glyph: "typestate", title: "TOCTOU: write completes the race window" },
+    { line: 1240, glyph: "arch-violation", title: "weak crypto: md5 used for signing" },
+    { line: 1244, glyph: "taint-source", title: "secret leak: hardcoded API token" },
+    { line: 1247, glyph: "taint-sink", title: "secret use: token sent in outbound header" },
+    { line: 1255, glyph: "taint-sink", title: "log injection: unsanitized request.ctx → log" },
+    { line: 1261, glyph: "taint-source", title: "taint source: request.ctx['callback_url']" },
+    { line: 1262, glyph: "taint-sink", title: "SSRF sink: urlopen(user_url)" },
+    { line: 1267, glyph: "taint-through", title: "SQLi: f-string built from caller-supplied owner" },
+    { line: 1268, glyph: "taint-sink", title: "SQLi sink: raw query passed to postgres.exec" },
+    { line: 1273, glyph: "arch-violation", title: "timing attack: == on secret token (use compare_digest)" },
+    { line: 1278, glyph: "taint-sanitized", title: "sanitizer hint: validate_trace() should run here" },
   ],
 
   minimap: [
     // imports — architecture violation
-    { line: 48, severity: 3, kind: "arch" },
-    { line: 49, severity: 3, kind: "arch" },
+    { line: 64, severity: 3, kind: "arch" },
+    { line: 65, severity: 3, kind: "arch" },
     // constants — dead code
-    { line: 68, severity: 1, kind: "dead" },
-    { line: 69, severity: 1, kind: "dead" },
+    { line: 78, severity: 1, kind: "dead" },
+    { line: 79, severity: 1, kind: "dead" },
     // StepContext — blast radius hub
-    { line: 130, severity: 2, kind: "blast" },
+    { line: 127, severity: 2, kind: "blast" },
     // RetryPolicy — moderate complexity
-    { line: 255, severity: 2, kind: "cpx" },
+    { line: 278, severity: 2, kind: "cpx" },
+    // OldRetryPolicy — dead class
+    { line: 307, severity: 2, kind: "dead" },
     // DeepReasoningOrchestrator — main class
-    { line: 340, severity: 4, kind: "blast" },
-    { line: 365, severity: 3, kind: "taint" },
-    { line: 412, severity: 4, kind: "taint" },
-    { line: 430, severity: 2, kind: "cpx" },
-    { line: 478, severity: 3, kind: "taint" },
+    { line: 484, severity: 4, kind: "blast" },
+    { line: 524, severity: 3, kind: "taint" },
+    { line: 549, severity: 4, kind: "taint" },
+    { line: 667, severity: 3, kind: "cpx" },
+    { line: 701, severity: 3, kind: "taint" },
     // Strategy implementations
-    { line: 560, severity: 1, kind: "cpx" },
-    { line: 610, severity: 2, kind: "cpx" },
+    { line: 814, severity: 1, kind: "cpx" },
+    { line: 847, severity: 2, kind: "cpx" },
     // Runners — taint analysis
-    { line: 650, severity: 2, kind: "taint" },
-    { line: 670, severity: 2, kind: "taint" },
-    // Dead code
-    { line: 680, severity: 3, kind: "dead" },
-    // resolve_policy — high complexity
-    { line: 700, severity: 4, kind: "cpx" },
-    { line: 720, severity: 3, kind: "cpx" },
-    // Factory
-    { line: 800, severity: 1, kind: "blast" },
+    { line: 995, severity: 2, kind: "taint" },
+    { line: 1044, severity: 2, kind: "blast" },
+    // Legacy bridge — dead
+    { line: 1092, severity: 3, kind: "dead" },
+    // ── Scenario Catalog ─────────────────────────────────────────────
+    { line: 1210, severity: 2, kind: "cpx" },     // typestate (open)
+    { line: 1212, severity: 3, kind: "cpx" },     // typestate (leak)
+    { line: 1220, severity: 3, kind: "arch" },    // N+1 query
+    { line: 1230, severity: 2, kind: "cpx" },     // TOCTOU check
+    { line: 1233, severity: 3, kind: "cpx" },     // TOCTOU act
+    { line: 1240, severity: 2, kind: "arch" },    // weak crypto
+    { line: 1244, severity: 4, kind: "taint" },   // secret leak
+    { line: 1247, severity: 3, kind: "taint" },   // secret use
+    { line: 1255, severity: 3, kind: "taint" },   // log injection
+    { line: 1261, severity: 3, kind: "taint" },   // SSRF source
+    { line: 1262, severity: 4, kind: "taint" },   // SSRF sink
+    { line: 1267, severity: 3, kind: "taint" },   // SQLi build
+    { line: 1268, severity: 4, kind: "taint" },   // SQLi sink
+    { line: 1273, severity: 2, kind: "arch" },    // timing attack
+    { line: 1278, severity: 1, kind: "taint" },   // sanitizer hint
   ],
 
   imports: [],
 
   callSites: [
     {
-      line: 600,
+      line: 598,
       callee: "Strategy.select",
       calleeFile: "ports/strategy.py",
       effects: ["pure"],
     },
     {
-      line: 700,
+      line: 701,
       callee: "Step.run",
       calleeFile: "ports/step.py",
       effects: ["io:read"],
@@ -1617,13 +1762,13 @@ export const ORCHESTRATOR: FileFacts = {
         owasp: "A03 (Injection)",
         severity: 2,
         steps: [
-          { line: 523, symbol: "request", hop: "source", detail: "inbound request.ctx" },
-          { line: 700, symbol: "step.run", hop: "propagate", detail: "passes ctx to step implementation" },
+          { line: 524, symbol: "request", hop: "source", detail: "inbound request.ctx" },
+          { line: 701, symbol: "step.run", hop: "propagate", detail: "passes ctx to step implementation" },
         ],
       },
     },
     {
-      line: 548,
+      line: 549,
       callee: "ExperienceStore.save",
       calleeFile: "infra/experience_store.py",
       effects: ["io:write", "persist"],
@@ -1632,10 +1777,10 @@ export const ORCHESTRATOR: FileFacts = {
         owasp: "A03 (Injection)",
         severity: 3,
         steps: [
-          { line: 523, symbol: "request", hop: "source", detail: "untrusted request.ctx" },
-          { line: 700, symbol: "step.run", hop: "propagate", detail: "ctx → result" },
-          { line: 543, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
-          { line: 548, symbol: "_store.save", hop: "sink", detail: "save(trace) — no validation" },
+          { line: 524, symbol: "request", hop: "source", detail: "untrusted request.ctx" },
+          { line: 701, symbol: "step.run", hop: "propagate", detail: "ctx → result" },
+          { line: 545, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
+          { line: 549, symbol: "_store.save", hop: "sink", detail: "save(trace) — no validation" },
         ],
         sanitizerHints: [
           "validate trace.origin before save",
@@ -1652,10 +1797,10 @@ export const ORCHESTRATOR: FileFacts = {
       owasp: "A03 (Injection)",
       severity: 3,
       steps: [
-        { line: 523, symbol: "request", hop: "source", detail: "untrusted request.ctx" },
-        { line: 700, symbol: "step.run", hop: "propagate", detail: "ctx → result" },
-        { line: 543, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
-        { line: 548, symbol: "_store.save", hop: "sink", detail: "save(trace) — no validation" },
+        { line: 524, symbol: "request", hop: "source", detail: "untrusted request.ctx" },
+        { line: 701, symbol: "step.run", hop: "propagate", detail: "ctx → result" },
+        { line: 545, symbol: "trace", hop: "propagate", detail: "result → trace[]" },
+        { line: 549, symbol: "_store.save", hop: "sink", detail: "save(trace) — no validation" },
       ],
       sanitizerHints: [
         "validate trace.origin before save",
@@ -1667,9 +1812,56 @@ export const ORCHESTRATOR: FileFacts = {
       owasp: "A04 (Insecure Design)",
       severity: 2,
       steps: [
-        { line: 499, symbol: "strategy", hop: "source", detail: "injected strategy port" },
-        { line: 589, symbol: "self._strategy.fast", hop: "branch", detail: "kind=='fast' path" },
-        { line: 591, symbol: "self._strategy.deep", hop: "sink", detail: "default path — unchecked" },
+        { line: 500, symbol: "strategy", hop: "source", detail: "injected strategy port" },
+        { line: 591, symbol: "self._strategy.fast", hop: "branch", detail: "kind=='fast' path" },
+        { line: 592, symbol: "self._strategy.deep", hop: "sink", detail: "default path — unchecked" },
+      ],
+    },
+    {
+      id: "tp-ssrf",
+      owasp: "A10 (SSRF)",
+      severity: 3,
+      steps: [
+        { line: 1261, symbol: "url", hop: "source", detail: "request.ctx['callback_url'] — user-controlled" },
+        { line: 1262, symbol: "urlopen", hop: "sink", detail: "outbound fetch with no allowlist" },
+      ],
+      sanitizerHints: [
+        "allowlist outbound hosts (block link-local / metadata IPs)",
+        "resolve hostname before fetch and re-check IP class",
+      ],
+    },
+    {
+      id: "tp-sqli",
+      owasp: "A03 (Injection)",
+      severity: 3,
+      steps: [
+        { line: 1266, symbol: "owner", hop: "source", detail: "caller-supplied owner string" },
+        { line: 1267, symbol: "sql", hop: "propagate", detail: "f-string concatenation builds raw SQL" },
+        { line: 1268, symbol: "postgres.exec", hop: "sink", detail: "executed without parameter binding" },
+      ],
+      sanitizerHints: [
+        "use parameterised query: postgres.exec('… WHERE owner=$1', owner)",
+      ],
+    },
+    {
+      id: "tp-secret",
+      owasp: "A07 (Authentication Failure)",
+      severity: 2,
+      steps: [
+        { line: 1244, symbol: "_DASHBOARD_TOKEN", hop: "source", detail: "secret hardcoded in source" },
+        { line: 1247, symbol: "Authorization header", hop: "sink", detail: "secret embedded in outbound request" },
+      ],
+      sanitizerHints: [
+        "load token from secret manager / env var, not source",
+      ],
+    },
+    {
+      id: "tp-log-inject",
+      owasp: "A09 (Logging Failures)",
+      severity: 2,
+      steps: [
+        { line: 1254, symbol: "request.ctx", hop: "source", detail: "untrusted user payload" },
+        { line: 1255, symbol: "logger.info", hop: "sink", detail: "raw ctx written into structured log line" },
       ],
     },
   ],

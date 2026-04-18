@@ -39,7 +39,12 @@ export interface WorkspaceFileView {
   files: FileNode[];
   edges: FileEdge[];
   comments: WorkspaceComment[];
-  kind?: "files";
+  // Mandatory discriminator. Prior `kind?: "files"` made `WorkspaceFileView`
+  // indistinguishable from the partial-fallback literals scattered through
+  // callers (`{ files: [], edges: [], comments: [] }`) — TS couldn't narrow
+  // a `WorkspaceScene` union against them. Requiring `kind` restores the
+  // exhaustive guard in consumers and prevents accidental coercion.
+  kind: "files";
 }
 
 // Back-compat alias — callers that don't care about the supergalaxy tier
@@ -62,6 +67,22 @@ export function isSuperclusterView(
   scene: WorkspaceScene,
 ): scene is WorkspaceSuperclusterView {
   return (scene as WorkspaceSuperclusterView).kind === "universe";
+}
+
+export function isFileView(
+  scene: WorkspaceScene,
+): scene is WorkspaceFileView {
+  return (scene as WorkspaceFileView).kind === "files";
+}
+
+/**
+ * Exhaustiveness guard for `switch (scene.kind)` and similar constructs.
+ * Trips the TS compiler at build time when a new `LodLevel` or
+ * `WorkspaceScene` variant is added without updating every switch.
+ * At runtime this throws — callers should never actually reach it.
+ */
+export function assertNever(x: never): never {
+  throw new Error(`assertNever: unhandled variant ${JSON.stringify(x)}`);
 }
 
 // Re-export for downstream convenience (PixiStage imports from here).

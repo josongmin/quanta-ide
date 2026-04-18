@@ -106,6 +106,7 @@ export function buildVisibleQuery(
   // always has something to draw while the exact viewport is being set up.
   if (viewport.width <= 0 || viewport.height <= 0) {
     return {
+      kind: "files",
       files: graph.files,
       edges: graph.fileEdges,
       comments: graph.comments,
@@ -123,13 +124,18 @@ export function buildVisibleQuery(
 
   const comments = graph.comments.filter((c) => visibleFileIds.has(c.fileId));
 
-  return { files, edges, comments };
+  return { kind: "files", files, edges, comments };
 }
 
 /**
- * LOD-aware scene builder. At `supergalaxy` returns a cluster view; at any
- * other LOD returns the standard file view. Consumers can switch on the
- * `kind` discriminant (use `isClusterView`).
+ * LOD-aware scene builder.
+ *   - `universe`    → supercluster view (cascades: superclusters → clusters → files).
+ *   - `supergalaxy` → cluster view (cascades: clusters → files).
+ *   - any other LOD → standard file view.
+ *
+ * Cascading fallback means if a tier has no data (e.g. grid layout emits
+ * neither clusters nor superclusters), we degrade gracefully instead of
+ * rendering an empty scene.
  */
 export function buildSceneQuery(
   graph: WorkspaceGraph,
@@ -137,7 +143,14 @@ export function buildSceneQuery(
   viewport: Viewport,
   lod: LodLevel,
 ): WorkspaceScene {
-  if (lod === "supergalaxy" && layout.clusters && layout.clusters.length > 0) {
+  if (lod === "universe" && layout.superclusters && layout.superclusters.length > 0) {
+    return buildSuperclusterQuery(layout, viewport);
+  }
+  if (
+    (lod === "supergalaxy" || lod === "universe") &&
+    layout.clusters &&
+    layout.clusters.length > 0
+  ) {
     return buildClusterQuery(layout, viewport);
   }
   return buildVisibleQuery(graph, layout, viewport);

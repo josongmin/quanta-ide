@@ -162,6 +162,9 @@
   flex: 1;
   min-height: 0;
   height: 100%;
+  /* Shared geometry for block widgets (read by sibling worker via getComputedStyle). */
+  --cm-line-pad: 12px;
+  --cm-gutter-w: 30px;
 }
 .editor__cm .cm-scroller {
   scrollbar-width: thin;
@@ -559,13 +562,15 @@
 .cm-activeLineGutter .cm-gm { color: var(--fg); }
 
 /* ── Inline function header (block widget above each notable fn) ──
-   Wrapper handles vertical spacing via padding — CodeMirror measures
-   offsetHeight (excludes margins), so spacing must be padding-based to
-   keep gutter line numbers aligned with content. */
+   Outer wrapper owns ALL spacing (vertical padding + horizontal gutter
+   overhang) — CodeMirror measures wrapper.offsetHeight (excludes margins)
+   to keep gutter line numbers aligned with content. The inner chip bar
+   is visual-only: no margin, no width clamping against the wrapper. */
 .cm-fnhead-wrap {
   padding-top: var(--space-1h);
 }
 .cm-fnhead-wrap--file {
+  margin-left: calc(-1 * var(--cm-gutter-w));
   padding: 4px 0 var(--space-2h) 0;
 }
 
@@ -574,7 +579,7 @@
   align-items: center;
   gap: var(--space-3);
   width: fit-content;
-  max-width: calc(100% - 24px);
+  max-width: none;
   padding: var(--space-0h) var(--space-2h);
   margin: 0;
   font-family: var(--font-sans);
@@ -584,11 +589,9 @@
   border: 1px solid color-mix(in srgb, var(--border-strong) 70%, var(--border));
   border-radius: var(--radius-sm);
   line-height: var(--lh-normal);
-  opacity: 1;
-  transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease;
+  transition: color 140ms ease, border-color 140ms ease;
 }
 .cm-fnhead:hover {
-  opacity: 1;
   border-color: var(--border-strong);
   color: var(--fg);
 }
@@ -601,6 +604,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--fg-muted);
   font-size: var(--fs-10);
+  transition: color 140ms ease;
 }
 .cm-fnhead__ico {
   color: var(--fg-muted);
@@ -650,16 +654,14 @@
 .cm-fnhead--high:hover .cm-fnhead__risk { color: var(--danger); background: var(--bg-danger-subtle); }
 
 /* File-level variant (appears above line 1 — full file summary).
-   Vertical spacing lives on .cm-fnhead-wrap--file; only the gutter
-   overhang (-30px) and inner padding stay here. */
+   ALL spacing lives on .cm-fnhead-wrap--file (vertical padding +
+   horizontal gutter overhang). The inner element keeps only its own
+   visual padding so wrapper.offsetHeight reflects total widget height. */
 .cm-fnhead--file {
-  margin: 0 0 0 -30px;
-  padding: 3px 12px;
+  padding: 3px var(--cm-line-pad);
   position: relative;
-  z-index: 210;
-  opacity: 1;
+  z-index: 2;
 }
-.cm-fnhead--file:hover { opacity: 1; }
 .cm-fnhead__meta {
   margin-left: auto;
   padding-right: var(--space-0h);

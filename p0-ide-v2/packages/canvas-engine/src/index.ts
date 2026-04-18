@@ -33,11 +33,12 @@ export type {
   Viewport,
   WorkspaceView,
   WorkspaceClusterView,
+  WorkspaceSuperclusterView,
   WorkspaceFileView,
   WorkspaceScene,
   ViewState,
 } from "./view/types";
-export { isClusterView } from "./view/types";
+export { isClusterView, isSuperclusterView } from "./view/types";
 
 // LOD manager
 export { LodManager, lodFromScale } from "./lod/lod-manager";
@@ -71,5 +72,6 @@ export { EdgeFilter } from "./spatial/edge-filter";
 export {
   buildVisibleQuery,
   buildClusterQuery,
+  buildSuperclusterQuery,
   buildSceneQuery,
 } from "./spatial/visible-query";

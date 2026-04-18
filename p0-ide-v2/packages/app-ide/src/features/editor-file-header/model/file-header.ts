@@ -2,57 +2,100 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { DecorationSet } from "@codemirror/view";
 import { RangeSetBuilder, StateField } from "@codemirror/state";
 import type { FileFacts } from "@quanta/app-ide/entities/file";
+import {
+  createChip,
+  createMeta,
+  createRisk,
+  signature,
+  tone,
+} from "@quanta/app-ide/features/editor-chip-bar";
 
 class FileHeaderWidget extends WidgetType {
   constructor(readonly file: FileFacts) {
     super();
   }
-  override eq(other: WidgetType): boolean {
-    return other instanceof FileHeaderWidget && other.file.name === this.file.name;
+
+  /** Stable signature over every field that flows into `toDOM`. */
+  private get sig(): string {
+    return signature(
+      this.file.name,
+      this.file.riskScore,
+      this.file.blast,
+      this.file.blastCritical,
+      this.file.taintCount,
+      this.file.cpxMax,
+      this.file.cpxBudgetPct,
+      this.file.archViolations,
+      this.file.deadCount,
+      this.file.incidents.length,
+      this.file.owner,
+      this.file.lastModified,
+    );
   }
+
+  override eq(other: WidgetType): boolean {
+    return other instanceof FileHeaderWidget && other.sig === this.sig;
+  }
+
+  // XSS-safe DOM construction via the shared chip-bar primitives — no
+  // innerHTML, so user-facing fields (owner, filename, …) flow through
+  // textContent. The outer wrapper owns vertical spacing so its
+  // offsetHeight matches what CodeMirror sees → gutter line numbers stay
+  // aligned. The wrapper also owns the leftward gutter overhang via the
+  // `cm-fnhead-wrap--file` modifier in CSS (no inline horizontal style
+  // on the inner element).
   override toDOM(): HTMLElement {
-    // Outer wrapper owns vertical spacing via padding, so its offsetHeight
-    // matches what CodeMirror sees → gutter line numbers stay aligned.
     const wrap = document.createElement("div");
     wrap.className = "cm-fnhead-wrap cm-fnhead-wrap--file";
 
     const el = document.createElement("div");
-    const tone =
-      this.file.riskScore >= 70 ? "high" :
-      this.file.riskScore >= 40 ? "mid" : "low";
-    el.className = `cm-fnhead cm-fnhead--${tone} cm-fnhead--file`;
+    el.className = `cm-fnhead cm-fnhead--${tone(this.file.riskScore)} cm-fnhead--file`;
 
-    const chips: string[] = [];
+    const chips: HTMLElement[] = [];
 
-    chips.push(`<span class="cm-fnhead__chip"><span class="cm-fnhead__ico">blast</span>${this.file.blast}${
-      this.file.blastCritical > 0 ? `<em>·${this.file.blastCritical} crit</em>` : ""
-    }</span>`);
+    chips.push(
+      createChip({
+        ico: "blast",
+        value: this.file.blast,
+        em: this.file.blastCritical > 0 ? `${this.file.blastCritical} crit` : undefined,
+      }),
+    );
 
-    if (this.file.taintCount > 0)
-      chips.push(`<span class="cm-fnhead__chip is-bad"><span class="cm-fnhead__ico">taint</span>${this.file.taintCount}</span>`);
+    if (this.file.taintCount > 0) {
+      chips.push(createChip({ ico: "taint", value: this.file.taintCount, kind: "bad" }));
+    }
 
-    chips.push(`<span class="cm-fnhead__chip${
-      this.file.cpxBudgetPct >= 80 ? " is-warn" : ""
-    }"><span class="cm-fnhead__ico">cpx</span>${this.file.cpxMax}<span class="cm-fnhead__sub"> ${this.file.cpxBudgetPct}%</span></span>`);
+    chips.push(
+      createChip({
+        ico: "cpx",
+        value: this.file.cpxMax,
+        sub: `${this.file.cpxBudgetPct}%`,
+        kind: this.file.cpxBudgetPct >= 80 ? "warn" : "default",
+      }),
+    );
 
-    if (this.file.archViolations > 0)
-      chips.push(`<span class="cm-fnhead__chip is-bad"><span class="cm-fnhead__ico">arch</span>${this.file.archViolations}</span>`);
+    if (this.file.archViolations > 0) {
+      chips.push(createChip({ ico: "arch", value: this.file.archViolations, kind: "bad" }));
+    }
 
-    if (this.file.deadCount > 0)
-      chips.push(`<span class="cm-fnhead__chip is-muted"><span class="cm-fnhead__ico">dead</span>${this.file.deadCount}</span>`);
+    if (this.file.deadCount > 0) {
+      chips.push(createChip({ ico: "dead", value: this.file.deadCount, kind: "muted" }));
+    }
 
-    if (this.file.incidents.length > 0)
-      chips.push(`<span class="cm-fnhead__chip is-bad"><span class="cm-fnhead__ico">match</span>${this.file.incidents.length}</span>`);
+    if (this.file.incidents.length > 0) {
+      chips.push(createChip({ ico: "match", value: this.file.incidents.length, kind: "bad" }));
+    }
 
-    chips.push(`<span class="cm-fnhead__meta">${this.file.owner} · ${this.file.lastModified}</span>`);
-    chips.push(`<span class="cm-fnhead__risk">${this.file.riskScore}</span>`);
+    chips.push(createMeta(`${this.file.owner} · ${this.file.lastModified}`));
+    chips.push(createRisk(this.file.riskScore));
 
-    el.innerHTML = chips.join("");
+    chips.forEach((c) => el.appendChild(c));
     wrap.appendChild(el);
     return wrap;
   }
+
   override get estimatedHeight(): number {
-    return 38;
+    return 40;
   }
 }
 

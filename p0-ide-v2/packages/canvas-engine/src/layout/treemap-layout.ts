@@ -200,6 +200,7 @@ function rowCost(rowCs: Child[], longSide: number): number {
 function squarify(
   children: Child[],
   targetAspect: number,
+  longsideK: number,
 ): { placements: Placement[]; w: number; h: number } {
   if (children.length === 0) return { placements: [], w: 0, h: 0 };
   if (children.length === 1) {
@@ -216,9 +217,10 @@ function squarify(
   const maxChildW = sorted.reduce((m, c) => (c.w > m ? c.w : m), 0);
   // longSide budget: sqrt(area * k) where k is calibrated so the
   // realized bounds aspect ≈ targetAspect after padding. See
-  // LONGSIDE_BUDGET_K for details.
+  // LONGSIDE_BUDGET_K for details; `longsideK` can be adjusted by the
+  // aspect-refinement pass to nudge the realized ratio closer to target.
   const longSide = Math.max(
-    Math.sqrt(totalArea * targetAspect * (LONGSIDE_BUDGET_K / 1.5)),
+    Math.sqrt(totalArea * targetAspect * (longsideK / 1.5)),
     maxChildW,
   );
 
@@ -280,8 +282,8 @@ function squarify(
 
 // ── sizing pass (bottom-up) ────────────────────────────────────────────
 
-function sizeDir(dir: DirNode): void {
-  for (const child of dir.children.values()) sizeDir(child);
+function sizeDir(dir: DirNode, longsideK: number): void {
+  for (const child of dir.children.values()) sizeDir(child, longsideK);
 
   const childBoxes: Child[] = [];
   for (const child of dir.children.values()) {
@@ -319,7 +321,7 @@ function sizeDir(dir: DirNode): void {
   // Choose per-level target aspect. At root we want TARGET_ASPECT; deeper
   // levels use 1.0 (near-square) so individual clusters don't inherit the
   // root's widescreen bias.
-  const { placements, w, h } = squarify(childBoxes, TARGET_ASPECT);
+  const { placements, w, h } = squarify(childBoxes, TARGET_ASPECT, longsideK);
   dir.box = { w, h };
   dir.placements = placements;
 }
@@ -397,7 +399,22 @@ export interface TreemapResult extends WorkspaceLayout {
   superclusters: ClusterInfo[];
 }
 
-export function treemapLayout(graph: WorkspaceGraph): TreemapResult {
+/**
+ * Opt-in feature flags for expensive post-layout passes. Keep all defaults
+ * `false` so callers pay nothing until a renderer consumes the data.
+ * `computeOrthoRoutes` in particular costs ~50ms on a 5k-edge graph and
+ * was previously running unconditionally — pure waste while the renderer
+ * only consumes bezier routes.
+ */
+export interface TreemapOptions {
+  computeOrthoRoutes?: boolean;
+  computeBundledEdges?: boolean;
+}
+
+export function treemapLayout(
+  graph: WorkspaceGraph,
+  opts: TreemapOptions = {},
+): TreemapResult {
   const t0 = (typeof performance !== "undefined" ? performance.now() : Date.now());
 
   const root = buildDirTree(graph.files);

@@ -3,6 +3,7 @@ import { Application, Container } from "pixi.js";
 import type {
   WorkspaceView,
   WorkspaceClusterView,
+  WorkspaceSuperclusterView,
   WorkspaceLayout,
   ViewState,
   Viewport,
@@ -12,6 +13,7 @@ import type {
 import { GalaxyNodeRenderer } from "../renderers/GalaxyNodeRenderer";
 import { CityNodeRenderer } from "../renderers/CityNodeRenderer";
 import { ClusterNodeRenderer } from "../renderers/ClusterNodeRenderer";
+import { SuperclusterNodeRenderer } from "../renderers/SuperclusterNodeRenderer";
 import { EdgeStaticRenderer } from "../renderers/EdgeStaticRenderer";
 import { EdgeOverlayRenderer } from "../renderers/EdgeOverlayRenderer";
 
@@ -26,6 +28,7 @@ interface PixiBundle {
   galaxy: GalaxyNodeRenderer;
   city: CityNodeRenderer;
   cluster: ClusterNodeRenderer;
+  supercluster: SuperclusterNodeRenderer;
   edgeOverlay: EdgeOverlayRenderer;
 }
 const pixiByCanvas = new WeakMap<HTMLCanvasElement, PixiBundle>();
@@ -39,6 +42,8 @@ export interface PixiStageProps {
   visible: WorkspaceView;
   /** Populated only at supergalaxy LOD. Renderer draws one box per cluster. */
   clusters?: WorkspaceClusterView | null;
+  /** Populated only at universe LOD. Renderer draws one box per supercluster. */
+  superclusters?: WorkspaceSuperclusterView | null;
   layout: WorkspaceLayout;
   viewState: ViewState;
   viewport: Viewport;
@@ -49,11 +54,13 @@ export interface PixiStageProps {
   onFileClick?: (fileId: string) => void;
   onFileHover?: (fileId: string | null) => void;
   onClusterClick?: (clusterId: string) => void;
+  onSuperclusterClick?: (superclusterId: string) => void;
 }
 
 export function PixiStage({
   visible,
   clusters,
+  superclusters,
   layout,
   viewState,
   viewport,
@@ -63,6 +70,7 @@ export function PixiStage({
   onFileClick,
   onFileHover,
   onClusterClick,
+  onSuperclusterClick,
 }: PixiStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<Application | null>(null);
@@ -70,6 +78,7 @@ export function PixiStage({
   const galaxyRef = useRef<GalaxyNodeRenderer | null>(null);
   const cityRef = useRef<CityNodeRenderer | null>(null);
   const clusterRef = useRef<ClusterNodeRenderer | null>(null);
+  const superclusterRef = useRef<SuperclusterNodeRenderer | null>(null);
   const edgeStaticRef = useRef<EdgeStaticRenderer | null>(null);
   const edgeOverlayRef = useRef<EdgeOverlayRenderer | null>(null);
   // State (not ref) so render effects re-run when pixi finishes async init.
@@ -83,9 +92,11 @@ export function PixiStage({
   const onFileClickRef = useRef(onFileClick);
   const onFileHoverRef = useRef(onFileHover);
   const onClusterClickRef = useRef(onClusterClick);
+  const onSuperclusterClickRef = useRef(onSuperclusterClick);
   onFileClickRef.current = onFileClick;
   onFileHoverRef.current = onFileHover;
   onClusterClickRef.current = onClusterClick;
+  onSuperclusterClickRef.current = onSuperclusterClick;
 
   // ── Init PixiJS (StrictMode-safe via canvas-keyed cache) ────────
   // Without the cache, StrictMode double-mount in dev creates two concurrent
@@ -112,6 +123,7 @@ export function PixiStage({
       galaxyRef.current = bundle.galaxy;
       cityRef.current = bundle.city;
       clusterRef.current = bundle.cluster;
+      superclusterRef.current = bundle.supercluster;
       edgeOverlayRef.current = bundle.edgeOverlay;
       setPixiReady(true);
     };
@@ -149,8 +161,11 @@ export function PixiStage({
         const cluster = new ClusterNodeRenderer(world, {
           onClick: (id: string) => onClusterClickRef.current?.(id),
         });
+        const supercluster = new SuperclusterNodeRenderer(world, {
+          onClick: (id: string) => onSuperclusterClickRef.current?.(id),
+        });
         const edgeOverlay = new EdgeOverlayRenderer(world);
-        const bundle: PixiBundle = { app, world, edgeStatic, galaxy, city, cluster, edgeOverlay };
+        const bundle: PixiBundle = { app, world, edgeStatic, galaxy, city, cluster, supercluster, edgeOverlay };
         pixiByCanvas.set(canvas, bundle);
         return bundle;
       })();
@@ -173,6 +188,7 @@ export function PixiStage({
       galaxyRef.current = null;
       cityRef.current = null;
       clusterRef.current = null;
+      superclusterRef.current = null;
       edgeStaticRef.current = null;
       edgeOverlayRef.current = null;
     };
@@ -209,38 +225,53 @@ export function PixiStage({
   // tiny zoom ticks. visible.files reference is already stable (orchestrator
   // dedupes) — so plain-ref deps are cheaper than stringifying ids.
   const scaleBucket = Math.round(viewport.scale * 20) / 20;
-  // Effective LOD: when supergalaxy fires but the layout has no clusters
-  // (grid layouts from small graphs), there's nothing to draw via the
-  // cluster renderer. Fall back to galaxy so the user still sees files at
-  // that zoom level instead of a blank canvas.
-  const effectiveLod: typeof lod =
-    lod === "supergalaxy" && !(clusters && clusters.clusters.length > 0)
-      ? "galaxy"
-      : lod;
+  // Effective LOD cascade — a higher tier with no data to draw falls
+  // through to the next finer tier so the user never sees an empty canvas:
+  //   universe → supergalaxy  (no superclusters in layout)
+  //   supergalaxy → galaxy    (grid layouts with no clusters)
+  // This keeps the experience sane on small graphs (< TREEMAP_THRESHOLD
+  // files produce neither clusters nor superclusters) and on a fresh
+  // layout tick before coarser tiers are populated.
+  let effectiveLod: typeof lod = lod;
+  if (effectiveLod === "universe" && !(superclusters && superclusters.superclusters.length > 0)) {
+    effectiveLod = "supergalaxy";
+  }
+  if (effectiveLod === "supergalaxy" && !(clusters && clusters.clusters.length > 0)) {
+    effectiveLod = "galaxy";
+  }
   useEffect(() => {
     if (!pixiReady) return;
-    if (effectiveLod === "supergalaxy") {
+    if (effectiveLod === "universe") {
+      superclusterRef.current?.update(superclusters?.superclusters ?? [], viewport);
+      clusterRef.current?.clear();
+      cityRef.current?.update([], layout, viewState, viewport);
+      galaxyRef.current?.update([], layout, viewState, viewport);
+    } else if (effectiveLod === "supergalaxy") {
       clusterRef.current?.update(clusters?.clusters ?? [], viewport);
+      superclusterRef.current?.clear();
       cityRef.current?.update([], layout, viewState, viewport);
       galaxyRef.current?.update([], layout, viewState, viewport);
     } else if (effectiveLod === "city") {
       cityRef.current?.update(visible.files, layout, viewState, viewport);
       galaxyRef.current?.update([], layout, viewState, viewport);
       clusterRef.current?.clear();
+      superclusterRef.current?.clear();
     } else if (effectiveLod === "galaxy") {
       galaxyRef.current?.update(visible.files, layout, viewState, viewport);
       cityRef.current?.update([], layout, viewState, viewport);
       clusterRef.current?.clear();
+      superclusterRef.current?.clear();
     } else {
       // street / ground — DOM layer renders
       cityRef.current?.update([], layout, viewState, viewport);
       galaxyRef.current?.update([], layout, viewState, viewport);
       clusterRef.current?.clear();
+      superclusterRef.current?.clear();
     }
     // Intentional subset: viewport.x/y excluded (pan never triggers redraw);
     // scaleBucket captures scale changes; selection/hover handled via viewState.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, visible.files, clusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
+  }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId]);
 
   // ── Edge static redraw ──────────────────────────────────────────
   // Edge rendering is toggleable: thousands of bezier curves hurt scroll

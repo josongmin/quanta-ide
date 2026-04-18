@@ -1,7 +1,15 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import type { DecorationSet } from "@codemirror/view";
 import { RangeSetBuilder, StateField } from "@codemirror/state";
+import type { EditorState } from "@codemirror/state";
 import type { FunctionHeader } from "@quanta/app-ide/entities/function";
+import {
+  CM_LINE_PAD_PX,
+  createChip,
+  signature,
+  tone,
+} from "@quanta/app-ide/features/editor-chip-bar";
+import type { ChipKind } from "@quanta/app-ide/features/editor-chip-bar";
 
 function isNotable(h: FunctionHeader): boolean {
   if (h.dead) return true;
@@ -13,57 +21,93 @@ function isNotable(h: FunctionHeader): boolean {
   return false;
 }
 
+function taintKind(t: FunctionHeader["taint"]): ChipKind {
+  switch (t) {
+    case "source": return "taint-source";
+    case "sink": return "taint-sink";
+    case "passthrough": return "taint-passthrough";
+    default: return "default";
+  }
+}
+
 class FnHeaderWidget extends WidgetType {
   constructor(readonly h: FunctionHeader, readonly indent: number) {
     super();
   }
+  private get sig(): string {
+    return signature(
+      this.h.line, this.h.name, this.h.kind, this.indent,
+      this.h.blast, this.h.blastCritical, this.h.complexity, this.h.bigO,
+      this.h.tests, this.h.taint, this.h.dead, this.h.riskScore, this.h.budgetPct,
+    );
+  }
   override eq(other: WidgetType): boolean {
-    return other instanceof FnHeaderWidget
-      && other.h.line === this.h.line
-      && other.indent === this.indent;
+    return other instanceof FnHeaderWidget && other.sig === this.sig;
   }
   override toDOM(): HTMLElement {
     // Outer wrapper owns vertical spacing via padding so CodeMirror's
     // offsetHeight measurement matches the rendered footprint.
-    // Wrapper also owns horizontal indent: 12px mirrors `.cm-line` left
-    // padding (theme), and `${indent}ch` matches the line's leading
-    // whitespace — chip bar lands directly above the def's first char.
+    // Wrapper also owns horizontal indent: CM_LINE_PAD_PX mirrors
+    // `.cm-line` left padding (theme), and `${indent}ch` matches the
+    // line's leading whitespace — chip bar lands directly above the
+    // def's first char.
     const wrap = document.createElement("div");
-    wrap.className = `cm-fnhead-wrap cm-fnhead-wrap--${this.h.kind}`;
-    wrap.style.paddingLeft = `calc(12px + ${this.indent}ch)`;
+    wrap.className = "cm-fnhead-wrap";
+    wrap.style.paddingLeft = `calc(${CM_LINE_PAD_PX}px + ${this.indent}ch)`;
 
     const el = document.createElement("div");
-    const tone =
-      this.h.riskScore >= 70 ? "high" :
-      this.h.riskScore >= 40 ? "mid" : "low";
-    el.className = `cm-fnhead cm-fnhead--${tone} cm-fnhead--${this.h.kind}`;
+    const t = tone(this.h.riskScore);
+    el.className = `cm-fnhead cm-fnhead--${t}`;
 
-    const chips: string[] = [];
+    const chips: HTMLElement[] = [];
 
-    if (this.h.blast >= 10)
-      chips.push(`<span class="cm-fnhead__chip"><span class="cm-fnhead__ico">blast</span>${this.h.blast}${
-        this.h.blastCritical ? `<em>·${this.h.blastCritical} crit</em>` : ""
-      }</span>`);
+    if (this.h.blast >= 10) {
+      chips.push(createChip({
+        ico: "blast",
+        value: this.h.blast,
+        em: this.h.blastCritical ? `${this.h.blastCritical} crit` : undefined,
+      }));
+    }
 
-    if (this.h.complexity >= 5)
-      chips.push(`<span class="cm-fnhead__chip${
-        this.h.budgetPct && this.h.budgetPct >= 80 ? " is-warn" : ""
-      }"><span class="cm-fnhead__ico">cpx</span>${this.h.complexity}${
-        this.h.bigO ? `<span class="cm-fnhead__sub"> ${this.h.bigO}</span>` : ""
-      }</span>`);
+    if (this.h.complexity >= 5) {
+      chips.push(createChip({
+        ico: "cpx",
+        value: this.h.complexity,
+        sub: this.h.bigO ?? undefined,
+        kind: this.h.budgetPct && this.h.budgetPct >= 80 ? "warn" : "default",
+      }));
+    }
 
-    if (this.h.tests.startsWith("0/") && this.h.tests !== "0/0")
-      chips.push(`<span class="cm-fnhead__chip is-bad"><span class="cm-fnhead__ico">tests</span>${this.h.tests}</span>`);
+    if (this.h.tests.startsWith("0/") && this.h.tests !== "0/0") {
+      chips.push(createChip({
+        ico: "tests",
+        value: this.h.tests,
+        kind: "bad",
+      }));
+    }
 
-    if (this.h.taint)
-      chips.push(`<span class="cm-fnhead__chip cm-fnhead__chip--taint-${this.h.taint}"><span class="cm-fnhead__ico">taint</span>${this.h.taint}</span>`);
+    if (this.h.taint) {
+      chips.push(createChip({
+        ico: "taint",
+        value: this.h.taint,
+        kind: taintKind(this.h.taint),
+      }));
+    }
 
-    if (this.h.dead)
-      chips.push(`<span class="cm-fnhead__chip is-muted">dead</span>`);
+    if (this.h.dead) {
+      chips.push(createChip({
+        ico: "dead",
+        value: "",
+        kind: "muted",
+      }));
+    }
 
-    chips.push(`<span class="cm-fnhead__risk"><span class="cm-fnhead__ico">risk</span>${this.h.riskScore}</span>`);
+    chips.push(createChip({
+      ico: "risk",
+      value: this.h.riskScore,
+    }));
 
-    el.innerHTML = chips.join("");
+    for (const c of chips) el.appendChild(c);
     wrap.appendChild(el);
     return wrap;
   }
@@ -72,12 +116,22 @@ class FnHeaderWidget extends WidgetType {
   }
 }
 
-function leadingSpaces(text: string): number {
-  let i = 0;
-  while (i < text.length && (text[i] === " " || text[i] === "\t")) {
-    i += text[i] === "\t" ? 4 : 1;
+/**
+ * Compute the visual column width of a line's leading whitespace,
+ * expanding tabs to the next tab stop. Stops at the first non-whitespace
+ * character. Returns column count (used as `${indent}ch` in CSS).
+ *
+ * Example: leadingCols("\t  x", 4) === 6  // tab→4, two spaces→2
+ */
+function leadingCols(text: string, tabSize: number): number {
+  let col = 0;
+  for (let idx = 0; idx < text.length; idx++) {
+    const ch = text[idx];
+    if (ch === " ") col += 1;
+    else if (ch === "\t") col += tabSize - (col % tabSize);
+    else break;
   }
-  return i;
+  return col;
 }
 
 export function fnHeaders(headers: FunctionHeader[]) {
@@ -87,13 +141,14 @@ export function fnHeaders(headers: FunctionHeader[]) {
   const sortedLines = [...byLine.keys()].sort((a, b) => a - b);
 
   return StateField.define<DecorationSet>({
-    create(state) {
+    create(state: EditorState) {
       const b = new RangeSetBuilder<Decoration>();
       const doc = state.doc;
+      const tab = state.tabSize;
       for (const line of sortedLines) {
         if (line < 1 || line > doc.lines) continue;
         const lineObj = doc.line(line);
-        const indent = leadingSpaces(lineObj.text);
+        const indent = leadingCols(lineObj.text, tab);
         const h = byLine.get(line)!;
         b.add(
           lineObj.from,

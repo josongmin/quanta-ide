@@ -55,6 +55,32 @@ const ClusterRects = memo(function ClusterRects({ layout }: { layout: WorkspaceL
   );
 });
 
+// Supercluster-level rects for universe LOD — one tier above ClusterRects.
+// Same pattern, different source: `layout.superclusters` (populated by
+// the treemap layout when multiple top-level groups are present, e.g. an
+// MSA monorepo). Darker tint so the tier is visually distinct from the
+// supergalaxy cluster rects.
+const SuperclusterRects = memo(function SuperclusterRects({ layout }: { layout: WorkspaceLayout }) {
+  const strokeW = (layout.totalBounds.w / 180) * 3.5;
+  const items = useMemo(
+    () => (layout.superclusters ?? []).map(c => ({ id: c.id, rect: c.rect })),
+    [layout],
+  );
+  if (items.length === 0) return null;
+  return (
+    <>
+      {items.map(({ id, rect }) => (
+        <rect
+          key={id}
+          x={rect.x} y={rect.y} width={rect.w} height={rect.h}
+          fill="#a5b4fc" stroke="#4338ca" strokeWidth={strokeW}
+          rx={strokeW * 2}
+        />
+      ))}
+    </>
+  );
+});
+
 export function Minimap({ layout, viewport }: Props) {
   // Subscribe directly to LOD so the minimap can swap between file-level
   // and cluster-level rendering without prop-drilling from MultiFileCanvas.
@@ -70,9 +96,13 @@ export function Minimap({ layout, viewport }: Props) {
   const vw = viewport.width / viewport.scale;
   const vh = viewport.height / viewport.scale;
 
-  // Cluster-aware rendering: at supergalaxy with cluster metadata present,
-  // render the few (~150) cluster rects instead of thousands of file dots.
-  const useClusterRects = lod === "supergalaxy" && (layout.clusters?.length ?? 0) > 0;
+  // Tier-aware rendering: at universe draw supercluster rects (if present),
+  // at supergalaxy draw cluster rects, otherwise fall back to the full
+  // file-rect grid. Each tier test also requires non-empty data to avoid an
+  // empty minimap — the layout may lack superclusters (small graphs) or
+  // clusters (grid layouts) even when the LOD is zoomed out.
+  const useSuperclusterRects = lod === "universe" && (layout.superclusters?.length ?? 0) > 0;
+  const useClusterRects = !useSuperclusterRects && lod === "supergalaxy" && (layout.clusters?.length ?? 0) > 0;
 
   return (
     <div className="ws-minimap">
@@ -82,9 +112,11 @@ export function Minimap({ layout, viewport }: Props) {
         viewBox={`${tb.x} ${tb.y} ${tb.w} ${tb.h}`}
         preserveAspectRatio="xMidYMid meet"
       >
-        {useClusterRects
-          ? <ClusterRects layout={layout} />
-          : <FileRects layout={layout} />}
+        {useSuperclusterRects
+          ? <SuperclusterRects layout={layout} />
+          : useClusterRects
+            ? <ClusterRects layout={layout} />
+            : <FileRects layout={layout} />}
         <rect
           x={vx} y={vy} width={vw} height={vh}
           fill="rgba(79,70,229,0.08)"

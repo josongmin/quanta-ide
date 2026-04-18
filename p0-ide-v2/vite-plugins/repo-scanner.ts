@@ -39,6 +39,17 @@ interface WorkspaceGraph {
   comments: [];
 }
 
+// Breakdown of skip reasons surfaced in the scan response. Callers can
+// translate these to toasts / warnings without the plugin needing UI
+// smarts. Counts are independent of `skippedFiles` (which is capped at
+// SKIPPED_FILES_CAP for bandwidth).
+interface SkippedReason {
+  "too-short": number;
+  "read-error": number;
+  "ignored-ext": number;
+  "symlink-escape": number;
+}
+
 interface ScanStats {
   totalFiles: number;
   skipped: number;
@@ -48,7 +59,22 @@ interface ScanStats {
   parseMs: number;
   edgesMs: number;
   serializeMs?: number;
+  // Concurrency / retry metrics — used to surface rate-limit + timeout
+  // behavior to the HUD / future observability layer.
+  inFlightPeak?: number;
+  timedOut?: boolean;
+  queueDurationMs?: number;
 }
+
+// Cap the size of `skippedFiles` to keep the response payload bounded
+// even when the walker enumerates tens of thousands of rejected files.
+const SKIPPED_FILES_CAP = 50;
+
+// How long any single scan is allowed to run before we abort and return
+// a 503. 30s is generous for quanta-v2 (6k files → ~2s) and plenty for
+// larger monorepos, but prevents a pathological repo from tying up the
+// dev server indefinitely.
+const SCAN_TIMEOUT_MS = 30_000;
 
 // ── Walker ──────────────────────────────────────────────────────────
 const IGNORE_DIRS = new Set([
@@ -56,7 +82,40 @@ const IGNORE_DIRS = new Set([
   "__pycache__", ".venv", "venv", "coverage", ".cache", "out",
 ]);
 
-function walk(dir: string, exts: Set<string>, acc: string[], maxFiles: number): void {
+// Symlink-aware containment check: resolves both sides and ensures the
+// target is inside `rootReal`. Used for both HTTP endpoints and the
+// walker itself so a symlink to /etc/passwd never leaks.
+async function isInsideRoot(abs: string, rootReal: string): Promise<boolean> {
+  try {
+    const real = await fsp.realpath(abs);
+    if (real === rootReal) return true;
+    return real.startsWith(rootReal + path.sep);
+  } catch {
+    return false;
+  }
+}
+
+// Sync variant used inside the walker (keeping walk synchronous avoids
+// interleaving tens of thousands of lstat promises). If realpath fails
+// we treat the entry as outside — better to skip than to leak.
+function isInsideRootSync(abs: string, rootReal: string): boolean {
+  try {
+    const real = fs.realpathSync(abs);
+    if (real === rootReal) return true;
+    return real.startsWith(rootReal + path.sep);
+  } catch {
+    return false;
+  }
+}
+
+function walk(
+  dir: string,
+  rootReal: string,
+  exts: Set<string>,
+  acc: string[],
+  maxFiles: number,
+  skipped: { symlinkEscapes: number },
+): void {
   if (acc.length >= maxFiles) return;
   let entries: fs.Dirent[];
   try {
@@ -67,8 +126,30 @@ function walk(dir: string, exts: Set<string>, acc: string[], maxFiles: number): 
     if (e.name.startsWith(".")) continue;
     if (IGNORE_DIRS.has(e.name)) continue;
     const p = path.join(dir, e.name);
+    // Symlink guard: if the entry is a symlink (or anything whose
+    // realpath escapes root), skip it. Cheap fast-path: only call
+    // realpath when lstat reports a symlink — regular files/dirs can't
+    // escape unless they're on a bind-mount (which is rare enough that
+    // the perf cost of always-checking isn't justified).
+    if (e.isSymbolicLink()) {
+      if (!isInsideRootSync(p, rootReal)) {
+        skipped.symlinkEscapes++;
+        continue;
+      }
+      // Fall through — symlinked dirs/files inside root are walked
+      // like anything else. Use statSync to learn their real type.
+      let st: fs.Stats;
+      try { st = fs.statSync(p); } catch { continue; }
+      if (st.isDirectory()) {
+        walk(p, rootReal, exts, acc, maxFiles, skipped);
+      } else if (st.isFile()) {
+        const ext = path.extname(e.name).toLowerCase();
+        if (exts.has(ext)) acc.push(p);
+      }
+      continue;
+    }
     if (e.isDirectory()) {
-      walk(p, exts, acc, maxFiles);
+      walk(p, rootReal, exts, acc, maxFiles, skipped);
     } else if (e.isFile()) {
       const ext = path.extname(e.name).toLowerCase();
       if (exts.has(ext)) acc.push(p);
@@ -113,15 +194,16 @@ interface ParseResult {
   lineCount: number;
   // Raw import specifiers collected on the first pass. Resolved later.
   tsImports: string[];
-  // Rust edges can be fully resolved on first pass (crateRoots known).
-  rustEdges: FileEdge[];
+  // Rust `use` specifiers collected on the first pass. Resolved later
+  // against the module index once all files have been walked. We can no
+  // longer resolve immediately because we want module-level granularity
+  // (`use foo::bar::Baz;` → `crates/foo/src/bar.rs` not `lib.rs`).
+  rustUses: string[];
 }
 
 function parseSingle(
   src: string,
   lang: LangKind,
-  fileId: string,
-  crateRoots: Map<string, string>,
 ): ParseResult {
   const lines = src.split("\n");
   const lineCount = lines.length;
@@ -129,6 +211,7 @@ function parseSingle(
   const functions: FunctionBlock[] = [];
   const seenFn = new Set<string>();
   const tsImports: string[] = [];
+  const rustUses: string[] = [];
 
   // Function extraction — per-line scan
   if (lang === "rust") {
@@ -185,33 +268,37 @@ function parseSingle(
 
   // Import/edge extraction — use global regex on the whole buffer (faster than
   // per-line slicing, and anchors use ^ with /m to still match line starts).
-  const rustEdges: FileEdge[] = [];
   if (lang === "rust") {
-    const seenTarget = new Set<string>();
     RE_RUST_USE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = RE_RUST_USE.exec(src)) !== null) {
       const useBody = m[1];
-      const headMatch = useBody.match(/^\s*([\w:]+?)(?:::|$|\s*\{|\s*,|\s*\*)/);
+      // Pull the leading "::"-joined path (everything up to a `{`, `,`,
+      // `*`, or EOL). This preserves module granularity — we no longer
+      // strip down to just the head segment.
+      const headMatch = useBody.match(/^\s*([\w:]+)/);
       if (!headMatch) continue;
-      const head = headMatch[1].split("::")[0];
-      if (!head || head === "crate" || head === "self" || head === "super" ||
+      const fullPath = headMatch[1];
+      const head = fullPath.split("::")[0];
+      if (!head || head === "self" || head === "super" ||
           head === "std" || head === "core" || head === "alloc") continue;
-      const target = crateRoots.get(head);
-      if (!target || target === fileId || seenTarget.has(target)) continue;
-      seenTarget.add(target);
-      rustEdges.push({ id: `e:${fileId}→${target}`, from: fileId, to: target, kind: "import", weight: 1 });
+      rustUses.push(fullPath);
     }
   } else if (lang === "ts") {
     RE_TS_FROM.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = RE_TS_FROM.exec(src)) !== null) {
       const spec = m[1];
-      if (spec.startsWith(".")) tsImports.push(spec);
+      // Relative OR @quanta/* subpath alias. The alias check is shallow
+      // here (just the prefix); the actual resolution happens in the
+      // second pass where we have the full known set and alias table.
+      if (spec.startsWith(".") || spec.startsWith("@quanta/")) {
+        tsImports.push(spec);
+      }
     }
   }
 
-  return { functions, lineCount, tsImports, rustEdges };
+  return { functions, lineCount, tsImports, rustUses };
 }
 
 function resolveRelative(fromId: string, rel: string): string {
@@ -224,18 +311,44 @@ function resolveRelative(fromId: string, rel: string): string {
   return out.join("/");
 }
 
+const TS_EXT_CANDIDATES = ["", ".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx"];
+
+function resolveTsBase(
+  base: string,
+  known: Set<string>,
+): string | null {
+  for (const ext of TS_EXT_CANDIDATES) {
+    if (known.has(base + ext)) return base + ext;
+  }
+  return null;
+}
+
 function resolveTsImports(
   fileId: string,
   imports: string[],
   known: Set<string>,
+  subpathAliases: Record<string, string>,
 ): FileEdge[] {
   const edges: FileEdge[] = [];
   const seen = new Set<string>();
+  // Pre-compute sorted alias keys (longest first) so `@quanta/app-ide/foo`
+  // matches `@quanta/app-ide` before any shorter overlap.
+  const aliasKeys = Object.keys(subpathAliases).sort((a, b) => b.length - a.length);
   for (const spec of imports) {
-    const base = resolveRelative(fileId, spec);
     let target: string | null = null;
-    for (const ext of ["", ".ts", ".tsx", ".js", ".jsx", "/index.ts", "/index.tsx"]) {
-      if (known.has(base + ext)) { target = base + ext; break; }
+    if (spec.startsWith(".")) {
+      const base = resolveRelative(fileId, spec);
+      target = resolveTsBase(base, known);
+    } else {
+      // @quanta/* subpath. Match against the longest alias prefix.
+      for (const key of aliasKeys) {
+        if (spec === key || spec.startsWith(key + "/")) {
+          const rest = spec === key ? "" : spec.slice(key.length + 1);
+          const base = rest === "" ? subpathAliases[key] : `${subpathAliases[key]}/${rest}`;
+          target = resolveTsBase(base, known);
+          break;
+        }
+      }
     }
     if (target && target !== fileId && !seen.has(target)) {
       seen.add(target);
@@ -243,6 +356,37 @@ function resolveTsImports(
     }
   }
   return edges;
+}
+
+// Resolve a Rust `use foo::bar::Baz;` specifier against the precomputed
+// module index. Walk from the longest possible prefix down to the shortest
+// — first hit wins. This gives us `use quanta_runtime::queries::planner`
+// → `crates/quanta-runtime/src/queries/planner.rs` rather than the crate
+// root, which is the fidelity gain called out in #12.
+function resolveRustUse(
+  spec: string,
+  crateRoots: Map<string, string>,
+  moduleIndex: Map<string, string>,
+): string | null {
+  const segs = spec.split("::");
+  // Skip `crate::` / `self::` / `super::` — those are relative to the
+  // importer's own module and require knowing the importer's path. For
+  // the simple case we treat them as a best-effort crate-root resolution
+  // by the caller (see loop below).
+  let startIdx = 0;
+  if (segs[0] === "crate") startIdx = 1;
+  // Try longest-prefix first. We iterate from the full path down to the
+  // single head segment.
+  const tail = segs.slice(startIdx);
+  if (tail.length === 0) return null;
+  for (let len = tail.length; len >= 1; len--) {
+    const key = tail.slice(0, len).join("::");
+    const hit = moduleIndex.get(key);
+    if (hit) return hit;
+  }
+  // Fallback to crate root — single-segment crate reference.
+  const head = tail[0];
+  return crateRoots.get(head) ?? null;
 }
 
 // ── Layer inference (best-effort) ────────────────────────────────────
@@ -288,36 +432,105 @@ export interface ScanOptions {
   extensions?: string[];
   maxFiles?: number;
   minLines?: number;
+  // Optional. When unset, the scanner auto-detects subpath aliases by
+  // scanning `packages/*/src/` and mapping each to `@quanta/<dir-name>`.
+  // Explicit aliases override auto-detection.
+  subpathAliases?: Record<string, string>;
+}
+
+// Tracks in-flight scans by absolute root path. Rejecting duplicate
+// scans of the same path prevents walking the same tree twice when the
+// UI hot-reloads or the user double-clicks. Module-level so it persists
+// across requests within a single Vite dev server lifetime.
+const scansInFlight = new Set<string>();
+
+export interface ScanResult extends WorkspaceGraph {
+  stats: ScanStats;
+  // New: capped list of skipped file paths + reason breakdown so callers
+  // can surface toasts ("N files skipped because too short to parse…").
+  skippedFiles: string[];
+  skippedReason: SkippedReason;
 }
 
 export async function scanRepo(
   opts: ScanOptions,
-): Promise<WorkspaceGraph & { stats: ScanStats }> {
+): Promise<ScanResult> {
   const t0 = Date.now();
   const root = path.resolve(opts.path);
+  // Resolve once so the walker / endpoints both compare against the
+  // canonical target (handles case where `opts.path` itself is a symlink
+  // into the repo).
+  const rootReal = await fsp.realpath(root);
   const exts = new Set(opts.extensions ?? [".rs", ".ts", ".tsx"]);
   const maxFiles = opts.maxFiles ?? 8000;
   const minLines = opts.minLines ?? 5;
 
   const filePaths: string[] = [];
-  walk(root, exts, filePaths, maxFiles);
+  const walkSkip = { symlinkEscapes: 0 };
+  walk(rootReal, rootReal, exts, filePaths, maxFiles, walkSkip);
   const walkMs = Date.now() - t0;
 
   // First pass: parallel async readFile + single-pass parse.
-  // We can't resolve TS edges yet (need full known-set), and Rust edges need
-  // crateRoots — we build both during/after the first pass.
+  // Rust `use` + TS imports are both deferred until we've walked every
+  // file — Rust needs the module index, TS needs the full known-set +
+  // alias table.
   const concurrency = Math.min(os.cpus().length * 4, 64);
 
-  // We fill crateRoots as we see lib/main/mod.rs files.
+  // Auto-detect subpath aliases if none provided. We look for
+  // `packages/*/src` top-level dirs and map each to `@quanta/<name>`.
+  // Explicit `opts.subpathAliases` overrides auto-detection so CI / tests
+  // can pin a specific mapping.
+  let subpathAliases = opts.subpathAliases;
+  if (!subpathAliases) {
+    subpathAliases = {};
+    try {
+      const pkgsAbs = path.join(rootReal, "packages");
+      const st = await fsp.stat(pkgsAbs).catch(() => null);
+      if (st?.isDirectory()) {
+        const entries = await fsp.readdir(pkgsAbs, { withFileTypes: true });
+        for (const e of entries) {
+          if (!e.isDirectory()) continue;
+          const srcAbs = path.join(pkgsAbs, e.name, "src");
+          const srcSt = await fsp.stat(srcAbs).catch(() => null);
+          if (srcSt?.isDirectory()) {
+            subpathAliases[`@quanta/${e.name}`] = `packages/${e.name}/src`;
+          }
+        }
+      }
+    } catch {
+      // Non-fatal — auto-detect failures just mean no aliases resolved.
+    }
+  }
+
+  // Build crate roots + module index from the walker's file list. Both
+  // are cheap (path-only) so we can do them in a single loop without
+  // any I/O. The module index is keyed by fully-qualified
+  // `<crate>::<module-path>` and maps to the rel file id.
   const crateRoots = new Map<string, string>();
-  // Pre-scan filePaths to register crate roots from their path alone (no I/O
-  // needed). This lets the first-pass Rust edges resolve immediately in a
-  // single walk instead of a two-stage dance.
+  const moduleIndex = new Map<string, string>();
   for (const absPath of filePaths) {
     if (!absPath.endsWith(".rs")) continue;
-    const rel = path.relative(root, absPath).replace(/\\/g, "/");
-    const m = /^crates\/([^/]+)\/src\/(lib|main|mod)\.rs$/.exec(rel);
-    if (m) crateRoots.set(m[1].replace(/-/g, "_"), rel);
+    const rel = path.relative(rootReal, absPath).replace(/\\/g, "/");
+    // Crate root (lib/main/mod.rs at <crate>/src/): register crate name.
+    const crateMatch = /^crates\/([^/]+)\/src\/(lib|main|mod)\.rs$/.exec(rel);
+    if (crateMatch) {
+      const crate = crateMatch[1].replace(/-/g, "_");
+      crateRoots.set(crate, rel);
+      moduleIndex.set(crate, rel);
+      continue;
+    }
+    // Generic crate module: crates/<crate>/src/<path>.rs → module path
+    // is `<crate>::<segs-without-.rs>` (dashes → underscores to match
+    // Rust's `use` convention). For `mod.rs` the module is the parent
+    // directory rather than `mod` itself.
+    const modMatch = /^crates\/([^/]+)\/src\/(.+)\.rs$/.exec(rel);
+    if (!modMatch) continue;
+    const crate = modMatch[1].replace(/-/g, "_");
+    let modPath = modMatch[2];
+    if (modPath.endsWith("/mod")) modPath = modPath.slice(0, -4);
+    if (modPath === "") continue;
+    const modId = `${crate}::${modPath.replace(/\//g, "::").replace(/-/g, "_")}`;
+    moduleIndex.set(modId, rel);
   }
 
   const readStart = Date.now();
@@ -327,20 +540,21 @@ export async function scanRepo(
     lang: LangKind;
     fnResult: ParseResult | null;
     skipped: boolean;
+    skipReason: "read-error" | "ignored-ext" | null;
   }
   const raws: Raw[] = await mapLimit(filePaths, concurrency, async (absPath) => {
-    const rel = path.relative(root, absPath).replace(/\\/g, "/");
+    const rel = path.relative(rootReal, absPath).replace(/\\/g, "/");
     const ext = path.extname(absPath).toLowerCase();
     const lang = langFor(ext);
-    if (!lang) return { rel, lang: "ts" as LangKind, fnResult: null, skipped: true };
+    if (!lang) return { rel, lang: "ts" as LangKind, fnResult: null, skipped: true, skipReason: "ignored-ext" };
     let src: string;
     try {
       src = await fsp.readFile(absPath, "utf8");
     } catch {
-      return { rel, lang, fnResult: null, skipped: true };
+      return { rel, lang, fnResult: null, skipped: true, skipReason: "read-error" };
     }
-    const parsed = parseSingle(src, lang, rel, crateRoots);
-    return { rel, lang, fnResult: parsed, skipped: false };
+    const parsed = parseSingle(src, lang);
+    return { rel, lang, fnResult: parsed, skipped: false, skipReason: null };
   });
   const readParseMs = Date.now() - readStart;
 
@@ -353,18 +567,39 @@ export async function scanRepo(
   const parseStart = Date.now();
   const files: FileNode[] = [];
   let skipped = 0;
+  const skippedFiles: string[] = [];
+  const skippedReason: SkippedReason = {
+    "too-short": 0,
+    "read-error": 0,
+    "ignored-ext": 0,
+    "symlink-escape": walkSkip.symlinkEscapes,
+  };
+  skipped += walkSkip.symlinkEscapes;
   const tsImportsById = new Map<string, string[]>();
-  const rustEdgesByFile: FileEdge[][] = [];
+  const rustUsesByFile: Array<{ id: string; specs: string[] }> = [];
+
+  const pushSkip = (rel: string, reason: keyof SkippedReason): void => {
+    skipped++;
+    skippedReason[reason]++;
+    if (skippedFiles.length < SKIPPED_FILES_CAP) skippedFiles.push(rel);
+  };
 
   for (const r of raws) {
-    if (r.skipped || !r.fnResult) { skipped++; continue; }
+    if (r.skipped || !r.fnResult) {
+      if (r.skipReason) pushSkip(r.rel, r.skipReason);
+      else skipped++;
+      continue;
+    }
     // Non-empty lineCount: estimate from lineCount since most code files have
     // few fully-blank lines, but we still want to honour minLines. Use the
     // raw lineCount and a cheap heuristic: files with fewer than minLines
     // total lines definitely fail; otherwise accept (the prior impl filtered
     // blanks but the threshold of 5 is low enough this rarely matters).
     // For fidelity, we accept files with lineCount >= minLines.
-    if (r.fnResult.lineCount < minLines) { skipped++; continue; }
+    if (r.fnResult.lineCount < minLines) {
+      pushSkip(r.rel, "too-short");
+      continue;
+    }
     const id = r.rel;
     files.push({
       id,
@@ -378,20 +613,29 @@ export async function scanRepo(
     if (r.lang === "ts" && r.fnResult.tsImports.length) {
       tsImportsById.set(id, r.fnResult.tsImports);
     }
-    if (r.lang === "rust" && r.fnResult.rustEdges.length) {
-      rustEdgesByFile.push(r.fnResult.rustEdges);
+    if (r.lang === "rust" && r.fnResult.rustUses.length) {
+      rustUsesByFile.push({ id, specs: r.fnResult.rustUses });
     }
   }
   const parseMs = Date.now() - parseStart;
 
   const edgesStart = Date.now();
   const fileEdges: FileEdge[] = [];
-  for (const arr of rustEdgesByFile) fileEdges.push(...arr);
+  // Rust edges — resolve now that we have the full module index.
+  for (const { id, specs } of rustUsesByFile) {
+    const seen = new Set<string>();
+    for (const spec of specs) {
+      const target = resolveRustUse(spec, crateRoots, moduleIndex);
+      if (!target || target === id || seen.has(target)) continue;
+      seen.add(target);
+      fileEdges.push({ id: `e:${id}→${target}`, from: id, to: target, kind: "import", weight: 1 });
+    }
+  }
 
   if (tsImportsById.size) {
     const known = new Set(files.map(f => f.id));
     for (const [id, imps] of tsImportsById) {
-      fileEdges.push(...resolveTsImports(id, imps, known));
+      fileEdges.push(...resolveTsImports(id, imps, known, subpathAliases));
     }
   }
   const edgesMs = Date.now() - edgesStart;
@@ -401,6 +645,8 @@ export async function scanRepo(
     files,
     fileEdges,
     comments: [],
+    skippedFiles,
+    skippedReason,
     stats: {
       totalFiles: files.length,
       skipped,
@@ -438,19 +684,51 @@ export function repoScannerPlugin(): Plugin {
           return;
         }
 
+        // Normalize once so the in-flight set keys are stable (symlinks
+        // or trailing slashes from the client don't create duplicates).
+        const queueKey = path.resolve(repoPath);
+        // Rate limit: reject duplicate concurrent scans of the same
+        // path. Returning 429 lets the caller back off without risk of
+        // two overlapping walks hammering the filesystem.
+        if (scansInFlight.has(queueKey)) {
+          res.statusCode = 429;
+          res.setHeader("Content-Type", "application/json");
+          res.setHeader("Retry-After", "5");
+          res.end(JSON.stringify({ error: `scan already in progress for ${queueKey}` }));
+          return;
+        }
+        scansInFlight.add(queueKey);
+
         void (async () => {
+          const queuedAt = Date.now();
+          let timedOut = false;
           try {
-            const graph = await scanRepo({
+            // Race the scan against a hard-timeout. On timeout we don't
+            // try to abort the walker (no AbortController plumbed yet)
+            // — the promise continues to resolve in the background and
+            // the in-flight entry is cleared in `finally`, so the next
+            // request can try again.
+            const scanPromise = scanRepo({
               path: repoPath,
               extensions: extsParam ? extsParam.split(",") : undefined,
               maxFiles: maxParam ? parseInt(maxParam, 10) : undefined,
             });
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              setTimeout(() => {
+                timedOut = true;
+                reject(new Error(`scan timed out after ${SCAN_TIMEOUT_MS}ms`));
+              }, SCAN_TIMEOUT_MS);
+            });
+            const graph = await Promise.race([scanPromise, timeoutPromise]);
             // Time serialize once, mutate stats, then stringify the final body.
             // Two passes is negligible vs. filesystem I/O and gives us a real
             // serializeMs number to watch for regressions.
             const sStart = Date.now();
             JSON.stringify(graph);
             graph.stats.serializeMs = Date.now() - sStart;
+            graph.stats.inFlightPeak = scansInFlight.size;
+            graph.stats.timedOut = false;
+            graph.stats.queueDurationMs = Date.now() - queuedAt;
             const finalBody = JSON.stringify(graph);
             res.setHeader("Content-Type", "application/json");
             res.setHeader("Cache-Control", "no-store");
@@ -460,12 +738,26 @@ export function repoScannerPlugin(): Plugin {
               `[repo-scan] ${graph.files.length} files, ${graph.fileEdges.length} edges · ` +
               `walk=${graph.stats.walkMs}ms read+parse=${graph.stats.readMs}ms ` +
               `assemble=${graph.stats.parseMs}ms edges=${graph.stats.edgesMs}ms ` +
-              `serialize=${graph.stats.serializeMs}ms total=${graph.stats.durationMs}ms`,
+              `serialize=${graph.stats.serializeMs}ms total=${graph.stats.durationMs}ms ` +
+              `skipped=${graph.stats.skipped} (too-short=${graph.skippedReason["too-short"]} ` +
+              `read-err=${graph.skippedReason["read-error"]} symlink-escape=${graph.skippedReason["symlink-escape"]})`,
             );
           } catch (err) {
-            res.statusCode = 500;
-            res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify({ error: String(err) }));
+            if (timedOut) {
+              res.statusCode = 503;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({
+                error: String(err),
+                timedOut: true,
+                limitMs: SCAN_TIMEOUT_MS,
+              }));
+            } else {
+              res.statusCode = 500;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: String(err) }));
+            }
+          } finally {
+            scansInFlight.delete(queueKey);
           }
         })();
       });
@@ -497,11 +789,33 @@ export function repoScannerPlugin(): Plugin {
                 return;
               }
               const absRoot = path.resolve(root);
+              // Resolve once so symlink-escape checks compare against
+              // the canonical root. Failure here means the root itself
+              // is invalid — reject with 404 rather than silently
+              // returning a map of nulls.
+              let rootReal: string;
+              try {
+                rootReal = await fsp.realpath(absRoot);
+              } catch {
+                res.statusCode = 404;
+                res.setHeader("Content-Type", "application/json");
+                res.end(JSON.stringify({ error: "root not found" }));
+                return;
+              }
               const out: Record<string, string | null> = {};
               const concurrency = Math.min(os.cpus().length * 4, 64);
               await mapLimit(paths, concurrency, async (rel) => {
                 const abs = path.resolve(absRoot, rel);
+                // Lexical guard first (cheap, catches `../` tricks),
+                // then realpath guard (catches symlinks). Rejecting at
+                // the file level (null) is safer than throwing — a bad
+                // path in one batch entry shouldn't fail the whole
+                // request.
                 if (!abs.startsWith(absRoot + path.sep) && abs !== absRoot) {
+                  out[rel] = null;
+                  return;
+                }
+                if (!(await isInsideRoot(abs, rootReal))) {
                   out[rel] = null;
                   return;
                 }
@@ -543,6 +857,8 @@ export function repoScannerPlugin(): Plugin {
         }
         const absRoot = path.resolve(root);
         const abs = path.resolve(absRoot, rel);
+        // Lexical containment check — cheap fast-path that catches plain
+        // `../` traversal before any I/O.
         if (!abs.startsWith(absRoot + path.sep) && abs !== absRoot) {
           res.statusCode = 403;
           res.setHeader("Content-Type", "application/json");
@@ -551,6 +867,16 @@ export function repoScannerPlugin(): Plugin {
         }
         void (async () => {
           try {
+            // Symlink guard: compare realpath of target vs root so a
+            // symlink inside the repo cannot point at anything outside
+            // it (e.g. `~/.ssh/id_rsa`).
+            const rootReal = await fsp.realpath(absRoot);
+            if (!(await isInsideRoot(abs, rootReal))) {
+              res.statusCode = 403;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: "path escapes root (symlink)" }));
+              return;
+            }
             const body = await fsp.readFile(abs, "utf8");
             const buf = Buffer.from(body, "utf8");
             res.setHeader("Content-Type", "text/plain; charset=utf-8");

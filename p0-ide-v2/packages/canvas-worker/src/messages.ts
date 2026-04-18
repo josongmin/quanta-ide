@@ -70,6 +70,9 @@ export interface SerializedLayout {
   /** Present only when treemap layout was used. */
   clusterRects?: [string, Rect][];
   clusters?: ClusterMeta[];
+  /** Parent boxes of clusters for the `universe` LOD tier. */
+  superclusterRects?: [string, Rect][];
+  superclusters?: ClusterMeta[];
 }
 
 export interface SerializedAggregates {
@@ -91,6 +94,12 @@ export function serializeLayout(layout: WorkspaceLayout): SerializedLayout {
   if (layout.clusters) {
     base.clusters = layout.clusters;
   }
+  if (layout.superclusterRects) {
+    base.superclusterRects = Array.from(layout.superclusterRects.entries());
+  }
+  if (layout.superclusters) {
+    base.superclusters = layout.superclusters;
+  }
   return base;
 }
 
@@ -102,6 +111,8 @@ export function deserializeLayout(s: SerializedLayout): WorkspaceLayout {
     totalBounds: s.totalBounds,
     clusterRects: s.clusterRects ? new Map(s.clusterRects) : undefined,
     clusters: s.clusters,
+    superclusterRects: s.superclusterRects ? new Map(s.superclusterRects) : undefined,
+    superclusters: s.superclusters,
   };
 }
 

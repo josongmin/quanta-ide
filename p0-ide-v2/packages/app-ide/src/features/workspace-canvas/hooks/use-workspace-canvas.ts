@@ -1,9 +1,11 @@
 import { useEffect, useRef } from "react";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
-import { buildSceneQuery, isClusterView } from "@quanta/canvas-engine";
+import { buildSceneQuery, isClusterView, isSuperclusterView } from "@quanta/canvas-engine";
 import { workspaceCanvasStore, useWorkspaceCanvas as useStore } from "../store/workspace-canvas-store";
 import { useLodSync } from "./use-lod-sync";
 import { requestLayout, requestAggregates } from "./use-worker-bridge";
+
+type SceneKind = "files" | "clusters" | "superclusters";
 
 function setEq(a: Set<string>, b: Set<string>): boolean {
   if (a.size !== b.size) return false;
@@ -32,10 +34,11 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
   const lod      = useStore(s => s.lod);
 
   const lastIdsRef = useRef<{
-    kind: "files" | "clusters";
+    kind: SceneKind;
     fileIds: Set<string>;
     edgeIds: Set<string>;
     clusterIds: Set<string>;
+    superclusterIds: Set<string>;
   } | null>(null);
 
   // Reset dedupe cache on graph/layout swap so the new scene always emits.
@@ -44,18 +47,42 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
   useEffect(() => {
     if (!layout) return;
     const scene = buildSceneQuery(graph, layout, viewport, lod);
-    if (isClusterView(scene)) {
+    if (isSuperclusterView(scene)) {
+      const superclusterIds = new Set(scene.superclusters.map(c => c.id));
+      const prev = lastIdsRef.current;
+      if (prev && prev.kind === "superclusters" && setEq(prev.superclusterIds, superclusterIds)) return;
+      lastIdsRef.current = {
+        kind: "superclusters",
+        fileIds: new Set(),
+        edgeIds: new Set(),
+        clusterIds: new Set(),
+        superclusterIds,
+      };
+      workspaceCanvasStore.setSuperclusterScene(scene);
+    } else if (isClusterView(scene)) {
       const clusterIds = new Set(scene.clusters.map(c => c.id));
       const prev = lastIdsRef.current;
       if (prev && prev.kind === "clusters" && setEq(prev.clusterIds, clusterIds)) return;
-      lastIdsRef.current = { kind: "clusters", fileIds: new Set(), edgeIds: new Set(), clusterIds };
+      lastIdsRef.current = {
+        kind: "clusters",
+        fileIds: new Set(),
+        edgeIds: new Set(),
+        clusterIds,
+        superclusterIds: new Set(),
+      };
       workspaceCanvasStore.setClusterScene(scene);
     } else {
       const fileIds = new Set(scene.files.map(f => f.id));
       const edgeIds = new Set(scene.edges.map(e => e.id));
       const prev = lastIdsRef.current;
       if (prev && prev.kind === "files" && setEq(prev.fileIds, fileIds) && setEq(prev.edgeIds, edgeIds)) return;
-      lastIdsRef.current = { kind: "files", fileIds, edgeIds, clusterIds: new Set() };
+      lastIdsRef.current = {
+        kind: "files",
+        fileIds,
+        edgeIds,
+        clusterIds: new Set(),
+        superclusterIds: new Set(),
+      };
       workspaceCanvasStore.setVisibleScene(scene);
     }
   }, [graph, layout, viewport, lod]);
