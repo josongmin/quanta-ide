@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
-import { buildWorkspaceView } from "@quanta/canvas-engine";
+import { buildSceneQuery, isClusterView } from "@quanta/canvas-engine";
 import { workspaceCanvasStore, useWorkspaceCanvas as useStore } from "../store/workspace-canvas-store";
 import { useLodSync } from "./use-lod-sync";
 import { requestLayout, requestAggregates } from "./use-worker-bridge";
@@ -24,30 +24,39 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
   useLodSync();
 
   // 3. Rebuild visible scene whenever viewport/layout/lod changes.
-  //    Dedupe by id-sets: when the user pans inside a region that contains
-  //    the same files, the spatial query returns a fresh array with
-  //    identical contents. Skipping the setVisibleScene emit in that case
-  //    avoids re-renders, Pixi effect re-runs, and edge cache rebuilds —
-  //    the single biggest cost at 5000+ files.
+  //    `buildSceneQuery` is LOD-aware: it returns a cluster view at
+  //    supergalaxy and a file view elsewhere. Dedupe by id-sets so panning
+  //    inside a stable visible region doesn't emit a fresh scene.
   const viewport = useStore(s => s.viewport);
   const layout   = useStore(s => s.layout);
   const lod      = useStore(s => s.lod);
 
-  const lastIdsRef = useRef<{ fileIds: Set<string>; edgeIds: Set<string> } | null>(null);
+  const lastIdsRef = useRef<{
+    kind: "files" | "clusters";
+    fileIds: Set<string>;
+    edgeIds: Set<string>;
+    clusterIds: Set<string>;
+  } | null>(null);
 
-  // Reset dedupe cache on graph swap so the new scene is always emitted.
+  // Reset dedupe cache on graph/layout swap so the new scene always emits.
   useEffect(() => { lastIdsRef.current = null; }, [graph, layout]);
 
   useEffect(() => {
     if (!layout) return;
-    const scene = buildWorkspaceView({ graph, layout, viewport, lod });
-    const fileIds = new Set(scene.files.map(f => f.id));
-    const edgeIds = new Set(scene.edges.map(e => e.id));
-    const prev = lastIdsRef.current;
-    if (prev && setEq(prev.fileIds, fileIds) && setEq(prev.edgeIds, edgeIds)) {
-      return; // visible set unchanged — no emit needed
+    const scene = buildSceneQuery(graph, layout, viewport, lod);
+    if (isClusterView(scene)) {
+      const clusterIds = new Set(scene.clusters.map(c => c.id));
+      const prev = lastIdsRef.current;
+      if (prev && prev.kind === "clusters" && setEq(prev.clusterIds, clusterIds)) return;
+      lastIdsRef.current = { kind: "clusters", fileIds: new Set(), edgeIds: new Set(), clusterIds };
+      workspaceCanvasStore.setClusterScene(scene);
+    } else {
+      const fileIds = new Set(scene.files.map(f => f.id));
+      const edgeIds = new Set(scene.edges.map(e => e.id));
+      const prev = lastIdsRef.current;
+      if (prev && prev.kind === "files" && setEq(prev.fileIds, fileIds) && setEq(prev.edgeIds, edgeIds)) return;
+      lastIdsRef.current = { kind: "files", fileIds, edgeIds, clusterIds: new Set() };
+      workspaceCanvasStore.setVisibleScene(scene);
     }
-    lastIdsRef.current = { fileIds, edgeIds };
-    workspaceCanvasStore.setVisibleScene(scene);
   }, [graph, layout, viewport, lod]);
 }

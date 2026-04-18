@@ -11,6 +11,7 @@ import { GroundCard } from "./GroundCard";
 import { Minimap } from "./Minimap";
 import { CanvasControls } from "./CanvasControls";
 import { LoadingOverlay } from "./LoadingOverlay";
+import { DebugHud } from "./DebugHud";
 
 interface Props {
   graph: WorkspaceGraph;
@@ -28,6 +29,12 @@ export function MultiFileCanvas({ graph }: Props) {
   // changes. Store references don't change across renders.
   const selectFile = useCallback((id: string) => workspaceCanvasStore.selectFile(id), []);
   const hoverFile = useCallback((id: string | null) => workspaceCanvasStore.hoverFile(id), []);
+  // Reads the current value from the store at click time so we don't need
+  // `showEdges` in deps — keeps this callback referentially stable for the
+  // CanvasControls memo boundary (and for our own render budget).
+  const toggleEdges = useCallback(() => {
+    workspaceCanvasStore.setShowEdges(!workspaceCanvasStore.getState().showEdges);
+  }, []);
 
   // Apply the pan/zoom transform imperatively rather than via `style={{transform}}`
   // props. This bypasses React reconciliation for the two hottest-changing DOM
@@ -40,6 +47,7 @@ export function MultiFileCanvas({ graph }: Props) {
   }, [transform]);
   const lod            = useWorkspaceCanvas(s => s.lod);
   const visibleScene   = useWorkspaceCanvas(s => s.visibleScene);
+  const clusterScene   = useWorkspaceCanvas(s => s.clusterScene);
   const viewState      = useWorkspaceCanvas(s => s.viewState);
   const layout         = useWorkspaceCanvas(s => s.layout);
   const layoutProgress = useWorkspaceCanvas(s => s.layoutProgress);
@@ -169,7 +177,32 @@ export function MultiFileCanvas({ graph }: Props) {
     if (layout) fitToGraph(layout.totalBounds.w, layout.totalBounds.h);
   }, [fitToGraph, layout]);
 
-  if (!visibleScene) {
+  // Cluster click → zoom-to-fit that cluster's rect. Reads layout + viewport
+  // from the store at click time so this callback stays referentially stable
+  // (important: PixiStage stores the ref inside a useEffect([]) init path).
+  const onClusterClick = useCallback((clusterId: string) => {
+    const s = workspaceCanvasStore.getState();
+    const rect = s.layout?.clusterRects?.get(clusterId)
+      ?? s.layout?.clusters?.find(c => c.id === clusterId)?.rect;
+    if (!rect) return;
+    const vp = s.viewport;
+    if (vp.width <= 0 || vp.height <= 0 || rect.w <= 0 || rect.h <= 0) return;
+    // Fill ~80% of the viewport with the cluster; center it.
+    const FILL = 0.8;
+    const rawScale = Math.min(vp.width / rect.w, vp.height / rect.h) * FILL;
+    // Clamp to the same bounds as useCanvasViewport.zoomAt (0.05..2.5).
+    const scale = Math.min(2.5, Math.max(0.05, rawScale));
+    const cx = rect.x + rect.w / 2;
+    const cy = rect.y + rect.h / 2;
+    const x = vp.width / 2 - cx * scale;
+    const y = vp.height / 2 - cy * scale;
+    workspaceCanvasStore.setViewport({ ...vp, x, y, scale });
+  }, []);
+
+  // Show the loading overlay only when neither a file view nor a cluster
+  // view has been computed. At supergalaxy LOD visibleScene is null (we use
+  // clusterScene instead) — treat that as "ready".
+  if (!visibleScene && !clusterScene) {
     return (
       <div ref={containerRef} className="workspace-canvas workspace-canvas--loading">
         <LoadingOverlay progress={layoutProgress} hasGraph={!!graph.files.length} />
@@ -196,7 +229,8 @@ export function MultiFileCanvas({ graph }: Props) {
       {/* WebGL layer: always mounted when layout ready to avoid reinit on LOD transition */}
       {layout && (
         <PixiStage
-          visible={visibleScene}
+          visible={visibleScene ?? { files: [], edges: [], comments: [] }}
+          clusters={clusterScene}
           layout={layout}
           viewState={viewState}
           viewport={viewport}
@@ -205,11 +239,12 @@ export function MultiFileCanvas({ graph }: Props) {
           showEdges={showEdges}
           onFileClick={selectFile}
           onFileHover={hoverFile}
+          onClusterClick={onClusterClick}
         />
       )}
 
       {/* DOM layer: Street/Ground (transform applied imperatively via domLayerRef) */}
-      {(lod === "street" || lod === "ground") && (
+      {(lod === "street" || lod === "ground") && visibleScene && (
         <div
           ref={domLayerRef}
           className="workspace-canvas__dom-layer"
@@ -248,9 +283,10 @@ export function MultiFileCanvas({ graph }: Props) {
         onZoomOut={onZoomOut}
         onFit={onFit}
         showEdges={showEdges}
-        edgeCount={visibleScene.edges.length}
-        onToggleEdges={() => workspaceCanvasStore.setShowEdges(!showEdges)}
+        edgeCount={visibleScene?.edges.length ?? 0}
+        onToggleEdges={toggleEdges}
       />
+      <DebugHud />
     </div>
   );
 }

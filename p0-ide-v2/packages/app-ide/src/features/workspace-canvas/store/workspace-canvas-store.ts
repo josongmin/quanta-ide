@@ -3,6 +3,7 @@ import type {
   WorkspaceGraph,
   WorkspaceLayout,
   WorkspaceView,
+  WorkspaceClusterView,
   ViewState,
   LodLevel,
   Viewport,
@@ -27,6 +28,15 @@ export interface WorkspaceCanvasState {
   graph: WorkspaceGraph | null;
   layout: WorkspaceLayout | null;
   visibleScene: WorkspaceView | null;
+  // Populated only at supergalaxy LOD; mutually exclusive with a meaningful
+  // visibleScene. Renderers branch on this to draw cluster boxes instead of
+  // per-file cards when the user is zoomed all the way out.
+  clusterScene: WorkspaceClusterView | null;
+
+  // Absolute path of the repo currently loaded (null when the built-in
+  // sample graph is active). Loaders use this to know whether to fetch
+  // source over the network or use SAMPLE_SOURCES.
+  repoRoot: string | null;
 
   viewport: Viewport;
   lod: LodLevel;
@@ -44,6 +54,13 @@ export interface WorkspaceCanvasState {
   // Render toggles — kept in the store so CanvasControls and PixiStage can
   // subscribe independently without prop-drilling through MultiFileCanvas.
   showEdges: boolean;
+
+  // Debug HUD — surfaces LOD / viewport / counts in a corner overlay, and
+  // exposes a small set of render toggles useful during perf work.
+  debugHudOpen: boolean;
+  showGridBg: boolean;
+  showHitLayers: boolean;
+  forceLod: "auto" | "supergalaxy" | "galaxy" | "city" | "street" | "ground";
 }
 
 const listeners = new Set<() => void>();
@@ -73,6 +90,9 @@ let state: WorkspaceCanvasState = {
   graph: null,
   layout: null,
   visibleScene: null,
+  clusterScene: null,
+
+  repoRoot: null,
 
   viewport: initialViewport,
   lod: initialLod,
@@ -88,6 +108,10 @@ let state: WorkspaceCanvasState = {
   layoutProgress: initialLayoutProgress,
 
   showEdges: true,
+  debugHudOpen: true,
+  showGridBg: true,
+  showHitLayers: false,
+  forceLod: "auto",
 };
 
 function getState(): WorkspaceCanvasState {
@@ -112,6 +136,7 @@ const actions = {
       graph,
       layout: null,
       visibleScene: null,
+      clusterScene: null,
       viewState: { ...state.viewState, selectedFileId: null, hoveredFileId: null, selectedEdgeId: null, focusedNodeId: null },
       groundData: {},
       groundLoading: {},
@@ -125,9 +150,39 @@ const actions = {
     emit();
   },
 
+  setRepoRoot(root: string | null) {
+    if (state.repoRoot === root) return;
+    // Changing repo roots invalidates cached source — wipe groundData.
+    state = { ...state, repoRoot: root, groundData: {}, groundLoading: {} };
+    emit();
+  },
+
   setShowEdges(show: boolean) {
     if (state.showEdges === show) return;
     state = { ...state, showEdges: show };
+    emit();
+  },
+
+  toggleDebugHud() {
+    state = { ...state, debugHudOpen: !state.debugHudOpen };
+    emit();
+  },
+
+  setShowGridBg(v: boolean) {
+    if (state.showGridBg === v) return;
+    state = { ...state, showGridBg: v };
+    emit();
+  },
+
+  setShowHitLayers(v: boolean) {
+    if (state.showHitLayers === v) return;
+    state = { ...state, showHitLayers: v };
+    emit();
+  },
+
+  setForceLod(v: WorkspaceCanvasState["forceLod"]) {
+    if (state.forceLod === v) return;
+    state = { ...state, forceLod: v };
     emit();
   },
 
@@ -150,7 +205,14 @@ const actions = {
   },
 
   setVisibleScene(scene: WorkspaceView) {
-    state = { ...state, visibleScene: scene };
+    state = { ...state, visibleScene: scene, clusterScene: null };
+    emit();
+  },
+
+  setClusterScene(scene: WorkspaceClusterView) {
+    // Mutual exclusivity: clearing visibleScene prevents stale file geometry
+    // from being passed to PixiStage when we're at supergalaxy.
+    state = { ...state, clusterScene: scene, visibleScene: null };
     emit();
   },
 
@@ -204,11 +266,42 @@ const actions = {
     emit();
   },
 
+  // Batch version — applies N (id, data) pairs + optionally clears
+  // loading flags in one atomic update → single store emission instead
+  // of 2N. Called by the batched ground fetcher when several cards
+  // resolve together.
+  setGroundDataBatch(
+    entries: Array<{ id: string; data: GroundFileData }>,
+    setLoadingFalseFor?: readonly string[],
+  ) {
+    if (entries.length === 0 && (!setLoadingFalseFor || setLoadingFalseFor.length === 0)) return;
+    const nextData = { ...state.groundData };
+    for (const e of entries) nextData[e.id] = e.data;
+    let nextLoading = state.groundLoading;
+    if (setLoadingFalseFor && setLoadingFalseFor.length > 0) {
+      nextLoading = { ...nextLoading };
+      for (const id of setLoadingFalseFor) nextLoading[id] = false;
+    }
+    state = { ...state, groundData: nextData, groundLoading: nextLoading };
+    emit();
+  },
+
   setGroundLoading(fileId: string, loading: boolean) {
     state = {
       ...state,
       groundLoading: { ...state.groundLoading, [fileId]: loading },
     };
+    emit();
+  },
+
+  // Batch version of setGroundLoading — flips many flags to the same
+  // value in one emit. Used by the batched fetcher to mark cards
+  // "loading" the moment they're queued.
+  setGroundLoadingBatch(fileIds: readonly string[], loading: boolean) {
+    if (fileIds.length === 0) return;
+    const next = { ...state.groundLoading };
+    for (const id of fileIds) next[id] = loading;
+    state = { ...state, groundLoading: next };
     emit();
   },
 

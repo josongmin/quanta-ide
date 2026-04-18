@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { FileNode, Rect } from "@quanta/canvas-engine";
 
 interface StreetCardProps {
@@ -19,7 +20,7 @@ function cpxColor(cpx: number): string {
   return "#bbf7d0";
 }
 
-export function StreetCard({ file, rect, isSelected, onSelect }: StreetCardProps) {
+function StreetCardImpl({ file, rect, isSelected, onSelect }: StreetCardProps) {
   const HEADER_H = 32;
   const FOOTER_H = 20;
   const ROW_H    = 22;
@@ -68,3 +69,17 @@ export function StreetCard({ file, rect, isSelected, onSelect }: StreetCardProps
     </div>
   );
 }
+
+// Custom comparator: visibleScene rebuilds may yield a fresh FileNode object
+// even when the file's identity/content is unchanged. Compare by id + rect
+// reference + isSelected + onSelect stability so re-renders are strictly tied
+// to visible state. (Rect is reference-stable per layout; see layout/types.)
+export const StreetCard = memo(
+  StreetCardImpl,
+  (prev, next) =>
+    prev.file.id === next.file.id &&
+    prev.file === next.file &&
+    prev.rect === next.rect &&
+    prev.isSelected === next.isSelected &&
+    prev.onSelect === next.onSelect,
+);

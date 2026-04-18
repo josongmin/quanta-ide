@@ -1,6 +1,12 @@
 import type { WorkspaceGraph } from "../graph/types";
-import type { WorkspaceLayout } from "../layout/types";
-import type { WorkspaceView, Viewport } from "../view/types";
+import type { WorkspaceLayout, ClusterMeta } from "../layout/types";
+import type {
+  WorkspaceView,
+  WorkspaceClusterView,
+  WorkspaceScene,
+  Viewport,
+  LodLevel,
+} from "../view/types";
 import { FileIndex } from "./file-index";
 import { EdgeFilter } from "./edge-filter";
 
@@ -27,7 +33,46 @@ function getSpatialCache(graph: WorkspaceGraph, layout: WorkspaceLayout): Spatia
   return entry;
 }
 
-// Returns the portion of graph visible in viewport
+function viewportToCanvas(viewport: Viewport): { x: number; y: number; w: number; h: number } {
+  return {
+    x: -viewport.x / viewport.scale,
+    y: -viewport.y / viewport.scale,
+    w: viewport.width / viewport.scale,
+    h: viewport.height / viewport.scale,
+  };
+}
+
+function rectsIntersect(
+  a: { x: number; y: number; w: number; h: number },
+  b: { x: number; y: number; w: number; h: number },
+): boolean {
+  return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+}
+
+/**
+ * Supergalaxy scene: returns cluster boxes intersecting the viewport.
+ * No per-file spatial query, no edges — this is the cheap tier.
+ */
+export function buildClusterQuery(
+  layout: WorkspaceLayout,
+  viewport: Viewport,
+): WorkspaceClusterView {
+  const clusters = layout.clusters ?? [];
+  if (viewport.width <= 0 || viewport.height <= 0) {
+    return { kind: "supergalaxy", clusters };
+  }
+  const canvasRect = viewportToCanvas(viewport);
+  const visible: ClusterMeta[] = [];
+  for (const c of clusters) {
+    if (rectsIntersect(c.rect, canvasRect)) visible.push(c);
+  }
+  return { kind: "supergalaxy", clusters: visible };
+}
+
+/**
+ * File-level scene (galaxy / city / street / ground). Same behavior as
+ * before — unchanged API for existing callers.
+ */
 export function buildVisibleQuery(
   graph: WorkspaceGraph,
   layout: WorkspaceLayout,
@@ -45,14 +90,7 @@ export function buildVisibleQuery(
     };
   }
 
-  // Convert viewport screen coords to canvas coords
-  const canvasRect = {
-    x: -viewport.x / viewport.scale,
-    y: -viewport.y / viewport.scale,
-    w: viewport.width / viewport.scale,
-    h: viewport.height / viewport.scale,
-  };
-
+  const canvasRect = viewportToCanvas(viewport);
   const { fileIndex, edgeFilter } = getSpatialCache(graph, layout);
 
   const visibleFileIds = new Set(fileIndex.query(canvasRect));
@@ -64,4 +102,21 @@ export function buildVisibleQuery(
   const comments = graph.comments.filter((c) => visibleFileIds.has(c.fileId));
 
   return { files, edges, comments };
+}
+
+/**
+ * LOD-aware scene builder. At `supergalaxy` returns a cluster view; at any
+ * other LOD returns the standard file view. Consumers can switch on the
+ * `kind` discriminant (use `isClusterView`).
+ */
+export function buildSceneQuery(
+  graph: WorkspaceGraph,
+  layout: WorkspaceLayout,
+  viewport: Viewport,
+  lod: LodLevel,
+): WorkspaceScene {
+  if (lod === "supergalaxy" && layout.clusters && layout.clusters.length > 0) {
+    return buildClusterQuery(layout, viewport);
+  }
+  return buildVisibleQuery(graph, layout, viewport);
 }

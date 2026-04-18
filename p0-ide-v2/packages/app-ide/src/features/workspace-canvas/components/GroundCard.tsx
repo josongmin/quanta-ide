@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { FileNode, Rect } from "@quanta/canvas-engine";
 import { useGroundData } from "../hooks/use-ground-data";
 
@@ -8,7 +9,7 @@ interface GroundCardProps {
   onSelect: (id: string) => void;
 }
 
-export function GroundCard({ file, rect, isSelected, onSelect }: GroundCardProps) {
+function GroundCardImpl({ file, rect, isSelected, onSelect }: GroundCardProps) {
   const { data, loading } = useGroundData(file.id);
 
   return (
@@ -36,3 +37,15 @@ export function GroundCard({ file, rect, isSelected, onSelect }: GroundCardProps
     </div>
   );
 }
+
+// See StreetCard: same strategy. Ground cards are heavier (render source code)
+// so blocking irrelevant re-renders is particularly important here.
+export const GroundCard = memo(
+  GroundCardImpl,
+  (prev, next) =>
+    prev.file.id === next.file.id &&
+    prev.file === next.file &&
+    prev.rect === next.rect &&
+    prev.isSelected === next.isSelected &&
+    prev.onSelect === next.onSelect,
+);

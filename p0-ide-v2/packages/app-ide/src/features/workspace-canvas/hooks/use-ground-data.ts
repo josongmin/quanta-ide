@@ -1,26 +1,22 @@
 import { useEffect } from "react";
-import { workspaceCanvasStore, useWorkspaceCanvas } from "../store/workspace-canvas-store";
-import type { GroundFileData } from "../store/workspace-canvas-store";
-import { loadGroundData } from "../data/loaders";
+import { useWorkspaceCanvas } from "../store/workspace-canvas-store";
+import { enqueueGroundFetch } from "./use-ground-data-batch";
 
+// Subscribes a ground-card to its slice of the store and enqueues
+// a batched fetch on mount when no cached data exists. The batch
+// coordinator dedupes concurrent same-id requests, so it's safe for
+// several cards (or the same card across rerenders) to enqueue.
 export function useGroundData(fileId: string) {
   const data    = useWorkspaceCanvas(s => s.groundData[fileId]);
   const loading = useWorkspaceCanvas(s => s.groundLoading[fileId] ?? false);
 
   useEffect(() => {
-    if (data || loading) return;
-    void fetchGroundData(fileId);
-  }, [fileId, data, loading]);
+    if (data) return;
+    // Note: don't short-circuit on `loading` — the batch coordinator
+    // already dedupes in-flight fetches, and checking `loading` here
+    // would race with the microtask that flips it true.
+    void enqueueGroundFetch(fileId);
+  }, [fileId, data]);
 
   return { data: data ?? null, loading };
-}
-
-async function fetchGroundData(fileId: string): Promise<void> {
-  workspaceCanvasStore.setGroundLoading(fileId, true);
-  try {
-    const result: GroundFileData = await loadGroundData(fileId);
-    workspaceCanvasStore.setGroundData(fileId, result);
-  } finally {
-    workspaceCanvasStore.setGroundLoading(fileId, false);
-  }
 }

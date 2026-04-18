@@ -1,11 +1,10 @@
 import type { WorkerRequest, WorkerResponse } from "./messages";
-import { gridLayout } from "@quanta/canvas-engine";
 import {
   serializeLayout,
   deserializeLayout,
   serializeAggregates,
 } from "./messages";
-import { runGridLayout } from "./layout-task";
+import { runLayoutTask, TREEMAP_THRESHOLD } from "./layout-task";
 import { runAggregateTask } from "./aggregate-task";
 import { runGeometryTask } from "./geometry-task";
 
@@ -24,11 +23,14 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         const t0 = Date.now();
         const { graph } = req.payload;
 
-        const grid = runGridLayout(graph);
+        // runLayoutTask with "grid" strategy picks treemap vs grid based on
+        // TREEMAP_THRESHOLD (file count). ELK is still gated off (see note
+        // below), so this resolves synchronously-ish with no ELK attempt.
+        const layout = await runLayoutTask(graph, "grid");
         self.postMessage({
           type: "LAYOUT_READY",
           id: req.id,
-          payload: serializeLayout(grid),
+          payload: serializeLayout(layout),
           stage: "grid",
         } satisfies WorkerResponse);
         self.postMessage({
@@ -45,14 +47,21 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           filesCount: graph.files.length,
           elapsedMs: Date.now() - t0,
         } satisfies WorkerResponse);
-        console.log("[worker] BUILD_LAYOUT done", { files: graph.files.length, ms: Date.now() - t0 });
+        console.log("[worker] BUILD_LAYOUT done", {
+          files: graph.files.length,
+          ms: Date.now() - t0,
+          layout: graph.files.length > TREEMAP_THRESHOLD ? "treemap" : "grid",
+          aspect: layout.totalBounds.w / Math.max(1, layout.totalBounds.h),
+          clusters: layout.clusters?.length ?? 0,
+        });
         break;
       }
 
       case "PARTIAL_RELAYOUT": {
-        // Simple full re-grid for now; partial/incremental ELK relayout deferred to later phase.
-        // The incoming layout is intentionally not read — we recompute from scratch.
-        const layout = gridLayout(req.payload.graph);
+        // Simple full relayout for now; partial/incremental ELK relayout
+        // deferred to later phase. The incoming layout is intentionally
+        // not read — we recompute from scratch.
+        const layout = await runLayoutTask(req.payload.graph, "grid");
         const resp: WorkerResponse = {
           type: "LAYOUT_READY",
           id: req.id,

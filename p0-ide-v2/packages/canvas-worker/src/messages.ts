@@ -1,4 +1,11 @@
-import type { WorkspaceGraph, WorkspaceLayout, LodAggregateCache, BezierRoute } from "@quanta/canvas-engine";
+import type {
+  WorkspaceGraph,
+  WorkspaceLayout,
+  LodAggregateCache,
+  BezierRoute,
+  ClusterMeta,
+  Rect,
+} from "@quanta/canvas-engine";
 
 // ── Requests (main → worker) ─────────────────────────────────────
 
@@ -60,6 +67,9 @@ export interface SerializedLayout {
   edgeRoutes: [string, BezierRoute][];
   aggregates: SerializedAggregates;
   totalBounds: { x: number; y: number; w: number; h: number };
+  /** Present only when treemap layout was used. */
+  clusterRects?: [string, Rect][];
+  clusters?: ClusterMeta[];
 }
 
 export interface SerializedAggregates {
@@ -69,12 +79,19 @@ export interface SerializedAggregates {
 }
 
 export function serializeLayout(layout: WorkspaceLayout): SerializedLayout {
-  return {
+  const base: SerializedLayout = {
     fileRects: Array.from(layout.fileRects.entries()),
     edgeRoutes: Array.from(layout.edgeRoutes.entries()),
     aggregates: serializeAggregates(layout.aggregates),
     totalBounds: layout.totalBounds,
   };
+  if (layout.clusterRects) {
+    base.clusterRects = Array.from(layout.clusterRects.entries());
+  }
+  if (layout.clusters) {
+    base.clusters = layout.clusters;
+  }
+  return base;
 }
 
 export function deserializeLayout(s: SerializedLayout): WorkspaceLayout {
@@ -83,6 +100,8 @@ export function deserializeLayout(s: SerializedLayout): WorkspaceLayout {
     edgeRoutes: new Map(s.edgeRoutes),
     aggregates: deserializeAggregates(s.aggregates),
     totalBounds: s.totalBounds,
+    clusterRects: s.clusterRects ? new Map(s.clusterRects) : undefined,
+    clusters: s.clusters,
   };
 }
 

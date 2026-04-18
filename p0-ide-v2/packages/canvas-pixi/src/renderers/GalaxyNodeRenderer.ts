@@ -1,12 +1,17 @@
-import { Graphics, Container, FederatedPointerEvent } from "pixi.js";
+import { Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import type { FileNode, WorkspaceLayout, ViewState, Viewport } from "@quanta/canvas-engine";
+import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
+import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 
-// Galaxy LOD (scale < 0.15): the user is looking at the whole codebase from
-// far away. Each file card is tens of CSS pixels — text would be unreadable
-// regardless of how we render it. This renderer is deliberately stripped to
-// rectangles-only so that 5000+ files can be drawn without per-file Text
-// textures (which would otherwise be the dominant cost — ~5× slower than the
-// geometry itself at galaxy zoom).
+// Galaxy LOD (scale < 0.15): the whole codebase from far away. Each file card
+// is tens of CSS pixels — text would be unreadable. This renderer is stripped
+// to rectangles-only and draws them via an instanced Mesh: 5000 files → 1
+// draw call, no per-file Graphics allocation, no vertex-buffer churn.
+//
+// Hit testing: the hitLayer Graphics covers every card with a near-zero-alpha
+// fill so Pixi's event system can detect pointerover the whole node region,
+// but the actual per-rect lookup is done via SpatialPickIndex (RBush).
+// Linear scanning 5000 rects on every pointermove was the former bottleneck.
 
 function riskFill(score: number): number {
   if (score >= 70) return 0xfee2e2;
@@ -22,9 +27,10 @@ function riskBorder(score: number): number {
 
 export class GalaxyNodeRenderer {
   private container: Container;
-  private bgGfx: Graphics;
-  private hitLayer: Graphics; // single graphics with per-file hit regions
-  private hitByPoint: Array<{ x: number; y: number; w: number; h: number; id: string }> = [];
+  private rectMesh: InstancedRectMesh;
+  private hitLayer: Graphics;
+  private pickIndex: SpatialPickIndex;
+  private pickRects: PickRect[] = [];
 
   private onClickFile?: (fileId: string) => void;
   private onHoverFile?: (fileId: string | null) => void;
@@ -37,14 +43,17 @@ export class GalaxyNodeRenderer {
     },
   ) {
     this.container = new Container();
-    this.bgGfx = new Graphics();
+    this.rectMesh = new InstancedRectMesh(1024);
     this.hitLayer = new Graphics();
+    this.pickIndex = new SpatialPickIndex();
     this.onClickFile = opts?.onClick;
     this.onHoverFile = opts?.onHover;
 
-    this.container.addChild(this.bgGfx);
-    // Single invisible hit layer for the whole renderer — one eventMode:static
-    // Graphics handling many files is vastly cheaper than one per file.
+    this.container.addChild(this.rectMesh.mesh);
+
+    // Mesh does not emit pointer events (no per-instance hit testing in
+    // WebGL without a readback). Use an overlaid invisible Graphics that
+    // covers each rect — still one eventMode:static object for all files.
     this.hitLayer.eventMode = "static";
     this.hitLayer.cursor = "pointer";
     this.hitLayer.on("pointertap", (e: FederatedPointerEvent) => {
@@ -62,27 +71,30 @@ export class GalaxyNodeRenderer {
   }
 
   private pickAt(globalX: number, globalY: number): string | null {
-    // Transform global → world coords via container's inverse transform.
     const local = this.container.toLocal({ x: globalX, y: globalY });
-    // Linear scan (O(n)). At galaxy LOD n ≈ 5000; a sub-ms tax on hover.
-    // If this shows up in profiles, swap for a local RBush.
-    for (let i = this.hitByPoint.length - 1; i >= 0; i--) {
-      const r = this.hitByPoint[i];
-      if (local.x >= r.x && local.x <= r.x + r.w && local.y >= r.y && local.y <= r.y + r.h) {
-        return r.id;
-      }
-    }
-    return null;
+    return this.pickIndex.pickAt(local.x, local.y);
   }
 
   update(files: FileNode[], layout: WorkspaceLayout, viewState: ViewState, viewport: Viewport): void {
     const invScale = Math.min(8, Math.max(0.5, 1 / viewport.scale));
     const strokeW = invScale;
 
-    this.bgGfx.clear();
-    this.hitLayer.clear();
-    this.hitByPoint.length = 0;
+    // Pre-count to size the buffer once.
+    let count = 0;
+    for (const file of files) {
+      if (layout.fileRects.has(file.id)) count++;
+    }
+    this.rectMesh.ensureCapacity(count);
 
+    const data = this.rectMesh.view();
+    this.pickRects.length = 0;
+    // Compute the layout AABB so we can size the single hit rect to cover
+    // just the populated region. A bounding box is O(n) to compute but O(1)
+    // ever after for Pixi's event system — far cheaper than N per-rect
+    // Graphics calls and the geometry rebuild they trigger.
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    let i = 0;
     for (const file of files) {
       const rect = layout.fileRects.get(file.id);
       if (!rect) continue;
@@ -91,27 +103,49 @@ export class GalaxyNodeRenderer {
       const isHovered = viewState.hoveredFileId === file.id;
 
       const fillColor = riskFill(file.riskScore);
-      const borderColor = riskBorder(file.riskScore);
+      const borderColor = isSelected ? 0x4f46e5 : riskBorder(file.riskScore);
       const fillAlpha = isSelected ? 1.0 : isHovered ? 0.95 : 0.88;
+      const borderAlpha = isSelected ? 1.0 : 0.7;
+      const bw = isSelected ? strokeW * 2 : strokeW;
 
-      this.bgGfx
-        .roundRect(rect.x, rect.y, rect.w, rect.h, 6)
-        .fill({ color: fillColor, alpha: fillAlpha })
-        .stroke({
-          color: isSelected ? 0x4f46e5 : borderColor,
-          width: isSelected ? strokeW * 2 : strokeW,
-          alpha: isSelected ? 1.0 : 0.7,
-        });
+      const o = i * FLOATS_PER_INSTANCE;
+      data[o] = rect.x;
+      data[o + 1] = rect.y;
+      data[o + 2] = rect.w;
+      data[o + 3] = rect.h;
+      unpackHexInto(fillColor, data, o + 4, fillAlpha);
+      unpackHexInto(borderColor, data, o + 8, borderAlpha);
+      data[o + 12] = bw;
+      data[o + 13] = 6; // corner radius
 
-      // Compact hit region registered to the shared hit layer.
-      this.hitLayer
-        .rect(rect.x, rect.y, rect.w, rect.h)
-        .fill({ color: 0x000000, alpha: 0.001 });
-      this.hitByPoint.push({ x: rect.x, y: rect.y, w: rect.w, h: rect.h, id: file.id });
+      this.pickRects.push({ x: rect.x, y: rect.y, w: rect.w, h: rect.h, id: file.id });
+      if (rect.x < minX) minX = rect.x;
+      if (rect.y < minY) minY = rect.y;
+      if (rect.x + rect.w > maxX) maxX = rect.x + rect.w;
+      if (rect.y + rect.h > maxY) maxY = rect.y + rect.h;
+
+      i++;
     }
+
+    // Single invisible hit rect over the populated AABB. Pixi delivers
+    // pointermove anywhere in this box; SpatialPickIndex resolves the id.
+    // This replaces N per-file rect() calls (one of the former galaxy-LOD
+    // hot spots) with a single Graphics command.
+    this.hitLayer.clear();
+    if (i > 0) {
+      const w = maxX - minX;
+      const h = maxY - minY;
+      this.hitLayer.rect(minX, minY, w, h).fill({ color: 0x000000, alpha: 0.001 });
+    }
+
+    this.rectMesh.setInstanceCount(i);
+    this.pickIndex.load(this.pickRects);
   }
 
   destroy(): void {
+    this.rectMesh.destroy();
+    this.pickIndex.clear();
+    this.pickRects.length = 0;
     this.container.destroy({ children: true });
   }
 }

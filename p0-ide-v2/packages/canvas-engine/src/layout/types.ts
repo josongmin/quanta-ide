@@ -13,11 +13,30 @@ export interface LodAggregateCache {
   commentedLines: Map<string, Set<number>>;  // fileId → Set<lineNumber>
 }
 
+/**
+ * Metadata attached to a cluster rect. A cluster is one top-level
+ * directory (crate/folder) — used at the `supergalaxy` LOD tier so
+ * 5000+ file repos can render as a handful of boxes instead of per-file.
+ */
+export interface ClusterMeta {
+  id: string;        // cluster id (directory path)
+  rect: Rect;
+  fileCount: number;
+  locSum: number;
+}
+
 export interface WorkspaceLayout {
   fileRects: Map<string, Rect>;
   edgeRoutes: Map<string, BezierRoute>;
   aggregates: LodAggregateCache;
   totalBounds: Rect;
+  /**
+   * Cluster id → bounding rect (one per top-level directory). Present when
+   * the treemap layout was used; grid / ELK layouts omit this field.
+   */
+  clusterRects?: Map<string, Rect>;
+  /** Full cluster metadata (parallel to clusterRects keys). */
+  clusters?: ClusterMeta[];
 }
 
 export const FILE_CARD_W = 560;

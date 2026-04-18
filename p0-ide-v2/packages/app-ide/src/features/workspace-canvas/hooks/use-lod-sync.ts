@@ -5,11 +5,14 @@ import { useWorkspaceCanvas, workspaceCanvasStore } from "../store/workspace-can
 const manager = new LodManager();
 
 export function useLodSync() {
-  const scale = useWorkspaceCanvas(s => s.viewport.scale);
+  const scale    = useWorkspaceCanvas(s => s.viewport.scale);
+  const forceLod = useWorkspaceCanvas(s => s.forceLod);
 
   useEffect(() => {
-    const next = manager.update(scale);
+    // Debug: force-LOD overrides the automatic LOD manager so we can inspect
+    // renderer behaviour at a specific tier regardless of zoom.
+    const next = forceLod === "auto" ? manager.update(scale) : forceLod;
     const current = workspaceCanvasStore.getState().lod;
     if (next !== current) workspaceCanvasStore.setLod(next);
-  }, [scale]);
+  }, [scale, forceLod]);
 }

@@ -1,23 +1,31 @@
 import type { WorkspaceGraph, WorkspaceLayout, BezierRoute } from "@quanta/canvas-engine";
 import type { LayoutStrategy } from "./messages";
-import { gridLayout, FILE_CARD_W, FILE_CARD_H } from "@quanta/canvas-engine";
+import { gridLayout, treemapLayout, FILE_CARD_W, FILE_CARD_H } from "@quanta/canvas-engine";
+
+/**
+ * Node-count threshold above which we switch from grid to treemap. Grid
+ * produces readable output for small graphs; treemap only pays off when
+ * the grid's aspect ratio starts hurting (~>100 files in 8-col grid).
+ */
+export const TREEMAP_THRESHOLD = 100;
 
 export async function runLayoutTask(
   graph: WorkspaceGraph,
   strategy: LayoutStrategy,
   pinnedNodes?: Record<string, { x: number; y: number; w: number; h: number }>,
 ): Promise<WorkspaceLayout> {
-  const gridResult = gridLayout(graph);
+  const useTreemap = graph.files.length > TREEMAP_THRESHOLD;
+  const baseResult = useTreemap ? treemapLayout(graph) : gridLayout(graph);
 
   if (strategy === "grid") {
-    return gridResult;
+    return baseResult;
   }
 
-  // "grid-then-elk": attempt ELK layout, fall back to grid on failure
+  // "grid-then-elk": attempt ELK layout, fall back to base on failure
   try {
-    return await elkLayout(graph, gridResult, pinnedNodes);
+    return await elkLayout(graph, baseResult, pinnedNodes);
   } catch {
-    return gridResult;
+    return baseResult;
   }
 }
 
@@ -25,6 +33,15 @@ export async function runLayoutTask(
 // LAYOUT_READY before (optionally) following up with a slower ELK pass.
 export function runGridLayout(graph: WorkspaceGraph): WorkspaceLayout {
   return gridLayout(graph);
+}
+
+/**
+ * Directory-based squarified treemap layout. Yields a near-square total
+ * bounds with per-directory cluster rects, letting the supergalaxy LOD
+ * render a tiny number of boxes instead of thousands of file cards.
+ */
+export function runTreemapLayout(graph: WorkspaceGraph): WorkspaceLayout {
+  return treemapLayout(graph);
 }
 
 // ELK layered layout — expensive. The worker gates this behind a node-count

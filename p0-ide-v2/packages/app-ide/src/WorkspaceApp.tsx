@@ -5,6 +5,7 @@ import {
   MultiFileCanvas,
   SAMPLE_GRAPH,
   loadRepoGraph,
+  workspaceCanvasStore,
   type LoadRepoResult,
 } from "@quanta/app-ide/features/workspace-canvas";
 import "./WorkspaceApp.css";
@@ -47,6 +48,9 @@ export function WorkspaceApp(_props: TabAppProps) {
     setStatus({ kind: "loading", path });
     try {
       const result = await loadRepoGraph({ path, extensions: exts, maxFiles: max });
+      // Record the repo root BEFORE setGraph so any ground-card effects
+      // that fire on the new graph see the correct root.
+      workspaceCanvasStore.setRepoRoot(path);
       setGraph(result.graph);
       setStatus({ kind: "loaded", result, path });
     } catch (err) {
@@ -106,7 +110,11 @@ export function WorkspaceApp(_props: TabAppProps) {
             <button
               type="button"
               className="workspace-app__btn workspace-app__btn--ghost"
-              onClick={() => { setGraph(SAMPLE_GRAPH); setStatus({ kind: "idle" }); }}
+              onClick={() => {
+                workspaceCanvasStore.setRepoRoot(null);
+                setGraph(SAMPLE_GRAPH);
+                setStatus({ kind: "idle" });
+              }}
             >
               reset
             </button>
