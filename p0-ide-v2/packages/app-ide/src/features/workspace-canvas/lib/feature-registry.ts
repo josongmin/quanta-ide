@@ -24,6 +24,8 @@ export type FeatureCategory =
   | "embeds"      // rich-media canvas embeds (image paste, tickets, PR, slack)
   | "overlay"     // existing visual overlays (kept as features for consistency)
   | "ai"          // AI-assisted helpers (summaries, clustering, tour)
+  | "temporal"    // time-travel surfaces: film strip, dual split, blame time travel, DSL ops, AI hunt/replay/bisect
+  | "action-terrain" // isometric refactor-ROI mode: leverage topography, blast/fix cones, before/after sim
   | "experimental"; // unproven / gated
 
 export type FeatureMaturity = "stable" | "beta" | "experimental";
@@ -430,6 +432,188 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
     defaultEnabled: true,
     maturity: "experimental",
     introducedIn: "batch-6",
+  },
+
+  // ── Temporal / time-travel (T2) ──────────────────────────────────
+  {
+    id: "temporal.filmStrip",
+    category: "temporal",
+    label: "Film strip scrubber",
+    description: "Horizontal commit thumbnail strip at the bottom of the canvas — drag to scrub through time.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t2",
+  },
+  {
+    id: "temporal.minimapStrip",
+    category: "temporal",
+    label: "Temporal minimap strip",
+    description: "1px-tall commit-density strip under the minimap; column color = churn intensity.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t2",
+  },
+  {
+    id: "temporal.dualSplit",
+    category: "temporal",
+    label: "Dual-commit split view",
+    description: "Side-by-side canvas at two different commits with a diff overlay.",
+    defaultEnabled: false,
+    maturity: "experimental",
+    introducedIn: "t2",
+  },
+  {
+    id: "temporal.blameTimeTravel",
+    category: "temporal",
+    label: "Blame time-travel",
+    description: "Ground-card blame gutter rewinds to the active commit's timestamp.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t2",
+  },
+  {
+    id: "temporal.dslExtensions",
+    category: "temporal",
+    label: "Temporal DSL extensions",
+    description: "Filter DSL keys: added_since, stable_since, touched_by, churn, introduced_between.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t2",
+  },
+
+  // ── Archaeology (T3) ─────────────────────────────────────────────
+  {
+    id: "archaeology.driftDetector",
+    category: "temporal",
+    label: "Architectural drift detector",
+    description: "Compare two snapshots and surface layer escalations, fanout spikes, new cycle members, and ownership shifts.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t3",
+  },
+  {
+    id: "archaeology.cycleGenesis",
+    category: "temporal",
+    label: "Cycle genesis lookup",
+    description: "For any active SCC, identify the commit and edge that first closed the cycle.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t3",
+  },
+  {
+    id: "archaeology.symbolFirstAppearance",
+    category: "temporal",
+    label: "Symbol first appearance",
+    description: "Walk history to find the earliest commit that introduced a given symbol at a file.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t3",
+  },
+  {
+    id: "archaeology.smellGenesis",
+    category: "temporal",
+    label: "Smell genesis",
+    description: "Locate the first commit where a file exhibits a code smell (high coupling, cycle member, risk spike, layer violation).",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t3",
+  },
+  {
+    id: "archaeology.debtTrajectory",
+    category: "temporal",
+    label: "Debt trajectory chart",
+    description: "Timeseries of SCC count, arch violations, and complexity across recorded history — click a point to jump.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "t3",
+  },
+
+  // ── Temporal AI (T4) ─────────────────────────────────────────────
+  {
+    id: "temporal.regressionHunt",
+    category: "temporal",
+    label: "Regression hunt",
+    description: "Paste a failing test + log; AI attributes the likely commit range and highlights affected files.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "time-travel",
+  },
+  {
+    id: "temporal.refactorPreview",
+    category: "temporal",
+    label: "Refactor preview (30d)",
+    description: "Linear-regression forecast of new files / edges / cycle-risk over the next 30 days.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "time-travel",
+  },
+  {
+    id: "temporal.prReplay",
+    category: "temporal",
+    label: "PR replay mode",
+    description: "Replay a PR commit-by-commit with camera targeting and per-commit narration.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "time-travel",
+  },
+  {
+    id: "temporal.bisectGame",
+    category: "temporal",
+    label: "Bisect game",
+    description: "Gamified bisect — narrow the bug to a single commit with yes/no/skip prompts.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "time-travel",
+  },
+  {
+    id: "temporal.authorFootprint",
+    category: "temporal",
+    label: "Author footprint tint",
+    description: "Tint each file card by the dominant author who touched it at the active commit.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "time-travel",
+  },
+
+  // ── Action Terrain (Batch 9) ─────────────────────────────────────
+  {
+    id: "action-terrain.mode",
+    category: "action-terrain",
+    label: "Action Terrain mode",
+    description: "Isometric 3D-style mode — extruded bars where height = refactor ROI. Cmd+Shift+A to toggle.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    introducedIn: "batch-9",
+  },
+  {
+    id: "action-terrain.leverage-topography",
+    category: "action-terrain",
+    label: "Leverage topography",
+    description: "Bar height encodes composite refactor-ROI score (churn × complexity × fan-in × test-debt × cycle-membership).",
+    defaultEnabled: true,
+    maturity: "experimental",
+    dependsOn: ["action-terrain.mode"],
+    introducedIn: "batch-9",
+  },
+  {
+    id: "action-terrain.blast-fix-cone",
+    category: "action-terrain",
+    label: "Blast / fix cone",
+    description: "Click a file to see upward blast (change-breaks) and downward fix (change-stabilizes) cones.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    dependsOn: ["action-terrain.mode"],
+    introducedIn: "batch-9",
+  },
+  {
+    id: "action-terrain.before-after-sim",
+    category: "action-terrain",
+    label: "Before / after simulation",
+    description: "Apply an AI-suggested refactor and see projected terrain delta numerically.",
+    defaultEnabled: true,
+    maturity: "experimental",
+    dependsOn: ["action-terrain.mode"],
+    introducedIn: "batch-9",
   },
 ] as const;
 

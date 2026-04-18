@@ -31,6 +31,36 @@ export { joinGraphs } from "./multi-graph";
 export type { GraphSnapshot, GraphHistory } from "./history";
 export { materializeEdgeSet, diffSnapshots } from "./history";
 
+export type {
+  CommitMeta,
+  CommitDelta,
+  HistorySource,
+  HistorySourceListOpts,
+} from "./history-source";
+export { emptyDelta } from "./history-source";
+
+export { MockHistorySource } from "./mock-history-source";
+export type { MockHistorySourceOptions } from "./mock-history-source";
+
+export { GitHistorySource, deltaFromFileChanges } from "./git-history-source";
+export type { GitHistorySourceOptions } from "./git-history-source";
+
+// ── Archaeology (temporal analysis) ─────────────────────────────────
+export type { DriftFinding, DriftSnapshot } from "./detect-drift";
+export { detectDrift } from "./detect-drift";
+
+export type { CycleGenesis } from "./cycle-archaeology";
+export { findCycleGenesis } from "./cycle-archaeology";
+
+export type { SymbolAppearance } from "./symbol-archaeology";
+export { findSymbolFirstAppearance } from "./symbol-archaeology";
+
+export type { SmellKind, SmellGenesis, SmellDetectionOpts } from "./smell-genesis";
+export { findSmellGenesis } from "./smell-genesis";
+
+export type { DebtSnapshot } from "./debt-trajectory";
+export { computeDebtTrajectory } from "./debt-trajectory";
+
 // ── Evidence ────────────────────────────────────────────────────────
 export type { WitnessRole, WitnessStep, ProofBundle } from "./evidence";
 
@@ -63,9 +93,32 @@ export { rankStartHere } from "./start-here";
 // ── Filtering & rules ───────────────────────────────────────────────
 export { elevationFromRisk } from "./elevation";
 
-export { compileEdgeFilter } from "./edge-filter-dsl";
+export { compileEdgeFilter, compileEdgeFilterWithContext, parseTimeExpression, isTemporalKey } from "./edge-filter-dsl";
+export type { FilterContext, FilterPredicate, FilterCompileOutput } from "./edge-filter-dsl";
 
-export type { Completion } from "./edge-filter-completions";
+export type { Completion, CompletionOptions } from "./edge-filter-completions";
 export { getCompletions } from "./edge-filter-completions";
 
 export { detectArchViolations } from "./arch-violations";
+
+// ── Refactor intelligence (Action Terrain) ──────────────────────────
+export type {
+  RefactorRoiComponents,
+  RefactorRoiWeights,
+  RefactorRoiScore,
+  RefactorRoiResult,
+  ComputeRefactorRoiOptions,
+} from "./refactor-roi";
+export { computeRefactorROI, DEFAULT_ROI_WEIGHTS } from "./refactor-roi";
+
+export type { ImpactConeRing, ImpactCone, ImpactDirection } from "./blast-fix-cone";
+export { computeBlastCone, computeFixCone } from "./blast-fix-cone";
+
+export type { DebtLayer, DebtStrataResult } from "./debt-strata";
+export { computeDebtStrata } from "./debt-strata";
+
+export type { RefactorPlanKind, RefactorPlan, BuildSuggestionsOptions } from "./refactor-suggestions";
+export { buildRefactorSuggestions } from "./refactor-suggestions";
+
+export type { RefactorSimulationResult } from "./refactor-simulation";
+export { simulateRefactor } from "./refactor-simulation";

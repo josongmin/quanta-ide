@@ -20,6 +20,8 @@ const CATEGORY_LABEL: Record<FeatureCategory, string> = {
   embeds: "Embeds",
   overlay: "Overlays",
   ai: "AI",
+  temporal: "Temporal",
+  "action-terrain": "Action terrain",
   experimental: "Experimental",
 };
 
@@ -33,6 +35,8 @@ const CATEGORY_ORDER: readonly FeatureCategory[] = [
   "embeds",
   "overlay",
   "ai",
+  "temporal",
+  "action-terrain",
   "experimental",
 ];
 

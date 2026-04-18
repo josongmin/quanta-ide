@@ -3,6 +3,7 @@ import type { FileMetrics, WorkspaceMetrics, FileEdge, Trace, TraceSpan, FileLat
 import { latencyColor } from "@quanta/canvas-engine";
 import { useSceneStore } from "../../store/scene-store";
 import { interactionStore, useInteractionStore } from "../../store/interaction-store";
+import { DebtTrajectoryChart } from "../DebtTrajectoryChart";
 
 // "graph" HUD tab — surfaces centrality metrics computed by
 // `computeWorkspaceMetrics` alongside layout. Shows:
@@ -135,6 +136,11 @@ export function GraphSection() {
           side effects. Mirrors Sentry Performance / Datadog Service Map
           file lists. Click a row → camera pans to the file. */}
       <HotPathsSection />
+
+      {/* Debt trajectory — timeseries of sccCount + arch violations across
+          recorded history. Click a point to jump the temporal scrubber to
+          that commit. Feature-gated on `archaeology.debtTrajectory`. */}
+      <DebtTrajectoryChart />
     </>
   );
 }
