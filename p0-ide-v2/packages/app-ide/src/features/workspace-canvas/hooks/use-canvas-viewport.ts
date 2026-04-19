@@ -10,6 +10,14 @@ import { viewportStore, useViewportStore } from "../store/viewport-store";
 const MIN_SCALE = 0.001;
 const MAX_SCALE = 2.5;
 
+// Cap for the ONE-TIME auto-fit that runs on initial layout. Sits just
+// below city's upThreshold (0.13 — see lod-config.ts), so small graphs
+// land on galaxy/city instead of saturating to MAX_SCALE and forcing
+// ground — which would DOM-render every file with syntax highlighting on
+// first paint and kill perf. Exported so other callsites can ride the
+// same policy without hardcoding a magic number.
+export const INITIAL_FIT_MAX_SCALE = 0.12;
+
 export function useCanvasViewport() {
   // Subscribe ONLY to the viewport slice so pan/zoom frames don't wake
   // subscribers of scene / interaction / settings.
@@ -32,12 +40,21 @@ export function useCanvasViewport() {
     viewportStore.setViewport({ ...prev, x, y, scale: newScale });
   }, []);
 
-  const fitToGraph = useCallback((graphW: number, graphH: number) => {
+  // Single fit entry point. `maxScale` clamps the resulting zoom so the
+  // caller controls which LOD tier the fit lands on:
+  //   - initial auto-fit on first layout    → INITIAL_FIT_MAX_SCALE (safe,
+  //                                            avoids ground tier DOM blow-up).
+  //   - user-invoked "fit" button / palette → MAX_SCALE (fully zoom in).
+  // All auto-fit callers must route through this function to keep cap
+  // policy in one place — a previous duplicate fit in the worker bridge
+  // diverged on the cap and let small graphs slam into MAX_SCALE.
+  const fitToGraph = useCallback((graphW: number, graphH: number, maxScale = MAX_SCALE) => {
     const prev = viewportStore.getState().viewport;
     const containerW = prev.width;
     const containerH = prev.height;
     if (graphW <= 0 || graphH <= 0 || containerW <= 0 || containerH <= 0) return;
-    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, Math.min(containerW / graphW, containerH / graphH) * 0.9));
+    const cap = Math.min(MAX_SCALE, maxScale);
+    const scale = Math.min(cap, Math.max(MIN_SCALE, Math.min(containerW / graphW, containerH / graphH) * 0.9));
     const x = (containerW - graphW * scale) / 2;
     const y = (containerH - graphH * scale) / 2;
     viewportStore.setViewport({ ...prev, x, y, scale });

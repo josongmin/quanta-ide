@@ -222,5 +222,9 @@ export function usePagesStore<T>(selector: (s: PagesState) => T): T {
 }
 
 export function getActivePage(s: PagesState = state): CanvasPage {
-  return s.pages.find(p => p.id === s.activeId) ?? s.pages[0]!;
+  const found = s.pages.find(p => p.id === s.activeId) ?? s.pages[0];
+  // Invariant: pages[] is never empty (writePersisted guards, defaultState
+  // always seeds 1). Fall back to a fresh default page in the pathological
+  // case so callers never see `undefined`.
+  return found ?? defaultPage();
 }

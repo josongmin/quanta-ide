@@ -23,10 +23,9 @@ let audioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (audioCtx) return audioCtx;
-  const Ctor: typeof AudioContext | undefined =
-    // Safari older than 14 exposes only the webkit-prefixed constructor.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).AudioContext ?? (window as any).webkitAudioContext;
+  // Safari older than 14 exposes only the webkit-prefixed constructor.
+  const w = window as Window & { webkitAudioContext?: typeof AudioContext };
+  const Ctor: typeof AudioContext | undefined = w.AudioContext ?? w.webkitAudioContext;
   if (!Ctor) return null;
   try {
     audioCtx = new Ctor();

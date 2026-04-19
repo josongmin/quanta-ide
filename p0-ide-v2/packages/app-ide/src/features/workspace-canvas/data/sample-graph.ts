@@ -1,4 +1,4 @@
-import type { WorkspaceGraph, FileNode, FileEdge, FunctionBlock, ArchLayer, EdgeKind, EffectKind, FileEffects, FileLatency, ProofBundle, WitnessStep, GraphHistory, GraphSnapshot, FileBlame, BlameEntry, NamedGraph, JoinEdge, Trace, TraceSpan, TraceEdge, TracePack } from "@quanta/canvas-engine";
+import type { WorkspaceGraph, FileNode, FileEdge, FunctionBlock, ArchLayer, EdgeKind, EffectKind, FileEffects, FileLatency, ProofBundle, WitnessStep, GraphHistory, GraphSnapshot, FileBlame, BlameEntry, NamedGraph, JoinEdge, Trace, TraceSpan, TraceEdge, TracePack, WorkspaceComment } from "@quanta/canvas-engine";
 import { deriveEdgeLayer, joinGraphs } from "@quanta/canvas-engine";
 
 // ── Vite glob: all TS/TSX source files per package ────────────────────
@@ -1251,6 +1251,90 @@ function synthesizeLatency(files: readonly FileNode[]): Record<string, FileLaten
   return out;
 }
 
+// ── Review-comment synthesis (Stage 8: review-thread demo) ────────────
+// Reviewers leave line-anchored notes so the collab / review UI has
+// something to render. Recipe: pick a spread across packages + risk tiers,
+// seed 1-3 comments per chosen file at function boundaries, and vary
+// author / body / age / resolved-state via deterministic hashes. Without
+// this the "review" and "collab.comments" features display empty panels
+// even though the rest of the graph is fully populated.
+
+// Seven author personas — enough variety that a reader scanning the
+// thread sees several distinct voices rather than the same name twice.
+const COMMENT_AUTHORS = [...BLAME_AUTHORS, "erin", "frank", "grace"] as const;
+
+interface CommentSeed {
+  role: "question" | "todo" | "nit" | "praise" | "bug" | "discussion";
+  body: string;
+}
+
+// Each seed evokes a different review-note mode so the panel doesn't
+// look like one reviewer's voice cloned six times.
+const COMMENT_SEEDS: readonly CommentSeed[] = [
+  { role: "question",   body: "왜 여기서 early-return 안 하고 아래까지 내려가요? 의도가 있는 거면 주석 한 줄 부탁." },
+  { role: "todo",       body: "TODO: retry 정책 빠져있음. 다음 PR에서 붙이겠습니다." },
+  { role: "nit",        body: "nit — 이름이 `handle`이 더 관례적일 듯. 기존 호출처들이 모두 그 패턴이에요." },
+  { role: "praise",     body: "👏 이 리팩토링 깔끔합니다. 이전엔 여기가 회색지대였는데 훨씬 읽기 편해졌어요." },
+  { role: "bug",        body: "이 path에서 null guard 없는 것 같은데요? 인시던트 #412 재현 케이스랑 겹칩니다." },
+  { role: "discussion", body: "이거 domain에서 처리하는 게 맞을까요? infra에 가깝다는 느낌도 있어요. 팀 컨벤션 확인 필요." },
+  { role: "question",   body: "capacity 기본값이 왜 4096인지 근거가 궁금합니다. 실측?" },
+  { role: "todo",       body: "TODO: 이 분기 커버하는 테스트 추가 — 현재 coverage 맵에서 비어있음." },
+  { role: "nit",        body: "nit — const 하나 추출해서 이름 붙여주면 가독성이 확 올라갈 듯." },
+  { role: "bug",        body: "off-by-one 의심. 경계 조건에서 len vs len-1 다시 확인해봐주세요." },
+  { role: "discussion", body: "여기 side-effect가 숨어있는 거 같은데, pure 표시 유지해도 되나요?" },
+  { role: "praise",     body: "좋은 네이밍. `derive*` prefix 컨벤션 맞게 들어왔네요." },
+];
+
+function synthesizeComments(files: readonly FileNode[], nowTs: number): WorkspaceComment[] {
+  if (files.length === 0) return [];
+  const DAY_MS = 86_400_000;
+  const out: WorkspaceComment[] = [];
+
+  // Selection strategy: include the top-10 risk files (reviewers cluster
+  // on risky code) plus an every-7th cross-section of the remainder so
+  // we cover low-risk and boilerplate too. This yields ~N/7+10 commented
+  // files — ~40-60 comments for a mid-size graph.
+  const ranked = [...files].sort((a, b) => b.riskScore - a.riskScore);
+  const chosen = new Set<string>();
+  for (let i = 0; i < Math.min(10, ranked.length); i++) chosen.add(ranked[i].id);
+  for (let i = 0; i < files.length; i += 7) chosen.add(files[i].id);
+
+  let seq = 0;
+  for (const f of files) {
+    if (!chosen.has(f.id)) continue;
+    const h0 = hashString(`${f.id}:cmt`);
+    // 1..3 threads per file, weighted toward 2 so most files have a pair.
+    const threadCount = 1 + ((h0 >>> 2) % 3);
+    for (let i = 0; i < threadCount; i++) {
+      const h = hashString(`${f.id}:cmt:${i}`);
+      const seed = COMMENT_SEEDS[h % COMMENT_SEEDS.length];
+      const author = COMMENT_AUTHORS[(h >>> 4) % COMMENT_AUTHORS.length];
+      // Anchor to a function start when available so the line-gutter
+      // marker lands on something meaningful; fall back to an early line.
+      const anchor = f.functions.length > 0
+        ? f.functions[(h >>> 9) % f.functions.length].startLine
+        : Math.max(1, (h >>> 12) % Math.max(1, f.loc));
+      // Age: 0..60 days, with 40% within the last week so the demo
+      // feels "active" rather than a ghost town of ancient comments.
+      const ageDays = ((h >>> 16) % 60);
+      const committedAt = nowTs - ageDays * DAY_MS - (((h >>> 22) & 0xfff) * 60_000);
+      // 30% resolved — enough that the "resolved filter" toggle has
+      // something to hide; 70% unresolved so the default view is busy.
+      const resolved = ((h >>> 28) & 0b111) < 2;
+      out.push({
+        id: `cmt:${f.id}:${i}:${seq++}`,
+        fileId: f.id,
+        line: anchor,
+        author,
+        body: seed.body,
+        resolved,
+        createdAt: committedAt,
+      });
+    }
+  }
+  return out;
+}
+
 // ── Build ─────────────────────────────────────────────────────────────
 
 function build(): { graph: WorkspaceGraph; sources: Record<string, string> } {
@@ -1277,13 +1361,15 @@ function build(): { graph: WorkspaceGraph; sources: Record<string, string> } {
   const imports: FileEdge[] = files.flatMap(f => extractEdges(f.id, sources[f.id] ?? "", known));
   const synthetic = synthesizeEdges(files, imports, sources);
   const fileEdges: FileEdge[] = [...imports, ...synthetic];
+  const nowTs = Date.UTC(2026, 3, 17);
   const proofs = synthesizeProofs(fileEdges, files.map(f => f.id));
   const history = synthesizeHistory(fileEdges);
-  const blame = synthesizeBlame(files, Date.UTC(2026, 3, 17));
+  const blame = synthesizeBlame(files, nowTs);
   const effects = synthesizeEffects(files);
   const latency = synthesizeLatency(files);
+  const comments = synthesizeComments(files, nowTs);
 
-  return { graph: { files, fileEdges, comments: [], proofs, history, blame, effects, latency }, sources };
+  return { graph: { files, fileEdges, comments, proofs, history, blame, effects, latency }, sources };
 }
 
 const { graph: mainGraph, sources: mainSources } = build();
@@ -1372,7 +1458,12 @@ function buildAuthGraph(): WorkspaceGraph {
     weight: 1.2, severity: "high", confidence: 0.8, animated: true,
   });
 
-  return { files, fileEdges: edges, comments: [] };
+  // Auth-service comments mirror the main-graph synthesizer (same seed
+  // pool + deterministic hashes) so the joined view shows a single,
+  // coherent review conversation spanning both services.
+  const comments = synthesizeComments(files, Date.UTC(2026, 3, 17));
+
+  return { files, fileEdges: edges, comments };
 }
 
 const AUTH_GRAPH: WorkspaceGraph = buildAuthGraph();

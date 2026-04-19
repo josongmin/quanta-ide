@@ -58,6 +58,15 @@ const actions = {
         userId: curr.userId,
         updatedAt: patch.updatedAt ?? now,
       };
+      // Short-circuit no-op ticks — cursor transport emits at 20 Hz even
+      // when the cursor hasn't moved; waking every subscriber per tick is
+      // pure cost.
+      if (
+        merged.color === curr.color &&
+        merged.label === curr.label &&
+        merged.worldX === curr.worldX &&
+        merged.worldY === curr.worldY
+      ) return;
       const arr = state.cursors.slice();
       arr[idx] = merged;
       state = { cursors: arr };

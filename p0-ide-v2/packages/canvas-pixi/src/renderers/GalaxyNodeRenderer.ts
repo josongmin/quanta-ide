@@ -334,9 +334,6 @@ registerRenderer("galaxy", (parent, callbacks): RendererHandle => {
       // is a PixiStage dispatch bug — ignore rather than throw (a console
       // warn would drown the hot path; silent no-op is safest).
       if (ctx.sceneKind !== "files") return;
-      // Galaxy deliberately ignores `ctx.elevationMode` — the tier may
-      // render 5000+ files; a per-file shadow overlay would blow the
-      // instanced fast path. Elevation activates at city and finer tiers.
       // Cost overlay is cheap (a single mix per rect) and opt-in.
       inst.update(
         ctx.files,

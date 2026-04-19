@@ -14,7 +14,6 @@ export interface WorkspaceUrlState {
   showHeatmap?: boolean;
   showClusterEdges?: boolean;
   showBlameGutter?: boolean;
-  elevationMode?: boolean;
   temporal?: {
     mode: "off" | "live" | "diff";
     snapshotIndex?: number;
@@ -37,7 +36,7 @@ export interface WorkspaceUrlState {
   preset?: string;
 }
 
-const CURRENT_VERSION: 1 = 1;
+const CURRENT_VERSION = 1 as const;
 
 function toUrlSafe(b64: string): string {
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");

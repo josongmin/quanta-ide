@@ -21,8 +21,12 @@ export type HistorySourceKind = "mock" | "git";
 // key is absent (e.g. vitest) we default to `false` and stay on mock.
 // WHY: Git provider is experimental, mock is the default until an ADR
 // for dev-server-backed history lands.
+interface ImportMetaEnvQuanta {
+  env?: Record<string, string | undefined>;
+}
+
 function isGitSourceEnabled(): boolean {
-  const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
+  const env = (import.meta as ImportMetaEnvQuanta).env;
   return env?.VITE_GIT_HISTORY === "1" || env?.VITE_GIT_HISTORY === "true";
 }
 

@@ -183,6 +183,7 @@ export class EdgeStaticRenderer {
   private lastViewport: Viewport | undefined;
   private lastOpts: EdgeStaticBuildOpts | undefined;
   private hasAnimatedEdges = false;
+  private lastScannedEdges: readonly FileEdge[] | null = null;
 
   // ── Hysteresis + cache-key state ────────────────────────────────
   // The effective LOD mode we actually rendered at last build. When the
@@ -265,7 +266,12 @@ export class EdgeStaticRenderer {
     this.lastCache = cache;
     this.lastViewport = viewport;
     this.lastOpts = opts;
-    this.hasAnimatedEdges = edges.some(e => e.animated);
+    // O(E) scan: skip when the edge array reference is unchanged since the
+    // `.some()` result is a pure function of the array identity.
+    if (edges !== this.lastScannedEdges) {
+      this.lastScannedEdges = edges;
+      this.hasAnimatedEdges = edges.some(e => e.animated);
+    }
     this.redraw();
   }
 

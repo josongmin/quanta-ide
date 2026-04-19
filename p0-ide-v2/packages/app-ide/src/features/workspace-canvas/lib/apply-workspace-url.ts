@@ -81,10 +81,6 @@ export function applyWorkspaceUrlState(state: WorkspaceUrlState): void {
     renderSettingsStore.setShowBlameGutter(state.showBlameGutter);
   }
 
-  if (state.elevationMode !== undefined) {
-    renderSettingsStore.setElevationMode(state.elevationMode);
-  }
-
   if (state.temporal) {
     interactionStore.setTemporalMode(state.temporal.mode);
     if (typeof state.temporal.snapshotIndex === "number") {
@@ -135,7 +131,6 @@ export function captureWorkspaceUrlState(): WorkspaceUrlState {
     showHeatmap: ux.showHeatmap,
     showClusterEdges: render.showClusterEdges,
     showBlameGutter: render.showBlameGutter,
-    elevationMode: render.elevationMode,
     temporal: {
       mode: interaction.temporal.mode,
       snapshotIndex: interaction.temporal.snapshotIndex,
@@ -182,7 +177,6 @@ export function resetWorkspaceUrlState(): void {
   uxSettingsStore.setShowHeatmap(true);
   renderSettingsStore.setShowClusterEdges(true);
   renderSettingsStore.setShowBlameGutter(true);
-  renderSettingsStore.setElevationMode(false);
   interactionStore.setTemporalMode("off");
   interactionStore.clearPathQuery();
   interactionStore.setInspectedEvidence(null);

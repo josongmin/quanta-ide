@@ -117,3 +117,10 @@ export function isCmdShiftA(e: KeyboardEvent): boolean {
   if (!e.shiftKey) return false;
   return e.key === "a" || e.key === "A";
 }
+
+/** Pre-made predicate for Cmd+E (enter inline edit on selected card). */
+export function isCmdE(e: KeyboardEvent): boolean {
+  if (!(e.metaKey || e.ctrlKey)) return false;
+  if (e.shiftKey || e.altKey) return false;
+  return e.key === "e" || e.key === "E";
+}

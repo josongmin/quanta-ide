@@ -146,7 +146,12 @@ function CommandPaletteInner({ open, onClose, zoomToFile, fitToGraph, resetViewp
       onMouseDown={e => { if (e.target === e.currentTarget) onClose(); }}
       role="presentation"
     >
-      <div className="ws-palette" role="dialog" aria-label="Command palette">
+      <div
+        className="ws-palette"
+        role="dialog"
+        aria-label="Command palette"
+        aria-modal="true"
+      >
         <input
           ref={inputRef}
           className="ws-palette__input"

@@ -17,8 +17,15 @@ import type {
   NlToDslResult,
   PredictFutureInput,
   PredictFutureResult,
+  StreamEditChunk,
+  StreamEditInput,
 } from "./ai-service";
 import { createMockAiService } from "./mock-ai-service";
+// Optional user-facing toast surface. Import is defensive: on some builds
+// (tests, node-only contexts) the shell package may not be resolvable from
+// this slice; wrap in a try-catch at call sites so a missing dep never
+// crashes a service call.
+import { toast } from "@quanta/shell/stores/toast-store";
 
 // AnthropicAiService — drop-in AiService implementation that fires real
 // prompts against the Anthropic /v1/messages endpoint.
@@ -49,6 +56,29 @@ const DEFAULT_MODEL = "claude-sonnet-4-6";
 const DEFAULT_ENDPOINT = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TOKENS = 1024;
+// Hard upper bound on a single /v1/messages call. Anthropic's own timeout
+// is minutes-long; the UI can't wait that long (stickies cluster, tours,
+// anomaly scans all run synchronously from user clicks). 30s is long
+// enough for claude-sonnet-4-6 on normal prompts and short enough that a
+// hung request doesn't leave the user staring at a loading spinner.
+const REQUEST_TIMEOUT_MS = 30_000;
+// Guard the toast firing so a long batch of failing calls doesn't spam the
+// corner of the screen. One warning per service instance is plenty —
+// subsequent failures still log + fall back to the mock silently.
+let toastedNetworkFailure = false;
+function surfaceNetworkFailure(err: unknown): void {
+  if (toastedNetworkFailure) return;
+  toastedNetworkFailure = true;
+  const aborted = err instanceof Error && err.name === "AbortError";
+  const msg = aborted
+    ? "AI request timed out — falling back to offline mock."
+    : "AI request failed — falling back to offline mock.";
+  try {
+    toast.danger(msg);
+  } catch {
+    // toast-store may not be usable during tests / SSR — swallow.
+  }
+}
 
 interface AnthropicContentBlock {
   type?: string;
@@ -193,9 +223,22 @@ export class AnthropicAiService implements AiService {
     return parsed;
   }
 
+  // Streaming over HTTP is a separate contract (SSE) — for the current
+  // MVP we degrade to the mock streamer so the inline-edit UI path is
+  // exercised end-to-end regardless of provider. The real SSE hook-up
+  // lives behind a follow-up flag.
+  streamEdit(input: StreamEditInput): AsyncIterable<StreamEditChunk> {
+    return this.mock.streamEdit(input);
+  }
+
   // ── HTTP ───────────────────────────────────────────────────────────
 
   private async call(userPrompt: string): Promise<string | null> {
+    // AbortController + 30s timeout. Without this, a hung TCP connection
+    // (captive portal, VPN renegotiation, provider outage) leaves every
+    // downstream AI operation stuck indefinitely.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
     try {
       const res = await this.cfg.fetchImpl(this.cfg.endpoint, {
         method: "POST",
@@ -209,6 +252,7 @@ export class AnthropicAiService implements AiService {
           max_tokens: MAX_TOKENS,
           messages: [{ role: "user", content: userPrompt }],
         }),
+        signal: ctrl.signal,
       });
       if (!res.ok) {
         console.warn(
@@ -231,7 +275,10 @@ export class AnthropicAiService implements AiService {
         "[AnthropicAiService] network/parse error — falling back to mock",
         err,
       );
+      surfaceNetworkFailure(err);
       return null;
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

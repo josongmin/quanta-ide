@@ -9,7 +9,6 @@ export interface PixiDebugHook {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
   var __pixi: PixiDebugHook | undefined;
 }
 

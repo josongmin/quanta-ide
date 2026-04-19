@@ -24,7 +24,6 @@ describe("workspace-url", () => {
       showHeatmap: false,
       showClusterEdges: true,
       showBlameGutter: false,
-      elevationMode: true,
       temporal: { mode: "diff", snapshotIndex: 2, diffFrom: 0, diffTo: 3 },
       pathQuery: {
         sourceFileId: "src/a.ts",

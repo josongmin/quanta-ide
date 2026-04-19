@@ -58,12 +58,6 @@ export type RenderContext =
        */
       metrics?: WorkspaceMetrics;
       /**
-       * CodeCity-inspired fake 3D: when true, renderers map risk score to
-       * apparent elevation (drop shadow, darker trailing border, subtle
-       * scale). Defaults to false — galaxy leaves it off for perf.
-       */
-      elevationMode?: boolean;
-      /**
        * Per-file latency readings (p50/p95/p99). Present iff the graph
        * shipped with `WorkspaceGraph.latency`. City/Galaxy renderers use
        * this only when `showLatencyOverlay === true`.

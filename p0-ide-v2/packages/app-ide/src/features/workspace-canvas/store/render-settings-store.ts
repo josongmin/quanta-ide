@@ -50,7 +50,6 @@ export interface RenderSettingsState {
   showCrossGraphEdges: boolean;
   highlightCrossGraph: boolean;
 
-  elevationMode: boolean;
   showBlameGutter: boolean;
   highlightArchViolations: boolean;
 
@@ -74,7 +73,6 @@ let state: RenderSettingsState = {
   startHereTopN: 5,
   showCrossGraphEdges: true,
   highlightCrossGraph: true,
-  elevationMode: false,
   showBlameGutter: true,
   highlightArchViolations: true,
   showEffectBadges: true,
@@ -146,11 +144,6 @@ const actions = {
   setHighlightCrossGraph(v: boolean) {
     if (state.highlightCrossGraph === v) return;
     state = { ...state, highlightCrossGraph: v };
-    emit();
-  },
-  setElevationMode(v: boolean) {
-    if (state.elevationMode === v) return;
-    state = { ...state, elevationMode: v };
     emit();
   },
   setShowBlameGutter(v: boolean) {

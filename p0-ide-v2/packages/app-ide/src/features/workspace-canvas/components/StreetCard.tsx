@@ -1,7 +1,7 @@
 import { memo } from "react";
 import type { CSSProperties } from "react";
 import type { FileNode, Rect, FileEffects, FileLatency } from "@quanta/canvas-engine";
-import { elevationFromRisk, EFFECT_STYLE, latencyColor } from "@quanta/canvas-engine";
+import { EFFECT_STYLE, latencyColor } from "@quanta/canvas-engine";
 import { tone } from "@quanta/app-ide/entities/risk";
 import type { RiskTone } from "@quanta/app-ide/entities/risk";
 
@@ -9,7 +9,6 @@ interface StreetCardProps {
   file: FileNode;
   rect: Rect;
   isSelected: boolean;
-  elevationMode?: boolean;
   effects?: FileEffects;
   latency?: FileLatency;
   showEffectBadges?: boolean;
@@ -46,7 +45,7 @@ function cpxColor(cpx: number): string {
 }
 
 function StreetCardImpl({
-  file, rect, isSelected, elevationMode = false,
+  file, rect, isSelected,
   effects, latency, showEffectBadges = true, showLatencyOverlay = false,
   authorTint,
   onSelect,
@@ -65,7 +64,6 @@ function StreetCardImpl({
   //      shared layout across LODs.
   const visibleFns = file.functions;
 
-  const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
   const effectKinds = effects?.effects ?? [];
   const visibleEffects = showEffectBadges ? effectKinds.slice(0, 4) : [];
   const extraEffectCount = Math.max(0, effectKinds.length - visibleEffects.length);
@@ -81,21 +79,22 @@ function StreetCardImpl({
   } else if (latencyTint) {
     style.background = `color-mix(in srgb, ${latencyTint} 10%, #ffffff)`;
   }
-  if (elevation > 0) {
-    const ox = elevation * 0.3;
-    const oy = elevation * 0.4;
-    const blur = elevation * 0.5;
-    const sa = Math.min(0.45, elevation / 160);
-    style.boxShadow = `${ox}px ${oy}px ${blur}px rgba(0, 0, 0, ${sa})`;
-    style.transform = `scale(${1 + elevation / 1000})`;
-    style.transformOrigin = "center";
-  }
 
   return (
     <div
-      className={`street-card${isSelected ? " street-card--selected" : ""}${elevation > 0 ? " street-card--elevated" : ""}`}
+      className={`street-card${isSelected ? " street-card--selected" : ""}`}
       style={style}
+      role="button"
+      tabIndex={0}
+      aria-label={`Select file ${file.name}`}
+      aria-pressed={isSelected}
       onClick={() => { onSelect(file.id); }}
+      onKeyDown={e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(file.id);
+        }
+      }}
     >
       <div className="street-card__header">
         <span className="street-card__filename" title={file.name}>
@@ -175,7 +174,6 @@ export const StreetCard = memo(
     prev.file === next.file &&
     prev.rect === next.rect &&
     prev.isSelected === next.isSelected &&
-    prev.elevationMode === next.elevationMode &&
     prev.effects === next.effects &&
     prev.latency === next.latency &&
     prev.showEffectBadges === next.showEffectBadges &&

@@ -99,10 +99,10 @@ export function RefactorBacklogPanel() {
   const onRowClick = (id: string) => {
     const next = id === selectedFileId ? null : id;
     actionTerrainStore.selectFile(next);
-    // Mirror into canvas selection so Inspector / EvidencePanel / hover-
-    // summary stay aligned with the terrain focus. Clearing is handled by
-    // the user via Esc; row re-click only clears terrain selection.
-    if (next) interactionStore.selectFile(next);
+    // Symmetric mirror: row select → canvas select; row deselect → canvas
+    // deselect. Otherwise the Inspector/EvidencePanel keep pointing at a
+    // file the user just "unselected" in the backlog, which reads as a bug.
+    interactionStore.selectFile(next);
   };
 
   const onSimulate = (planId: string) => {

@@ -74,13 +74,17 @@ export function useCrossGraphFlash(graph: WorkspaceGraph): ReadonlySet<string> |
   const graphFlash = useInteractionStore(s => s.graphFlash);
   return useMemo<ReadonlySet<string> | undefined>(() => {
     if (!graphFlash) return undefined;
+    // Pre-index files by id so the per-edge lookup is O(1); otherwise this
+    // was O(E × F) = 50M ops at 10k edges / 5k files.
+    const fileById = new Map<string, string | undefined>();
+    for (const f of graph.files) fileById.set(f.id, f.graphId);
     const out = new Set<string>();
     for (const e of graph.fileEdges) {
       if (!e.crossGraph) continue;
       if (e.graphId === graphFlash.graphId) { out.add(e.id); continue; }
-      const fromFile = graph.files.find(f => f.id === e.from);
-      const toFile = graph.files.find(f => f.id === e.to);
-      if (fromFile?.graphId === graphFlash.graphId || toFile?.graphId === graphFlash.graphId) {
+      const fromGraphId = fileById.get(e.from);
+      const toGraphId = fileById.get(e.to);
+      if (fromGraphId === graphFlash.graphId || toGraphId === graphFlash.graphId) {
         out.add(e.id);
       }
     }

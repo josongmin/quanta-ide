@@ -154,7 +154,7 @@ export class InstancedRectMesh {
   private geometry: Geometry;
   private instanceBuffer: Buffer;
   private capacity: number;
-  private data: Float32Array;
+  private data: Float32Array | null;
 
   constructor(initialCapacity = 1024) {
     this.capacity = Math.max(16, initialCapacity);
@@ -210,7 +210,7 @@ export class InstancedRectMesh {
     // Drop the old Float32Array reference *before* allocating the new one so
     // the JS GC can reclaim it on the next sweep without being pinned by
     // this.data.
-    this.data = null as unknown as Float32Array;
+    this.data = null;
     const fresh = new Float32Array(next * FLOATS_PER_INSTANCE);
     this.data = fresh;
     // Pixi v8: setDataWithSize(value, size, syncGPU) — when `value.length` ≠
@@ -227,6 +227,7 @@ export class InstancedRectMesh {
   // Returns a writable view into the backing Float32Array starting at instance i.
   // Caller fills FLOATS_PER_INSTANCE floats in the layout documented at top.
   view(): Float32Array {
+    if (!this.data) throw new Error("InstancedRectMesh.view() called after destroy");
     return this.data;
   }
 
@@ -244,6 +245,6 @@ export class InstancedRectMesh {
     this.geometry.destroy(true);
     // Release the CPU-side backing array so a renderer destroy() doesn't
     // keep ~280 KB × N-renderers pinned waiting for the next GC pass.
-    this.data = null as unknown as Float32Array;
+    this.data = null;
   }
 }

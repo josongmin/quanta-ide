@@ -2,7 +2,6 @@ import type { WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import type { SerializedLayout, SerializedAggregates } from "@quanta/canvas-worker";
 import { deserializeLayout, deserializeAggregates, serializeLayout } from "@quanta/canvas-worker";
 import { sceneStore } from "../store/scene-store";
-import { viewportStore } from "../store/viewport-store";
 
 let worker: Worker | null = null;
 
@@ -18,15 +17,29 @@ let currentLayoutRequestId: string | null = null;
 let currentAggregatesRequestId: string | null = null;
 let currentGeometryRequestId: string | null = null;
 
+function spawnWorker(): Worker {
+  const w = new Worker(
+    new URL("../../../../../canvas-worker/src/worker.ts", import.meta.url),
+    { type: "module" },
+  );
+  w.onmessage = handleMessage;
+  w.onerror = (e) => {
+    // Hard crash (module load / uncaught throw) — the worker is now dead
+    // silicon. Flip busy flags so the LoadingOverlay stops spinning and
+    // surface a worker-error state; the next request() will respawn.
+    console.error("[canvas-worker] hard error:", e.message ?? e);
+    sceneStore.setLayoutProgress("worker-error", { error: e.message ?? "worker crashed" });
+    sceneStore.setWorkerState("workerLayout", false);
+    sceneStore.setWorkerState("workerAggregates", false);
+    sceneStore.setWorkerState("workerGeometry", false);
+    try { w.terminate(); } catch { /* already dead */ }
+    if (worker === w) worker = null;
+  };
+  return w;
+}
+
 function getWorker(): Worker {
-  if (!worker) {
-    worker = new Worker(
-      new URL("../../../../../canvas-worker/src/worker.ts", import.meta.url),
-      { type: "module" },
-    );
-    worker.onmessage = handleMessage;
-    worker.onerror = (e) => console.error("[canvas-worker]", e);
-  }
+  if (!worker) worker = spawnWorker();
   return worker;
 }
 
@@ -40,7 +53,6 @@ function handleMessage(event: MessageEvent) {
     filesCount?: number;
     elapsedMs?: number;
   };
-  console.log("[worker-bridge] recv", msg.type, "stage=", msg.stage);
   switch (msg.type) {
     case "LAYOUT_READY": {
       // Stale-request guard: if the user swapped the graph while the worker
@@ -49,7 +61,7 @@ function handleMessage(event: MessageEvent) {
       // out, so applying this payload would stomp the in-flight newer layout
       // (or crash downstream consumers if file ids no longer exist).
       if (msg.id && msg.id !== currentLayoutRequestId) {
-        console.log("[worker-bridge] stale LAYOUT_READY dropped", msg.id, "!=", currentLayoutRequestId);
+        // stale: drop silently — diagnostic only, not a user-facing error
         return;
       }
       const layout = deserializeLayout(msg.payload as SerializedLayout);
@@ -57,23 +69,12 @@ function handleMessage(event: MessageEvent) {
       sceneStore.setLayout(layout);
       sceneStore.setWorkerState("workerLayout", false);
       if (wasElk) sceneStore.setLayoutProgress("elk-done");
-      // Auto-fit viewport — only on the FIRST layout to avoid stomping user
-      // pan/zoom when ELK follows grid. The `layoutProgress` stage tells us
-      // which payload this is.
-      const progress = sceneStore.getState().layoutProgress;
-      const isFirstLayout = !wasElk && progress.stage !== "grid-ready" && progress.stage !== "elk-running";
-      if (isFirstLayout || msg.stage === "grid") {
-        const vp = viewportStore.getState().viewport;
-        const { w: graphW, h: graphH } = layout.totalBounds;
-        if (graphW > 0 && graphH > 0 && vp.width > 0 && vp.height > 0) {
-          // Bounds matched to useCanvasViewport MIN/MAX_SCALE so auto-fit can
-          // land on universe LOD for huge treemap layouts (quanta-v2 ≈ 140k×98k).
-          const scale = Math.min(2.5, Math.max(0.001, Math.min(vp.width / graphW, vp.height / graphH) * 0.9));
-          const x = (vp.width - graphW * scale) / 2;
-          const y = (vp.height - graphH * scale) / 2;
-          viewportStore.setViewport({ ...vp, x, y, scale });
-        }
-      }
+      // Auto-fit is a UI concern and lives in MultiFileCanvas's effect chain
+      // (see the `autoFitOnInitialLayout` useEffect). The worker bridge used
+      // to fit here with its own inline math, which diverged from the shared
+      // fitToGraph path (different maxScale cap) and caused ground-tier blow-ups
+      // on small graphs. Single-writer rule: only the UI layer touches the
+      // camera. This hook just publishes layout data.
       break;
     }
     case "LAYOUT_PROGRESS": {
@@ -90,7 +91,6 @@ function handleMessage(event: MessageEvent) {
       // async alongside layout; a prior graph's aggregates can land after
       // a new graph was loaded.
       if (msg.id && msg.id !== currentAggregatesRequestId) {
-        console.log("[worker-bridge] stale AGGREGATES_READY dropped", msg.id, "!=", currentAggregatesRequestId);
         return;
       }
       const aggregates = deserializeAggregates(msg.payload as SerializedAggregates);
@@ -103,7 +103,6 @@ function handleMessage(event: MessageEvent) {
     }
     case "GEOMETRY_READY": {
       if (msg.id && msg.id !== currentGeometryRequestId) {
-        console.log("[worker-bridge] stale GEOMETRY_READY dropped", msg.id, "!=", currentGeometryRequestId);
         return;
       }
       sceneStore.setWorkerState("workerGeometry", false);

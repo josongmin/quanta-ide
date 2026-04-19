@@ -236,7 +236,8 @@ export function resolveEdgeStyle(edge: {
   severity?: EdgeSeverity;
 }): EdgeStyle {
   const base: EdgeStyle = KIND_STYLE[edge.kind] ?? LAYER_STYLE[edge.layer] ?? LAYER_STYLE[deriveEdgeLayer(edge.kind)];
-  let { color, alpha, baseWidth, dash, cap, curveFactor } = base;
+  const { color, dash, cap, curveFactor } = base;
+  let { alpha, baseWidth } = base;
   if (edge.severity === "critical") {
     alpha = clamp(alpha + 0.10, 0, 1);
     baseWidth = baseWidth * 1.25;

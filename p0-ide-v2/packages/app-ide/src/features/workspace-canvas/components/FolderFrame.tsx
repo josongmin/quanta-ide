@@ -1,4 +1,4 @@
-import { memo, type CSSProperties } from "react";
+import { memo } from "react";
 import type { Rect } from "@quanta/canvas-engine";
 import { useViewportStore } from "../store/viewport-store";
 
@@ -66,13 +66,7 @@ function FolderFrameImpl({ path, rect, depth, rdepth }: Props) {
   const localX = Math.min(maxLocalX, Math.max(LABEL_NATURAL_X, minLocalX));
   const localY = Math.min(maxLocalY, Math.max(LABEL_NATURAL_Y, minLocalY));
 
-  // Skip the override entirely when clamping isn't needed — keeps the CSS
-  // default (which anchors the label to the frame's own top-left corner)
-  // in charge of styling details.
   const clamped = localX !== LABEL_NATURAL_X || localY !== LABEL_NATURAL_Y;
-  const labelStyle: CSSProperties | undefined = clamped
-    ? { left: localX, top: localY }
-    : undefined;
 
   // Frame offscreen entirely — nothing to do. Cheap bail to avoid painting
   // folders the user can't see.

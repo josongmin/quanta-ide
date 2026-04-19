@@ -135,7 +135,6 @@ export interface PixiStageProps {
 
   /** Master toggle for multi-graph gold cross-overlay. */
   highlightCrossGraph?: boolean;
-  elevationMode?: boolean;
   /** Per-file side-effect annotations — drives EffectBadgeRenderer. */
   effects?: Record<string, FileEffects>;
   /** Per-file latency — drives cost tint on city+galaxy. */
@@ -184,7 +183,6 @@ export function PixiStage({
   presence,
   actionTerrain,
   highlightCrossGraph,
-  elevationMode = false,
   effects,
   latency,
   showEffectBadges = true,
@@ -211,6 +209,12 @@ export function PixiStage({
   const worldRef = useRef<Container | null>(null);
   const nodeHandlesRef = useRef<Map<LodRendererKind, RendererHandle> | null>(null);
   const overlaysRef = useRef<RendererStack | null>(null);
+  // Tracks when the last `webglcontextlost` fired. Paired with a timer:
+  // if `webglcontextrestored` doesn't arrive within LOST_GRACE_MS we treat
+  // the GPU as permanently gone and surface an error to the parent so it
+  // can render a "reload the page" fallback. Browsers that recover quickly
+  // (memory-pressure eviction, tab-restore) never trip the escalation.
+  const contextLostAtRef = useRef<number | null>(null);
   const [pixiReady, setPixiReady] = useState(false);
 
   // Latest-callback refs so the init effect can use stable deps ([]).
@@ -483,7 +487,6 @@ export function PixiStage({
           viewState,
           viewport,
           metrics: layout.metrics,
-          elevationMode,
           latency,
           showLatencyOverlay,
         };
@@ -502,7 +505,7 @@ export function PixiStage({
       if (kind !== tier.rendererKind) handle.clear();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId, elevationMode, latency, showLatencyOverlay]);
+  }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId, latency, showLatencyOverlay]);
 
   // ── Overlay stack dispatch ──────────────────────────────────────
   // Single effect drives every overlay registered in `overlay-registry.ts`.

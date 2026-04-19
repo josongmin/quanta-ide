@@ -5,13 +5,17 @@ export function runAggregateTask(graph: WorkspaceGraph): LodAggregateCache {
   const commentsByFile = new Map<string, number>();
   const commentedLines = new Map<string, Set<number>>();
 
+  // Index files by id so the function-bucket lookup is O(1) per comment.
+  // Prior code ran graph.files.find(...) per comment → O(C × F) = 1.5M ops
+  // at 5k files / 300 comments.
+  const fileById = new Map<string, WorkspaceGraph["files"][number]>();
+  for (const f of graph.files) fileById.set(f.id, f);
+
   for (const comment of graph.comments) {
     if (comment.resolved) continue;
 
-    // commentsByFile
     commentsByFile.set(comment.fileId, (commentsByFile.get(comment.fileId) ?? 0) + 1);
 
-    // commentedLines
     let lineSet = commentedLines.get(comment.fileId);
     if (!lineSet) {
       lineSet = new Set();
@@ -19,8 +23,7 @@ export function runAggregateTask(graph: WorkspaceGraph): LodAggregateCache {
     }
     lineSet.add(comment.line);
 
-    // commentsByFunction: find which function this line belongs to
-    const file = graph.files.find(f => f.id === comment.fileId);
+    const file = fileById.get(comment.fileId);
     if (file) {
       for (const fn of file.functions) {
         if (comment.line >= fn.startLine && comment.line <= fn.endLine) {

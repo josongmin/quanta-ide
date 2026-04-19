@@ -138,7 +138,6 @@ export function SceneSection() {
   const startHereTopN = useRenderSettings(s => s.startHereTopN);
   const showClusterEdges = useRenderSettings(s => s.showClusterEdges);
   const showAgentPresence = useRenderSettings(s => s.showAgentPresence);
-  const elevationMode = useRenderSettings(s => s.elevationMode);
   const showEffectBadges = useRenderSettings(s => s.showEffectBadges);
   const showLatencyOverlay = useRenderSettings(s => s.showLatencyOverlay);
   const pathQuery = useInteractionStore(s => s.pathQuery);
@@ -363,12 +362,6 @@ export function SceneSection() {
         label="미니맵 히트맵"
         checked={showHeatmap}
         onChange={v => uxSettingsStore.setShowHeatmap(v)}
-      />
-      <ToggleRow
-        label="고도 모드 (3D)"
-        checked={elevationMode}
-        onChange={v => renderSettingsStore.setElevationMode(v)}
-        hint="risk 점수로 카드 띄우기"
       />
       <ToggleRow
         label="블레임 거터"

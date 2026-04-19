@@ -80,13 +80,18 @@ function subscribe(listener: () => void): () => void {
  * Returns true iff the feature is flag-enabled AND every hard dependency
  * is also enabled. Callers should use this as the single gate.
  */
-function isEnabled(id: string): boolean {
+function isEnabled(id: string, seen?: Set<string>): boolean {
   const desc = FEATURE_BY_ID.get(id);
   if (!desc) return false;
   if (state.flags[id] === false) return false;
   if (desc.dependsOn) {
+    // Cycle guard — a malformed registry entry (A dependsOn B dependsOn A)
+    // would otherwise recurse infinitely and overflow the stack.
+    const visited = seen ?? new Set<string>();
+    if (visited.has(id)) return true;
+    visited.add(id);
     for (const dep of desc.dependsOn) {
-      if (!isEnabled(dep)) return false;
+      if (!isEnabled(dep, visited)) return false;
     }
   }
   return true;

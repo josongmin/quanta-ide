@@ -135,7 +135,19 @@ export function useMeasureMode(graph: WorkspaceGraph | null): UseMeasureModeOutp
       return;
     }
     const onDown = (e: KeyboardEvent) => {
-      if (e.key === "m" || e.key === "M") mHeldRef.current = true;
+      // Skip M-arming when focus is in an editable target — typing "m" in a
+      // search box / sticky / annotation text field must not silently engage
+      // measure mode.
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const editable =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        tag === "SELECT" ||
+        target?.isContentEditable === true;
+      if (e.key === "m" || e.key === "M") {
+        if (!editable) mHeldRef.current = true;
+      }
       if (e.key === "Escape" && phase !== "none") reset();
     };
     const onUp = (e: KeyboardEvent) => {

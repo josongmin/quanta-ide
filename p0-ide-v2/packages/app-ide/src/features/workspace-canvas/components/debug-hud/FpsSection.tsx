@@ -66,14 +66,15 @@ function computeStats(ring: FrameRing): FrameStats {
 function readPixiStats(): { drawCalls: number | null; mem: PixiMem } {
   const hook = getPixiDebugHook();
   const r = hook?.app?.renderer;
-  const drawCalls = typeof r?.statistics?.drawCalls === "number"
-    ? r.statistics!.drawCalls!
-    : null;
+  const rawDrawCalls = r?.statistics?.drawCalls;
+  const drawCalls = typeof rawDrawCalls === "number" ? rawDrawCalls : null;
   // Pixi v8 doesn't expose batch counters on the public renderer surface —
   // we probe optional internals and fall back to null so the UI shows "—".
+  const managedTextures = r?.texture?.managedTextures;
+  const managedBuffers = r?.buffer?.managedBuffers;
   const mem: PixiMem = {
-    textures: Array.isArray(r?.texture?.managedTextures) ? r!.texture!.managedTextures!.length : null,
-    buffers: Array.isArray(r?.buffer?.managedBuffers) ? r!.buffer!.managedBuffers!.length : null,
+    textures: Array.isArray(managedTextures) ? managedTextures.length : null,
+    buffers: Array.isArray(managedBuffers) ? managedBuffers.length : null,
     batches: null,
   };
   return { drawCalls, mem };

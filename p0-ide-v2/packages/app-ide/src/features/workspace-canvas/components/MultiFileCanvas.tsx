@@ -4,7 +4,7 @@ import { EdgeGeometryCache, createEdgePickIndex } from "@quanta/canvas-engine";
 import type { EdgePickIndex, WorkspaceGraph } from "@quanta/canvas-engine";
 import { PixiStage } from "@quanta/canvas-pixi";
 import { useWorkspaceCanvasOrchestrator } from "../hooks/use-workspace-canvas";
-import { useCanvasViewport } from "../hooks/use-canvas-viewport";
+import { useCanvasViewport, INITIAL_FIT_MAX_SCALE } from "../hooks/use-canvas-viewport";
 import { useCanvasInteractions } from "../hooks/use-canvas-interactions";
 import {
   useModifierKeyTracking,
@@ -12,8 +12,12 @@ import {
   isCmdK,
   isCmdShiftT,
   isCmdShiftA,
+  isCmdE,
   type GlobalKeybind,
 } from "../hooks/use-keyboard-shortcuts";
+import { inlineEditorStore, useInlineEditorStore } from "../store/inline-editor-store";
+import { sceneStore } from "../store/scene-store";
+import { EditModeHint } from "./inline-editor/EditModeHint";
 import { useSmoothCamera } from "../hooks/use-smooth-camera";
 import { useUrlStateSync } from "../hooks/use-url-state-sync";
 import { useEdgeFocusLogic } from "../hooks/use-edge-focus-logic";
@@ -127,7 +131,6 @@ export function MultiFileCanvas({ graph }: Props) {
   const showCrossGraphEdges = useRenderSettings(s => s.showCrossGraphEdges);
   const highlightCrossGraph = useRenderSettings(s => s.highlightCrossGraph);
   const showAgentPresence = useRenderSettings(s => s.showAgentPresence);
-  const elevationMode     = useRenderSettings(s => s.elevationMode);
   const showEffectBadges  = useRenderSettings(s => s.showEffectBadges);
   const showLatencyOverlay = useRenderSettings(s => s.showLatencyOverlay);
   const agentPresence     = usePresenceStore(s => s.agents);
@@ -245,6 +248,21 @@ export function MultiFileCanvas({ graph }: Props) {
     if (domLayerRef.current) domLayerRef.current.style.transform = transform;
   }, [transform]);
 
+  // Inline-edit: when a new fileId enters edit mode, glide the camera to
+  // fit that card so the editor shows at a legible scale. Runs whether
+  // edit was triggered by double-click on the card, Cmd+E from the
+  // canvas, or a future command-palette entry point.
+  const editingFileId = useInlineEditorStore(s => s.editingFileId);
+  const prevEditingRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prev = prevEditingRef.current;
+    prevEditingRef.current = editingFileId;
+    if (!editingFileId || editingFileId === prev) return;
+    const rect = layout?.fileRects.get(editingFileId);
+    if (!rect) return;
+    smoothCamera.fitRect(rect, 0.85);
+  }, [editingFileId, layout, smoothCamera]);
+
   // Toggle master edges — reads from the store at click time so we don't
   // need `showEdges` in deps (keeps the ref stable for CanvasControls).
   const toggleEdges = useCallback(() => {
@@ -311,6 +329,21 @@ export function MultiFileCanvas({ graph }: Props) {
         actionTerrainStore.toggleMode();
       },
     },
+    {
+      label: "Edit selected card inline",
+      match: isCmdE,
+      fireInEditable: false,
+      handler: () => {
+        const selectedId = interactionStore.getState().viewState.selectedFileId;
+        if (!selectedId) return;
+        const source = sceneStore.getState().groundData[selectedId]?.source;
+        if (typeof source !== "string") return;
+        inlineEditorStore.beginEdit(selectedId, source);
+        // Zoom-to-card is handled by a dedicated effect that watches
+        // `editingFileId` — works whether edit was triggered by Cmd+E
+        // or by double-clicking the card.
+      },
+    },
   ]), []);
   useGlobalKeybinds(keybinds);
 
@@ -332,13 +365,19 @@ export function MultiFileCanvas({ graph }: Props) {
     edgePickIndexRef.current.build(edges, layout);
   }, [layout, visibleScene?.edges]);
 
-  // ResizeObserver — also triggers initial fit if layout arrived while the
-  // container was still 0×0 (worker is fast). `fittedRef` resets on graph
-  // swap so a new repo's layout gets a fresh fit.
+  // Track whether we've already auto-fit this graph. Reset on graph swap
+  // (layout → null → new layout) so a new repo's first layout always fits.
+  // Split from the fit trigger itself so RO callbacks don't fight the
+  // useEffect that watches layout + container size.
   const fittedRef = useRef(false);
   useEffect(() => {
     if (!layout) fittedRef.current = false;
   }, [layout]);
+
+  // ResizeObserver owns only the container-size write-through to the
+  // viewport store. Fit is triggered by the dedicated effect below — keeping
+  // these responsibilities split avoids the RO+layout dependency race that
+  // used to skip fits when layout arrived while the container was 0×0.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -346,14 +385,24 @@ export function MultiFileCanvas({ graph }: Props) {
       const r = entries[0]?.contentRect;
       if (!r) return;
       setContainerSize(r.width, r.height);
-      if (!fittedRef.current && layout && r.width > 0 && r.height > 0) {
-        fittedRef.current = true;
-        fitToGraph(layout.totalBounds.w, layout.totalBounds.h);
-      }
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [setContainerSize, fitToGraph, layout]);
+  }, [setContainerSize]);
+
+  // Single source of truth for initial auto-fit: fires exactly once per
+  // graph, as soon as BOTH the layout and a non-zero container size are
+  // available — whichever arrives last. Replaces the old split (ResizeObserver
+  // path + worker bridge inline fit) that duplicated the math and diverged on
+  // the scale cap. INITIAL_FIT_MAX_SCALE keeps first paint off the ground tier.
+  useEffect(() => {
+    if (fittedRef.current) return;
+    if (!layout) return;
+    if (viewport.width <= 0 || viewport.height <= 0) return;
+    if (layout.totalBounds.w <= 0 || layout.totalBounds.h <= 0) return;
+    fittedRef.current = true;
+    fitToGraph(layout.totalBounds.w, layout.totalBounds.h, INITIAL_FIT_MAX_SCALE);
+  }, [layout, viewport.width, viewport.height, fitToGraph]);
 
   useEffect(() => {
     // Install the transport↔store bridge once — idempotent across remounts.
@@ -411,6 +460,7 @@ export function MultiFileCanvas({ graph }: Props) {
       ref={containerRef}
       className="workspace-canvas"
       data-action-terrain={actionTerrainMode ? "on" : "off"}
+      data-inline-editing={editingFileId ? "on" : "off"}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
@@ -457,7 +507,6 @@ export function MultiFileCanvas({ graph }: Props) {
           presence={{ agentPresence, showAgentPresence }}
           actionTerrain={actionTerrainProps}
           highlightCrossGraph={highlightCrossGraph}
-          elevationMode={elevationMode}
           effects={graph.effects}
           latency={graph.latency}
           showEffectBadges={showEffectBadges}
@@ -500,7 +549,6 @@ export function MultiFileCanvas({ graph }: Props) {
                 file={file}
                 rect={rect}
                 isSelected={isSelected}
-                elevationMode={elevationMode}
                 effects={fileEffects}
                 latency={fileLatency}
                 showEffectBadges={showEffectBadges}
@@ -579,6 +627,7 @@ export function MultiFileCanvas({ graph }: Props) {
       <ActionTerrainLayer />
       <ActionTerrainToggle />
       <RefactorBacklogPanel />
+      <EditModeHint />
     </div>
   );
 }

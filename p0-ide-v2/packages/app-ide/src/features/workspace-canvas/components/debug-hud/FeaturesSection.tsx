@@ -25,11 +25,10 @@ const CATEGORY_LABEL: Record<FeatureCategory, string> = {
   navigation: "탐색",
   power: "파워 도구",
   embeds: "임베드",
-  overlay: "오버레이",
   ai: "AI",
   temporal: "시간 흐름",
+  archaeology: "아키올로지",
   actionTerrain: "액션 지형",
-  experimental: "실험적 기능",
 };
 
 const CATEGORY_ORDER: readonly FeatureCategory[] = [
@@ -40,11 +39,10 @@ const CATEGORY_ORDER: readonly FeatureCategory[] = [
   "navigation",
   "power",
   "embeds",
-  "overlay",
   "ai",
   "temporal",
+  "archaeology",
   "actionTerrain",
-  "experimental",
 ];
 
 const MATURITY_COLOR = {

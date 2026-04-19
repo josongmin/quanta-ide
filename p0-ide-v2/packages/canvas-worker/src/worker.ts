@@ -4,7 +4,7 @@ import {
   deserializeLayout,
   serializeAggregates,
 } from "./messages";
-import { runLayoutTask, TREEMAP_THRESHOLD } from "./layout-task";
+import { runLayoutTask } from "./layout-task";
 import { runAggregateTask } from "./aggregate-task";
 import { runGeometryTask } from "./geometry-task";
 
@@ -16,7 +16,6 @@ import { runGeometryTask } from "./geometry-task";
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data;
-  console.log("[worker] recv", req.type, "id=", (req as { id?: string }).id);
   try {
     switch (req.type) {
       case "BUILD_LAYOUT": {
@@ -47,13 +46,6 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           filesCount: graph.files.length,
           elapsedMs: Date.now() - t0,
         } satisfies WorkerResponse);
-        console.log("[worker] BUILD_LAYOUT done", {
-          files: graph.files.length,
-          ms: Date.now() - t0,
-          layout: graph.files.length > TREEMAP_THRESHOLD ? "treemap" : "grid",
-          aspect: layout.totalBounds.w / Math.max(1, layout.totalBounds.h),
-          clusters: layout.clusters?.length ?? 0,
-        });
         break;
       }
 

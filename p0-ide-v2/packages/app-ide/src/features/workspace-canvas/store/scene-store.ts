@@ -155,6 +155,7 @@ const actions = {
   },
 
   setLayout(layout: WorkspaceLayout) {
+    if (state.layout === layout) return;
     state = { ...state, layout };
     emit();
   },
@@ -185,16 +186,19 @@ const actions = {
   },
 
   setVisibleScene(scene: WorkspaceView) {
+    if (state.visibleScene === scene && state.clusterScene === null && state.superclusterScene === null) return;
     state = { ...state, visibleScene: scene, clusterScene: null, superclusterScene: null };
     emit();
   },
 
   setClusterScene(scene: WorkspaceClusterView) {
+    if (state.clusterScene === scene && state.visibleScene === null && state.superclusterScene === null) return;
     state = { ...state, clusterScene: scene, visibleScene: null, superclusterScene: null };
     emit();
   },
 
   setSuperclusterScene(scene: WorkspaceSuperclusterView) {
+    if (state.superclusterScene === scene && state.visibleScene === null && state.clusterScene === null) return;
     state = { ...state, superclusterScene: scene, visibleScene: null, clusterScene: null };
     emit();
   },
@@ -242,6 +246,7 @@ const actions = {
   },
 
   setWorkerState(key: "workerLayout" | "workerAggregates" | "workerGeometry", val: boolean) {
+    if (state[key] === val) return;
     state = { ...state, [key]: val };
     emit();
   },

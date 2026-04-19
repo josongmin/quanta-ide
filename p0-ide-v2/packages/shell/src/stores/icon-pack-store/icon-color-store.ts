@@ -20,9 +20,33 @@ export const ICON_COLOR_OPTIONS: IconColorOption[] = [
 const STORAGE_KEY = "p0-ide-v2:icon-color";
 const DEFAULT_ID = "default";
 
+// Safari private mode — see icon-pack-store for background. Every touch of
+// `window.localStorage` is wrapped so a thrown `SecurityError` silently
+// drops us into in-memory-only mode instead of crashing shell bootstrap.
+function safeGet(key: string): string | null {
+  try {
+    if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+      return null;
+    }
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSet(key: string, value: string): void {
+  try {
+    if (typeof window === "undefined" || typeof window.localStorage === "undefined") {
+      return;
+    }
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Private-mode quota / SecurityError — keep running in memory.
+  }
+}
+
 function loadInitial(): string {
-  if (typeof window === "undefined") return DEFAULT_ID;
-  const saved = window.localStorage.getItem(STORAGE_KEY);
+  const saved = safeGet(STORAGE_KEY);
   if (saved && ICON_COLOR_OPTIONS.some((o) => o.id === saved)) return saved;
   return DEFAULT_ID;
 }
@@ -42,9 +66,7 @@ export const iconColorStore = {
     if (id === current) return;
     if (!ICON_COLOR_OPTIONS.some((o) => o.id === id)) return;
     current = id;
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, id);
-    }
+    safeSet(STORAGE_KEY, id);
     for (const l of listeners) l();
   },
 };

@@ -37,6 +37,14 @@ function subscribe(listener: () => void): () => void {
 
 const actions = {
   setViewport(viewport: Viewport) {
+    const cur = state.viewport;
+    if (
+      cur.x === viewport.x &&
+      cur.y === viewport.y &&
+      cur.scale === viewport.scale &&
+      cur.width === viewport.width &&
+      cur.height === viewport.height
+    ) return;
     state = { viewport };
     emit();
   },

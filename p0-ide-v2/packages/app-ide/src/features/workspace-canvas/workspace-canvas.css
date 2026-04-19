@@ -86,39 +86,6 @@
   pointer-events: auto;
 }
 
-/* ── File card (Galaxy / City placeholder) ──────────────────────── */
-.file-card {
-  position: absolute;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-  cursor: pointer;
-  transition: box-shadow 80ms ease;
-}
-
-.file-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
-
-.file-card__header {
-  padding: 8px 10px 6px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--fg-muted);
-  border-bottom: 1px solid var(--border);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.file-card__body {
-  padding: 8px 10px;
-  font-size: 10px;
-  color: var(--fg-subtle);
-}
-
 /* ── Grid dot background (moves with pan) ──────────────────────── */
 .workspace-canvas__grid {
   position: absolute;
@@ -256,14 +223,6 @@
   box-shadow: 0 0 0 1.5px var(--ws-selection-accent), 0 0 0 4px rgba(var(--ws-selection-accent-rgb), 0.12);
 }
 
-.street-card--elevated {
-  z-index: 2;
-  transition: box-shadow 120ms ease, transform 120ms ease;
-}
-.street-card--elevated.street-card--selected {
-  z-index: 3;
-}
-
 .street-card__header {
   height: 32px;
   min-height: 32px;
@@ -364,14 +323,6 @@
 
 .ground-card--selected {
   box-shadow: 0 0 0 1.5px var(--ws-selection-accent), 0 0 0 4px rgba(var(--ws-selection-accent-rgb), 0.12);
-}
-
-.ground-card--elevated {
-  z-index: 2;
-  transition: box-shadow 120ms ease, transform 120ms ease;
-}
-.ground-card--elevated.ground-card--selected {
-  z-index: 3;
 }
 
 .ground-card__header {
@@ -1190,14 +1141,6 @@
 .ws-sticky--blue   { background: var(--ws-sticky-blue); }
 .ws-sticky--lilac  { background: var(--ws-sticky-lilac); }
 
-.ws-sticky--active {
-  box-shadow:
-    0 0 0 2px var(--ws-selection-accent),
-    0 4px 10px rgba(0, 0, 0, 0.16),
-    0 10px 24px rgba(0, 0, 0, 0.18);
-  transform: translateZ(0) scale(1.015);
-}
-
 .ws-sticky--resolved {
   opacity: 0.6;
 }
@@ -1303,8 +1246,7 @@
   transition: opacity 120ms ease;
   pointer-events: none;
 }
-.ws-sticky:hover .ws-sticky__colorpicker,
-.ws-sticky--active .ws-sticky__colorpicker {
+.ws-sticky:hover .ws-sticky__colorpicker {
   opacity: 1;
   pointer-events: auto;
 }
@@ -2348,11 +2290,6 @@
   flex-wrap: wrap;
   gap: 4px;
 }
-.ws-inspector__toast {
-  margin-top: 6px;
-  font-size: 10.5px;
-  color: var(--ws-hud-accent);
-}
 
 /* ── Hover AI summary popover (.ws-hover-summary*) ──────────────── */
 .ws-hover-summary {
@@ -2436,19 +2373,6 @@
 .ws-export__item:hover {
   background: rgba(125, 211, 252, 0.12);
   color: var(--ws-hud-accent);
-}
-.ws-export__toast {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  background: rgba(15, 23, 42, 0.96);
-  color: var(--ws-hud-accent);
-  border: 1px solid rgba(125, 211, 252, 0.28);
-  border-radius: 4px;
-  font-size: 10.5px;
-  padding: 3px 8px;
-  white-space: nowrap;
-  pointer-events: none;
 }
 
 /* ── Measure overlay (.ws-measure*) ─────────────────────────────── */
@@ -3447,12 +3371,6 @@
   font-size: 10px;
   color: var(--ws-hud-fg-muted);
 }
-.ws-templates__toast {
-  margin-top: 4px;
-  font-size: 10px;
-  color: var(--ws-hud-accent);
-  padding: 4px 6px;
-}
 
 /* Bookmarks drawer */
 .ws-bookmarks {
@@ -3820,21 +3738,6 @@
     linear-gradient(135deg, transparent 6px, rgba(15, 23, 42, 0.35) 6px 8px, transparent 8px);
 }
 
-.ws-image-toast {
-  position: absolute;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  z-index: 70;
-  padding: 8px 14px;
-  border-radius: 6px;
-  background: var(--ws-hud-bg);
-  color: var(--ws-hud-fg);
-  font-size: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  pointer-events: none;
-}
-
 /* ── Ticket cards (embeds.tickets) ───────────────────────────────── */
 .workspace-canvas__tickets-layer {
   position: absolute;
@@ -3980,14 +3883,13 @@
   padding: 8px 10px;
   background: #ffffff;
   border: 1px solid rgba(15, 23, 42, 0.12);
-  border-left: 3px solid #4a154b; /* Slack purple accent */
   border-radius: 4px;
   font: 11px system-ui, sans-serif;
   color: #1f2937;
   cursor: pointer;
   text-align: left;
 }
-.ws-slack:hover { border-color: var(--ws-selection-accent); border-left-color: #4a154b; }
+.ws-slack:hover { border-color: var(--ws-selection-accent); }
 
 .ws-slack__head {
   display: flex;
@@ -4031,24 +3933,6 @@
    Action Terrain — isometric refactor-ROI mode
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Selected card gets a prominent outline in action-terrain mode — the
-   outline drives which file the blast/fix cone points at, so it must
-   read clearly against the iso bars behind.
-   NOTE: an earlier version dimmed the whole dom-layer via `opacity: 0.6`
-   to let iso bars dominate. That created a nasty side effect — because
-   `opacity` makes the card's own background translucent, the graph
-   edges drawn on the Pixi canvas underneath bled THROUGH the cards,
-   crossing over the code text. The fix is twofold: (1) keep cards fully
-   opaque here, and (2) suppress flat graph edges while action-terrain
-   is on (done in MultiFileCanvas where `effectiveShowEdges` is derived).
-   With edges hidden there is nothing left to "bleed through", so the
-   card dim is no longer needed. */
-.workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer .ws-card--selected,
-.workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer .ws-card.is-selected {
-  outline: 2px solid var(--ws-selection-accent);
-  outline-offset: 2px;
-}
-
 /* Floating toggle — sits above the minimap (which occupies bottom 12-122)
    so there's no overlap. Also clears storyboard, which is bottom-centre. */
 .ws-action-terrain-toggle-wrap {
@@ -4058,7 +3942,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  z-index: 5;
+  z-index: 8;
   pointer-events: auto;
 }
 .ws-action-terrain-toggle {
@@ -4126,7 +4010,7 @@
   color: var(--ws-hud-fg);
   font-size: 12px;
   overflow-y: auto;
-  z-index: 5;
+  z-index: 8;
   pointer-events: auto;
   display: flex;
   flex-direction: column;
@@ -4536,22 +4420,6 @@
 .ws-graph-empty__hint {
   color: var(--ws-hud-fg-soft);
 }
-.ws-graph-empty__btn {
-  background: var(--ws-selection-accent);
-  border: none;
-  color: #fff;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 11px;
-  cursor: pointer;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.ws-graph-empty__btn:hover { filter: brightness(1.08); }
-.ws-graph-empty__btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* ── Folder Frame (grouped-folders visual wrapper) ────────────────
    Pure overlay rendered behind GroundCards so readers can see which
@@ -4608,3 +4476,38 @@
   padding: 3px 14px;
   letter-spacing: 0.015em;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Accessibility — WCAG 2.3.3 "Animation from Interactions"
+   ═══════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  /* Kill non-essential motion globally. Honors OS/browser settings for
+     users with vestibular disorders. Structural transitions (panel open,
+     modal in) drop to instant; decorative pulses/shimmers stop. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .ws-follow__pulse,
+  .ws-anomaly__badge,
+  .ws-loading__bar {
+    animation: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Accessibility — keyboard focus visibility
+   ═══════════════════════════════════════════════════════════════════ */
+
+.workspace-canvas :focus-visible,
+.workspace-canvas-root :focus-visible {
+  outline: 2px solid var(--ws-selection-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+

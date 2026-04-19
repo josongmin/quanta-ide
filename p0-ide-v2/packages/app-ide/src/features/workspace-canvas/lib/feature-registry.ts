@@ -40,18 +40,17 @@
 //      `FEATURE_PRESETS` in `feature-presets.ts`
 
 export type FeatureCategory =
-  | "collab"      // multi-user presence, cursors, follow, comments, reactions
-  | "annotation"  // drawing tools, frames, connectors, shapes
-  | "devmode"     // right-sidebar inspector, export, copy-as, hover summary
-  | "review"      // voting, estimation poker, timer, retrospective boards
-  | "navigation"  // pages, bookmarks, storyboard, templates (Figma-style nav)
-  | "power"       // command palette, lasso, smooth camera, zoom lens, theme switcher
-  | "embeds"      // rich-media canvas embeds (image paste, tickets, PR, slack)
-  | "overlay"     // existing visual overlays (kept as features for consistency)
-  | "ai"          // AI-assisted helpers (summaries, clustering, tour)
-  | "temporal"    // time-travel surfaces: film strip, dual split, blame time travel, DSL ops, AI hunt/replay/bisect
-  | "actionTerrain" // isometric refactor-ROI mode: leverage topography, blast/fix cones, before/after sim
-  | "experimental"; // unproven / gated
+  | "collab"
+  | "annotation"
+  | "devmode"
+  | "review"
+  | "navigation"
+  | "power"
+  | "embeds"
+  | "ai"
+  | "temporal"
+  | "archaeology"
+  | "actionTerrain";
 
 export type FeatureMaturity = "stable" | "beta" | "experimental";
 
@@ -533,7 +532,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   // ── Archaeology (T3) ─────────────────────────────────────────────
   {
     id: "archaeology.panel",
-    category: "temporal",
+    category: "archaeology",
     label: "Archaeology HUD panel",
     description: "Collapsible debug-HUD section surfacing drift findings, cycle genesis, smell genesis, and debt trajectory in one place.",
     defaultEnabled: false,
@@ -542,7 +541,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "archaeology.driftDetector",
-    category: "temporal",
+    category: "archaeology",
     label: "Architectural drift detector",
     description: "Compare two snapshots and surface layer escalations, fanout spikes, new cycle members, and ownership shifts.",
     defaultEnabled: false,
@@ -551,7 +550,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "archaeology.cycleGenesis",
-    category: "temporal",
+    category: "archaeology",
     label: "Cycle genesis lookup",
     description: "For any active SCC, identify the commit and edge that first closed the cycle.",
     defaultEnabled: false,
@@ -560,7 +559,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "archaeology.symbolFirstAppearance",
-    category: "temporal",
+    category: "archaeology",
     label: "Symbol first appearance",
     description: "Walk history to find the earliest commit that introduced a given symbol at a file.",
     defaultEnabled: false,
@@ -569,7 +568,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "archaeology.smellGenesis",
-    category: "temporal",
+    category: "archaeology",
     label: "Smell genesis",
     description: "Locate the first commit where a file exhibits a code smell (high coupling, cycle member, risk spike, layer violation).",
     defaultEnabled: false,
@@ -578,7 +577,7 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   },
   {
     id: "archaeology.debtTrajectory",
-    category: "temporal",
+    category: "archaeology",
     label: "Debt trajectory chart",
     description: "Timeseries of SCC count, arch violations, and complexity across recorded history — click a point to jump.",
     defaultEnabled: false,

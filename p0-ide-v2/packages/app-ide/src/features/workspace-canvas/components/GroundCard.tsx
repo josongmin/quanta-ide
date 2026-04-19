@@ -1,19 +1,24 @@
-import { memo, useMemo } from "react";
+import { memo, useCallback, useMemo } from "react";
 import type { CSSProperties } from "react";
 import type { FileNode, Rect, FileBlame, BlameStripe, FileEffects, FileLatency } from "@quanta/canvas-engine";
-import { elevationFromRisk, stripesFromBlame, EFFECT_STYLE, latencyColor } from "@quanta/canvas-engine";
+import { stripesFromBlame, EFFECT_STYLE, latencyColor } from "@quanta/canvas-engine";
 import { useGroundData } from "../hooks/use-ground-data";
 import { useSceneStore } from "../store/scene-store";
 import { useRenderSettings } from "../store/render-settings-store";
 import { useInteractionStore } from "../store/interaction-store";
 import { useFeature } from "../store/feature-flags-store";
 import { langFromFilename, tokenizeSource } from "../lib/code-highlight";
+import {
+  inlineEditorStore,
+  useInlineEditorStore,
+} from "../store/inline-editor-store";
+import { useEditRippleStore } from "../store/edit-ripple-store";
+import { InlineCodeEditor } from "./inline-editor/InlineCodeEditor";
 
 interface GroundCardProps {
   file: FileNode;
   rect: Rect;
   isSelected: boolean;
-  elevationMode?: boolean;
   effects?: FileEffects;
   latency?: FileLatency;
   showEffectBadges?: boolean;
@@ -40,7 +45,7 @@ function formatAge(ms: number): string {
 }
 
 function GroundCardImpl({
-  file, rect, isSelected, elevationMode = false,
+  file, rect, isSelected,
   effects, latency, showEffectBadges = true, showLatencyOverlay = false,
   authorTint,
   onSelect,
@@ -88,20 +93,37 @@ function GroundCardImpl({
     return tokenizeSource(data.source, lang);
   }, [data?.source, file.name]);
 
-  const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
+  // Inline-edit mode — owned by inlineEditorStore so multiple UI surfaces
+  // (canvas keybind, card dbl-click, command palette) can enter/exit
+  // through the same source of truth.
+  const isEditing = useInlineEditorStore(s => s.editingFileId === file.id);
+  const isDirty = useInlineEditorStore(s => !!s.dirtyByFileId[file.id]);
+
+  // Multi-file edit ripple — when an AI edit on a neighbour lands, this
+  // card briefly pulses so the user sees the change propagate across
+  // the graph. Selector intentionally lean: one boolean read + set lookup.
+  const isRippling = useEditRippleStore(s => s.affectedFileIds.has(file.id));
+  const isRippleSource = useEditRippleStore(s => s.sourceFileId === file.id);
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!data?.source) return;
+    e.stopPropagation();
+    inlineEditorStore.beginEdit(file.id, data.source);
+  }, [data?.source, file.id]);
+
+  const handleExitEdit = useCallback(() => {
+    inlineEditorStore.endEdit();
+  }, []);
+
   const effectKinds = effects?.effects ?? [];
   const visibleEffects = showEffectBadges ? effectKinds.slice(0, 5) : [];
   const extraEffectCount = Math.max(0, effectKinds.length - visibleEffects.length);
   const latencyTint = showLatencyOverlay && latency
     ? hexFromInt(latencyColor(latency.p95))
     : null;
-  // Use `minHeight` (not `height`): `rect.h` is computed by the layout pass
-  // and is authoritative for layout planning, but the user has asked for the
-  // full source to be visible even when it overflows the allocated height.
-  // Making the rect height a *minimum* lets the card grow vertically with its
-  // content; horizontal scroll inside `.ground-card__source` keeps long lines
-  // from widening the card. When the layout tier later sizes cards from real
-  // line counts, the two converge and `minHeight` becomes a no-op.
+  // `minHeight` not `height` so a card grows if its source out-measures
+  // `rect.h`; with layout constants matching the CSS line-height this is
+  // usually a no-op, but leaves a safety valve for rendering drift.
   const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, minHeight: rect.h };
   // Author / latency tints blend toward white (not `var(--bg)`) so cards
   // stay crisp even when a tint is active — previous 24% / 18% blends
@@ -111,24 +133,29 @@ function GroundCardImpl({
   } else if (latencyTint) {
     style.background = `color-mix(in srgb, ${latencyTint} 8%, #ffffff)`;
   }
-  if (elevation > 0) {
-    const ox = elevation * 0.3;
-    const oy = elevation * 0.4;
-    const blur = elevation * 0.5;
-    const sa = Math.min(0.45, elevation / 160);
-    style.boxShadow = `${ox}px ${oy}px ${blur}px rgba(0, 0, 0, ${sa})`;
-    style.transform = `scale(${1 + elevation / 1000})`;
-    style.transformOrigin = "center";
-  }
 
   return (
     <div
-      className={`ground-card${isSelected ? " ground-card--selected" : ""}${elevation > 0 ? " ground-card--elevated" : ""}`}
+      className={`ground-card${isSelected ? " ground-card--selected" : ""}${isEditing ? " ground-card--editing" : ""}${isRippling ? " ground-card--rippling" : ""}${isRippleSource ? " ground-card--ripple-source" : ""}`}
       style={style}
+      role="button"
+      tabIndex={0}
+      aria-label={`Select file ${file.name}`}
+      aria-pressed={isSelected}
       onClick={() => { onSelect(file.id); }}
+      onDoubleClick={handleDoubleClick}
+      onKeyDown={e => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect(file.id);
+        }
+      }}
     >
       <div className="ground-card__header">
-        <span className="ground-card__filename">{file.name}</span>
+        <span className="ground-card__filename">
+          {file.name}
+          {isDirty && <span className="ground-card__dirty-dot" title="Unsaved changes" />}
+        </span>
         <span className="ground-card__loc">
           {latency && (
             <span
@@ -166,7 +193,7 @@ function GroundCardImpl({
       )}
 
       <div className="ground-card__body">
-        {stripes.length > 0 && effectiveBlame && (
+        {stripes.length > 0 && effectiveBlame && !isEditing && (
           <BlameGutter stripes={stripes} lineCount={effectiveBlame.lineCount} entries={effectiveBlame} />
         )}
         {loading && (
@@ -175,7 +202,15 @@ function GroundCardImpl({
         {!loading && !data?.source && (
           <div className="ground-card__placeholder">—</div>
         )}
-        {!loading && data?.source && (
+        {!loading && data?.source && isEditing && (
+          <InlineCodeEditor
+            fileId={file.id}
+            initialSource={data.source}
+            filename={file.name}
+            onExit={handleExitEdit}
+          />
+        )}
+        {!loading && data?.source && !isEditing && (
           <pre className="ground-card__source">
             {highlightedLines
               ? highlightedLines.map((line, i) => (
@@ -248,7 +283,6 @@ export const GroundCard = memo(
     prev.file === next.file &&
     prev.rect === next.rect &&
     prev.isSelected === next.isSelected &&
-    prev.elevationMode === next.elevationMode &&
     prev.effects === next.effects &&
     prev.latency === next.latency &&
     prev.showEffectBadges === next.showEffectBadges &&

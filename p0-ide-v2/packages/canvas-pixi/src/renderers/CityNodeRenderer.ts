@@ -1,6 +1,6 @@
 import { BitmapText, Container, Graphics, FederatedPointerEvent } from "pixi.js";
 import type { FileNode, WorkspaceLayout, ViewState, Viewport, FileLatency, Rect } from "@quanta/canvas-engine";
-import { elevationFromRisk, latencyColor, mixHex } from "@quanta/canvas-engine";
+import { latencyColor, mixHex } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, CITY_MONO_FONT_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
@@ -137,7 +137,6 @@ interface FileLabelSnapshot {
 export class CityNodeRenderer {
   private container: Container;
   private rectMesh: InstancedRectMesh;           // card bgs + function blocks
-  private shadowLayer: Graphics;                 // elevation drop shadows (pre-mesh pass)
   private labelContainer: Container;             // holds BitmapText children
   private hitLayer: Graphics;
   private pickIndex: SpatialPickIndex;
@@ -162,14 +161,6 @@ export class CityNodeRenderer {
   // of pushing a fresh object literal per file per frame.
   private pickRectsCapacity = 0;
 
-  // Rolling hash of (id, elevation, card geometry) for the last frame's
-  // elevated set. Shadow layer only needs re-painting when the hash or the
-  // elevated-file count changes — pan/zoom leaves both invariant because
-  // card rects are world-space and the parent Container handles the view
-  // transform.
-  private lastShadowHash = 0;
-  private lastShadowCount = 0;
-
   private onClickFile?: (fileId: string) => void;
   private onHoverFile?: (fileId: string | null) => void;
 
@@ -187,7 +178,6 @@ export class CityNodeRenderer {
 
     this.container = new Container();
     this.rectMesh = new InstancedRectMesh(4096); // 5000 files × ~5 rects worst case
-    this.shadowLayer = new Graphics();
     this.labelContainer = new Container();
     this.hitLayer = new Graphics();
     this.pickIndex = new SpatialPickIndex();
@@ -195,11 +185,7 @@ export class CityNodeRenderer {
     this.onClickFile = opts?.onClick;
     this.onHoverFile = opts?.onHover;
 
-    // Z-order: shadows → rects → labels → hit layer. The shadow layer is
-    // a single Graphics the elevation pass paints offset rects into —
-    // ~one rect per elevated file, drawn *before* the instanced mesh so
-    // the card body visually sits atop its own shadow.
-    this.container.addChild(this.shadowLayer);
+    // Z-order: rects → labels → hit layer.
     this.container.addChild(this.rectMesh.mesh);
     this.container.addChild(this.labelContainer);
 
@@ -293,7 +279,6 @@ export class CityNodeRenderer {
     layout: WorkspaceLayout,
     viewState: ViewState,
     viewport: Viewport,
-    elevationMode = false,
     latency?: Record<string, FileLatency>,
     showLatencyOverlay = false,
   ): void {
@@ -329,32 +314,14 @@ export class CityNodeRenderer {
       maxY: -Infinity,
     };
 
-    // Accumulate a rolling hash over elevated cards. If the hash and count
-    // match last frame's, we can skip the whole shadow-pass (clear + N
-    // roundRect() calls) because the previous Graphics still reflects the
-    // same scene — pan/zoom is handled at the Container level.
-    let shadowHash = 0;
-    let shadowCount = 0;
-
     for (const file of files) {
       const rect = layout.fileRects.get(file.id);
       if (!rect) continue;
 
       const instance = this.resolveInstance(file, viewState, latency, showLatencyOverlay);
-      const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
-      const card = this.computeCardRect(rect, elevation);
+      const card = rect;
 
-      if (elevation > 0) {
-        // Bitwise-OR-with-zero coerces to i32, keeping the hash numeric
-        // (no intermediate strings). Collision risk is irrelevant — a
-        // false-negative only costs one wasted shadow redraw.
-        shadowHash = (shadowHash * 31 + ((card.x | 0) ^ ((card.y | 0) << 1))) | 0;
-        shadowHash = (shadowHash * 31 + ((card.w | 0) ^ ((card.h | 0) << 1))) | 0;
-        shadowHash = (shadowHash * 31 + (elevation | 0)) | 0;
-        shadowCount++;
-      }
-
-      this.updateCardShell(frame, card, instance, elevation);
+      this.updateCardShell(frame, card, instance);
       this.updateHeader(frame, file, card, instance);
       this.updateFunctionBlocks(frame, file, card);
       this.updateFooter(frame, file, card);
@@ -378,23 +345,6 @@ export class CityNodeRenderer {
     // invisible to SpatialPickIndex.load. Next frame we'll overwrite them
     // if the visible set grows again.
     this.pickRects.length = pickCount;
-
-    // Re-paint shadow layer only when elevated-card set has changed.
-    if (shadowHash !== this.lastShadowHash || shadowCount !== this.lastShadowCount) {
-      this.shadowLayer.clear();
-      if (elevationMode && shadowCount > 0) {
-        for (const file of files) {
-          const rect = layout.fileRects.get(file.id);
-          if (!rect) continue;
-          const elevation = elevationFromRisk(file.riskScore);
-          if (elevation <= 0) continue;
-          const card = this.computeCardRect(rect, elevation);
-          this.updateShadow(card, elevation);
-        }
-      }
-      this.lastShadowHash = shadowHash;
-      this.lastShadowCount = shadowCount;
-    }
 
     this.hitLayer.clear();
     if (pickCount > 0) {
@@ -525,7 +475,6 @@ export class CityNodeRenderer {
       }
     }
     const isSelected = viewState.selectedFileId === file.id;
-    const isHovered = viewState.hoveredFileId === file.id;
     return {
       fillColor,
       borderColor,
@@ -536,33 +485,10 @@ export class CityNodeRenderer {
     };
   }
 
-  private computeCardRect(rect: Rect, elevation: number): Rect {
-    const scaleK = 1 + elevation / 1000;
-    const w = rect.w * scaleK;
-    const h = rect.h * scaleK;
-    return {
-      x: rect.x - (w - rect.w) * 0.5,
-      y: rect.y - (h - rect.h) * 0.5,
-      w,
-      h,
-    };
-  }
-
-  private updateShadow(card: Rect, elevation: number): void {
-    if (elevation <= 0) return;
-    const sx = card.x + elevation * 0.3;
-    const sy = card.y + elevation * 0.4;
-    const sa = Math.min(0.45, elevation / 160);
-    this.shadowLayer
-      .roundRect(sx, sy, card.w, card.h, 6)
-      .fill({ color: 0x000000, alpha: sa });
-  }
-
   private updateCardShell(
     frame: FrameCtx,
     card: Rect,
     instance: InstanceStyle,
-    elevation: number,
   ): void {
     const { data } = frame;
     const bw = instance.isSelected ? frame.invScale * 2 : frame.invScale;
@@ -572,9 +498,7 @@ export class CityNodeRenderer {
     data[o + 2] = card.w;
     data[o + 3] = card.h;
     unpackHexInto(instance.fillColor, data, o + 4, instance.fillAlpha);
-    const tintK = Math.min(0.5, elevation / 160);
-    const bColor = tintK > 0 ? mixHex(instance.selBorder, 0x000000, tintK) : instance.selBorder;
-    unpackHexInto(bColor, data, o + 8, instance.borderAlpha);
+    unpackHexInto(instance.selBorder, data, o + 8, instance.borderAlpha);
     data[o + 12] = bw;
     data[o + 13] = 6;
     frame.ri++;
@@ -709,7 +633,6 @@ export class CityNodeRenderer {
   clear(): void {
     this.rectMesh.setInstanceCount(0);
     this.hitLayer.clear();
-    this.shadowLayer.clear();
     this.pickRects.length = 0;
     this.pickRectsCapacity = 0;
     this.pickIndex.clear();
@@ -718,8 +641,6 @@ export class CityNodeRenderer {
     // scratch — the scene genuinely regenerated, per-file snapshots from a
     // previous tier may no longer reflect what's about to be drawn.
     this.labelCache.clear();
-    this.lastShadowHash = 0;
-    this.lastShadowCount = 0;
   }
 
   destroy(): void {
@@ -746,7 +667,6 @@ registerRenderer("city", (parent, callbacks): RendererHandle => {
         ctx.layout,
         ctx.viewState,
         ctx.viewport,
-        ctx.elevationMode ?? false,
         ctx.latency,
         ctx.showLatencyOverlay ?? false,
       );

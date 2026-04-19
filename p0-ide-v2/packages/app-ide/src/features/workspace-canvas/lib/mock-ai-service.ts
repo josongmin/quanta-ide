@@ -26,6 +26,8 @@ import type {
   PredictFutureResult,
   RegressionCandidate,
   StickyCluster,
+  StreamEditChunk,
+  StreamEditInput,
   TourStep,
 } from "./ai-service";
 
@@ -883,6 +885,103 @@ async function narrateCommit(input: NarrateCommitInput): Promise<NarrateCommitRe
   return { summary, highlights };
 }
 
+// ── streamEdit (inline Cmd+K-style edit) ─────────────────────────────
+//
+// Deterministic, local mock. Picks a template based on prompt keywords
+// and "streams" it token-by-token so the inline-diff UI exercises the
+// same async-iterator path a real model would drive. Each chunk is 1-3
+// words with a small jitter (16-36 ms) so the typewriter feels organic
+// without dragging the UX.
+
+const EDIT_CHUNK_MIN_MS = 16;
+const EDIT_CHUNK_MAX_MS = 36;
+
+interface EditTemplate {
+  match: (p: string) => boolean;
+  /** Given the current selection text, return the whole replacement.
+   *  Chunking is handled by the caller. */
+  build: (selection: string, prompt: string) => string;
+}
+
+const EDIT_TEMPLATES: readonly EditTemplate[] = [
+  {
+    match: p => /(rename|변경|바꿔)/i.test(p),
+    build: (sel, prompt) => {
+      const m = /(?:to|→|->|로)\s*['"`]?([A-Za-z_][\w$]*)['"`]?/.exec(prompt);
+      const target = m?.[1] ?? "renamed";
+      return sel.replace(/\b[a-zA-Z_][\w$]*\b/g, (ident) =>
+        ident.length > 2 && /^[a-z]/.test(ident) ? target : ident,
+      );
+    },
+  },
+  {
+    match: p => /(extract|추출|함수로)/i.test(p),
+    build: (sel) => {
+      const lines = sel.trimEnd().split("\n");
+      const body = lines.map(l => "    " + l).join("\n");
+      return `// extracted — ${lines.length} line${lines.length === 1 ? "" : "s"}\nconst result = (() => {\n${body}\n})();`;
+    },
+  },
+  {
+    match: p => /(comment|주석|explain|설명)/i.test(p),
+    build: (sel) => {
+      const lines = sel.split("\n");
+      return lines.map(l => (l.trim().length > 0 ? `// ${l}` : l)).join("\n");
+    },
+  },
+  {
+    match: p => /(type|typed|typescript|타입)/i.test(p),
+    build: (sel) => {
+      return sel.replace(/\bfunction\s+([a-zA-Z_][\w$]*)\s*\(([^)]*)\)/g,
+        (_m, name: string, args: string) => {
+          const typed = args
+            .split(",")
+            .map(a => a.trim())
+            .filter(a => a.length > 0)
+            .map(a => (a.includes(":") ? a : `${a}: unknown`))
+            .join(", ");
+          return `function ${name}(${typed}): unknown`;
+        });
+    },
+  },
+  {
+    match: () => true,
+    build: (sel, prompt) => {
+      const label = prompt.trim().length > 0 ? prompt.trim() : "refactor";
+      const lines = sel.split("\n");
+      return lines
+        .map((l, i) => (i === 0 ? `// ${label}\n${l}` : l))
+        .join("\n");
+    },
+  },
+];
+
+function tokenizeForStream(text: string): string[] {
+  // Preserve whitespace as its own chunks so the rendered output
+  // reflects formatting as soon as each word arrives.
+  const parts = text.split(/(\s+)/);
+  return parts.filter(p => p.length > 0);
+}
+
+async function* streamEdit(input: StreamEditInput): AsyncIterable<StreamEditChunk> {
+  const { doc, selFrom, selTo, prompt } = input;
+  const selection = doc.slice(selFrom, selTo);
+  const template = EDIT_TEMPLATES.find(t => t.match(prompt)) ?? EDIT_TEMPLATES[EDIT_TEMPLATES.length - 1];
+  const full = template.build(selection, prompt);
+
+  const tokens = tokenizeForStream(full);
+  // Small opening latency so the "streaming" indicator flashes — mirrors
+  // real model first-token latency within a tolerable range.
+  await wait(120);
+  for (let i = 0; i < tokens.length; i++) {
+    yield { delta: tokens[i] };
+    if (i < tokens.length - 1) {
+      const jitter = EDIT_CHUNK_MIN_MS + Math.floor(Math.random() * (EDIT_CHUNK_MAX_MS - EDIT_CHUNK_MIN_MS));
+      await wait(jitter);
+    }
+  }
+}
+
 /**
  * Factory — every consumer of AiService should resolve through this (or
  * a sibling real factory) so the contract stays the only coupling point
@@ -897,6 +996,7 @@ export function createMockAiService(): AiService {
     attributeRegression,
     predictFuture,
     narrateCommit,
+    streamEdit,
   };
 }
 

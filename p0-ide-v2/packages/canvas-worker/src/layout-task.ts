@@ -60,10 +60,10 @@ async function elkLayout(
   gridFallback: WorkspaceLayout,
   pinnedNodes?: Record<string, { x: number; y: number; w: number; h: number }>,
 ): Promise<WorkspaceLayout> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ELK = ((await import("elkjs/lib/elk.bundled.js")) as any).default as new () => {
-    layout(graph: unknown): Promise<unknown>;
+  const elkModule = (await import("elkjs/lib/elk.bundled.js")) as {
+    default: new () => { layout(graph: unknown): Promise<unknown> };
   };
+  const ELK = elkModule.default;
 
   const elk = new ELK();
 

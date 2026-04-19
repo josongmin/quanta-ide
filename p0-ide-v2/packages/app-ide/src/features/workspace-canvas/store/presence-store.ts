@@ -40,6 +40,7 @@ function subscribe(listener: () => void): () => void {
 
 const actions = {
   setAgents(list: readonly AgentPresence[]) {
+    if (list === state.agents) return;
     state = { ...state, agents: list };
     emit();
   },
