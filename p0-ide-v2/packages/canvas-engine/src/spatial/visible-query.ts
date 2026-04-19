@@ -33,6 +33,29 @@ interface SpatialCache {
    *  each `buildVisibleQuery` call. Grows in place via
    *  `ensureBitsetCapacity`; never shrinks. */
   visibleFileBitset: Uint8Array;
+  /**
+   * Last-frame output memoization. rbush returns items in a deterministic
+   * post-order for a given rect, so when the user holds the viewport still
+   * (ticker-driven redraws, paused pan, or a pan tick that moved too
+   * little to cross a spatial boundary), the incoming rbush `fileItems` /
+   * `edgeItems` carry the SAME id sequence as the previous frame. The
+   * orchestrator currently re-builds two 3000-entry id arrays and then
+   * dedupes those at the call site — ~6400 entries allocated + discarded
+   * per held-still frame on a 3000-edge scene.
+   *
+   * With these fields we short-circuit INSIDE the query: compare rbush
+   * ids ordered-equal to the cached ids, and when they match return the
+   * cached `WorkspaceView` by reference. Downstream (orchestrator's
+   * ordered id-array compare + EdgeStaticRenderer's bundle-cache identity
+   * check) then trivially hits its own cache, so the whole pipeline
+   * degenerates to ~0 allocations on a static viewport.
+   *
+   * Populated after the first successful query; invalidated by a cache
+   * rebuild (graph swap — the whole SpatialCache is replaced).
+   */
+  lastFileIds: string[] | null;
+  lastEdgeIds: string[] | null;
+  lastResult: WorkspaceView | null;
 }
 
 // WeakMap: auto-invalidates when layout object is GC'd
@@ -70,6 +93,9 @@ function getSpatialCache(graph: WorkspaceGraph, layout: WorkspaceLayout): Spatia
     // Sized to the current file count so the first frame avoids a
     // subsequent grow. Contents are zero by default (Uint8Array spec).
     visibleFileBitset: new Uint8Array(graph.files.length),
+    lastFileIds: null,
+    lastEdgeIds: null,
+    lastResult: null,
   };
   spatialCache.set(layout, entry);
   return entry;
@@ -178,6 +204,37 @@ export function buildVisibleQuery(
   //   - explicit for-loops with pre-sized output arrays (no .filter chains)
 
   const fileItems = fileIndex.queryItems(canvasRect);
+  const edgeItems = edgeFilter.queryItems(canvasRect);
+
+  // Fast-path — when rbush returns the same id sequence as the previous
+  // call we can return the cached WorkspaceView by reference and skip
+  // the hydration pass entirely. Ordered compare against the stashed id
+  // arrays from the last successful build; rbush's post-order is stable
+  // for a given rect, so a content-identical result always produces a
+  // position-equal id sequence.
+  //
+  // The comparison cost is 2 × O(visible) string compares (JS interns
+  // string refs, so these are ~pointer compares in practice). On a 3000-
+  // edge scene that's ~3200 compares ≈ a few µs — far cheaper than
+  // allocating `new Array(3000)` + hydrating + running the comments loop,
+  // which together were the bulk of this function's per-pan cost.
+  if (cache.lastFileIds && cache.lastEdgeIds && cache.lastResult) {
+    const lfi = cache.lastFileIds;
+    const lei = cache.lastEdgeIds;
+    if (fileItems.length === lfi.length && edgeItems.length === lei.length) {
+      let same = true;
+      for (let i = 0; i < fileItems.length; i++) {
+        if (fileItems[i].fileId !== lfi[i]) { same = false; break; }
+      }
+      if (same) {
+        for (let i = 0; i < edgeItems.length; i++) {
+          if (edgeItems[i].edgeId !== lei[i]) { same = false; break; }
+        }
+      }
+      if (same) return cache.lastResult;
+    }
+  }
+
   const files: FileNode[] = new Array(fileItems.length);
   // Keep a parallel fill-count because Map.get may miss if the graph and
   // layout go out of sync mid-frame — we compact into the exact length
@@ -197,8 +254,23 @@ export function buildVisibleQuery(
   // previous, bigger graph.
   bitset.fill(0, 0, graph.files.length);
 
+  // Reuse the cached id arrays if their capacity matches — keeps the
+  // common-case allocation footprint at zero on frames where the id
+  // sequence changes but the length doesn't (e.g. a pan tick swapping
+  // one edge in / one out). `length = 0 + push` vs `new Array(n)` is
+  // about the same cost; the savings come from avoiding a 3000-slot
+  // `new Array` on frames where the previous buffer is already right-
+  // sized.
+  const fileIds: string[] = cache.lastFileIds && cache.lastFileIds.length === fileItems.length
+    ? cache.lastFileIds
+    : new Array(fileItems.length);
+  const edgeIds: string[] = cache.lastEdgeIds && cache.lastEdgeIds.length === edgeItems.length
+    ? cache.lastEdgeIds
+    : new Array(edgeItems.length);
+
   for (let i = 0; i < fileItems.length; i++) {
     const id = fileItems[i].fileId;
+    fileIds[i] = id;
     const node = fileById.get(id);
     if (!node) continue; // graph/layout mismatch (rare; swap in flight)
     files[fileWriteIdx++] = node;
@@ -207,11 +279,12 @@ export function buildVisibleQuery(
   }
   if (fileWriteIdx !== files.length) files.length = fileWriteIdx;
 
-  const edgeItems = edgeFilter.queryItems(canvasRect);
   const edges: FileEdge[] = new Array(edgeItems.length);
   let edgeWriteIdx = 0;
   for (let i = 0; i < edgeItems.length; i++) {
-    const edge = edgeById.get(edgeItems[i].edgeId);
+    const id = edgeItems[i].edgeId;
+    edgeIds[i] = id;
+    const edge = edgeById.get(id);
     if (!edge) continue;
     edges[edgeWriteIdx++] = edge;
   }
@@ -230,7 +303,14 @@ export function buildVisibleQuery(
     if (idx !== undefined && bitset[idx] === 1) comments.push(c);
   }
 
-  return { kind: "files", files, edges, comments };
+  const result: WorkspaceView = { kind: "files", files, edges, comments };
+  // Commit cache. We deliberately keep the id arrays by reference (not
+  // copies) — they're derived from this frame's rbush output and
+  // won't be mutated by anyone.
+  cache.lastFileIds = fileIds;
+  cache.lastEdgeIds = edgeIds;
+  cache.lastResult = result;
+  return result;
 }
 
 /**

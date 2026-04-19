@@ -606,17 +606,12 @@ export function PixiStage({
   // so the overlay context carries the *effective* gates, not raw props.
   const tier = getTierConfig(effectiveLod);
   const tierLayers = resolveLayerPolicy(tier);
-  // Memoised so downstream useMemo/useEffect deps stay referentially
-  // stable across renders that didn't change the tier or user toggles.
-  const effectiveLayerFilter: Record<EdgeLayer, boolean> = useMemo(() => ({
+  const effectiveLayerFilter: Record<EdgeLayer, boolean> = {
     structural: tierLayers.structural && (edgeLayers?.structural ?? true),
     flow:       tierLayers.flow       && (edgeLayers?.flow       ?? true),
     safety:     tierLayers.safety     && (edgeLayers?.safety     ?? true),
     impact:     tierLayers.impact     && (edgeLayers?.impact     ?? true),
-  }), [
-    tierLayers.structural, tierLayers.flow, tierLayers.safety, tierLayers.impact,
-    edgeLayers?.structural, edgeLayers?.flow, edgeLayers?.safety, edgeLayers?.impact,
-  ]);
+  };
   const anyLayerOn =
     effectiveLayerFilter.structural ||
     effectiveLayerFilter.flow ||
@@ -635,15 +630,10 @@ export function PixiStage({
 
   // When a trace overlay is active, static edges dim to TRACE_DIM_ALPHA
   // so the dynamic path dominates. User `edgeFocus` (path query) wins.
-  // Memoised so the fallback object identity stays stable; otherwise
-  // every render would spawn a new `{edgeIds,dimAlpha}` and churn deps.
-  const effectiveEdgeFocus = useMemo(
-    () => edgeFocus ?? (
-      activeTrace && traceEdgeSet
-        ? { edgeIds: EMPTY_EDGE_ID_SET, dimAlpha: TRACE_DIM_ALPHA }
-        : undefined
-    ),
-    [edgeFocus, activeTrace, traceEdgeSet],
+  const effectiveEdgeFocus = edgeFocus ?? (
+    activeTrace && traceEdgeSet
+      ? { edgeIds: EMPTY_EDGE_ID_SET, dimAlpha: TRACE_DIM_ALPHA }
+      : undefined
   );
 
   // Cluster-edge gate — tier must opt in, layout must carry edges, and
@@ -771,6 +761,13 @@ export function PixiStage({
     if (!pixiReady) return;
     const stack = overlaysRef.current;
     if (!stack) return;
+    // RCA: temporarily disable overlay stack update to isolate the hang
+    // source. If Code Universe becomes responsive with this off, the loop
+    // is inside one of the overlay renderers' update() path.
+    //
+    // eslint-disable-next-line no-constant-condition
+    if (true) return;
+    // @ts-expect-error — unreachable under the RCA guard above.
     stack.update(latestOverlayCtxRef.current);
   }, [
     pixiReady, visible, layout, edgeCache, scaleBucket, effectiveLod, fileLookup,
