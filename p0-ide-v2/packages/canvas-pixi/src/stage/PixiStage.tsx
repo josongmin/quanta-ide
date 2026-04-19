@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Application, Container, Ticker } from "pixi.js";
 import {
   markDirty,
@@ -298,6 +298,36 @@ export function PixiStage({
   const contextLostAtRef = useRef<number | null>(null);
   const [pixiReady, setPixiReady] = useState(false);
 
+  // Multi-source ticker pause registry.
+  // ---------------------------------------------------------------
+  // Several orthogonal signals can want the Pixi ticker stopped:
+  //   • "document-hidden" — browser-level `visibilitychange` when the
+  //     user tabs away from the browser window entirely.
+  //   • "tab-inactive"   — the shell-level `active` prop when the user
+  //     switches to a sibling workspace tab (which stays mounted under
+  //     `display:none`, so `visibilitychange` does not fire).
+  //   • "context-lost"   — WebGL context was lost; ticker must not run
+  //     until the rebuild completes.
+  //
+  // Before refcounting, two of these wrote `app.ticker.start/stop()`
+  // directly. If both paused and one released, the release could
+  // (un)pause even though the other reason was still live — e.g. the
+  // user returning to the browser window while the workspace tab is
+  // still inactive would incorrectly resume the ticker. Refcounted
+  // pause turns it into a conjunction: the ticker runs iff the set is
+  // empty. Each source owns its own reason id and is responsible for
+  // setting/clearing that id idempotently.
+  const tickerPauseSourcesRef = useRef<Set<string>>(new Set());
+  const setTickerPause = useCallback((reason: string, paused: boolean) => {
+    const set = tickerPauseSourcesRef.current;
+    if (paused) set.add(reason);
+    else set.delete(reason);
+    const app = appRef.current;
+    if (!app) return;
+    if (set.size > 0) app.ticker.stop();
+    else app.ticker.start();
+  }, []);
+
   // Latest-callback refs so the init effect can use stable deps ([]).
   // Without this, a new arrow on every render would re-init Pixi.
   const onFileClickRef = useRef(onFileClick);
@@ -336,7 +366,10 @@ export function PixiStage({
     let contextLostEscalation: ReturnType<typeof setTimeout> | null = null;
     const handleContextLost = () => {
       setPixiReady(false);
-      appRef.current?.ticker.stop();
+      // Route through the pause registry so a later release by a sibling
+      // source (e.g. visibilitychange going "visible") can't accidentally
+      // restart the ticker before context-restore actually finishes.
+      setTickerPause("context-lost", true);
       contextLostAtRef.current = Date.now();
       // Escalate to the parent if restore doesn't fire within the grace
       // window — a permanently-lost context means the canvas stays blank,
@@ -379,7 +412,10 @@ export function PixiStage({
           .then(bundle => {
             initInFlight.delete(canvas);
             applyBundle(bundle);
-            bundle.app.ticker.start();
+            // Release the context-lost pause. If any other source
+            // (e.g. `active` is still false) still holds a reason,
+            // the registry keeps the ticker stopped.
+            setTickerPause("context-lost", false);
           })
           .catch(err => {
             console.error("[PixiStage] context-restore rebuild failed", err);
@@ -477,13 +513,11 @@ export function PixiStage({
         });
     }
 
-    // Backgrounded tabs burn GPU and invite GL context loss — pause the
-    // ticker on hide, resume on show.
+    // Browser-tab-visibility pause source. Only toggles its own reason
+    // in the registry — sibling sources (e.g. shell tab inactive) keep
+    // the ticker stopped even if the browser tab comes back to focus.
     const handleVisibility = () => {
-      const app = appRef.current;
-      if (!app) return;
-      if (document.hidden) app.ticker.stop();
-      else app.ticker.start();
+      setTickerPause("document-hidden", document.hidden);
     };
     document.addEventListener("visibilitychange", handleVisibility);
 
@@ -536,25 +570,23 @@ export function PixiStage({
     world.scale.set(viewport.scale);
   }, [pixiReady, viewport]);
 
-  // ── Tab-visibility ticker gate ──────────────────────────────────
+  // ── Shell-tab ticker pause source ────────────────────────────────
   // The shell keeps inactive tabs mounted under `display:none`, which
   // means neither unmount nor the browser-level `visibilitychange`
-  // event fires when the user switches tabs inside the app. Without
-  // this gate every mounted canvas keeps driving its ticker — for
-  // renderers that subscribe to Ticker.shared (e.g. EdgeStaticRenderer's
-  // animated-dash loop) that's 60Hz of wasted CPU + GPU per hidden tab.
+  // fires when the user switches tabs inside the app. Without this
+  // every mounted canvas keeps driving its ticker — for renderers that
+  // subscribe to Ticker.shared (e.g. EdgeStaticRenderer's animated-dash
+  // loop) that's 60Hz of wasted CPU + GPU per hidden tab.
   //
-  // The `active` prop is supplied by the owning workspace component
-  // (MultiFileCanvas) from its own `isActive` shell prop. Browser-level
-  // visibility is handled separately a few blocks up — the two are
-  // additive: the ticker runs only when both agree.
+  // Written through the registry instead of calling
+  // `app.ticker.start/stop()` directly so this source composes
+  // correctly with the document-hidden + context-lost sources. The
+  // ticker runs iff EVERY pause source is released — see the
+  // `tickerPauseSourcesRef` comment above.
   useEffect(() => {
     if (!pixiReady) return;
-    const app = appRef.current;
-    if (!app) return;
-    if (active) app.ticker.start();
-    else app.ticker.stop();
-  }, [pixiReady, active]);
+    setTickerPause("tab-inactive", !active);
+  }, [pixiReady, active, setTickerPause]);
 
   // Bucketed scale avoids thrash on tiny zoom ticks.
   const scaleBucket = Math.round(viewport.scale * 20) / 20;
