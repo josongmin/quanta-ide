@@ -459,9 +459,9 @@ export class EdgeStaticRenderer {
     // no conditional guard. Results flushed into `edgeStaticPerfStats`
     // at the very end of redraw().
     const tStart = performance.now();
-    let tBundle = tStart;
-    let tMain = tStart;
-    let tDiffRemoved = tStart;
+    // Aggregated timestamps so lint's prefer-const / no-useless-assignment
+    // don't trip on the pair of "declare + late assign" patterns below.
+    const t = { bundle: 0, main: 0, diffRemoved: 0 };
 
     const edges = this.lastEdges;
     const layout = this.lastLayout;
@@ -658,7 +658,7 @@ export class EdgeStaticRenderer {
     // Bundling / budget / cache-key resolution all happen above this
     // line. Stamp the bundle-phase checkpoint here so downstream we can
     // measure the main loop separately.
-    tBundle = performance.now();
+    t.bundle = performance.now();
 
     this.gfx.clear();
     // Mesh path: reset the per-frame instance counter + pre-size the
@@ -1010,7 +1010,7 @@ export class EdgeStaticRenderer {
 
     // Main-loop checkpoint — captured before the diff-removed ghost
     // pass so the recorder can attribute time to the right phase.
-    tMain = performance.now();
+    t.main = performance.now();
 
     // Diff mode — ghost pass for "removed between A and B" edges. These may
     // include edges excluded from the live set above; we paint them here so
@@ -1062,7 +1062,7 @@ export class EdgeStaticRenderer {
     }
 
     // Diff-removed checkpoint before the mesh commit phase.
-    tDiffRemoved = performance.now();
+    t.diffRemoved = performance.now();
 
     // Commit the mesh instance buffer. When the flag is off this is a no-op
     // (instanceCount stays 0, mesh emits no draw call).
@@ -1083,10 +1083,10 @@ export class EdgeStaticRenderer {
     // cheap and always-on — `performance.now()` is sub-µs on modern
     // browsers and the assignments below are a handful of fields.
     const tEnd = performance.now();
-    edgeStaticPerfStats.bundleMs = tBundle - tStart;
-    edgeStaticPerfStats.mainLoopMs = tMain - tBundle;
-    edgeStaticPerfStats.diffRemovedMs = tDiffRemoved - tMain;
-    edgeStaticPerfStats.commitMs = tEnd - tDiffRemoved;
+    edgeStaticPerfStats.bundleMs = t.bundle - tStart;
+    edgeStaticPerfStats.mainLoopMs = t.main - t.bundle;
+    edgeStaticPerfStats.diffRemovedMs = t.diffRemoved - t.main;
+    edgeStaticPerfStats.commitMs = tEnd - t.diffRemoved;
     edgeStaticPerfStats.totalMs = tEnd - tStart;
     edgeStaticPerfStats.drawnEdges = drawn;
     edgeStaticPerfStats.redrawCount++;
@@ -1428,18 +1428,6 @@ const ANCHOR_SCRATCH: AnchorScratch = {
   cp1x: 0, cp1y: 0,
   cp2x: 0, cp2y: 0,
 };
-// Helper kept exported (internal use by future consumers that need to
-// read the side flag from a scratch struct). Currently unreferenced in
-// the renderer hot loop because the centre-mode path — the only galaxy-
-// tier code path — doesn't need a side distinction, and the line/side
-// modes consume the anchor inside computeAnchors itself.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function anchorSide(v: 0 | 1): "left" | "right" {
-  return v === 0 ? "left" : "right";
-}
-// Force usage so TS2305 stays green without deleting a legitimate
-// primitive that will be needed when we refactor line/side modes next.
-void anchorSide;
 
 // Deterministic per-kind arc direction so "cycle" always bows up and
 // "taint" always bows down (or vice versa) even between the same pair
