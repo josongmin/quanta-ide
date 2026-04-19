@@ -72,9 +72,6 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   useWorkspaceCanvasOrchestrator(graph);
   useUrlStateSync();
   useAnomalyDetectionRun();
-  const hebPaths = useHebPaths();
-  useUrlStateSync();
-  useAnomalyDetectionRun();
   // HEB path precompute — writes to sceneStore.hebPaths at galaxy-tier
   // LODs and returns a Map<edgeId, Float32Array> view for the renderer.
   // When EdgeStaticRenderer's HEB flag is off (default), the renderer
@@ -379,9 +376,23 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
       edgePickIndexRef.current.clear();
       return;
     }
-    const edges = visibleScene?.edges ?? [];
-    edgePickIndexRef.current.build(edges, layout);
-  }, [layout, visibleScene?.edges]);
+    // Build the edge-pick index from the FULL graph (not the visible
+    // slice). Previously this used `visibleScene?.edges`, which forced
+    // a full rebuild on every pan-tick where the scene emit fired —
+    // 3000 edges × 16 bezier samples = 48k point writes + 3 fresh
+    // Float32Array allocations per rebuild, multiple times per second
+    // under sustained pan.
+    //
+    // Switching to `graph.fileEdges` means the index rebuilds exactly
+    // once per (graph, layout) pair. `pickAt` still uses the
+    // `maxWorldPx` distance filter, so off-screen edges don't produce
+    // false hits — they just sit in the point buffer costing memory
+    // (10k edges × 16 samples × 4 bytes × 3 typed arrays ≈ 2 MB, fine).
+    // The per-pickAt O(N) scan walks a larger set (~160k points vs.
+    // ~48k) but still clears in sub-ms on modern CPUs, whereas the
+    // old rebuild cadence was the actual per-pan bottleneck.
+    edgePickIndexRef.current.build(graph.fileEdges, layout);
+  }, [layout, graph.fileEdges]);
 
   // Track whether we've already auto-fit this graph. Reset on graph swap
   // (layout → null → new layout) so a new repo's first layout always fits.

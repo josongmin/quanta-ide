@@ -119,7 +119,32 @@ function handleMessage(event: MessageEvent) {
       const aggregates = deserializeAggregates(msg.payload as SerializedAggregates);
       const currentLayout = sceneStore.getState().layout;
       if (currentLayout) {
-        sceneStore.setLayout({ ...currentLayout, aggregates });
+        // In-place mutation of `aggregates`. Previously this did
+        // `setLayout({ ...currentLayout, aggregates })`, which replaced
+        // the entire layout reference. That single line was the root of
+        // the Code Universe entry hang on large graphs:
+        //
+        //   - `spatialCache` (WeakMap keyed by layout) invalidated →
+        //     FileIndex + EdgeFilter rbush trees rebuilt from scratch
+        //     (~20-50ms on a 6k-file repo).
+        //   - Every React effect with `layout` in deps re-fired —
+        //     including `edgeCacheRef.current.build(edges, layout)` and
+        //     `edgePickIndexRef.current.build(edges, layout)` in
+        //     MultiFileCanvas, each O(edges × samples) on the main
+        //     thread.
+        //
+        // `aggregates` is a leaf sub-field (3 Maps of comment counts)
+        // that is consumed only by `estimate-memory.ts`, which reads
+        // `s.layout.aggregates.*` non-reactively (polled by the perf
+        // recorder every ~6 frames). No React subscriber depends on
+        // its identity — so mutating in place is safe, and preserving
+        // the outer layout reference is the whole point.
+        //
+        // If a future consumer needs to *react* to aggregates updates,
+        // lift `aggregates` out of `WorkspaceLayout` into its own
+        // sceneStore field with its own setter. Don't restore the
+        // spread pattern.
+        currentLayout.aggregates = aggregates;
       }
       sceneStore.setWorkerState("workerAggregates", false);
       break;
