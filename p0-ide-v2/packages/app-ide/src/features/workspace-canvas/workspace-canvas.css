@@ -3224,6 +3224,15 @@
   --ws-roi-warm: #b45309;
   --ws-roi-hot:  #b91c1c;
   --ws-roi-panel-bg: rgba(255, 255, 255, 0.95);
+  /* Surface tints on a light background read lighter — bump alpha so
+     hover/press states stay perceptible against the near-white HUD bg. */
+  --ws-hud-surface-weak: rgba(15, 23, 42, 0.05);
+  --ws-hud-surface-med:  rgba(15, 23, 42, 0.09);
+  --ws-hud-surface-strong: rgba(15, 23, 42, 0.16);
+  /* Lighter elevation for a lighter surface — heavy shadows look dirty. */
+  --ws-elev-2: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --ws-elev-3: 0 6px 20px rgba(15, 23, 42, 0.14);
+  --ws-elev-4: 0 12px 32px rgba(15, 23, 42, 0.2);
 }
 [data-ws-theme="light"].workspace-canvas {
   background: #f1f5f9;
@@ -3243,6 +3252,25 @@
   --ws-roi-warm: #fde047;
   --ws-roi-hot:  #fb7185;
   --ws-roi-panel-bg: #000000;
+  /* The accent flips to yellow in HC — pull the accent-tinted tokens
+     along so hover/focus stays on-theme instead of falling back to sky. */
+  --ws-hud-accent-weak:  rgba(253, 224, 71, 0.18);
+  --ws-hud-accent-med:   rgba(253, 224, 71, 0.32);
+  --ws-hud-accent-strong-bg: rgba(253, 224, 71, 0.48);
+  --ws-focus-ring:
+    0 0 0 2px #fde047,
+    0 0 0 4px rgba(253, 224, 71, 0.35);
+  --ws-focus-ring-danger:
+    0 0 0 2px #fb7185,
+    0 0 0 4px rgba(251, 113, 133, 0.35);
+  /* HC uses hard white borders instead of alpha-soft surfaces so edges
+     stay visible on pure black. Heavy shadows are noise here. */
+  --ws-hud-surface-weak: rgba(255, 255, 255, 0.08);
+  --ws-hud-surface-med:  rgba(255, 255, 255, 0.18);
+  --ws-hud-surface-strong: rgba(255, 255, 255, 0.4);
+  --ws-elev-2: 0 0 0 1px rgba(255, 255, 255, 0.3);
+  --ws-elev-3: 0 0 0 1px rgba(255, 255, 255, 0.5);
+  --ws-elev-4: 0 0 0 2px #ffffff;
 }
 [data-ws-theme="high-contrast"].workspace-canvas {
   background: #ffffff;
@@ -3733,7 +3761,7 @@
 .ws-storyboard {
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  bottom: var(--ws-space-gap);
   transform: translateX(-50%);
   z-index: 19;
   display: flex;
@@ -3742,11 +3770,18 @@
   padding: 8px 12px;
   background: var(--ws-hud-bg);
   color: var(--ws-hud-fg);
-  border-radius: 10px;
+  border-radius: var(--ws-radius-lg);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--ws-elev-3);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
   min-width: 320px;
+  animation: ws-storyboard-appear var(--ws-dur-md) var(--ws-ease-out);
+}
+@keyframes ws-storyboard-appear {
+  from { opacity: 0; transform: translate(-50%, 8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 .ws-storyboard__banner {
   text-align: center;
@@ -3772,20 +3807,26 @@
   font-family: inherit;
   font-size: 11px;
   padding: 4px 10px;
-  border-radius: 5px;
-  background: rgba(148, 163, 184, 0.15);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-hud-surface-med);
   color: var(--ws-hud-fg-soft);
   border: 1px solid transparent;
   cursor: pointer;
   min-width: 30px;
+  transition:
+    background var(--ws-dur-xs) var(--ws-ease-out),
+    color var(--ws-dur-xs) var(--ws-ease-out),
+    transform var(--ws-dur-xs) var(--ws-ease-out);
 }
 .ws-storyboard__btn:hover:not(:disabled) {
-  background: rgba(148, 163, 184, 0.25);
+  background: var(--ws-hud-surface-strong);
   color: var(--ws-hud-fg);
 }
+.ws-storyboard__btn:active:not(:disabled) { transform: translateY(1px); }
+.ws-storyboard__btn:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-storyboard__btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .ws-storyboard__btn--primary {
-  background: rgba(56, 189, 248, 0.25);
+  background: var(--ws-hud-accent-strong-bg);
   color: var(--ws-hud-accent);
   border-color: rgba(56, 189, 248, 0.55);
 }
@@ -3794,22 +3835,24 @@
   display: flex;
   gap: 2px;
   padding: 2px;
-  border-radius: 5px;
+  border-radius: var(--ws-radius-sm);
   background: rgba(15, 23, 42, 0.5);
 }
 .ws-storyboard__speed-chip {
   font-family: inherit;
   font-size: 10px;
   padding: 2px 6px;
-  border-radius: 3px;
+  border-radius: var(--ws-radius-xs);
   background: transparent;
   color: var(--ws-hud-fg-muted);
   border: none;
   cursor: pointer;
+  transition: color var(--ws-dur-xs) var(--ws-ease-out), background var(--ws-dur-xs) var(--ws-ease-out);
 }
 .ws-storyboard__speed-chip:hover { color: var(--ws-hud-fg); }
+.ws-storyboard__speed-chip:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-storyboard__speed-chip.is-on {
-  background: rgba(56, 189, 248, 0.25);
+  background: var(--ws-hud-accent-strong-bg);
   color: var(--ws-hud-accent);
 }
 .ws-storyboard__loop {

@@ -5,6 +5,7 @@ import {
   ALL_ICON,
   CATEGORY_ICON,
   CATEGORY_LABEL,
+  LAYOUT_ICON,
   NAV_GROUPS,
 } from "../settings-page.data";
 
@@ -32,6 +33,13 @@ export function SettingsNav({
               count={counts.all}
               selected={selected === "all"}
               onSelect={() => onSelect("all")}
+            />
+            <CategoryLink
+              id="layout"
+              label="Layout"
+              icon={LAYOUT_ICON}
+              selected={selected === "layout"}
+              onSelect={() => onSelect("layout")}
             />
           </div>
           {NAV_GROUPS.map((group) => (
@@ -73,7 +81,7 @@ function CategoryLink({
   id: CategoryId;
   label: string;
   icon: ReactNode;
-  count: number;
+  count?: number;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -88,7 +96,7 @@ function CategoryLink({
     >
       <span className="settings-nav__icon" aria-hidden>{icon}</span>
       <span className="settings-nav__label">{label}</span>
-      <span className="settings-nav__count">{count}</span>
+      {count !== undefined && <span className="settings-nav__count">{count}</span>}
     </button>
   );
 }

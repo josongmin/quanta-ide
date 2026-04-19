@@ -6,10 +6,11 @@ import {
   ShieldCheck,
   Blocks,
   Workflow,
+  AppWindow,
 } from "lucide-react";
 import type { FeatureCategory } from "@quanta/shell/stores/feature-registry";
 
-export type CategoryId = FeatureCategory | "all";
+export type CategoryId = FeatureCategory | "all" | "layout";
 
 export type NavGroup = { id: string; label: string; items: FeatureCategory[] };
 
@@ -47,3 +48,4 @@ export const CATEGORY_ICON: Record<FeatureCategory, ReactNode> = {
 };
 
 export const ALL_ICON: ReactNode = <LayoutGrid size={NAV_ICON_SIZE} strokeWidth={NAV_ICON_STROKE} />;
+export const LAYOUT_ICON: ReactNode = <AppWindow size={NAV_ICON_SIZE} strokeWidth={NAV_ICON_STROKE} />;

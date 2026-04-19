@@ -20,6 +20,7 @@ export function useSettingsPage() {
   const counts = useMemo(() => {
     const map: Record<CategoryId, number> = {
       all: userFeatures.length,
+      layout: 0,
       intelligence: 0,
       editing: 0,
       rules: 0,
@@ -32,8 +33,10 @@ export function useSettingsPage() {
 
   const q = query.trim().toLowerCase();
   const searching = q.length > 0;
+  const layoutMode = !searching && selected === "layout";
 
   const visible = useMemo(() => {
+    if (!searching && selected === "layout") return [];
     let list = userFeatures;
     if (searching) {
       list = list.filter((f) => {
@@ -58,12 +61,19 @@ export function useSettingsPage() {
 
   const titleLabel = searching
     ? "Search results"
-    : selected === "all" ? "All features" : CATEGORY_LABEL[selected];
+    : selected === "all"
+      ? "All features"
+      : selected === "layout"
+        ? "Layout"
+        : CATEGORY_LABEL[selected];
   const titleDesc = searching
     ? `Matching "${query.trim()}" across all registered features.`
     : selected === "all"
       ? "Every registered capability in the IDE — toggle, configure, or inspect its commands."
-      : SECTION_DESC[selected];
+      : selected === "layout"
+        ? "How the workspace chrome renders — tab design, panels, density."
+        : SECTION_DESC[selected];
+  const titleCount: number | null = layoutMode ? null : visible.length;
 
   return {
     selected,
@@ -77,6 +87,9 @@ export function useSettingsPage() {
     resetAll,
     titleLabel,
     titleDesc,
+    titleCount,
+    layoutMode,
+    searching,
   };
 }
 
