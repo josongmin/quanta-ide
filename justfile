@@ -1,5 +1,10 @@
 # Quanta IDE — root justfile
 
+# Verify every build artifact is redirected outside the repo.
+# Keeps IDE indexing fast. Run locally before pushing structural changes.
+check-artifacts:
+    @bash scripts/check-artifact-locations.sh
+
 tauri-dev:
     #!/usr/bin/env bash
     set -e

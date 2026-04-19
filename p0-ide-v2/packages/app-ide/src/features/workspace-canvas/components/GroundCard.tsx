@@ -26,6 +26,8 @@ interface GroundCardProps {
   /** See StreetCard — author-footprint tint at the active commit. */
   authorTint?: string;
   onSelect: (id: string) => void;
+  /** See StreetCard — node hover symmetry across LOD tiers. */
+  onHover?: (id: string | null) => void;
 }
 
 function hexFromInt(n: number): string {
@@ -49,6 +51,7 @@ function GroundCardImpl({
   effects, latency, showEffectBadges = true, showLatencyOverlay = false,
   authorTint,
   onSelect,
+  onHover,
 }: GroundCardProps) {
   const { data, loading } = useGroundData(file.id);
   const showBlameGutter = useRenderSettings(s => s.showBlameGutter);
@@ -121,10 +124,10 @@ function GroundCardImpl({
   const latencyTint = showLatencyOverlay && latency
     ? hexFromInt(latencyColor(latency.p95))
     : null;
-  // `minHeight` not `height` so a card grows if its source out-measures
-  // `rect.h`; with layout constants matching the CSS line-height this is
-  // usually a no-op, but leaves a safety valve for rendering drift.
-  const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, minHeight: rect.h };
+  // Hard `height` (not `minHeight`) — cards are capped at FILE_CARD_MAX_H;
+  // anything longer scrolls inside `.ground-card__source` (IDE-editor
+  // behavior). Grow-past would bleed into the card below.
+  const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, height: rect.h };
   // Author / latency tints blend toward white (not `var(--bg)`) so cards
   // stay crisp even when a tint is active — previous 24% / 18% blends
   // against a non-white `--bg` made the whole card look faded.
@@ -142,8 +145,15 @@ function GroundCardImpl({
       tabIndex={0}
       aria-label={`Select file ${file.name}`}
       aria-pressed={isSelected}
+      // While the inline editor is open, the card IS the overlay: pointer
+      // events originating inside must not leak to pixi edge-pick/hover
+      // beneath. The data-canvas-opaque contract lives in use-canvas-
+      // interactions.ts (shouldYieldToOverlay).
+      data-canvas-opaque={isEditing ? "true" : undefined}
       onClick={() => { onSelect(file.id); }}
       onDoubleClick={handleDoubleClick}
+      onMouseEnter={onHover ? () => onHover(file.id) : undefined}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}
       onKeyDown={e => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -288,5 +298,6 @@ export const GroundCard = memo(
     prev.showEffectBadges === next.showEffectBadges &&
     prev.showLatencyOverlay === next.showLatencyOverlay &&
     prev.authorTint === next.authorTint &&
-    prev.onSelect === next.onSelect,
+    prev.onSelect === next.onSelect &&
+    prev.onHover === next.onHover,
 );

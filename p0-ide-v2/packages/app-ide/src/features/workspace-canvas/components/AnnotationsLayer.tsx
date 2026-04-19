@@ -117,6 +117,23 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
   const frameDragRef = useRef<FrameDragState | null>(null);
   const [laserTrail, setLaserTrail] = useState<LaserTrailPoint[]>([]);
 
+  // Mirror every draft into a ref so the window-level pointer listeners
+  // (registered once) always read the latest value. Without these, the
+  // listener closures capture the draft from the render that registered
+  // them and stay `null` — pointerdown schedules a setState, but the
+  // already-attached pointermove closure still sees the pre-update null
+  // and every guard fails until React re-runs the effect, dropping the
+  // first 10–30ms of pointer events (which makes small drags look like
+  // "nothing was drawn").
+  const penDraftRef = useRef<PointerPathState | null>(null);
+  const shapeDraftRef = useRef<ShapeDraftState | null>(null);
+  const connectorDraftRef = useRef<ConnectorDraftState | null>(null);
+  const frameDraftRef = useRef<FrameDraftState | null>(null);
+  penDraftRef.current = penDraft;
+  shapeDraftRef.current = shapeDraft;
+  connectorDraftRef.current = connectorDraft;
+  frameDraftRef.current = frameDraft;
+
   // Apply world transform imperatively so pan/zoom frames don't
   // re-mount annotation subtrees (mirrors StickiesLayer's approach).
   useLayoutEffect(() => {
@@ -235,19 +252,26 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
   }, [toolbarOn, activeTool, penEnabled, textEnabled, shapeEnabled, connectorEnabled, frameEnabled, toWorld, resolveAnchor]);
 
   // ── Window-level pointer move / up so drags survive brief exits ──
+  // Registered once — handlers read draft state via refs so we never
+  // tear down and rebind listeners on every pointermove (which previously
+  // dropped the first batch of drag events per gesture).
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       const world = toWorld(e.clientX, e.clientY);
-      if (penDraft && e.pointerId === penDraft.pointerId) {
+      const pen = penDraftRef.current;
+      if (pen && e.pointerId === pen.pointerId) {
         setPenDraft(d => (d ? { ...d, points: [...d.points, [world.x, world.y]] } : d));
       }
-      if (shapeDraft && e.pointerId === shapeDraft.pointerId) {
+      const shape = shapeDraftRef.current;
+      if (shape && e.pointerId === shape.pointerId) {
         setShapeDraft(d => (d ? { ...d, curX: world.x, curY: world.y } : d));
       }
-      if (connectorDraft && e.pointerId === connectorDraft.pointerId) {
+      const conn = connectorDraftRef.current;
+      if (conn && e.pointerId === conn.pointerId) {
         setConnectorDraft(d => (d ? { ...d, curX: world.x, curY: world.y } : d));
       }
-      if (frameDraft && e.pointerId === frameDraft.pointerId) {
+      const fr = frameDraftRef.current;
+      if (fr && e.pointerId === fr.pointerId) {
         setFrameDraft(d => (d ? { ...d, curX: world.x, curY: world.y } : d));
       }
       const drag = frameDragRef.current;
@@ -272,8 +296,9 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
     };
 
     const onUp = (e: PointerEvent) => {
-      if (penDraft && e.pointerId === penDraft.pointerId) {
-        const pts = penDraft.points;
+      const pen = penDraftRef.current;
+      if (pen && e.pointerId === pen.pointerId) {
+        const pts = pen.points;
         if (pts.length >= 2) {
           const geom: PenGeometry = {
             points: pts,
@@ -284,11 +309,12 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
         }
         setPenDraft(null);
       }
-      if (shapeDraft && e.pointerId === shapeDraft.pointerId) {
-        const x = Math.min(shapeDraft.startX, shapeDraft.curX);
-        const y = Math.min(shapeDraft.startY, shapeDraft.curY);
-        const w = Math.abs(shapeDraft.curX - shapeDraft.startX);
-        const h = Math.abs(shapeDraft.curY - shapeDraft.startY);
+      const shape = shapeDraftRef.current;
+      if (shape && e.pointerId === shape.pointerId) {
+        const x = Math.min(shape.startX, shape.curX);
+        const y = Math.min(shape.startY, shape.curY);
+        const w = Math.abs(shape.curX - shape.startX);
+        const h = Math.abs(shape.curY - shape.startY);
         if (w > 4 && h > 4) {
           const s = annotationsStore.getState();
           const geom: ShapeGeometry = {
@@ -304,17 +330,18 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
         }
         setShapeDraft(null);
       }
-      if (connectorDraft && e.pointerId === connectorDraft.pointerId) {
+      const conn = connectorDraftRef.current;
+      if (conn && e.pointerId === conn.pointerId) {
         const world = toWorld(e.clientX, e.clientY);
         const toAnchor = resolveAnchor(world.x, world.y);
         // Avoid self-loops when source === target.
         const same =
-          connectorDraft.fromAnchor.kind === toAnchor.kind &&
-          connectorDraft.fromAnchor.id === toAnchor.id &&
-          connectorDraft.fromAnchor.kind !== "free";
+          conn.fromAnchor.kind === toAnchor.kind &&
+          conn.fromAnchor.id === toAnchor.id &&
+          conn.fromAnchor.kind !== "free";
         if (!same) {
           const geom: ConnectorGeometry = {
-            fromAnchor: connectorDraft.fromAnchor,
+            fromAnchor: conn.fromAnchor,
             toAnchor,
             color: annotationsStore.getState().connectorColor,
             strokeWidth: 2,
@@ -323,11 +350,12 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
         }
         setConnectorDraft(null);
       }
-      if (frameDraft && e.pointerId === frameDraft.pointerId) {
-        const x = Math.min(frameDraft.startX, frameDraft.curX);
-        const y = Math.min(frameDraft.startY, frameDraft.curY);
-        const w = Math.abs(frameDraft.curX - frameDraft.startX);
-        const h = Math.abs(frameDraft.curY - frameDraft.startY);
+      const fr = frameDraftRef.current;
+      if (fr && e.pointerId === fr.pointerId) {
+        const x = Math.min(fr.startX, fr.curX);
+        const y = Math.min(fr.startY, fr.curY);
+        const w = Math.abs(fr.curX - fr.startX);
+        const h = Math.abs(fr.curY - fr.startY);
         if (w > 10 && h > 10) {
           const geom: FrameGeometry = {
             x,
@@ -355,7 +383,7 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
     };
-  }, [penDraft, shapeDraft, connectorDraft, frameDraft, toWorld, resolveAnchor]);
+  }, [toWorld, resolveAnchor]);
 
   // ── ESC resets the active tool ───────────────────────────────────
   useEffect(() => {
@@ -380,36 +408,35 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
       if (laserTrail.length > 0) setLaserTrail([]);
       return;
     }
+    let raf = 0;
+    let cancelled = false;
+
     const onMove = (e: PointerEvent) => {
       const world = toWorld(e.clientX, e.clientY);
       const now = performance.now();
+      // Updater MUST be pure — no rAF side-effects here or React's
+      // double-invoke (StrictMode / concurrent retries) multiplies them.
       setLaserTrail(prev => {
         const filtered = prev.filter(p => now - p.t < LASER_WINDOW_MS);
         filtered.push({ x: world.x, y: world.y, t: now });
         return filtered;
       });
     };
-    window.addEventListener("pointermove", onMove);
-    // Drive the fade with rAF so points decay even when the mouse is still.
-    let raf = 0;
     const tick = () => {
+      if (cancelled) return;
       const now = performance.now();
       setLaserTrail(prev => {
-        if (prev.length === 0) {
-          raf = requestAnimationFrame(tick);
-          return prev;
-        }
+        if (prev.length === 0) return prev;
         const filtered = prev.filter(p => now - p.t < LASER_WINDOW_MS);
-        if (filtered.length === prev.length) {
-          raf = requestAnimationFrame(tick);
-          return prev;
-        }
-        raf = requestAnimationFrame(tick);
-        return filtered;
+        return filtered.length === prev.length ? prev : filtered;
       });
+      raf = requestAnimationFrame(tick);
     };
+
+    window.addEventListener("pointermove", onMove);
     raf = requestAnimationFrame(tick);
     return () => {
+      cancelled = true;
       window.removeEventListener("pointermove", onMove);
       cancelAnimationFrame(raf);
     };

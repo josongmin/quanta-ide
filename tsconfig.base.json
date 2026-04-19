@@ -1,0 +1,25 @@
+{
+  "_comment": "Shared compiler options. Each package's tsconfig.json extends this and decides for itself whether to be composite, emit, etc. Avoid putting build-mode flags here (composite, noEmit, outDir) — they vary by package role.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "useDefineForClassFields": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": false,
+
+    "skipLibCheck": true,
+    "jsx": "react-jsx"
+  }
+}

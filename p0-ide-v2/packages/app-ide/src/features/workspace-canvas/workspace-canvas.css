@@ -126,6 +126,16 @@
   cursor: text;
 }
 
+/* Edge hover → pointer cursor. Mirrored from hoveredEdgeId by
+   use-canvas-interactions via a data-attr so the affordance stays
+   CSS-driven. Annotation-tool cursors above take precedence (more
+   specific selectors declared later lose to equal-specificity but
+   matching :active/tool variants layer correctly because they target
+   different attribute combinations). */
+.workspace-canvas[data-edge-hover="on"] {
+  cursor: pointer;
+}
+
 /* Shared transform layer for DOM nodes.
    width/height 100% so absolute children aren't affected by a 0×0 layout box.
    No `contain: layout` — it interferes with transformed absolute descendants. */
@@ -407,10 +417,11 @@
 
 .ground-card__body {
   flex: 1;
-  /* Allow code to grow the card vertically. The card's `minHeight` comes from
-     `rect.h`; once tokenized source exceeds that, the body grows and the card
-     with it. Horizontal scroll is confined to `.ground-card__source`. */
-  overflow: visible;
+  min-height: 0;
+  /* Hard clip so the inner source scroll is the only overflow channel —
+     prevents the card from extending past `rect.h` and overlapping the
+     card below. */
+  overflow: hidden;
   position: relative;
 }
 
@@ -420,13 +431,22 @@
   line-height: 1.55;
   margin: 0;
   padding: 8px 12px 8px 18px;
-  /* `white-space: pre` preserves indentation; horizontal auto-scroll keeps
-     long lines from widening the card. Vertical is hidden here — the card
-     itself grows via `minHeight` on the rect. */
   white-space: pre;
-  overflow-x: auto;
-  overflow-y: hidden;
+  /* Scroll is gated behind activation: an inactive card lets wheel events
+     bubble to the canvas (pan/zoom), so hovering code doesn't hijack the
+     viewport. Activation = `--selected` (single-click) or `--editing`
+     (dbl-click → inline editor). Contract: shouldYieldToOverlay() in
+     use-canvas-interactions.ts keys off `overflow: auto|scroll` + real
+     overflow; `hidden` means "not a scrollable ancestor" so canvas wins. */
+  overflow: hidden;
+  height: 100%;
+  box-sizing: border-box;
   color: var(--fg);
+}
+
+.ground-card--selected .ground-card__source,
+.ground-card--editing .ground-card__source {
+  overflow: auto;
 }
 
 .ground-card__line {
@@ -538,6 +558,133 @@
 @keyframes ws-tooltip-fade {
   from { opacity: 0; transform: translate(-50%, 2px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Temporal film strip — horizontal commit scrubber pinned bottom-left,
+   above the temporal minimap. Default button flow would wrap the cells
+   as plain text onto the canvas body, so the layout rules here are load-
+   bearing (not cosmetic) — without them the strip reads as a wall of
+   "SHA + commit subject" glued together. */
+.ws-filmstrip {
+  position: absolute;
+  bottom: 12px;
+  left: calc(var(--ws-space-edge) + 130px);
+  right: calc(var(--ws-space-edge) + 200px);
+  max-width: 720px;
+  z-index: 2;
+  padding: 4px;
+  background: var(--ws-hud-bg);
+  border: 1px solid var(--ws-hud-surface-strong);
+  border-radius: var(--ws-radius-sm);
+  box-shadow: var(--ws-elev-2);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  outline: none;
+}
+.ws-filmstrip:focus-visible { box-shadow: var(--ws-elev-2), var(--ws-focus-ring); }
+
+.ws-filmstrip__rail {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  height: 56px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+}
+.ws-filmstrip__rail::-webkit-scrollbar { display: none; }
+
+.ws-filmstrip__cell {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 48px;
+  max-width: 96px;
+  height: 100%;
+  padding: 3px 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 2px;
+  background: var(--ws-hud-surface) center / cover no-repeat;
+  border: 1px solid transparent;
+  border-radius: var(--ws-radius-xs);
+  color: var(--ws-hud-fg);
+  font-family: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color var(--ws-dur-sm) var(--ws-ease-out),
+              transform var(--ws-dur-sm) var(--ws-ease-out);
+}
+.ws-filmstrip__cell:hover { border-color: var(--ws-hud-accent); }
+.ws-filmstrip__cell.is-active {
+  border-color: var(--ws-hud-accent-strong);
+  transform: translateY(-1px);
+}
+
+.ws-filmstrip__cell-ph {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,
+    rgba(148, 163, 184, 0.12),
+    rgba(148, 163, 184, 0.04));
+  pointer-events: none;
+}
+
+.ws-filmstrip__cell-meta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 9px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--ws-hud-fg-soft);
+}
+.ws-filmstrip__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ws-filmstrip__cell-sha { letter-spacing: 0.02em; }
+
+.ws-filmstrip__cell-msg {
+  position: relative;
+  font-size: 9px;
+  line-height: 1.2;
+  color: var(--ws-hud-fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  text-align: left;
+  white-space: normal;
+}
+
+.ws-filmstrip__tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 240px;
+  padding: 4px 8px;
+  font-size: 10px;
+  line-height: 1.35;
+  color: var(--ws-hud-fg);
+  background: var(--ws-hud-bg);
+  border: 1px solid var(--ws-hud-surface-strong);
+  border-radius: var(--ws-radius-xs);
+  white-space: normal;
+  word-break: break-word;
+  pointer-events: none;
+  z-index: 3;
+  box-shadow: var(--ws-elev-2);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  animation: ws-tooltip-fade var(--ws-dur-sm) var(--ws-ease-out);
 }
 
 .ws-minimap svg {
@@ -1161,6 +1308,20 @@
 }
 
 /* ── Sticky notes (Miro-style) ───────────────────────────────────── */
+/* Street/ground tier only — SVG redraw of the currently-hovered +
+   selected edge, lifted above the HTML card layer (z-index 5) so the
+   Pixi overlay's occlusion doesn't swallow the feedback. z-index 6 puts
+   it directly on top of cards and below anything higher-level (stickies,
+   inspector, popovers). */
+.workspace-canvas__edge-highlight-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  will-change: transform;
+  transform-origin: 0 0;
+}
+
 .workspace-canvas__stickies-layer {
   position: absolute;
   inset: 0;
@@ -4549,3 +4710,112 @@
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.35; }
 }
+
+/* ── Edge info popover (plain-click → select edge) ─────────────── */
+.ws-edge-info {
+  z-index: 26;
+  background: rgba(15, 23, 42, 0.97);
+  color: var(--ws-hud-fg);
+  border: 1px solid rgba(125, 211, 252, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  animation: ws-edge-info-fade 160ms ease-out;
+}
+@keyframes ws-edge-info-fade {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.ws-edge-info__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.ws-edge-info__kind {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ws-hud-accent);
+  font-weight: 700;
+}
+.ws-edge-info__sev {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.ws-edge-info__sev--low      { background: rgba(148, 163, 184, 0.25); color: #cbd5e1; }
+.ws-edge-info__sev--medium   { background: rgba(250, 204, 21, 0.22);  color: #facc15; }
+.ws-edge-info__sev--high     { background: rgba(248, 113, 113, 0.25); color: #fca5a5; }
+.ws-edge-info__sev--critical { background: rgba(239, 68, 68, 0.35);   color: #fecaca; }
+.ws-edge-info__close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--ws-hud-fg-soft);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 4px;
+  font-family: inherit;
+}
+.ws-edge-info__close:hover { color: var(--ws-hud-fg); }
+
+.ws-edge-info__route {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: ui-monospace, Menlo, monospace;
+  color: var(--ws-hud-fg);
+  margin-bottom: 6px;
+}
+.ws-edge-info__route-node {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 120px;
+}
+.ws-edge-info__route-arrow {
+  color: var(--ws-hud-accent);
+  flex-shrink: 0;
+}
+.ws-edge-info__desc {
+  margin: 0 0 8px;
+  color: var(--ws-hud-fg-soft);
+  line-height: 1.45;
+}
+.ws-edge-info__meta {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  margin: 0;
+}
+.ws-edge-info__meta > div {
+  display: contents;
+}
+.ws-edge-info__meta dt {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ws-hud-fg-soft);
+  font-weight: 600;
+}
+.ws-edge-info__meta dd {
+  margin: 0;
+  color: var(--ws-hud-fg);
+  font-variant-numeric: tabular-nums;
+}
+.ws-edge-info__evidence button {
+  background: transparent;
+  border: none;
+  color: var(--ws-hud-accent);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+.ws-edge-info__evidence button:hover { text-decoration: underline; }

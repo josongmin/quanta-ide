@@ -20,6 +20,14 @@ interface StreetCardProps {
    */
   authorTint?: string;
   onSelect: (id: string) => void;
+  /**
+   * Node hover — mirrors the Pixi-tier `onFileHover` callback so hover
+   * state lands in the same interaction store at every LOD. Without this,
+   * hoveredFileId stays null at street/ground while it updates at
+   * galaxy/city: same entity, different behavior per zoom — the exact
+   * divergence the canvas interaction model is supposed to prevent.
+   */
+  onHover?: (id: string | null) => void;
 }
 
 function hexFromInt(n: number): string {
@@ -49,6 +57,7 @@ function StreetCardImpl({
   effects, latency, showEffectBadges = true, showLatencyOverlay = false,
   authorTint,
   onSelect,
+  onHover,
 }: StreetCardProps) {
   // Street card shows one row per function, so its intrinsic content
   // height is (header + N * row + footer) — which is much smaller than
@@ -89,6 +98,8 @@ function StreetCardImpl({
       aria-label={`Select file ${file.name}`}
       aria-pressed={isSelected}
       onClick={() => { onSelect(file.id); }}
+      onMouseEnter={onHover ? () => onHover(file.id) : undefined}
+      onMouseLeave={onHover ? () => onHover(null) : undefined}
       onKeyDown={e => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -179,5 +190,6 @@ export const StreetCard = memo(
     prev.showEffectBadges === next.showEffectBadges &&
     prev.showLatencyOverlay === next.showLatencyOverlay &&
     prev.authorTint === next.authorTint &&
-    prev.onSelect === next.onSelect,
+    prev.onSelect === next.onSelect &&
+    prev.onHover === next.onHover,
 );

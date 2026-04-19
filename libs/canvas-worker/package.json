@@ -1,0 +1,20 @@
+{
+  "name": "@quanta/canvas-worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@quanta/canvas-engine": "workspace:*",
+    "elkjs": "^0.9.3"
+  }
+}

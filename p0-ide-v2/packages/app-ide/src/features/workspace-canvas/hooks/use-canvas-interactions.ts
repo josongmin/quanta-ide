@@ -12,12 +12,80 @@ import type { ModifierState } from "./use-keyboard-shortcuts";
 // and the trailing click, and suppress clicks that follow a real drag.
 const CLICK_SLOP_PX = 5;
 
+/**
+ * Central contract for "this event originated over a UI overlay, the canvas
+ * must keep its hands off". The canvas owns pan/zoom/edge-pick; everything
+ * layered on top (inline editor, inspector, popover, sticky editor, …) is
+ * an overlay. Without a single yield policy, every overlay had to remember
+ * to call `e.stopPropagation()` and the ones that forgot silently leaked
+ * their scroll/pan into the canvas — which is the bug this helper fixes.
+ *
+ * Two yield signals, both walked from the event target up to (but excluding)
+ * the canvas container:
+ *
+ *   1. `data-canvas-opaque="true"` — explicit opt-out. Popovers/dropdowns
+ *      that don't scroll but must not start a canvas pan on mousedown set
+ *      this. One attribute, no JS ceremony.
+ *   2. A *scrollable* ancestor (`overflow: auto | scroll` with real overflow
+ *      content) — automatic, CSS-driven. The browser already knows this
+ *      element wants the wheel; edge-pick and wheel handlers stop fighting
+ *      it. Not consulted on mousedown: pan-vs-scroll ambiguity there is
+ *      resolved by `.file-card/button/a` short-circuits and the annotation-
+ *      tool guard; overlays that explicitly must not pan set the attribute.
+ *
+ * Note: we accept `EventTarget | null` so callers can pass `e.target`
+ * directly from either native events or React SyntheticEvents without a cast.
+ */
+function shouldYieldToOverlay(
+  startEl: EventTarget | null,
+  canvasEl: HTMLElement,
+  checkScrollable: boolean,
+): boolean {
+  let node: Node | null = startEl instanceof Node ? startEl : null;
+  while (node && node !== canvasEl) {
+    if (node instanceof HTMLElement) {
+      if (node.dataset.canvasOpaque === "true") return true;
+      if (checkScrollable) {
+        const cs = getComputedStyle(node);
+        const oy = cs.overflowY;
+        if ((oy === "auto" || oy === "scroll") && node.scrollHeight > node.clientHeight) return true;
+        const ox = cs.overflowX;
+        if ((ox === "auto" || ox === "scroll") && node.scrollWidth > node.clientWidth) return true;
+      }
+    }
+    node = node.parentNode;
+  }
+  return false;
+}
+
+/**
+ * World-coord hit-test gate. Edge-pick and zoom-to-fit operate against a
+ * spatial index keyed by world coordinates; that index has no knowledge of
+ * DOM z-stacking, so it happily returns an edge that is visually occluded
+ * by a card/sticky/annotation/badge the user actually clicked on. Short
+ * answer: those operations may run ONLY when the pointer is over the bare
+ * canvas surface — the container root itself or the Pixi `<canvas>` child.
+ * Any other descendant is, by construction, a DOM overlay (dom-layer is
+ * pointer-events:none, every card/panel/toolbar sets pointer-events:auto)
+ * and owns the event. This supersets the previous data-canvas-opaque /
+ * scrollable-ancestor signals — both describe non-canvas elements and are
+ * automatically caught here, so individual overlays no longer need to
+ * opt in. Keep `shouldYieldToOverlay` for pan/wheel which must still start
+ * over cards (cards are not draggable; pan-from-card is intentional UX).
+ */
+function isCanvasWorldTarget(target: EventTarget | null, canvasEl: HTMLElement): boolean {
+  if (target === canvasEl) return true;
+  return target instanceof HTMLCanvasElement && target.parentElement === canvasEl;
+}
+
 interface CanvasInteractionHandlers {
   onMouseDown: (e: React.MouseEvent) => void;
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: () => void;
   selectFile: (id: string) => void;
   hoverFile: (id: string | null) => void;
+  hoverCluster: (id: string | null) => void;
+  hoverSupercluster: (id: string | null) => void;
   onClusterClick: (clusterId: string) => void;
   onSuperclusterClick: (superclusterId: string) => void;
   onZoomIn: () => void;
@@ -121,10 +189,19 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
   }, [wasDragGesture, metaHeldRef, shiftHeldRef]);
 
   const hoverFile = useCallback((id: string | null) => interactionStore.hoverFile(id), []);
+  // Cluster / supercluster hover callbacks — the Pixi renderers at those tiers
+  // already fire pointerover/pointerout, the store already tracks the ids;
+  // this just connects the two. Same hover pipeline as files at every LOD.
+  const hoverCluster = useCallback((id: string | null) => interactionStore.hoverCluster(id), []);
+  const hoverSupercluster = useCallback((id: string | null) => interactionStore.hoverSupercluster(id), []);
 
   // Mouse drag for pan.
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button,a,.file-card")) return;
+    // Overlay opt-out: popovers, dropdowns, modals marked [data-canvas-opaque]
+    // must not start a canvas pan. See shouldYieldToOverlay for the contract.
+    const canvasEl = containerRef.current;
+    if (canvasEl && shouldYieldToOverlay(e.target, canvasEl, false)) return;
     // Annotation tool active → drawing takes over, pan must not start.
     // Otherwise pointerdown would draw while mousedown simultaneously pans.
     if (annotationsStore.getState().activeTool !== "none") return;
@@ -132,7 +209,7 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
     dragging.current = true;
     dragDistance.current = 0;
     lastMouse.current = { x: e.clientX, y: e.clientY };
-  }, []);
+  }, [containerRef]);
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragging.current) return;
     const dx = e.clientX - lastMouse.current.x;
@@ -150,9 +227,22 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
+      // ctrl/meta + wheel == browser pinch-zoom intent (trackpad pinch
+      // arrives as ctrlKey+wheel). Must preventDefault *before* the
+      // overlay-yield return — otherwise pinching on an overlay
+      // ([data-canvas-opaque]: inspector, inline-editor, sticky, …)
+      // escapes into visualViewport zoom and persists after leaving
+      // the canvas. ctrl+scroll is never a scroll intent in the IDE.
+      const isZoomIntent = e.ctrlKey || e.metaKey;
+      if (isZoomIntent) e.preventDefault();
+      // Yield to any scrollable overlay (inline editor, inspector body,
+      // debug-hud sections, …) or anything explicitly opted out via
+      // [data-canvas-opaque]. Without this the canvas swallows every wheel
+      // tick inside the container and turns editor scroll into canvas pan.
+      if (shouldYieldToOverlay(e.target, el, true)) return;
+      if (!isZoomIntent) e.preventDefault();
       const rect = el.getBoundingClientRect();
-      if (e.ctrlKey || e.metaKey) {
+      if (isZoomIntent) {
         // Zoom deltas accumulate too — multiple wheel ticks in one frame
         // collapse into one zoomAt with summed delta around the last cursor.
         const delta = e.deltaY * -0.02;
@@ -180,9 +270,12 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
     const el = containerRef.current;
     if (!el) return;
     const onDblClick = (e: MouseEvent) => {
+      // Sticky-drop and zoom-to-fit both target the world; they must only
+      // fire when the dbl-click lands on the bare canvas surface. Any DOM
+      // overlay (card, sticky, annotation, badge, toolbar, …) owns its
+      // own dbl-click semantics (e.g. card dbl-click enters inline-edit).
+      if (!isCanvasWorldTarget(e.target, el)) return;
       if (e.shiftKey) {
-        const target = e.target as HTMLElement | null;
-        if (target && target.closest(".file-card,.street-card,.ground-card,.ws-sticky,button,a,input,textarea")) return;
         const vp = viewportStore.getState().viewport;
         if (vp.scale <= 0) return;
         const rect = el.getBoundingClientRect();
@@ -222,7 +315,26 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    // Mirrors hoveredEdgeId onto the canvas root so CSS can swap to a
+    // pointer cursor when an edge is under the cursor. Kept as a data-attr
+    // (matching the annotation-tool pattern) so the cursor change stays
+    // CSS-driven and no inline style thrash lands on the root element.
+    const setEdgeHoverAttr = (on: boolean) => {
+      if (on) el.setAttribute("data-edge-hover", "on");
+      else el.removeAttribute("data-edge-hover");
+    };
     const onMove = (e: MouseEvent) => {
+      // Edge hover is a world-coord hit-test; only fire when the cursor is
+      // over the bare canvas surface. Any DOM overlay the user is moving
+      // across — card, sticky, annotation, badge, folder frame, toolbar —
+      // owns the event and must not ghost-hover an edge underneath it.
+      if (!isCanvasWorldTarget(e.target, el)) {
+        if (interactionStore.getState().viewState.hoveredEdgeId !== null) {
+          interactionStore.hoverEdge(null);
+        }
+        setEdgeHoverAttr(false);
+        return;
+      }
       const rect = el.getBoundingClientRect();
       const vp = viewportStore.getState().viewport;
       if (vp.scale <= 0) return;
@@ -235,10 +347,15 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
       const currentHover = interactionStore.getState().viewState.hoveredEdgeId;
       const nextId = hit?.id ?? null;
       if (currentHover !== nextId) interactionStore.hoverEdge(nextId);
+      setEdgeHoverAttr(nextId !== null);
     };
     const onClick = (e: MouseEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
       if (wasDragGesture()) return;
+      // Same world-coord hit-test contract as onMove: clicks on any DOM
+      // overlay (card, sticky, annotation, badge, editor, inspector, …)
+      // must NOT bleed through to pick an edge that happens to sit under
+      // the overlay in world space. Only bare canvas targets qualify.
+      if (!isCanvasWorldTarget(e.target, el)) return;
       const rect = el.getBoundingClientRect();
       const vp = viewportStore.getState().viewport;
       if (vp.scale <= 0) return;
@@ -248,18 +365,30 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
       const worldY = (cy - vp.y) / vp.scale;
       const tol = 8 / vp.scale;
       const hit = edgePickIndexRef.current.pickAt(worldX, worldY, tol);
-      if (!hit) return;
+      if (!hit) {
+        // Empty-canvas click = focus returns to canvas. The world-target
+        // gate above already guarantees `e.target` is the bare canvas, so
+        // no further overlay filtering is needed here.
+        interactionStore.resetSelection();
+        return;
+      }
       const g = sceneStore.getState().graph;
       const proofs = g?.proofs;
-      if (hit.evidenceId && proofs && proofs[hit.evidenceId]) {
+      // Cmd/Ctrl-click on an edge with evidence → drill down to proof bundle.
+      // Plain click → select edge so its info popover surfaces.
+      if ((e.metaKey || e.ctrlKey) && hit.evidenceId && proofs && proofs[hit.evidenceId]) {
         edgeClickConsumedRef.current = true;
         interactionStore.setInspectedEvidence(hit.evidenceId);
+        return;
       }
+      edgeClickConsumedRef.current = true;
+      interactionStore.selectEdgeAt(hit.id, worldX, worldY);
     };
     const onLeave = () => {
       if (interactionStore.getState().viewState.hoveredEdgeId !== null) {
         interactionStore.hoverEdge(null);
       }
+      setEdgeHoverAttr(false);
     };
     el.addEventListener("mousemove", onMove);
     el.addEventListener("click", onClick, true);
@@ -268,6 +397,7 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
       el.removeEventListener("mousemove", onMove);
       el.removeEventListener("click", onClick, true);
       el.removeEventListener("mouseleave", onLeave);
+      setEdgeHoverAttr(false);
     };
   }, [containerRef, edgePickIndexRef, wasDragGesture]);
 
@@ -302,6 +432,8 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
     onMouseUp,
     selectFile,
     hoverFile,
+    hoverCluster,
+    hoverSupercluster,
     onClusterClick,
     onSuperclusterClick,
     onZoomIn,

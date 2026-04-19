@@ -1,0 +1,17 @@
+# Repo-root pnpm workspace
+# ----------------------------------------------------------------------
+# Three-tier layout:
+#   libs/*         — reusable libraries (framework-free or primitive).
+#                    Any surface can depend on these.
+#   products/*     — product packages (internal FSD). Mountable React
+#                    component bundles, not standalone web apps.
+#   p0-ide-v2      — the runnable Vite web app. Composes products +
+#                    legacy editor/admin features. Tauri's frontendDist
+#                    points at its dist/ output.
+#
+# Cross-product rule (enforced by Semgrep): products/* may not import
+# each other. Share via libs/.
+packages:
+  - 'libs/*'
+  - 'products/*'
+  - 'p0-ide-v2'

@@ -14,10 +14,21 @@ export default defineConfig({
   plugins: [react(), repoScannerPlugin(), perfLoggerPlugin(), gitHistoryPlugin()],
   resolve: {
     alias: {
-      "@quanta/domain-types": path.resolve(__dirname, "packages/domain-types/src"),
-      "@quanta/ui-kit": path.resolve(__dirname, "packages/ui-kit/src"),
-      "@quanta/shell-contract": path.resolve(__dirname, "packages/shell-contract/src"),
-      "@quanta/shell": path.resolve(__dirname, "packages/shell/src"),
+      // libs — now workspace packages, resolved via repo-root `libs/*`. Vite
+      // also picks these up through `node_modules/@quanta/*` symlinks created
+      // by pnpm, but the explicit alias keeps HMR snappy and avoids a stat
+      // round-trip on every module graph rebuild.
+      "@quanta/domain-types": path.resolve(__dirname, "../libs/domain-types/src"),
+      "@quanta/ui-kit": path.resolve(__dirname, "../libs/ui-kit/src"),
+      "@quanta/shell-contract": path.resolve(__dirname, "../libs/shell-contract/src"),
+      "@quanta/shell": path.resolve(__dirname, "../libs/shell/src"),
+      "@quanta/canvas-engine": path.resolve(__dirname, "../libs/canvas-engine/src"),
+      "@quanta/canvas-pixi": path.resolve(__dirname, "../libs/canvas-pixi/src"),
+      "@quanta/canvas-worker": path.resolve(__dirname, "../libs/canvas-worker/src"),
+      "@quanta/code-universe": path.resolve(__dirname, "../products/code-universe/src"),
+      // app-* — still in p0-ide-v2/packages/ for now (product surfaces).
+      // Will be folded into the new canvas-universe product or kept as
+      // legacy surfaces; either way stays put through Phase 2.
       "@quanta/app-ide": path.resolve(__dirname, "packages/app-ide/src"),
       "@quanta/app-agent": path.resolve(__dirname, "packages/app-agent/src"),
       "@quanta/app-pr": path.resolve(__dirname, "packages/app-pr/src"),
@@ -28,9 +39,6 @@ export default defineConfig({
       "@quanta/app-home": path.resolve(__dirname, "packages/app-home/src"),
       "@quanta/app-policy": path.resolve(__dirname, "packages/app-policy/src"),
       "@quanta/app-demo": path.resolve(__dirname, "packages/app-demo/src"),
-      "@quanta/canvas-engine": path.resolve(__dirname, "packages/canvas-engine/src"),
-      "@quanta/canvas-pixi": path.resolve(__dirname, "packages/canvas-pixi/src"),
-      "@quanta/canvas-worker": path.resolve(__dirname, "packages/canvas-worker/src"),
     },
   },
   server: { port: 5174, strictPort: true },

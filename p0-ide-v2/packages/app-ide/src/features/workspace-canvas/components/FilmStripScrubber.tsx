@@ -186,6 +186,9 @@ function FilmStripScrubberImpl({ graph }: Props) {
   const setIndex = useCallback((index: number): void => {
     const max = (graph.history?.snapshots.length ?? 1) - 1;
     const clamped = Math.max(0, Math.min(max, index));
+    // Flip to live so use-scene-derivations actually materialises the
+    // snapshot's edge set — scrubbing without this is a silent no-op.
+    interactionStore.setTemporalMode("live");
     interactionStore.setSnapshotIndex(clamped);
   }, [graph.history]);
 

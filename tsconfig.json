@@ -1,0 +1,5 @@
+{
+  "_comment": "Workspace-root tsconfig. Every package is non-composite (see tsconfig.base.json) — project references require composite, which requires emit, which fights source-level path resolution in a build-step-free internal monorepo. Root `tsc -b` is a no-op in this repo; each package runs its own `tsc -b` via `pnpm typecheck` which fans out across libs + products + p0-ide-v2.",
+  "files": [],
+  "references": []
+}

@@ -6,6 +6,15 @@ import type {
   EdgeGeometryBatch,
 } from "@quanta/canvas-worker";
 import { deserializeLayout, deserializeAggregates, serializeLayout } from "@quanta/canvas-worker";
+// Vite `?worker` import resolves the worker entry through the
+// `@quanta/canvas-worker` alias (vite.config.ts → ../libs/canvas-worker/src).
+// Prior `new URL("../../../../../canvas-worker/src/worker.ts", import.meta.url)`
+// pattern broke when the shared libs moved out of `packages/` into `libs/` —
+// the literal 5-up hop resolved to `packages/canvas-worker` (gone) and Vite
+// served the fallback HTML, which the browser then refused as a module
+// script. The `?worker` suffix goes through the alias so future restructures
+// can't break the runtime path silently.
+import CanvasWorkerCtor from "@quanta/canvas-worker/worker.ts?worker";
 import { sceneStore } from "../store/scene-store";
 
 // Geometry batch subscribers. The worker-side `BUILD_EDGE_GEOMETRY` handler
@@ -41,10 +50,7 @@ let currentGeometryRequestId: string | null = null;
 let currentHebRequestId: string | null = null;
 
 function spawnWorker(): Worker {
-  const w = new Worker(
-    new URL("../../../../../canvas-worker/src/worker.ts", import.meta.url),
-    { type: "module" },
-  );
+  const w = new CanvasWorkerCtor();
   w.onmessage = handleMessage;
   w.onerror = (e) => {
     // Hard crash (module load / uncaught throw) — the worker is now dead

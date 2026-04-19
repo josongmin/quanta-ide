@@ -1,0 +1,33 @@
+{
+  "name": "@quanta/shell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "types": "./src/*",
+      "default": "./src/*"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@quanta/canvas-engine": "workspace:*",
+    "@quanta/shell-contract": "workspace:*",
+    "@quanta/ui-kit": "workspace:*",
+    "boring-avatars": "^2.0.4",
+    "lucide-react": "^1.8.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

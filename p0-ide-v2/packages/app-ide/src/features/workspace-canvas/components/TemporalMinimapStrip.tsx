@@ -104,6 +104,8 @@ function TemporalMinimapStripImpl({ history, width }: Props) {
     if (bIdx === null) return;
     const bucket = layout.buckets[bIdx];
     if (!bucket) return;
+    // Flip to live so scene derivations react; see FilmStripScrubber.
+    interactionStore.setTemporalMode("live");
     // Round-trip: click → bucket → representative commit. The
     // representative is the middle commit of the bucket so the scrub lands
     // on the visual center of the column, not an edge.
@@ -151,7 +153,10 @@ function TemporalMinimapStripImpl({ history, width }: Props) {
       default: return;
     }
     e.preventDefault();
-    if (next !== idx) interactionStore.setSnapshotIndex(next);
+    if (next !== idx) {
+      interactionStore.setTemporalMode("live");
+      interactionStore.setSnapshotIndex(next);
+    }
   }, [history, snapshotIndex]);
 
   if (!enabled) return null;

@@ -2,6 +2,7 @@ import { useSceneStore } from "../store/scene-store";
 import { useMeasureMode } from "../hooks/use-measure-mode";
 import { InspectorPanel } from "./InspectorPanel";
 import { HoverSummaryPopover } from "./HoverSummaryPopover";
+import { EdgeInfoPopover } from "./EdgeInfoPopover";
 import { ExportButton } from "./ExportButton";
 import { MeasureOverlay } from "./MeasureOverlay";
 
@@ -33,6 +34,7 @@ export function DevModeLayer({ onReady }: Props) {
     <>
       <InspectorPanel />
       <HoverSummaryPopover />
+      <EdgeInfoPopover />
       <ExportButton />
       <MeasureOverlay
         phase={measure.phase}

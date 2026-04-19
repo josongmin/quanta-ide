@@ -12,7 +12,6 @@ import {
   statsFor,
   allFileIdsWithEstimates,
 } from "../../store/estimation-store";
-import { formatMmSs, timerStore, useTimerStore } from "../../store/timer-store";
 import { retroStore, useRetroStore } from "../../store/retro-store";
 import {
   reviewStateStore,
@@ -30,7 +29,6 @@ import {
 export function ReviewSection() {
   const votingOn = useFeature("review.voting");
   const pokerOn = useFeature("review.poker");
-  const timerOn = useFeature("review.timer");
   const retroOn = useFeature("review.retrospective");
   const kanbanOn = useFeature("review.kanban");
 
@@ -38,7 +36,6 @@ export function ReviewSection() {
     <>
       <VotingBlock enabled={votingOn} />
       <PokerBlock enabled={pokerOn} />
-      <TimerBlock enabled={timerOn} />
       <RetroBlock enabled={retroOn} />
       <KanbanBlock enabled={kanbanOn} />
     </>
@@ -160,44 +157,6 @@ function PokerBlock({ enabled }: { enabled: boolean }) {
               >추정값 비우기</button>
             </div>
           )}
-        </>
-      )}
-    </>
-  );
-}
-
-function TimerBlock({ enabled }: { enabled: boolean }) {
-  const remaining = useTimerStore(s => s.remainingSec);
-  const running = useTimerStore(s => s.running);
-  const initial = useTimerStore(s => s.initialSec);
-
-  return (
-    <>
-      <div className="ws-debug__divider">세션 타이머</div>
-      {!enabled ? (
-        <DisabledNote id="review.timer" />
-      ) : (
-        <>
-          <div className="ws-debug__grid">
-            <span className="ws-debug__k">남은 시간</span>
-            <span className="ws-debug__v ws-debug__v--hl">{formatMmSs(remaining)}</span>
-          </div>
-          <div className="ws-debug__grid">
-            <span className="ws-debug__k">상태</span>
-            <span className="ws-debug__v">{running ? "실행 중" : remaining === 0 ? "완료" : "일시 정지"}</span>
-          </div>
-          <div className="ws-debug__grid">
-            <span className="ws-debug__k">프리셋</span>
-            <span className="ws-debug__v">{formatMmSs(initial)}</span>
-          </div>
-          <div className="ws-debug__lod" style={{ gap: 2 }}>
-            {running ? (
-              <button type="button" className="ws-debug__chip" onClick={() => timerStore.pause()}>일시 정지</button>
-            ) : (
-              <button type="button" className="ws-debug__chip" onClick={() => timerStore.start()}>시작</button>
-            )}
-            <button type="button" className="ws-debug__chip" onClick={() => timerStore.reset()}>초기화</button>
-          </div>
         </>
       )}
     </>

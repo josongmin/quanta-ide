@@ -1,3 +1,98 @@
 {
-    "livePreview.defaultPreviewPath": "/index.html"
+  "livePreview.defaultPreviewPath": "/index.html",
+
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/.pnpm-store": true,
+    "**/dist": true,
+    "**/dist-ssr": true,
+    "**/build": true,
+    "**/out": true,
+    "**/.output": true,
+    "**/storybook-static": true,
+    "**/.vite": true,
+    "**/target": true,
+    "desktop/src-tauri/gen": true,
+    "**/*.tsbuildinfo": true,
+    "**/coverage": true,
+    "**/.nyc_output": true,
+    "**/test-results": true,
+    "**/playwright-report": true,
+    "**/blob-report": true,
+    "**/playwright/.cache": true,
+    "**/.cache": true,
+    "**/.turbo": true,
+    "**/.swc": true,
+    "**/.eslintcache": true,
+    "**/__pycache__": true,
+    "**/.DS_Store": true
+  },
+
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.pnpm-store/**": true,
+    "**/dist/**": true,
+    "**/dist-ssr/**": true,
+    "**/build/**": true,
+    "**/out/**": true,
+    "**/.output/**": true,
+    "**/storybook-static/**": true,
+    "**/.vite/**": true,
+    "**/target/**": true,
+    "desktop/src-tauri/gen/**": true,
+    "**/*.tsbuildinfo": true,
+    "**/coverage/**": true,
+    "**/.nyc_output/**": true,
+    "**/test-results/**": true,
+    "**/playwright-report/**": true,
+    "**/blob-report/**": true,
+    "**/playwright/.cache/**": true,
+    "**/.cache/**": true,
+    "**/.turbo/**": true,
+    "**/.swc/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true
+  },
+
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.pnpm-store": true,
+    "**/dist": true,
+    "**/dist-ssr": true,
+    "**/build": true,
+    "**/out": true,
+    "**/storybook-static": true,
+    "**/.vite": true,
+    "**/target": true,
+    "desktop/src-tauri/gen": true,
+    "**/*.tsbuildinfo": true,
+    "**/coverage": true,
+    "**/test-results": true,
+    "**/playwright-report": true,
+    "**/blob-report": true,
+    "**/.cache": true,
+    "**/.turbo": true,
+    "**/.swc": true,
+    "**/pnpm-lock.yaml": true,
+    "**/package-lock.json": true,
+    "**/Cargo.lock": true
+  },
+
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEventsOnParentDirectory",
+    "watchDirectory": "useFsEvents",
+    "fallbackPolling": "dynamicPriority",
+    "synchronousWatchDirectory": false,
+    "excludeDirectories": ["**/node_modules", "**/dist", "**/target", "**/.cache", "**/.vite"]
+  },
+
+  "typescript.tsserver.exclude": ["**/node_modules", "**/dist", "**/target"],
+
+  "rust-analyzer.files.excludeDirs": [
+    "target",
+    "gen",
+    "../../p0-ide-v2/node_modules",
+    "../../p0-ide-v2/dist"
+  ],
+  "rust-analyzer.cargo.targetDir": true
 }

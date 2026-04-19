@@ -49,4 +49,13 @@ export const powerFeatures: readonly FeatureDescriptor[] = [
     maturity: "beta",
     introducedIn: "batch-7",
   },
+  {
+    id: "power.figmaShell",
+    category: "power",
+    label: "Figma shell (P0)",
+    description: "Figma-style chrome: top breadcrumb + mode switch, left rail (layers/filters/focus/saved), right inspector (summary/relations/activity/AI/evidence).",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "p0-figma",
+  },
 ];

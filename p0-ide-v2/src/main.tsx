@@ -5,6 +5,16 @@ import type { AppKind } from "@quanta/shell-contract";
 import "@quanta/ui-kit/styles/tokens.css";
 import "@quanta/ui-kit/styles/reset.css";
 import "@quanta/shell/styles/app.css";
+import { installBrowserZoomBlock } from "./block-browser-zoom";
+import { installCodeUniverseBridge } from "./code-universe-bridge";
+
+installBrowserZoomBlock();
+// Forwards the legacy scene-store's `graph` into `@quanta/code-universe`.
+// The bridge is safe to install before any tab is mounted — the first
+// call pushes whatever `graph` currently is (usually `null`), and the
+// code-universe orchestrator falls back to MOCK_GRAPH until the real
+// source resolves.
+installCodeUniverseBridge();
 
 const AgentPopout = lazy(() =>
   import("@quanta/app-ide/features/inspector-agent").then((m) => ({ default: m.AgentPane })),
@@ -43,6 +53,18 @@ appRegistry.register({
   label: "Code Universe",
   Component: lazy(() =>
     import("@quanta/app-ide").then((m) => ({ default: m.WorkspaceApp })),
+  ),
+});
+
+// Phase 3 — new Code Universe product (products/code-universe).
+// Coexists with the legacy "workspace" tab above until feature parity
+// is reached; then legacy is retired and this becomes the sole
+// Code Universe entry point.
+appRegistry.register({
+  id: "universe",
+  label: "Code Universe v2",
+  Component: lazy(() =>
+    import("@quanta/code-universe").then((m) => ({ default: m.CodeUniverse })),
   ),
 });
 

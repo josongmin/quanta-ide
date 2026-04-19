@@ -1,0 +1,68 @@
+rules:
+  # ════════════════════════════════════════════════════════════════════
+  # ARTIFACT LOCATIONS — keep build output outside the working tree.
+  #
+  # These rules flag *config-file regressions* that would cause tools to
+  # write caches/outputs back into the repo, slowing IDE indexing.
+  # The positive-case gate is scripts/check-artifact-locations.sh —
+  # these rules catch the *obvious* backsliding patterns in PR review.
+  # See .ai/AGENT.md §build-artifacts.
+  # ════════════════════════════════════════════════════════════════════
+
+  - id: no-in-repo-vite-cache
+    pattern-either:
+      - pattern: cacheDir = "node_modules/$X"
+      - pattern: cacheDir = "./node_modules/$X"
+      - pattern: cacheDir = ".vite"
+      - pattern: cacheDir = "./.vite"
+    paths:
+      include:
+        - "/p0-ide-v2/vite.config.ts"
+        - "/p0-ide-v2/vite.config.*.ts"
+    message: >
+      Vite cacheDir must live outside the repo
+      (~/.cache/quanta-ide/vite/...). In-tree cache dirs balloon the
+      IDE file watcher. See .ai/AGENT.md §build-artifacts.
+    languages: [typescript]
+    severity: ERROR
+
+  - id: no-in-repo-playwright-output
+    pattern-either:
+      - pattern: outputDir = "test-results"
+      - pattern: outputDir = "./test-results"
+      - pattern: outputDir = "playwright-report"
+    paths:
+      include:
+        - "/p0-ide-v2/playwright.config.ts"
+    message: >
+      Playwright outputDir must be CI-aware — default only under CI,
+      redirected to ~/.cache/quanta-ide/playwright/... locally.
+      See .ai/AGENT.md §build-artifacts.
+    languages: [typescript]
+    severity: ERROR
+
+  - id: no-committed-cargo-target-override
+    pattern-regex: '^target-dir\s*='
+    paths:
+      include:
+        - "/desktop/src-tauri/Cargo.toml"
+        - "/desktop/src-tauri/.cargo/config.toml.example"
+    message: >
+      Cargo target-dir overrides belong in a gitignored
+      desktop/src-tauri/.cargo/config.toml (user-local absolute path),
+      never in Cargo.toml. See .ai/AGENT.md §build-artifacts.
+    languages: [generic]
+    severity: ERROR
+
+  - id: no-in-repo-pnpm-virtual-store
+    pattern-regex: '^virtual-store-dir\s*=\s*(\.|node_modules|/)'
+    paths:
+      include:
+        - "**/.npmrc"
+    message: >
+      pnpm virtual-store-dir must point outside the repo
+      (${HOME}/.cache/quanta-ide/pnpm-virtual-store/...). In-tree
+      virtual stores defeat the whole artifact-offload policy.
+      See .ai/AGENT.md §build-artifacts.
+    languages: [generic]
+    severity: ERROR

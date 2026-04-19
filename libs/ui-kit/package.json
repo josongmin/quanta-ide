@@ -1,0 +1,38 @@
+{
+  "name": "@quanta/ui-kit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "types": "./src/*",
+      "default": "./src/*"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@quanta/shell-contract": "workspace:*",
+    "@heroicons/react": "^2.2.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@remixicon/react": "^4.9.0",
+    "@tabler/icons-react": "^3.41.1",
+    "lucide-react": "^1.8.0"
+  },
+  "devDependencies": {
+    "@storybook/react": "^8.6.18",
+    "@storybook/test": "^8.6.18"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

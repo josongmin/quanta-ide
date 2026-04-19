@@ -216,6 +216,7 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   const {
     onMouseDown, onMouseMove, onMouseUp,
     selectFile: rawSelectFile, hoverFile,
+    hoverCluster, hoverSupercluster,
     onClusterClick: rawClusterClick,
     onSuperclusterClick: rawSuperclusterClick,
     onZoomIn, onZoomOut,
@@ -542,7 +543,9 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
           onFileClick={selectFile}
           onFileHover={hoverFile}
           onClusterClick={onClusterClick}
+          onClusterHover={hoverCluster}
           onSuperclusterClick={onSuperclusterClick}
+          onSuperclusterHover={hoverSupercluster}
         />
       )}
 
@@ -592,6 +595,7 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
                 showLatencyOverlay={showLatencyOverlay}
                 authorTint={authorTint}
                 onSelect={selectFile}
+                onHover={hoverFile}
               />
             ) : (
               <GroundCard
@@ -601,6 +605,7 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
                 isSelected={isSelected}
                 authorTint={authorTint}
                 onSelect={selectFile}
+                onHover={hoverFile}
               />
             );
           })}
@@ -623,6 +628,7 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
         transform={transform}
         scale={viewport.scale}
         viewport={viewport}
+        lod={lod}
         layout={layout}
         graph={graph}
         containerRef={containerRef}

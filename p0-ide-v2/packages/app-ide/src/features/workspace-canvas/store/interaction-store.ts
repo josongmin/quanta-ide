@@ -43,6 +43,10 @@ export interface InteractionState {
   pathQuery: PathQuery | null;
   pathResult: PathResult | null;
   inspectedEvidenceId: string | null;
+  /** World-space anchor of the user's click when an edge was selected, so
+   *  the EdgeInfoPopover can surface next to the click point rather than
+   *  at the edge midpoint. Null when no edge is selected via click. */
+  selectedEdgePoint: { worldX: number; worldY: number } | null;
   focusMode: FocusMode;
   focusHops: FocusHops;
   focusDimOpacity: number;
@@ -65,6 +69,8 @@ const initialViewState: ViewState = {
   selectedEdgeId: null,
   hoveredEdgeId: null,
   focusedNodeId: null,
+  hoveredClusterId: null,
+  hoveredSuperclusterId: null,
 };
 
 // Path-query solves against the active graph's edges. The graph is read
@@ -86,9 +92,10 @@ let state: InteractionState = {
   pathQuery: null,
   pathResult: null,
   inspectedEvidenceId: null,
+  selectedEdgePoint: null,
   focusMode: "on",
   focusHops: 1,
-  focusDimOpacity: 0.08,
+  focusDimOpacity: 0.3,
   temporal: initialTemporal,
   graphFlash: null,
   activeTraceId: null,
@@ -141,10 +148,23 @@ const actions = {
   },
 
   selectEdge(edgeId: string | null) {
-    if (state.viewState.selectedEdgeId === edgeId) return;
+    if (state.viewState.selectedEdgeId === edgeId && state.selectedEdgePoint === null) return;
     state = {
       ...state,
       viewState: { ...state.viewState, selectedEdgeId: edgeId },
+      selectedEdgePoint: null,
+    };
+    emit();
+  },
+
+  // Variant used by the edge-pick click handler: records the world-space
+  // click anchor alongside the selection so EdgeInfoPopover can surface
+  // next to the click instead of the edge midpoint.
+  selectEdgeAt(edgeId: string, worldX: number, worldY: number) {
+    state = {
+      ...state,
+      viewState: { ...state.viewState, selectedEdgeId: edgeId },
+      selectedEdgePoint: { worldX, worldY },
     };
     emit();
   },
@@ -158,6 +178,29 @@ const actions = {
     emit();
   },
 
+  // Parity with hoverFile/hoverEdge at the supergalaxy tier. ClusterNodeRenderer
+  // already fires pointerover/pointerout via its onHover option — before this
+  // store action the callback was dropped on the floor (registerRenderer only
+  // plumbed onClusterClick), so any hover-driven popover at cluster-tier was
+  // silently dead. Same behavior at every LOD = this slot in the store.
+  hoverCluster(clusterId: string | null) {
+    if (state.viewState.hoveredClusterId === clusterId) return;
+    state = {
+      ...state,
+      viewState: { ...state.viewState, hoveredClusterId: clusterId },
+    };
+    emit();
+  },
+
+  hoverSupercluster(superclusterId: string | null) {
+    if (state.viewState.hoveredSuperclusterId === superclusterId) return;
+    state = {
+      ...state,
+      viewState: { ...state.viewState, hoveredSuperclusterId: superclusterId },
+    };
+    emit();
+  },
+
   resetSelection() {
     const vs = state.viewState;
     if (
@@ -165,7 +208,10 @@ const actions = {
       vs.hoveredFileId === null &&
       vs.selectedEdgeId === null &&
       vs.hoveredEdgeId === null &&
-      vs.focusedNodeId === null
+      vs.focusedNodeId === null &&
+      vs.hoveredClusterId === null &&
+      vs.hoveredSuperclusterId === null &&
+      state.selectedEdgePoint === null
     ) return;
     state = {
       ...state,
@@ -176,7 +222,10 @@ const actions = {
         selectedEdgeId: null,
         hoveredEdgeId: null,
         focusedNodeId: null,
+        hoveredClusterId: null,
+        hoveredSuperclusterId: null,
       },
+      selectedEdgePoint: null,
     };
     emit();
   },

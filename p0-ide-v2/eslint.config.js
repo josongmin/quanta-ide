@@ -1,6 +1,9 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import { fileURLToPath } from "node:url";
+
+const P0_DIR = fileURLToPath(new URL(".", import.meta.url));
 
 /**
  * Architecture boundary rules for the micro-web shell monorepo.
@@ -83,6 +86,11 @@ export default tseslint.config(
   {
     files: ["packages/*/src/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
+    languageOptions: {
+      parserOptions: {
+        tsconfigRootDir: P0_DIR,
+      },
+    },
     rules: {
       // Ban legacy @/ alias everywhere
       "no-restricted-imports": ["error", { patterns: legacyBan }],

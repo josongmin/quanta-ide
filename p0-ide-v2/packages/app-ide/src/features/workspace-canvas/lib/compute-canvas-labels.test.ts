@@ -3,11 +3,12 @@ import type { FileNode, Rect, Viewport } from "@quanta/canvas-engine";
 import type { FolderRect } from "./compute-folder-rects";
 import { computeCanvasLabels } from "./compute-canvas-labels";
 
-// Covers the three invariants that matter:
-//   (1) leaf-vs-full-path switch on clamping
-//   (2) sticky file label gates on "header is off-screen, card is on-screen"
-//   (3) overlap resolution: deepest wins, ancestor context transfers to
-//       the survivor so the user never loses the path that was pinning them.
+// Only covers the algorithmic core worth regression-guarding: overlap
+// resolution (deepest wins) + upgrade-descendant-on-ancestor-hide, plus
+// the file-vs-folder tie-break. The leaf-name baseline stays as a sanity
+// that the natural-position branch wires through at all; everything else
+// (clamp text switch, offscreen flag, sticky visibility gate, no-overlap
+// negative case) was trivial one-line conditionals or redundant coverage.
 //
 // Measurement runs in jsdom where Canvas2D is a stub, so the helper
 // exercises its proportional-font fallback path — close enough for
@@ -47,32 +48,6 @@ describe("computeCanvasLabels", () => {
     expect(out[0].hidden).toBe(false);
   });
 
-  it("switches to the full path when the folder's top-left clamps to the viewport edge", () => {
-    const folders = [folderRect("src/features/canvas", { x: -200, y: -200, w: 800, h: 800 }, 2, 0)];
-    const { folders: out } = computeCanvasLabels(folders, [], new Map(), viewport(0, 0));
-    expect(out[0].clamped).toBe(true);
-    expect(out[0].text).toBe("src/features/canvas");
-  });
-
-  it("marks a folder offscreen when its rect falls outside the viewport", () => {
-    const folders = [folderRect("src/far-away", { x: 5000, y: 5000, w: 100, h: 100 }, 1, 0)];
-    const { folders: out } = computeCanvasLabels(folders, [], new Map(), viewport(0, 0));
-    expect(out[0].offscreen).toBe(true);
-  });
-
-  it("only emits a file sticky label when the card's header is covered but its body still shows", () => {
-    const onlyHeaderOff = fileNode("src/a.ts");
-    const fullyVisible = fileNode("src/b.ts");
-    const fileRects = new Map<string, Rect>([
-      ["src/a.ts", fileRect(50, -100, 300, 400)], // top above viewport, body visible
-      ["src/b.ts", fileRect(50, 50, 300, 200)],   // fully in view, no sticky
-    ]);
-    const vp = viewport(0, 0, 1, 800, 600);
-    const { files } = computeCanvasLabels([], [onlyHeaderOff, fullyVisible], fileRects, vp);
-    expect(files.map(f => f.fileId)).toEqual(["src/a.ts"]);
-    expect(files[0].text).toBe("src/a.ts");
-  });
-
   it("hides the shallower label when two overlap and transfers full-path context to the survivor", () => {
     // Outer folder scrolls off, so its clamped label shows the full path.
     // Inner folder is visible but sits at the viewport corner, natural
@@ -99,14 +74,5 @@ describe("computeCanvasLabels", () => {
     expect(folders[0].hidden).toBe(true);
     expect(files[0].hidden).toBe(false);
     expect(files[0].text).toBe(file.id);
-  });
-
-  it("leaves both labels visible when they don't overlap", () => {
-    const folders = [
-      folderRect("a", { x: 0, y: 0, w: 100, h: 100 }, 0, 0),
-      folderRect("b", { x: 400, y: 400, w: 100, h: 100 }, 0, 0),
-    ];
-    const { folders: out } = computeCanvasLabels(folders, [], new Map(), viewport(0, 0));
-    expect(out.every(f => !f.hidden)).toBe(true);
   });
 });

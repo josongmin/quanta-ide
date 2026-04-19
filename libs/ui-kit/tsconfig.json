@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "baseUrl": ".",
+    "paths": {
+      "@quanta/ui-kit": ["src/index.ts"],
+      "@quanta/ui-kit/*": ["src/*"],
+      "@quanta/shell-contract": ["../shell-contract/src/index.ts"],
+      "@quanta/shell-contract/*": ["../shell-contract/src/*"]
+    }
+  },
+  "include": ["src"]
+}

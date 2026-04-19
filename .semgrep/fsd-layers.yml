@@ -1,0 +1,117 @@
+rules:
+  # ────────────────────────────────────────────────────────────────
+  # FSD layer direction — products/* must not import upward.
+  # Order: app > pages > widgets > features > entities > shared
+  # Each rule is scoped via `paths.include` to a single layer and uses
+  # `pattern-regex` to match the import path. Regex is more robust than
+  # the AST `import { ... } from` patterns, which miss named / default /
+  # type-only / side-effect import variants.
+  # ────────────────────────────────────────────────────────────────
+  - id: fsd-shared-no-upward
+    message: >-
+      FSD violation: `shared/` is the bottom layer and must not import
+      from entities/features/widgets/pages/app. If this primitive needs
+      an upper-layer type, the primitive belongs in that upper layer
+      (or the type belongs in shared).
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/*/src/shared/**"
+    patterns:
+      - pattern-regex: 'from\s+["''][^"'']*/(entities|features|widgets|pages|app)/[^"'']*["'']'
+
+  - id: fsd-entities-no-upward
+    message: >-
+      FSD violation: `entities/` cannot import from features/widgets/pages/app.
+      Cross-entity coordination belongs in a feature, not in the entity itself.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/*/src/entities/**"
+    patterns:
+      - pattern-regex: 'from\s+["''][^"'']*/(features|widgets|pages|app)/[^"'']*["'']'
+
+  - id: fsd-features-no-upward
+    message: >-
+      FSD violation: `features/` cannot import from widgets/pages/app.
+      If a widget composes multiple features, the widget imports the
+      features, never the other way around.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/*/src/features/**"
+    patterns:
+      - pattern-regex: 'from\s+["''][^"'']*/(widgets|pages|app)/[^"'']*["'']'
+
+  - id: fsd-widgets-no-upward
+    message: "FSD violation: `widgets/` cannot import from pages/app."
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/*/src/widgets/**"
+    patterns:
+      - pattern-regex: 'from\s+["''][^"'']*/(pages|app)/[^"'']*["'']'
+
+  - id: fsd-pages-no-upward
+    message: "FSD violation: `pages/` cannot import from `app/`."
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/*/src/pages/**"
+    patterns:
+      - pattern-regex: 'from\s+["''][^"'']*/app/[^"'']*["'']'
+
+  # ────────────────────────────────────────────────────────────────
+  # Slice isolation — features/* and entities/* must not reach into
+  # another slice's internals. Only the slice's `index.ts` is public.
+  # Matches any import targeting `<sibling>/model/...`, `.../ui/...`,
+  # or `.../lib/...` within the same layer.
+  # ────────────────────────────────────────────────────────────────
+  - id: fsd-no-cross-feature-internal
+    message: >-
+      FSD violation: cross-feature import must go through the slice's
+      `index.ts`. Reaching into `features/<other>/model/...` couples two
+      features and defeats slice isolation. Re-export what you need from
+      that feature's `index.ts` and import the slice root instead.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/*/src/features/**"
+    patterns:
+      - pattern-regex: 'from\s+["''][^"'']*/features/[a-z0-9-]+/(model|ui|lib)/[^"'']+["'']'
+
+  - id: fsd-no-cross-entity-internal
+    message: >-
+      FSD violation: cross-entity import must go through the slice's
+      `index.ts`. See `fsd-no-cross-feature-internal` for the rationale.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/*/src/entities/**"
+    patterns:
+      - pattern-regex: 'from\s+["''][^"'']*/entities/[a-z0-9-]+/(model|ui|lib)/[^"'']+["'']'
+
+  # ────────────────────────────────────────────────────────────────
+  # Cross-product isolation — products/* cannot import each other.
+  # Shared surface area = libs/. If two products want the same code,
+  # extract it into a lib.
+  # ────────────────────────────────────────────────────────────────
+  - id: product-isolation
+    message: >-
+      Products must not import each other. If two products share code,
+      extract the shared portion into `libs/` and import via
+      @quanta/<lib-name>.
+    severity: ERROR
+    languages: [typescript]
+    paths:
+      include:
+        - "/products/**"
+    patterns:
+      - pattern-regex: 'from\s+["'']@quanta/(code-universe|ide-legacy)/'

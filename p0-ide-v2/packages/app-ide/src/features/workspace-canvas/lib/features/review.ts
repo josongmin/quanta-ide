@@ -1,6 +1,6 @@
 import type { FeatureDescriptor } from "../feature-registry-types";
 
-// Review flows (Batch 4) — voting, estimation poker, session timer,
+// Review flows (Batch 4) — voting, estimation poker,
 // retrospective, and kanban lanes.
 export const reviewFeatures: readonly FeatureDescriptor[] = [
   {
@@ -17,15 +17,6 @@ export const reviewFeatures: readonly FeatureDescriptor[] = [
     category: "review",
     label: "Estimation poker",
     description: "Per-file effort estimate cards (Fibonacci deck).",
-    defaultEnabled: false,
-    maturity: "beta",
-    introducedIn: "batch-4",
-  },
-  {
-    id: "review.timer",
-    category: "review",
-    label: "Session timer",
-    description: "Time-boxed review session widget.",
     defaultEnabled: false,
     maturity: "beta",
     introducedIn: "batch-4",

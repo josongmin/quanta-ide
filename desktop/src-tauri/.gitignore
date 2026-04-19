@@ -3,3 +3,6 @@
 
 # Tauri codegen (re-generated on every build)
 /gen/
+
+# User-local cargo config (redirects target-dir outside the repo for IDE perf)
+/.cargo/config.toml

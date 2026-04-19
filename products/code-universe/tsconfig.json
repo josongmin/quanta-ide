@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": true,
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "types": ["vitest/globals"],
+    "baseUrl": ".",
+    "paths": {
+      "@quanta/canvas-engine": ["../../libs/canvas-engine/src/index.ts"],
+      "@quanta/canvas-engine/*": ["../../libs/canvas-engine/src/*"]
+    }
+  },
+  "include": ["src"]
+}

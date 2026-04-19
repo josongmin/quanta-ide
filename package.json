@@ -1,0 +1,23 @@
+{
+  "name": "quanta-ide-monorepo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter quanta-ide-v2 dev",
+    "build": "pnpm --filter quanta-ide-v2 build",
+    "preview": "pnpm --filter quanta-ide-v2 preview",
+    "typecheck": "pnpm -r --filter './libs/*' --filter './products/*' typecheck && pnpm --filter quanta-ide-v2 typecheck",
+    "lint": "pnpm --filter quanta-ide-v2 lint",
+    "test": "pnpm -r --workspace-concurrency=1 --no-bail test",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test",
+    "e2e": "pnpm --filter quanta-ide-v2 e2e"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

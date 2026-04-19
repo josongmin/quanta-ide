@@ -1,0 +1,27 @@
+{
+  "name": "@quanta/canvas-pixi",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@quanta/canvas-engine": "workspace:*",
+    "pixi.js": "^8.6.0",
+    "rbush": "^4.0.1"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.7"
+  }
+}

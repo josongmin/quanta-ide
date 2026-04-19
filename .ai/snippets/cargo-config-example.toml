@@ -1,0 +1,8 @@
+# Copy this to  desktop/src-tauri/.cargo/config.toml  and replace the
+# absolute path with one under YOUR $HOME. The real config.toml is
+# gitignored because the path is machine-specific.
+#
+# See .ai/AGENT.md §build-artifacts.
+
+[build]
+target-dir = "/Users/CHANGE-ME/.cache/quanta-ide/cargo-target"

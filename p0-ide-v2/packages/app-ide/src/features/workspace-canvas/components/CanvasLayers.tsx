@@ -1,12 +1,22 @@
 import type { MutableRefObject, RefObject } from "react";
-import type { Viewport, WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
+import type { LodLevel, Viewport, WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import { StickiesLayer } from "./StickiesLayer";
+import { EdgeHighlightLayer } from "./EdgeHighlightLayer";
 import { ImagesLayer } from "./ImagesLayer";
 import { CollabLayer } from "./CollabLayer";
 import { AnnotationsLayer } from "./AnnotationsLayer";
 import { ReviewLayer } from "./ReviewLayer";
 import { TicketsLayer } from "./TicketsLayer";
 import { SlackThreadsLayer } from "./SlackThreadsLayer";
+import { FigmaTopBar } from "./FigmaTopBar";
+import { FigmaLeftRail } from "./FigmaLeftRail";
+import { FigmaRightInspector } from "./FigmaRightInspector";
+import { ConstellationView } from "./ConstellationView";
+import { UniverseDomainPane } from "./UniverseDomainPane";
+import { RoomFlowPanel } from "./RoomFlowPanel";
+import { InvestigationBoard } from "./InvestigationBoard";
+import { PathPlaybackBar } from "./PathPlaybackBar";
+import "../figma-shell.css";
 import { PrBadgesLayer } from "./PrBadgesLayer";
 import { AnomalyBadgesLayer } from "./AnomalyBadgesLayer";
 import { Minimap } from "./Minimap";
@@ -15,7 +25,6 @@ import { AnnotationToolbar } from "./AnnotationToolbar";
 import { PagesTabBar } from "./PagesTabBar";
 import { BookmarksDrawer } from "./BookmarksDrawer";
 import { StoryboardPlayer } from "./StoryboardPlayer";
-import { SessionTimer } from "./SessionTimer";
 import { LassoOverlay, BulkActionsToolbar } from "./LassoOverlay";
 import { ZoomLens } from "./ZoomLens";
 import { CommandPalette } from "./CommandPalette";
@@ -91,6 +100,8 @@ export interface CanvasLayersProps {
   scale: number;
   /** Full viewport state — Minimap / MiniViewport readouts. */
   viewport: Viewport;
+  /** Active LOD tier — gates layers that only make sense at specific zooms (e.g. EdgeHighlightLayer is street/ground-only). */
+  lod: LodLevel;
   /** Current layout or null during (re)compute — consumed by badge / minimap / lasso layers. */
   layout: WorkspaceLayout | null;
   /** Full graph — ReviewLayer, CollabLayer, FilmStrip, legend etc. */
@@ -114,6 +125,7 @@ export function CanvasLayers(props: CanvasLayersProps) {
     transform,
     scale,
     viewport,
+    lod,
     layout,
     graph,
     containerRef,
@@ -126,6 +138,7 @@ export function CanvasLayers(props: CanvasLayersProps) {
 
   return (
     <>
+      <EdgeHighlightLayer transform={transform} layout={layout} lod={lod} />
       <StickiesLayer transform={transform} scale={scale} />
       <ImagesLayer transform={transform} scale={scale} containerRef={containerRef} />
       <CollabLayer
@@ -156,7 +169,6 @@ export function CanvasLayers(props: CanvasLayersProps) {
         <PagesTabBar />
       </div>
       <StoryboardPlayer />
-      <TimerMount />
       <LassoOverlay containerRef={containerRef} layout={layout} />
       <BulkActionsToolbar layout={layout} />
       <ZoomLens containerRef={containerRef} layout={layout} zoomLensHeldRef={zoomLensHeldRef} />
@@ -185,17 +197,22 @@ export function CanvasLayers(props: CanvasLayersProps) {
       <AuthorFootprintLegend history={graph.history} />
       <EditModeHint />
       <CommitFlash />
+      {/* Figma-style shell (P0). Gated by power.figmaShell so the chrome
+          can be disabled without losing any functionality — every action
+          it exposes is also available in the existing HUD / overlays. */}
+      <FigmaTopBar />
+      <FigmaLeftRail />
+      <FigmaRightInspector />
+      {/* P1 semantic-zoom overlays. Each self-gates on mode/LOD +
+          figmaShell flag, so this fan-out just mounts the React roots;
+          they add zero DOM when inactive. */}
+      <ConstellationView />
+      <UniverseDomainPane />
+      <RoomFlowPanel />
+      <InvestigationBoard />
+      <PathPlaybackBar />
     </>
   );
-}
-
-// Feature-gated mount for the session timer widget. Rendered as a
-// separate component so the gate lookup doesn't re-run the canvas
-// body's memoization.
-function TimerMount() {
-  const on = useFeature("review.timer");
-  if (!on) return null;
-  return <SessionTimer />;
 }
 
 // Feature-gated mount for the dual-split toggle + container. The split
