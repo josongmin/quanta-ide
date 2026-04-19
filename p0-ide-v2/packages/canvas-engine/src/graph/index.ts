@@ -28,6 +28,15 @@ export { deriveEdgeLayer } from "./types";
 export type { NamedGraph, JoinEdge } from "./multi-graph";
 export { joinGraphs } from "./multi-graph";
 
+// ── Folder tree (used by HEB bundling) ──────────────────────────────
+export type { FolderNode, FolderTree } from "./folder-tree";
+export {
+  buildFolderTree,
+  fillFolderCenters,
+  ancestorsFromRoot,
+  lcaOf,
+} from "./folder-tree";
+
 // ── History & diff ──────────────────────────────────────────────────
 export type { GraphSnapshot, GraphHistory } from "./history";
 export { materializeEdgeSet, diffSnapshots } from "./history";

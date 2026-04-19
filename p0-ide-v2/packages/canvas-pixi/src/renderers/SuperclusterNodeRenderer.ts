@@ -7,6 +7,20 @@ import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
 import { setText, hashStep, hashStringStep, makeGrowingPool, type GrowingPool } from "./shared/pixi-guards";
 
+// Feature flag. When true, supercluster boxes are drawn via InstancedRectMesh
+// (one draw call for the whole tier). When false, a legacy Graphics fallback
+// runs — kept as a runtime rollback handle and for tests that spy on
+// roundRect. Identical pattern to ClusterNodeRenderer.
+let SUPER_MESH_ENABLED = true;
+/** Toggle the instanced-mesh supercluster box path. Intended for rollback / tests. */
+export function setSuperclusterMeshEnabled(enabled: boolean): void {
+  SUPER_MESH_ENABLED = enabled;
+}
+/** Read the current flag — used by tests to guard expectations. */
+export function isSuperclusterMeshEnabled(): boolean {
+  return SUPER_MESH_ENABLED;
+}
+
 // Universe LOD renderer — draws one chunky architectural box per supercluster
 // (e.g. `crates/`, `tests/`, future service groups). Shares the same
 // InstancedRectMesh / BitmapFontAtlas / SpatialPickIndex pipeline as
@@ -91,6 +105,9 @@ interface SuperclusterLabelSnapshot {
 export class SuperclusterNodeRenderer {
   private container: Container;
   private rectMesh: InstancedRectMesh;
+  // Fallback Graphics path. Always constructed so the feature flag can
+  // flip at runtime; only emits geometry when SUPER_MESH_ENABLED is false.
+  private fallbackGfx: Graphics;
   private labelContainer: Container;
   private hitLayer: Graphics;
   private pickIndex: SpatialPickIndex;
@@ -106,6 +123,12 @@ export class SuperclusterNodeRenderer {
   private labelCache: Map<string, SuperclusterLabelSnapshot> = new Map();
   private lastHitHash = 0;
   private lastHitCount = 0;
+  // Full-rebuild dirty flag. Same rationale as ClusterNodeRenderer — folds
+  // id+rect+fileCount+invScale bucket so pan-only frames skip the rect loop.
+  private lastBuildHash = 0;
+  private lastBuildCount = 0;
+  private lastInvScaleBucket = -1;
+  private lastMeshEnabled = true;
 
   private onClickSupercluster?: (id: string) => void;
   private onHoverSupercluster?: (id: string | null) => void;
@@ -119,13 +142,17 @@ export class SuperclusterNodeRenderer {
     // Superclusters are few (~dozens); 32 is plenty and avoids the 14KB
     // per-instance over-allocation that 256 would incur.
     this.rectMesh = new InstancedRectMesh(32);
+    this.fallbackGfx = new Graphics();
+    this.fallbackGfx.eventMode = "none";
     this.labelContainer = new Container();
     this.hitLayer = new Graphics();
     this.pickIndex = new SpatialPickIndex();
     this.onClickSupercluster = opts?.onClick;
     this.onHoverSupercluster = opts?.onHover;
 
+    // Mesh and fallback both mounted; only one emits per frame.
     this.container.addChild(this.rectMesh.mesh);
+    this.container.addChild(this.fallbackGfx);
     this.container.addChild(this.labelContainer);
 
     this.hitLayer.eventMode = "static";
@@ -209,6 +236,7 @@ export class SuperclusterNodeRenderer {
   update(superclusters: ClusterMeta[], viewport: Viewport): void {
     if (superclusters.length === 0) {
       this.rectMesh.setInstanceCount(0);
+      this.fallbackGfx.clear();
       this.hitLayer.clear();
       // Use the pool's canonical reset() rather than poking .slots.length
       // directly — direct truncation leaves capacity intact, which would
@@ -218,32 +246,81 @@ export class SuperclusterNodeRenderer {
       this.releaseLabels();
       this.lastHitHash = 0;
       this.lastHitCount = 0;
+      this.lastBuildHash = 0;
+      this.lastBuildCount = 0;
+      this.lastInvScaleBucket = -1;
       return;
     }
     const invScale = Math.min(16, Math.max(1, 1 / viewport.scale));
+    // Bucket invScale so sub-pixel zoom jitter doesn't invalidate the gate.
+    const invScaleBucket = Math.round(invScale * 2);
+
+    // Pre-pass: accumulate geometry/membership hash + AABB. Everything the
+    // rect buffer or label loop reads gets folded in so an unchanged frame
+    // short-circuits below.
+    let buildHash = 0;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < superclusters.length; i++) {
+      const c = superclusters[i];
+      buildHash = hashStringStep(buildHash, c.id);
+      buildHash = hashStep(buildHash, c.rect.x | 0);
+      buildHash = hashStep(buildHash, c.rect.y | 0);
+      buildHash = hashStep(buildHash, c.rect.w | 0);
+      buildHash = hashStep(buildHash, c.rect.h | 0);
+      buildHash = hashStep(buildHash, c.fileCount);
+      if (c.rect.x < minX) minX = c.rect.x;
+      if (c.rect.y < minY) minY = c.rect.y;
+      if (c.rect.x + c.rect.w > maxX) maxX = c.rect.x + c.rect.w;
+      if (c.rect.y + c.rect.h > maxY) maxY = c.rect.y + c.rect.h;
+    }
+
+    const meshEnabled = SUPER_MESH_ENABLED;
+    if (
+      buildHash === this.lastBuildHash
+      && superclusters.length === this.lastBuildCount
+      && invScaleBucket === this.lastInvScaleBucket
+      && meshEnabled === this.lastMeshEnabled
+    ) {
+      // Pan-only frame. Parent Container transform absorbs the visual pan;
+      // nothing the draw loop produces would differ.
+      return;
+    }
+
     this.rectMesh.ensureCapacity(superclusters.length);
-    const data = this.rectMesh.view();
+    const data = meshEnabled ? this.rectMesh.view() : null;
+    if (!meshEnabled) this.fallbackGfx.clear();
     this.pickRectsPool.grow(superclusters.length);
     const pickRects = this.pickRectsPool.slots;
     this.labelPoolCursor = 0;
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    let hitHash = 0;
+    const borderWidth = invScale * 3;
+    const CORNER_RADIUS = 48;
+    const FILL_ALPHA = 0.92;
+    const BORDER_ALPHA = 1.0;
 
     for (let i = 0; i < superclusters.length; i++) {
       const c = superclusters[i];
       const { fill, border } = this.colorForSupercluster(c.id);
-      const o = i * FLOATS_PER_INSTANCE;
-      data[o] = c.rect.x;
-      data[o + 1] = c.rect.y;
-      data[o + 2] = c.rect.w;
-      data[o + 3] = c.rect.h;
-      // Near-opaque fill — at max zoom-out we want these to read as solid
-      // architectural blocks, not translucent overlays.
-      unpackHexInto(fill, data, o + 4, 0.92);
-      unpackHexInto(border, data, o + 8, 1.0);
-      data[o + 12] = invScale * 3;    // thicker border than cluster tier
-      data[o + 13] = 48;              // chunky corner radius (world px)
+      if (meshEnabled && data) {
+        const o = i * FLOATS_PER_INSTANCE;
+        data[o] = c.rect.x;
+        data[o + 1] = c.rect.y;
+        data[o + 2] = c.rect.w;
+        data[o + 3] = c.rect.h;
+        // Near-opaque fill — at max zoom-out we want these to read as solid
+        // architectural blocks, not translucent overlays.
+        unpackHexInto(fill, data, o + 4, FILL_ALPHA);
+        unpackHexInto(border, data, o + 8, BORDER_ALPHA);
+        data[o + 12] = borderWidth;      // thicker border than cluster tier
+        data[o + 13] = CORNER_RADIUS;    // chunky corner radius (world px)
+      } else {
+        // Legacy Graphics path — kept visually equivalent so a flag flip
+        // is a pure perf tradeoff.
+        this.fallbackGfx
+          .roundRect(c.rect.x, c.rect.y, c.rect.w, c.rect.h, CORNER_RADIUS)
+          .fill({ color: fill, alpha: FILL_ALPHA })
+          .stroke({ color: border, alpha: BORDER_ALPHA, width: borderWidth });
+      }
 
       const slot = pickRects[i];
       slot.x = c.rect.x;
@@ -251,18 +328,6 @@ export class SuperclusterNodeRenderer {
       slot.w = c.rect.w;
       slot.h = c.rect.h;
       slot.id = c.id;
-
-      hitHash = hashStringStep(hitHash, c.id);
-      hitHash = hashStep(hitHash, c.rect.x | 0);
-      hitHash = hashStep(hitHash, c.rect.y | 0);
-      hitHash = hashStep(hitHash, c.rect.w | 0);
-      hitHash = hashStep(hitHash, c.rect.h | 0);
-      hitHash = hashStep(hitHash, c.fileCount);
-
-      if (c.rect.x < minX) minX = c.rect.x;
-      if (c.rect.y < minY) minY = c.rect.y;
-      if (c.rect.x + c.rect.w > maxX) maxX = c.rect.x + c.rect.w;
-      if (c.rect.y + c.rect.h > maxY) maxY = c.rect.y + c.rect.h;
 
       // Two-line label: big display name, smaller file-count subtitle. Both
       // pulled from the pool in one shot so we only walk the pool once.
@@ -286,20 +351,29 @@ export class SuperclusterNodeRenderer {
     pickRects.length = superclusters.length;
 
     // Single-AABB hit layer — SpatialPickIndex resolves the actual id.
-    if (hitHash !== this.lastHitHash || superclusters.length !== this.lastHitCount) {
+    // Re-use buildHash for AABB change detection (same membership/geometry
+    // inputs drive both).
+    if (buildHash !== this.lastHitHash || superclusters.length !== this.lastHitCount) {
       this.hitLayer.clear();
       this.hitLayer.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: 0x000000, alpha: 0.001 });
-      this.lastHitHash = hitHash;
+      this.lastHitHash = buildHash;
       this.lastHitCount = superclusters.length;
     }
 
-    this.rectMesh.setInstanceCount(superclusters.length);
+    // Clamp to zero when the flag is off so stale buffer contents can't paint.
+    this.rectMesh.setInstanceCount(meshEnabled ? superclusters.length : 0);
     this.pickIndex.load(pickRects, "supercluster");
     this.releaseLabels();
+
+    this.lastBuildHash = buildHash;
+    this.lastBuildCount = superclusters.length;
+    this.lastInvScaleBucket = invScaleBucket;
+    this.lastMeshEnabled = meshEnabled;
   }
 
   clear(): void {
     this.rectMesh.setInstanceCount(0);
+    this.fallbackGfx.clear();
     this.hitLayer.clear();
     this.pickRectsPool.reset();
     this.pickIndex.clear();
@@ -308,6 +382,9 @@ export class SuperclusterNodeRenderer {
     this.labelCache.clear();
     this.lastHitHash = 0;
     this.lastHitCount = 0;
+    this.lastBuildHash = 0;
+    this.lastBuildCount = 0;
+    this.lastInvScaleBucket = -1;
   }
 
   destroy(): void {

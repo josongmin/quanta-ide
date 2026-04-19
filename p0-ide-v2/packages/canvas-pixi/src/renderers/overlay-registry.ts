@@ -83,6 +83,10 @@ export interface OverlayRenderCtx {
   showCrossGraphEdges?: boolean;
   highlightCrossGraph?: boolean;
   crossGraphFlash?: ReadonlySet<string>;
+  /** Hierarchical Edge Bundling sampled polylines (edgeId → flat
+   *  [x0, y0, x1, y1, ...] Float32Array). Only consumed by
+   *  EdgeStaticRenderer at galaxy LOD when the feature flag is on. */
+  hebPaths?: Map<string, Float32Array>;
 
   // Cluster / bubble / badge gates.
   clusterEdgesToRender: readonly ClusterEdge[] | null;
@@ -174,6 +178,7 @@ register("edgeStatic", (world) => {
         showCrossGraphEdges: ctx.showCrossGraphEdges,
         highlightCrossGraph: ctx.highlightCrossGraph,
         crossGraphFlash: ctx.crossGraphFlash,
+        hebPaths: ctx.hebPaths,
       });
     },
     clear() { /* handled by next update */ },

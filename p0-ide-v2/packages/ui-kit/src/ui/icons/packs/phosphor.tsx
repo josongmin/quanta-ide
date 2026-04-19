@@ -31,12 +31,10 @@ function buildPack(
     label,
     hint,
     supportsColor: false,
-    Folder: ({ open }) =>
-      open ? (
-        <FolderOpen size={SIZE} weight={weight} className="ide-files-icon is-folder" />
-      ) : (
-        <Folder size={SIZE} weight={weight} className="ide-files-icon is-folder" />
-      ),
+    Folder: ({ open }) => {
+      const folderCommon = { size: SIZE, weight, className: "ide-files-icon is-folder" } as const;
+      return open ? <FolderOpen {...folderCommon} /> : <Folder {...folderCommon} />;
+    },
     pickFile: (name) => {
       const common = { size: SIZE, weight, className: "ide-files-icon" } as const;
       const kind = detectFileType(name);

@@ -2,10 +2,24 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Container, Graphics } from "pixi.js";
 import {
   PresenceRingRenderer,
+  setPresenceRingsMeshEnabled,
   type AgentPresenceInput,
   type AgentActivity,
 } from "./PresenceRingRenderer";
 import type { Rect, Viewport, LodLevel } from "@quanta/canvas-engine";
+
+// The assertions below spy on `gfx.roundRect()` / `gfx.stroke()` to verify
+// branch coverage. The SOTA instanced-mesh ring path emits zero Graphics
+// calls — it writes directly into an InstancedCircleMesh backing buffer —
+// which would zero-out every spy count. Disable the mesh for this suite so
+// the existing expectations continue to exercise the CPU fallback. A
+// separate unit test on InstancedCircleMesh covers the mesh schema.
+beforeEach(() => {
+  setPresenceRingsMeshEnabled(false);
+});
+afterEach(() => {
+  setPresenceRingsMeshEnabled(true);
+});
 
 // Coverage notes
 // ---------------

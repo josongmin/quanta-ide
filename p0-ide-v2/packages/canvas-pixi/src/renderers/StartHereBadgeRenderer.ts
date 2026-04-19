@@ -1,6 +1,26 @@
 import { Graphics, Container, Text } from "pixi.js";
 import type { StartHereEntry, LodLevel, Rect, Viewport } from "@quanta/canvas-engine";
 import { setFontSize, setText, hashStep, hashStringStep } from "./shared/pixi-guards";
+import {
+  InstancedCircleMesh,
+  FLOATS_PER_CIRCLE_INSTANCE,
+  unpackHexInto,
+} from "./shared/InstancedCircleMesh";
+
+// Feature flag. When true, badge backgrounds route through one instanced
+// draw call shared with the other badge/ring renderers (see
+// InstancedCircleMesh). When false, the Graphics fallback runs — which
+// is also what this renderer's unit tests spy on. Exposed as a setter so
+// the test suite can flip it per-describe.
+let BADGES_MESH_ENABLED = true;
+/** Toggle the instanced-mesh start-here badge path. Tests / rollback. */
+export function setStartHereBadgesMeshEnabled(enabled: boolean): void {
+  BADGES_MESH_ENABLED = enabled;
+}
+/** Read the current flag. */
+export function isStartHereBadgesMeshEnabled(): boolean {
+  return BADGES_MESH_ENABLED;
+}
 
 // Numbered "start here" badges anchored to the top-right corner of each
 // file rect. The rank comes from `rankStartHere` (centrality + entry-point
@@ -38,6 +58,11 @@ function badgeSize(lod: TierGate): number {
 export class StartHereBadgeRenderer {
   private container: Container;
   private gfx: Graphics;
+  // Instanced-circle mesh for badge backgrounds. Replaces the per-badge
+  // Graphics.roundRect+fill+stroke call with a single instanced draw.
+  // Always constructed so the feature flag can flip at runtime.
+  private badgeMesh: InstancedCircleMesh;
+  private badgeInstanceCount = 0;
   private textPool: Text[] = [];
   private textPoolIdx = 0;
   // Dirty-flag. Inputs: the top-N ranked entries, their target rects, the
@@ -55,6 +80,8 @@ export class StartHereBadgeRenderer {
     parent.addChild(this.container);
     this.gfx = new Graphics();
     this.container.addChild(this.gfx);
+    this.badgeMesh = new InstancedCircleMesh(64);
+    this.container.addChild(this.badgeMesh.mesh);
   }
 
   build(
@@ -66,6 +93,8 @@ export class StartHereBadgeRenderer {
   ): void {
     if (!entries || entries.length === 0 || !tierAllows(lod)) {
       this.gfx.clear();
+      this.badgeMesh.setInstanceCount(0);
+      this.badgeInstanceCount = 0;
       this.resetTexts();
       this.lastHash = 0;
       this.lastCount = 0;
@@ -113,6 +142,9 @@ export class StartHereBadgeRenderer {
     const size = badgeSize(lod) * invScale;
     const radius = size * 0.3;
 
+    this.badgeMesh.ensureCapacity(limit);
+    this.badgeInstanceCount = 0;
+
     for (let i = 0; i < limit; i++) {
       const entry = entries[i];
       const rect = fileRectById.get(entry.fileId);
@@ -121,10 +153,7 @@ export class StartHereBadgeRenderer {
       const x = rect.x + rect.w - size * 0.4;
       const y = rect.y - size * 0.6;
 
-      this.gfx
-        .roundRect(x, y, size, size, radius)
-        .fill({ color: BADGE_FILL, alpha: BADGE_ALPHA })
-        .stroke({ color: 0xffffff, alpha: 0.5, width: invScale * 0.5 });
+      this.drawBadge(x, y, size, radius, invScale);
 
       const label = this.acquireText();
       setText(label, String(entry.rank));
@@ -133,14 +162,50 @@ export class StartHereBadgeRenderer {
       label.visible = true;
     }
 
+    if (BADGES_MESH_ENABLED) {
+      this.badgeMesh.setInstanceCount(this.badgeInstanceCount);
+    } else {
+      this.badgeMesh.setInstanceCount(0);
+    }
+
     this.lastHash = hash;
     this.lastCount = count;
     this.lastLod = lod;
     this.lastInvScaleBucket = invScaleBucket;
   }
 
+  /**
+   * Paint a single "start here" badge. Graphics mode keeps the original
+   * rounded-rect+stroke look so tests that spy on roundRect still observe
+   * every branch. Mesh mode emits a filled circle with a thin white border
+   * — visually equivalent for a numbered rank pill and drastically cheaper
+   * when many files carry ranks.
+   */
+  private drawBadge(x: number, y: number, size: number, radius: number, invScale: number): void {
+    if (BADGES_MESH_ENABLED) {
+      const data = this.badgeMesh.view();
+      const o = this.badgeInstanceCount * FLOATS_PER_CIRCLE_INSTANCE;
+      data[o] = x + size / 2;
+      data[o + 1] = y + size / 2;
+      data[o + 2] = size * 0.5;
+      data[o + 3] = 0;                     // filled disc
+      unpackHexInto(BADGE_FILL, data, o + 4, BADGE_ALPHA);
+      unpackHexInto(0xffffff, data, o + 8, 0.5);
+      data[o + 12] = invScale * 0.5;       // border width in world px
+      data[o + 13] = 0;                    // no pulse
+      this.badgeInstanceCount++;
+    } else {
+      this.gfx
+        .roundRect(x, y, size, size, radius)
+        .fill({ color: BADGE_FILL, alpha: BADGE_ALPHA })
+        .stroke({ color: 0xffffff, alpha: 0.5, width: invScale * 0.5 });
+    }
+  }
+
   clear(): void {
     this.gfx.clear();
+    this.badgeMesh.setInstanceCount(0);
+    this.badgeInstanceCount = 0;
     this.resetTexts();
     this.lastHash = 0;
     this.lastCount = 0;
@@ -151,6 +216,7 @@ export class StartHereBadgeRenderer {
   destroy(): void {
     for (const t of this.textPool) t.destroy();
     this.textPool.length = 0;
+    this.badgeMesh.destroy();
     this.gfx.destroy();
     this.container.destroy();
   }

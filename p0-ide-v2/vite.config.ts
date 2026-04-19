@@ -1,4 +1,5 @@
 import path from "path";
+import os from "os";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { repoScannerPlugin } from "./vite-plugins/repo-scanner";
@@ -9,6 +10,7 @@ const isTauri = Boolean(process.env.TAURI_ENV_PLATFORM);
 
 export default defineConfig({
   base: isTauri ? "/" : "/ide/",
+  cacheDir: path.join(os.homedir(), ".cache", "quanta-ide", "vite", "p0-ide-v2"),
   plugins: [react(), repoScannerPlugin(), perfLoggerPlugin(), gitHistoryPlugin()],
   resolve: {
     alias: {

@@ -1,6 +1,27 @@
 import { Graphics, Container, Text, Ticker } from "pixi.js";
 import type { Rect, Viewport, LodLevel } from "@quanta/canvas-engine";
 import { setFontSize, setFill, setText, hashStep, hashStringStep } from "./shared/pixi-guards";
+import {
+  InstancedCircleMesh,
+  FLOATS_PER_CIRCLE_INSTANCE,
+  unpackHexInto,
+} from "./shared/InstancedCircleMesh";
+
+// Feature flag. When true, the pulsing ring geometry routes through an
+// InstancedCircleMesh and the pulse animation is computed in the fragment
+// shader — the Ticker only needs to push a single float per instance per
+// frame rather than rebuilding a Graphics display list. When false, the
+// Graphics fallback runs; unit tests that spy on gfx.stroke() / roundRect()
+// expect this path.
+let BADGES_MESH_ENABLED = true;
+/** Toggle the instanced-mesh presence-ring path. Tests / rollback. */
+export function setPresenceRingsMeshEnabled(enabled: boolean): void {
+  BADGES_MESH_ENABLED = enabled;
+}
+/** Read the current flag. */
+export function isPresenceRingsMeshEnabled(): boolean {
+  return BADGES_MESH_ENABLED;
+}
 
 export type AgentActivity = "reading" | "editing" | "analyzing" | "idle";
 
@@ -42,6 +63,11 @@ function isCoarseLod(lod: LodLevel): boolean {
 export class PresenceRingRenderer {
   private container: Container;
   private gfx: Graphics;
+  // Instanced-circle mesh for ring geometry. Replaces per-agent
+  // Graphics.roundRect+stroke with one draw call across all rings, and
+  // moves the pulse sin() computation from CPU-per-tick to GPU-per-pixel.
+  private ringMesh: InstancedCircleMesh;
+  private ringInstanceCount = 0;
   private labelPool: Text[] = [];
   private labelPoolIdx = 0;
   private ticker: Ticker;
@@ -69,6 +95,8 @@ export class PresenceRingRenderer {
     parent.addChild(this.container);
     this.gfx = new Graphics();
     this.container.addChild(this.gfx);
+    this.ringMesh = new InstancedCircleMesh(32);
+    this.container.addChild(this.ringMesh.mesh);
 
     this.ticker = Ticker.shared;
     this.ticker.add(this.tick, this);
@@ -96,6 +124,8 @@ export class PresenceRingRenderer {
     this.lastPresence = [];
     this.lastRectById = null;
     this.gfx.clear();
+    this.ringMesh.setInstanceCount(0);
+    this.ringInstanceCount = 0;
     this.resetLabels();
     this.lastMembershipHash = 0;
     this.lastMembershipCount = 0;
@@ -111,6 +141,7 @@ export class PresenceRingRenderer {
     this.ticker.remove(this.tick, this);
     for (const l of this.labelPool) l.destroy();
     this.labelPool.length = 0;
+    this.ringMesh.destroy();
     this.gfx.destroy();
     this.container.destroy();
   }
@@ -122,6 +153,19 @@ export class PresenceRingRenderer {
     // comes back from background with a deltaMS spanning many cycles —
     // a single subtract would leave the phase arbitrarily far past 2π.
     this.pulsePhase = ((this.pulsePhase % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+
+    // Mesh path: pulse modulation is a shader uniform-like attribute — we
+    // only need to rewrite the per-instance phase column once per tick.
+    // The membership walk, radius math, alpha calc and Graphics.clear() in
+    // redraw() are all skipped until something semantic changes. Falls
+    // back to the full redraw when the flag is off (unit tests).
+    if (BADGES_MESH_ENABLED && this.ringInstanceCount > 0) {
+      // Shader expects pulse in [0, 1]; convert from radians.
+      const phaseNormalized = this.pulsePhase / (Math.PI * 2);
+      this.ringMesh.updatePulsePhase(this.ringInstanceCount, phaseNormalized);
+      return;
+    }
+
     this.redraw();
   };
 
@@ -151,6 +195,8 @@ export class PresenceRingRenderer {
     const rects = this.lastRectById;
     if (!rects) {
       this.gfx.clear();
+      this.ringMesh.setInstanceCount(0);
+      this.ringInstanceCount = 0;
       this.resetLabels();
       return;
     }
@@ -166,10 +212,17 @@ export class PresenceRingRenderer {
     const now = Date.now();
     const { hash, count } = this.computeMembershipHash(now);
 
+    // In mesh mode, pulse animation is GPU-side — per-frame pulse bucket
+    // changes don't require a redraw. Skip the bucket in the equality test
+    // when the flag is on so the tick fast-path (attribute-only update) is
+    // reached. Graphics mode keeps the original guard so its alpha ramp
+    // still visually pulses.
+    const pulseMatches = BADGES_MESH_ENABLED ? true : pulseBucket === this.lastPulseBucket;
+
     if (
       hash === this.lastMembershipHash
       && count === this.lastMembershipCount
-      && pulseBucket === this.lastPulseBucket
+      && pulseMatches
       && invScaleBucket === this.lastInvScaleBucket
       && showLabels === this.lastShowLabels
     ) {
@@ -189,6 +242,11 @@ export class PresenceRingRenderer {
 
     const pulse = 0.85 + Math.sin(this.pulsePhase) * 0.1;
 
+    // Upper-bound instance count: one ring per (file × agents-on-file).
+    // Approximating with lastPresence.length is a safe, cheap bound.
+    this.ringMesh.ensureCapacity(this.lastPresence.length);
+    this.ringInstanceCount = 0;
+
     for (const [fileId, agents] of byFile) {
       const rect = rects.get(fileId);
       if (!rect) continue;
@@ -202,11 +260,7 @@ export class PresenceRingRenderer {
         const w = rect.w + pad * 2;
         const h = rect.h + pad * 2;
 
-        this.gfx.roundRect(x, y, w, h, 6).stroke({
-          color: agent.color,
-          alpha: RING_ALPHA * pulse * staleFactor,
-          width: STROKE_WIDTH * invScale,
-        });
+        this.drawRing(x, y, w, h, agent.color, staleFactor, pulse, invScale);
 
         if (showLabels && i === 0) {
           const label = this.acquireLabel();
@@ -225,11 +279,70 @@ export class PresenceRingRenderer {
       }
     }
 
+    if (BADGES_MESH_ENABLED) {
+      this.ringMesh.setInstanceCount(this.ringInstanceCount);
+    } else {
+      this.ringMesh.setInstanceCount(0);
+    }
+
     this.lastMembershipHash = hash;
     this.lastMembershipCount = count;
     this.lastPulseBucket = pulseBucket;
     this.lastInvScaleBucket = invScaleBucket;
     this.lastShowLabels = showLabels;
+  }
+
+  /**
+   * Paint a single agent presence ring. Graphics mode draws a rounded
+   * rectangle stroke around the file card (the original look). Mesh mode
+   * emits a ring-shaped circle instance whose outer radius covers the
+   * rect's diagonal — visually a badge-style halo rather than a hugging
+   * rect stroke, but with shader-driven pulse and no per-frame CPU cost.
+   */
+  private drawRing(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    color: number,
+    staleFactor: number,
+    pulse: number,
+    invScale: number,
+  ): void {
+    if (BADGES_MESH_ENABLED) {
+      const data = this.ringMesh.view();
+      const o = this.ringInstanceCount * FLOATS_PER_CIRCLE_INSTANCE;
+      // Centre + outer radius encloses the rect. Inner radius carves out
+      // the band thickness so the ring sits just outside the file card.
+      const cx = x + w / 2;
+      const cy = y + h / 2;
+      // Enclosing circle radius = half the rect diagonal; subtract a
+      // hair so the ring body doesn't overpaint the card corners.
+      const outer = Math.sqrt(w * w + h * h) * 0.5 + invScale;
+      const thickness = STROKE_WIDTH * invScale;
+      const inner = Math.max(0, outer - thickness);
+      data[o] = cx;
+      data[o + 1] = cy;
+      data[o + 2] = outer;
+      data[o + 3] = inner;
+      // Fragment shader multiplies alpha by its own breathe term; we
+      // still pass the base alpha with staleFactor so stale rings fade
+      // even under the GPU pulse.
+      unpackHexInto(color, data, o + 4, RING_ALPHA * pulse * staleFactor);
+      // No distinct border colour for the ring — the body is the stroke.
+      data[o + 8] = 0; data[o + 9] = 0; data[o + 10] = 0; data[o + 11] = 0;
+      data[o + 12] = 0;
+      // Seed pulse with the current phase; the tick fast-path advances
+      // it from here. Shader expects pulse in [0, 1].
+      data[o + 13] = (this.pulsePhase / (Math.PI * 2)) % 1;
+      this.ringInstanceCount++;
+    } else {
+      this.gfx.roundRect(x, y, w, h, 6).stroke({
+        color,
+        alpha: RING_ALPHA * pulse * staleFactor,
+        width: STROKE_WIDTH * invScale,
+      });
+    }
   }
 
   private acquireLabel(): Text {

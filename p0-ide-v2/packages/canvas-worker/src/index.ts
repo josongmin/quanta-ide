@@ -4,6 +4,7 @@ export type {
   WorkerRequest,
   WorkerResponse,
   EdgeGeometryBatch,
+  HebBatch,
   SerializedLayout,
   SerializedAggregates,
   SerializedMetrics,

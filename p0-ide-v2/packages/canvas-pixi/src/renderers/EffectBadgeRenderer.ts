@@ -11,6 +11,26 @@ import type {
 import { EFFECT_STYLE } from "@quanta/canvas-engine";
 import { NEUTRAL_GREY } from "./shared/colors";
 import { setFontSize, setFill, setText, hashStep, hashStringStep } from "./shared/pixi-guards";
+import {
+  InstancedCircleMesh,
+  FLOATS_PER_CIRCLE_INSTANCE,
+  unpackHexInto,
+} from "./shared/InstancedCircleMesh";
+
+// Feature flag. When true, chip backgrounds are drawn via a single instanced
+// mesh draw call. When false, we fall back to the CPU Graphics path (which
+// is what the renderer's unit tests spy on). Rollback handle for runtime
+// triage, not just tests — if the shader ever misbehaves on a given GPU we
+// can flip it off without a rebuild.
+let BADGES_MESH_ENABLED = true;
+/** Toggle the instanced-mesh badge/ring path. Intended for rollback / tests. */
+export function setBadgesMeshEnabled(enabled: boolean): void {
+  BADGES_MESH_ENABLED = enabled;
+}
+/** Read the current flag — used by tests to guard expectations. */
+export function isBadgesMeshEnabled(): boolean {
+  return BADGES_MESH_ENABLED;
+}
 
 // Per-file effect chips rendered as a row below the card's bottom edge.
 // Each chip is a rounded rect + 2-3 letter ASCII glyph (no emoji). Readers
@@ -53,6 +73,12 @@ const OVERFLOW_COLOR = NEUTRAL_GREY;
 export class EffectBadgeRenderer {
   private container: Container;
   private gfx: Graphics;
+  // Instanced-circle mesh; painted when BADGES_MESH_ENABLED. Replaces the
+  // per-chip Graphics.roundRect() + fill() pair with a single draw call
+  // across every visible chip. Always constructed so we can flip the flag
+  // at runtime without a restart.
+  private chipMesh: InstancedCircleMesh;
+  private chipInstanceCount = 0;
   // One Text per slot; we keep MAX_CHIPS + 1 (the overflow slot) × visible
   // files worth of pool entries. Pool grows as needed, LRU-reset between
   // build() calls (visible not set this frame → hidden).
@@ -72,6 +98,11 @@ export class EffectBadgeRenderer {
     parent.addChild(this.container);
     this.gfx = new Graphics();
     this.container.addChild(this.gfx);
+    // Mesh sits alongside the Graphics layer. Added under the Text pool so
+    // glyphs read on top. The mesh is a no-op draw when instanceCount=0 so
+    // the Graphics fallback owns the pixels under the flag.
+    this.chipMesh = new InstancedCircleMesh(128);
+    this.container.addChild(this.chipMesh.mesh);
   }
 
   build(
@@ -83,6 +114,8 @@ export class EffectBadgeRenderer {
   ): void {
     if (!effects || !tierAllows(lod)) {
       this.gfx.clear();
+      this.chipMesh.setInstanceCount(0);
+      this.chipInstanceCount = 0;
       this.resetTexts();
       this.lastHash = 0;
       this.lastCount = 0;
@@ -140,12 +173,25 @@ export class EffectBadgeRenderer {
     const radius = CHIP_RADIUS * invScale;
     const fontSize = CHIP_FONT;
 
+    // Upper-bound chip count: MAX_CHIPS per file. Growing once per build
+    // avoids multiple reallocations inside drawRow().
+    this.chipMesh.ensureCapacity(files.length * MAX_CHIPS);
+    this.chipInstanceCount = 0;
+
     for (const file of files) {
       const entry = effects[file.id];
       if (!entry || entry.effects.length === 0) continue;
       const rect = layout.fileRects.get(file.id);
       if (!rect) continue;
       this.drawRow(rect, entry.effects, chipW, chipH, gap, rowGapY, radius, fontSize, invScale);
+    }
+
+    // Commit mesh instance count; a zero-count mesh emits no draw. When
+    // the flag is off we leave the count zero so only Graphics paints.
+    if (BADGES_MESH_ENABLED) {
+      this.chipMesh.setInstanceCount(this.chipInstanceCount);
+    } else {
+      this.chipMesh.setInstanceCount(0);
     }
 
     this.lastHash = hash;
@@ -156,6 +202,8 @@ export class EffectBadgeRenderer {
 
   clear(): void {
     this.gfx.clear();
+    this.chipMesh.setInstanceCount(0);
+    this.chipInstanceCount = 0;
     this.resetTexts();
     this.lastHash = 0;
     this.lastCount = 0;
@@ -166,6 +214,7 @@ export class EffectBadgeRenderer {
   destroy(): void {
     for (const t of this.textPool) t.destroy();
     this.textPool.length = 0;
+    this.chipMesh.destroy();
     this.gfx.destroy();
     this.container.destroy();
   }
@@ -199,9 +248,7 @@ export class EffectBadgeRenderer {
       const kind = effects[i];
       const style = EFFECT_STYLE[kind];
       const x = startX + i * (chipW + gap);
-      this.gfx
-        .roundRect(x, y, chipW, chipH, radius)
-        .fill({ color: style.color, alpha: 0.92 });
+      this.drawChip(x, y, chipW, chipH, radius, style.color, 0.92);
 
       const label = this.acquireText();
       setText(label, style.glyph);
@@ -218,9 +265,7 @@ export class EffectBadgeRenderer {
 
     if (overflow) {
       const x = startX + visibleCount * (chipW + gap);
-      this.gfx
-        .roundRect(x, y, chipW, chipH, radius)
-        .fill({ color: OVERFLOW_COLOR, alpha: 0.85 });
+      this.drawChip(x, y, chipW, chipH, radius, OVERFLOW_COLOR, 0.85);
       const label = this.acquireText();
       setText(label, OVERFLOW_GLYPH);
       setFontSize(label, fontSize);
@@ -231,6 +276,44 @@ export class EffectBadgeRenderer {
         y + chipH / 2 - label.height / 2,
       );
       label.visible = true;
+    }
+  }
+
+  /**
+   * Paint a single chip background. In Graphics mode we emit a rounded rect
+   * (preserves the original pill look + keeps test spies observable). In
+   * mesh mode we emit a circle instance approximately the chip width —
+   * circles pack as cleanly in a row and read as "badge dots", and the
+   * instanced path is one draw call for the whole scene.
+   */
+  private drawChip(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    radius: number,
+    color: number,
+    alpha: number,
+  ): void {
+    if (BADGES_MESH_ENABLED) {
+      const data = this.chipMesh.view();
+      const o = this.chipInstanceCount * FLOATS_PER_CIRCLE_INSTANCE;
+      // Centre at chip midpoint; radius approximates half the shorter
+      // edge so the dot fits the row height without overlapping neighbours.
+      data[o] = x + w / 2;
+      data[o + 1] = y + h / 2;
+      data[o + 2] = Math.min(w, h) * 0.5;
+      data[o + 3] = 0;                     // filled disc
+      unpackHexInto(color, data, o + 4, alpha);
+      // No explicit border — leave zeroed.
+      data[o + 8] = 0; data[o + 9] = 0; data[o + 10] = 0; data[o + 11] = 0;
+      data[o + 12] = 0;
+      data[o + 13] = 0;                    // no pulse
+      this.chipInstanceCount++;
+    } else {
+      this.gfx
+        .roundRect(x, y, w, h, radius)
+        .fill({ color, alpha });
     }
   }
 

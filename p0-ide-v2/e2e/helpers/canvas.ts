@@ -18,13 +18,15 @@ const WORKSPACE_TAB_INDEX = 3;
  */
 export async function gotoCanvas(page: Page): Promise<void> {
   await page.goto(APP_PATH);
-  await page.locator(".topbar__tab").first().waitFor({ state: "visible" });
+  // Topbar itself can take 15-20s to first-render on a cold dev server.
+  await page.locator(".topbar__tab").first().waitFor({ state: "visible", timeout: 60_000 });
 
   const tabs = page.locator(".topbar__tab");
   await tabs.nth(WORKSPACE_TAB_INDEX).click();
 
-  // Vite cold-compile of the workspace chunk can take 10-20s on a fresh
-  // webServer spawn, so use a generous timeout. Subsequent test runs hit
-  // the cache and resolve in <1s.
-  await page.locator(".workspace-canvas").waitFor({ state: "visible", timeout: 30_000 });
+  // Vite cold-compile of the workspace chunk (pixi + canvas-engine graph)
+  // regularly takes 30-60s on a fresh webServer spawn. Prior 30s budget
+  // was timing out 7/20 specs. 90s gives cold start enough headroom
+  // without masking a genuine hang; subsequent cache hits resolve <1s.
+  await page.locator(".workspace-canvas").waitFor({ state: "visible", timeout: 90_000 });
 }

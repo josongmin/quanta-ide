@@ -72,6 +72,9 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   useWorkspaceCanvasOrchestrator(graph);
   useUrlStateSync();
   useAnomalyDetectionRun();
+  const hebPaths = useHebPaths();
+  useUrlStateSync();
+  useAnomalyDetectionRun();
   // HEB path precompute — writes to sceneStore.hebPaths at galaxy-tier
   // LODs and returns a Map<edgeId, Float32Array> view for the renderer.
   // When EdgeStaticRenderer's HEB flag is off (default), the renderer

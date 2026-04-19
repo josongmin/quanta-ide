@@ -42,6 +42,18 @@ export type WorkerRequest =
       id: string;
       payload: { graph: WorkspaceGraph; layout: SerializedLayout };
     }
+  | {
+      type: "BUILD_HEB";
+      id: string;
+      payload: {
+        graph: WorkspaceGraph;
+        layout: SerializedLayout;
+        /** Bundling strength 0..1 — defaults to 0.85 in the worker. */
+        tension?: number;
+        /** Samples per path; defaults to 24 in the worker. */
+        samples?: number;
+      };
+    }
   | { type: "CANCEL"; id: string };
 
 // ── Responses (worker → main) ────────────────────────────────────
@@ -55,11 +67,25 @@ export interface EdgeGeometryBatch {
 
 export type LayoutStage = "grid-ready" | "elk-start" | "elk-skipped" | "elk-failed";
 
+export interface HebBatch {
+  /** Parallel arrays: edgeIds[i] ↔ offsets[i] ↔ lengths[i] into `samples`. */
+  edgeIds: string[];
+  /** Flat [x0, y0, x1, y1, ...] polyline samples for every edge, concatenated. */
+  samples: Float32Array;
+  /** Byte-pair offsets (as indices into `samples`, not byte offsets) per edge. */
+  offsets: Uint32Array;
+  /** Number of points (not floats) per edge. */
+  lengths: Uint32Array;
+  /** Total rebuild time in ms — surfaced for dev HUD. */
+  computeMs: number;
+}
+
 export type WorkerResponse =
   | { type: "LAYOUT_READY";     id: string; payload: SerializedLayout; stage: "grid" | "elk" }
   | { type: "LAYOUT_PROGRESS";  id: string; stage: LayoutStage; filesCount: number; elapsedMs: number }
   | { type: "AGGREGATES_READY"; id: string; payload: SerializedAggregates }
   | { type: "GEOMETRY_READY";   id: string; payload: EdgeGeometryBatch }
+  | { type: "HEB_READY";        id: string; payload: HebBatch }
   | { type: "WORKER_ERROR";     id: string; message: string };
 
 // ── Serialization helpers (Maps are not structured-clone-safe) ────

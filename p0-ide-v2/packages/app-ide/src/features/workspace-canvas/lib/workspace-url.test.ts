@@ -12,7 +12,6 @@ describe("workspace-url", () => {
       version: 1,
       viewport: { x: 123.4, y: -56.7, scale: 0.789 },
       selectedFileId: "src/app/main.ts",
-      forceLod: "galaxy",
       edgeLayers: { structural: true, flow: false, safety: true, impact: false },
       edgeMinSeverity: "high",
       focusMode: "on",

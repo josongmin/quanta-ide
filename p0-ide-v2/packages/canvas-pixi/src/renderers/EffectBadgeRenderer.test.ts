@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Container, Graphics } from "pixi.js";
-import { EffectBadgeRenderer } from "./EffectBadgeRenderer";
+import { EffectBadgeRenderer, setBadgesMeshEnabled } from "./EffectBadgeRenderer";
 import type {
   FileNode,
   WorkspaceLayout,
@@ -9,6 +9,20 @@ import type {
   LodLevel,
   FileEffects,
 } from "@quanta/canvas-engine";
+
+// The tests below spy on the private `gfx: Graphics` field's `roundRect()`
+// method to assert branch coverage. The SOTA instanced-mesh chip path
+// routes chip backgrounds through an InstancedCircleMesh instead of
+// Graphics, which would zero-out those spy counts. We disable the mesh
+// path for this test file so the assertions continue to target the
+// Graphics fallback — a live-code sanity check that the rollback path
+// still draws correct geometry.
+beforeEach(() => {
+  setBadgesMeshEnabled(false);
+});
+afterEach(() => {
+  setBadgesMeshEnabled(true);
+});
 
 // Coverage notes
 // ---------------

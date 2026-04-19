@@ -1,4 +1,4 @@
-import type { WorkerRequest, WorkerResponse } from "./messages";
+import type { WorkerRequest, WorkerResponse, HebBatch } from "./messages";
 import {
   serializeLayout,
   deserializeLayout,
@@ -7,6 +7,11 @@ import {
 import { runLayoutTask } from "./layout-task";
 import { runAggregateTask } from "./aggregate-task";
 import { runGeometryTask } from "./geometry-task";
+import {
+  buildFolderTree,
+  fillFolderCenters,
+  computeHEBPaths,
+} from "@quanta/canvas-engine";
 
 // ELK is disabled: elkjs bundled build tries to spawn nested Workers from
 // inside our worker, which fails (`_Worker is not a constructor`) and leaves
@@ -85,6 +90,60 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         };
         // Transfer ownership of the underlying ArrayBuffer to avoid copying.
         self.postMessage(resp, { transfer: [batch.positions.buffer] });
+        break;
+      }
+
+      case "BUILD_HEB": {
+        const t0 = Date.now();
+        const { graph, tension, samples } = req.payload;
+        const layout = deserializeLayout(req.payload.layout);
+        // Folder tree is cheap to rebuild; we don't cache it across requests
+        // because graph swaps invalidate it anyway. If this ever shows up in
+        // a profiler (unlikely — 2k files rebuild in <1ms), memoize by
+        // graph-identity in a weak ref.
+        const tree = buildFolderTree(graph.files);
+        fillFolderCenters(tree, layout.fileRects);
+        const paths = computeHEBPaths(
+          graph.fileEdges,
+          layout.fileRects,
+          tree,
+          { tension, samples },
+        );
+
+        // Concatenate all sampled polylines into a single Float32Array so
+        // we post one Transferable instead of N-thousand. `offsets` and
+        // `lengths` act as a per-edge index into that flat buffer.
+        let totalFloats = 0;
+        for (const p of paths) totalFloats += p.sampled.length;
+        const samplesOut = new Float32Array(totalFloats);
+        const offsets = new Uint32Array(paths.length);
+        const lengths = new Uint32Array(paths.length);
+        const edgeIds: string[] = new Array(paths.length);
+        let cursor = 0;
+        for (let i = 0; i < paths.length; i++) {
+          const p = paths[i]!;
+          samplesOut.set(p.sampled, cursor);
+          offsets[i] = cursor;
+          lengths[i] = p.sampled.length / 2; // pairs, not floats
+          edgeIds[i] = p.edgeId;
+          cursor += p.sampled.length;
+        }
+
+        const batch: HebBatch = {
+          edgeIds,
+          samples: samplesOut,
+          offsets,
+          lengths,
+          computeMs: Date.now() - t0,
+        };
+        const resp: WorkerResponse = {
+          type: "HEB_READY",
+          id: req.id,
+          payload: batch,
+        };
+        self.postMessage(resp, {
+          transfer: [batch.samples.buffer, batch.offsets.buffer, batch.lengths.buffer],
+        });
         break;
       }
 

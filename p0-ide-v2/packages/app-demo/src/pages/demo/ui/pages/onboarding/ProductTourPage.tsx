@@ -457,8 +457,9 @@ export function ProductTourPage() {
   return (
     <div className="demo-app">
       <DemoAppHero
+        editorial
         kicker="Onboarding"
-        title="Interactive product tour"
+        title={<>Interactive <em>product</em> tour</>}
         sub="A guided walkthrough of the key surfaces. Step through the tooltips, or skip to what you care about."
       />
       <div className="demo-app__body">

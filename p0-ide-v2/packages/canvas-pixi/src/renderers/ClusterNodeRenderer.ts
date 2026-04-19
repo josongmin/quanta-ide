@@ -7,6 +7,20 @@ import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
 import { setText, hashStep, hashStringStep, makeGrowingPool, type GrowingPool } from "./shared/pixi-guards";
 
+// Feature flag. When true, cluster boxes are drawn via InstancedRectMesh
+// (one draw call for hundreds of boxes). When false, the legacy Graphics
+// fallback path runs — kept as a runtime rollback handle in case the mesh
+// shader misbehaves on a given GPU, and to let unit tests spy on roundRect.
+let CLUSTER_MESH_ENABLED = true;
+/** Toggle the instanced-mesh cluster box path. Intended for rollback / tests. */
+export function setClusterMeshEnabled(enabled: boolean): void {
+  CLUSTER_MESH_ENABLED = enabled;
+}
+/** Read the current flag — used by tests to guard expectations. */
+export function isClusterMeshEnabled(): boolean {
+  return CLUSTER_MESH_ENABLED;
+}
+
 // Supergalaxy LOD renderer — draws one soft-coloured box per top-level
 // directory / crate. There are at most a couple hundred of these, so the
 // cost model flips: we can afford BitmapText labels for every cluster.
@@ -18,6 +32,10 @@ import { setText, hashStep, hashStringStep, makeGrowingPool, type GrowingPool } 
 // - `setFontSize` / `setFill` / `setText` gates avoid BitmapText atlas
 //   thrash when nothing changed (pan/zoom frames get a free pass).
 // - `pickRects` pool allocates once and overwrites slots in place.
+// - `lastBuildHash` / `lastInvScaleBucket` gate the entire rebuild loop:
+//   when membership + geometry + zoom bucket match the previous frame,
+//   we skip the N-cluster rect write and label repositioning entirely
+//   (pan frames ride the parent Container transform for free).
 
 function hslToRgb(h: number, s: number, l: number): number {
   const hue2rgb = (p: number, q: number, t: number) => {
@@ -50,6 +68,10 @@ interface ClusterLabelSnapshot {
 export class ClusterNodeRenderer {
   private container: Container;
   private rectMesh: InstancedRectMesh;
+  // Fallback Graphics path. Always constructed so the feature flag can
+  // flip at runtime without re-mounting the renderer. Only emits geometry
+  // when CLUSTER_MESH_ENABLED is false.
+  private fallbackGfx: Graphics;
   private labelContainer: Container;
   private hitLayer: Graphics;
   private pickIndex: SpatialPickIndex;
@@ -73,6 +95,18 @@ export class ClusterNodeRenderer {
   // absorbed by the parent Container transform.
   private lastHitHash = 0;
   private lastHitCount = 0;
+  // Full-rebuild dirty-flag. Folds cluster ids + rects + fileCount + the
+  // per-frame invScale bucket (controls border width and label scale). When
+  // every input matches the previous frame we skip the rect-buffer write,
+  // the label loop, and the pick-index load. Separate from `lastHitHash`:
+  // the hit AABB depends only on membership/geometry, not on zoom.
+  private lastBuildHash = 0;
+  private lastBuildCount = 0;
+  private lastInvScaleBucket = -1;
+  // Track last flag value so a runtime toggle forces a full rebuild: the
+  // mesh path and Graphics path emit visually equivalent but structurally
+  // different commands, so we must invalidate the gate.
+  private lastMeshEnabled = true;
 
   private onClickCluster?: (id: string) => void;
   private onHoverCluster?: (id: string | null) => void;
@@ -87,13 +121,18 @@ export class ClusterNodeRenderer {
     installCityFonts();
     this.container = new Container();
     this.rectMesh = new InstancedRectMesh(256);
+    this.fallbackGfx = new Graphics();
+    this.fallbackGfx.eventMode = "none";
     this.labelContainer = new Container();
     this.hitLayer = new Graphics();
     this.pickIndex = new SpatialPickIndex();
     this.onClickCluster = opts?.onClick;
     this.onHoverCluster = opts?.onHover;
 
+    // Mesh and fallback both mounted; only one emits geometry per frame.
+    // Keeping both in the tree lets setClusterMeshEnabled() flip instantly.
     this.container.addChild(this.rectMesh.mesh);
+    this.container.addChild(this.fallbackGfx);
     this.container.addChild(this.labelContainer);
 
     this.hitLayer.eventMode = "static";
@@ -170,6 +209,7 @@ export class ClusterNodeRenderer {
   update(clusters: ClusterMeta[], viewport: Viewport): void {
     if (clusters.length === 0) {
       this.rectMesh.setInstanceCount(0);
+      this.fallbackGfx.clear();
       this.hitLayer.clear();
       // Use the pool's canonical reset() rather than poking .slots.length
       // directly — direct truncation leaves capacity intact, which would
@@ -179,35 +219,88 @@ export class ClusterNodeRenderer {
       this.releaseLabels();
       this.lastHitHash = 0;
       this.lastHitCount = 0;
+      this.lastBuildHash = 0;
+      this.lastBuildCount = 0;
+      this.lastInvScaleBucket = -1;
       return;
     }
     const invScale = Math.min(16, Math.max(1, 1 / viewport.scale));
+    // Bucket invScale so sub-pixel zoom jitter doesn't invalidate the gate.
+    // Matches StartHereBadgeRenderer's scheme — granular enough that the
+    // border width / label scale stay pixel-stable across bucket boundaries.
+    const invScaleBucket = Math.round(invScale * 2);
+
+    // Pre-pass hash. Covers everything writeRow / setInstance / label loop
+    // reads: per-cluster id, fileCount (label text), rect (mesh geometry),
+    // and the invScale bucket (border width + label scale). The flag
+    // switch is funneled in separately via `lastMeshEnabled` below so a
+    // runtime toggle forces a rebuild even when everything else matches.
+    let buildHash = 0;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (let i = 0; i < clusters.length; i++) {
+      const c = clusters[i];
+      buildHash = hashStringStep(buildHash, c.id);
+      buildHash = hashStep(buildHash, c.rect.x | 0);
+      buildHash = hashStep(buildHash, c.rect.y | 0);
+      buildHash = hashStep(buildHash, c.rect.w | 0);
+      buildHash = hashStep(buildHash, c.rect.h | 0);
+      buildHash = hashStep(buildHash, c.fileCount);
+      if (c.rect.x < minX) minX = c.rect.x;
+      if (c.rect.y < minY) minY = c.rect.y;
+      if (c.rect.x + c.rect.w > maxX) maxX = c.rect.x + c.rect.w;
+      if (c.rect.y + c.rect.h > maxY) maxY = c.rect.y + c.rect.h;
+    }
+
+    const meshEnabled = CLUSTER_MESH_ENABLED;
+    if (
+      buildHash === this.lastBuildHash
+      && clusters.length === this.lastBuildCount
+      && invScaleBucket === this.lastInvScaleBucket
+      && meshEnabled === this.lastMeshEnabled
+    ) {
+      // Nothing touched by the draw loop has changed — pan-only frames land
+      // here and skip the full rect/label walk. The parent Container
+      // transform does the visual panning for free.
+      return;
+    }
+
     this.rectMesh.ensureCapacity(clusters.length);
-    const data = this.rectMesh.view();
+    const data = meshEnabled ? this.rectMesh.view() : null;
+    // Graphics fallback emits geometry imperatively; clear once per rebuild.
+    if (!meshEnabled) this.fallbackGfx.clear();
     // Pre-grow the pick-rect pool so the loop overwrites slots in place
     // instead of pushing fresh `{x,y,w,h,id}` literals per cluster.
     this.pickRectsPool.grow(clusters.length);
     const pickRects = this.pickRectsPool.slots;
     this.labelPoolCursor = 0;
 
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    // Accumulate a geometry+membership hash. Same shape as CityNode's
-    // shadowHash — coercing to i32 keeps the rolling accumulator cheap and
-    // collision-resilient enough for a dirty-flag gate.
-    let hitHash = 0;
+    const borderWidth = invScale * 1.5;
+    const CORNER_RADIUS = 24;
+    const FILL_ALPHA = 0.85;
+    const BORDER_COLOR = 0x4b5563;
+    const BORDER_ALPHA = 0.55;
 
     for (let i = 0; i < clusters.length; i++) {
       const c = clusters[i];
       const fill = this.colorForCluster(c.id);
-      const o = i * FLOATS_PER_INSTANCE;
-      data[o] = c.rect.x;
-      data[o + 1] = c.rect.y;
-      data[o + 2] = c.rect.w;
-      data[o + 3] = c.rect.h;
-      unpackHexInto(fill, data, o + 4, 0.85);
-      unpackHexInto(0x4b5563, data, o + 8, 0.55);
-      data[o + 12] = invScale * 1.5;
-      data[o + 13] = 24; // corner radius
+      if (meshEnabled && data) {
+        const o = i * FLOATS_PER_INSTANCE;
+        data[o] = c.rect.x;
+        data[o + 1] = c.rect.y;
+        data[o + 2] = c.rect.w;
+        data[o + 3] = c.rect.h;
+        unpackHexInto(fill, data, o + 4, FILL_ALPHA);
+        unpackHexInto(BORDER_COLOR, data, o + 8, BORDER_ALPHA);
+        data[o + 12] = borderWidth;
+        data[o + 13] = CORNER_RADIUS;
+      } else {
+        // Legacy Graphics path — kept visually equivalent to the mesh so a
+        // flag flip is a pure performance tradeoff, not a style regression.
+        this.fallbackGfx
+          .roundRect(c.rect.x, c.rect.y, c.rect.w, c.rect.h, CORNER_RADIUS)
+          .fill({ color: fill, alpha: FILL_ALPHA })
+          .stroke({ color: BORDER_COLOR, alpha: BORDER_ALPHA, width: borderWidth });
+      }
 
       const slot = pickRects[i];
       slot.x = c.rect.x;
@@ -215,18 +308,6 @@ export class ClusterNodeRenderer {
       slot.w = c.rect.w;
       slot.h = c.rect.h;
       slot.id = c.id;
-
-      hitHash = hashStringStep(hitHash, c.id);
-      hitHash = hashStep(hitHash, c.rect.x | 0);
-      hitHash = hashStep(hitHash, c.rect.y | 0);
-      hitHash = hashStep(hitHash, c.rect.w | 0);
-      hitHash = hashStep(hitHash, c.rect.h | 0);
-      hitHash = hashStep(hitHash, c.fileCount);
-
-      if (c.rect.x < minX) minX = c.rect.x;
-      if (c.rect.y < minY) minY = c.rect.y;
-      if (c.rect.x + c.rect.w > maxX) maxX = c.rect.x + c.rect.w;
-      if (c.rect.y + c.rect.h > maxY) maxY = c.rect.y + c.rect.h;
 
       // Label (cluster name) — shown centered near top, scaled to viewport.
       // Style is established at BitmapText construction; we only need to
@@ -243,23 +324,30 @@ export class ClusterNodeRenderer {
     // Truncate logical length for SpatialPickIndex; retain capacity.
     pickRects.length = clusters.length;
 
-    // Re-draw the hit AABB only when membership/geometry changed. Pan/zoom
-    // is absorbed by the parent Container transform, so the invisible rect
-    // doesn't need re-emitting.
-    if (hitHash !== this.lastHitHash || clusters.length !== this.lastHitCount) {
+    // Hit AABB gate — membership/geometry only, no zoom dependency.
+    // Re-use buildHash (id+rect+fileCount) for the change detection.
+    if (buildHash !== this.lastHitHash || clusters.length !== this.lastHitCount) {
       this.hitLayer.clear();
       this.hitLayer.rect(minX, minY, maxX - minX, maxY - minY).fill({ color: 0x000000, alpha: 0.001 });
-      this.lastHitHash = hitHash;
+      this.lastHitHash = buildHash;
       this.lastHitCount = clusters.length;
     }
 
-    this.rectMesh.setInstanceCount(clusters.length);
+    // When the flag is off we must clamp the mesh to zero instances so the
+    // GPU doesn't double-paint boxes via stale buffer contents.
+    this.rectMesh.setInstanceCount(meshEnabled ? clusters.length : 0);
     this.pickIndex.load(pickRects, "cluster");
     this.releaseLabels();
+
+    this.lastBuildHash = buildHash;
+    this.lastBuildCount = clusters.length;
+    this.lastInvScaleBucket = invScaleBucket;
+    this.lastMeshEnabled = meshEnabled;
   }
 
   clear(): void {
     this.rectMesh.setInstanceCount(0);
+    this.fallbackGfx.clear();
     this.hitLayer.clear();
     this.pickRectsPool.reset();
     this.pickIndex.clear();
@@ -270,6 +358,9 @@ export class ClusterNodeRenderer {
     this.labelCache.clear();
     this.lastHitHash = 0;
     this.lastHitCount = 0;
+    this.lastBuildHash = 0;
+    this.lastBuildCount = 0;
+    this.lastInvScaleBucket = -1;
   }
 
   destroy(): void {

@@ -881,24 +881,25 @@ export function LandingPage(): JSX.Element {
             New · v2026.04 · Code Universe
           </span>
           <h1
+            className="demo-editorial-title"
             style={{
               margin: 0,
-              fontSize: 44,
-              fontWeight: 800,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.05,
-              maxWidth: 820,
+              fontSize: "clamp(44px, 6vw, 72px)",
+              lineHeight: 1.02,
+              maxWidth: 900,
             }}
           >
-            Ship code your team actually understands.
+            Ship code your team actually <em>understands.</em>
           </h1>
           <p
             style={{
               margin: 0,
-              maxWidth: "40ch",
+              maxWidth: "48ch",
               color: "var(--fg-muted)",
-              fontSize: "var(--fs-lg)",
-              lineHeight: "var(--lh-relaxed)",
+              fontFamily: "var(--font-display)",
+              fontSize: 16,
+              lineHeight: 1.55,
+              letterSpacing: "-0.005em",
             }}
           >
             Quanta maps every function, every edge, every risk in your codebase. Your team writes
@@ -1003,14 +1004,10 @@ export function LandingPage(): JSX.Element {
             One platform
           </div>
           <h2
-            style={{
-              margin: 0,
-              fontSize: 28,
-              fontWeight: "var(--fw-bold)",
-              letterSpacing: "-0.02em",
-            }}
+            className="demo-editorial-title"
+            style={{ margin: 0, fontSize: "clamp(28px, 3.2vw, 38px)" }}
           >
-            Everything you need to ship confident code.
+            Everything you need to ship <em>confident</em> code.
           </h2>
         </div>
         <div className="demo-grid-3">
@@ -1036,14 +1033,10 @@ export function LandingPage(): JSX.Element {
             How it works
           </div>
           <h2
-            style={{
-              margin: 0,
-              fontSize: 28,
-              fontWeight: "var(--fw-bold)",
-              letterSpacing: "-0.02em",
-            }}
+            className="demo-editorial-title"
+            style={{ margin: 0, fontSize: "clamp(28px, 3.2vw, 38px)" }}
           >
-            From clone to policy in three steps.
+            From clone to policy in <em>three</em> steps.
           </h2>
         </div>
         <div
@@ -1183,14 +1176,10 @@ export function LandingPage(): JSX.Element {
             Pricing
           </div>
           <h2
-            style={{
-              margin: 0,
-              fontSize: 28,
-              fontWeight: "var(--fw-bold)",
-              letterSpacing: "-0.02em",
-            }}
+            className="demo-editorial-title"
+            style={{ margin: 0, fontSize: "clamp(28px, 3.2vw, 38px)" }}
           >
-            Start free. Grow when you&apos;re ready.
+            Start free. Grow when <em>you&apos;re</em> ready.
           </h2>
           <div
             className="demo-billing-toggle"
@@ -1285,16 +1274,14 @@ export function LandingPage(): JSX.Element {
         >
           <Zap size={28} strokeWidth={1.6} style={{ color: "var(--accent)" }} />
           <h2
+            className="demo-editorial-title"
             style={{
               margin: 0,
-              fontSize: 32,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.1,
+              fontSize: "clamp(32px, 4vw, 44px)",
               maxWidth: 640,
             }}
           >
-            Your codebase deserves better eyes.
+            Your codebase deserves <em>better</em> eyes.
           </h2>
           <p
             style={{

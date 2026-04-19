@@ -1,63 +1,177 @@
-import { useState } from "react";
-import { ShieldCheck, KeyRound } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Smartphone,
+  KeyRound,
+  Fingerprint,
+  Mail,
+  Check,
+  Clipboard,
+  ChevronRight,
+} from "lucide-react";
 import { Brand } from "../../internal/Brand";
 import { OtpInput } from "../../internal/OtpInput";
+import { useDemoNav } from "../../DemoPage";
 
 export function TwoFactorPage() {
-  const [mode, setMode] = useState<"totp" | "backup">("totp");
+  const nav = useDemoNav();
   const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
+  const [trust, setTrust] = useState(true);
+  const [tick, setTick] = useState(7);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => (t + 1) % 30), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const remaining = 30 - tick;
   const filled = code.every(Boolean);
+  const ringDeg = (tick / 30) * 360;
+  const lowTime = remaining <= 5;
+
+  const onPaste = async () => {
+    try {
+      const txt = await navigator.clipboard.readText();
+      const digits = txt.replace(/\D/g, "").slice(0, 6).split("");
+      if (digits.length) {
+        const next = ["", "", "", "", "", ""];
+        digits.forEach((d, i) => (next[i] = d));
+        setCode(next);
+      }
+    } catch {
+      /* clipboard not available — silent */
+    }
+  };
 
   return (
     <>
       <Brand />
       <div className="demo-card">
-        <div
-          style={{
-            width: 52, height: 52, borderRadius: 999,
-            background:
-              "radial-gradient(120% 120% at 30% 20%, color-mix(in srgb, var(--accent) 22%, var(--bg)) 0%, var(--bg-accent-subtle) 60%, var(--bg) 100%)",
-            color: "var(--accent)",
-            display: "inline-flex", alignItems: "center", justifyContent: "center",
-            marginBottom: 14,
-            boxShadow:
-              "inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 8px 22px -12px color-mix(in srgb, var(--accent) 55%, transparent)",
-          }}
-        >
-          <ShieldCheck size={24} strokeWidth={1.8} />
+        <div className="demo-2fa-identity">
+          <div className="demo-2fa-identity__avatar">A</div>
+          <div className="demo-2fa-identity__meta">
+            <div className="demo-2fa-identity__name">ada@acme.com</div>
+            <div className="demo-2fa-identity__sub">Acme · Production workspace</div>
+          </div>
+          <button
+            className="demo-link demo-2fa-identity__switch"
+            type="button"
+            onClick={() => nav.navigate("auth.login")}
+          >
+            Not you?
+          </button>
         </div>
 
-        <h1 className="demo-card__title">Two-factor authentication</h1>
+        <h1 className="demo-card__title">Confirm it&apos;s you</h1>
         <p className="demo-card__sub">
-          {mode === "totp"
-            ? "Open your authenticator app and enter the 6-digit code."
-            : "Use one of the backup codes you saved when you set up 2FA."}
+          Your workspace requires a second factor. Codes refresh every 30 seconds.
         </p>
 
-        <div className="demo-billing-toggle" style={{ marginBottom: 16 }}>
-          <button className={mode === "totp" ? "is-active" : ""} onClick={() => setMode("totp")}>Authenticator</button>
-          <button className={mode === "backup" ? "is-active" : ""} onClick={() => setMode("backup")}>Backup code</button>
+        <div className="demo-2fa-source">
+          <div className="demo-2fa-source__icon">
+            <Smartphone size={14} strokeWidth={1.8} />
+          </div>
+          <div className="demo-2fa-source__label">
+            <span className="demo-2fa-source__title">Authenticator app</span>
+            <span className="demo-2fa-source__sub">iPhone · 1Password</span>
+          </div>
+          <div
+            className={"demo-2fa-ring" + (lowTime ? " is-low" : "")}
+            style={{
+              background: `conic-gradient(currentColor ${ringDeg}deg, var(--bg-muted) 0)`,
+            }}
+            aria-label={`Code refreshes in ${remaining} seconds`}
+          >
+            <span>{remaining}</span>
+          </div>
         </div>
 
-        {mode === "totp" ? (
-          <OtpInput value={code} onChange={setCode} />
-        ) : (
-          <div className="demo-field">
-            <label className="demo-field__label" htmlFor="bk">Backup code</label>
-            <input id="bk" className="demo-input" type="text" placeholder="XXXX-XXXX" style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.1em" }} />
-            <span className="demo-field__hint">Each code can only be used once.</span>
-          </div>
-        )}
+        <OtpInput value={code} onChange={setCode} autoFocus />
 
-        <button className="demo-btn demo-btn--primary demo-btn--block" style={{ marginTop: 16 }} disabled={mode === "totp" && !filled}>
-          Verify
+        <button
+          type="button"
+          className="demo-2fa-paste"
+          onClick={onPaste}
+        >
+          <Clipboard size={11} strokeWidth={1.8} />
+          Paste 6-digit code
         </button>
 
-        <div className="demo-form-footer" style={{ justifyContent: "center", marginTop: 12 }}>
-          <KeyRound size={12} strokeWidth={1.8} style={{ color: "var(--fg-subtle)" }} />
-          <button className="demo-link" type="button">Use a different method</button>
+        <label className="demo-check demo-2fa-trust">
+          <input
+            type="checkbox"
+            checked={trust}
+            onChange={(e) => setTrust(e.target.checked)}
+          />
+          <span>
+            Trust this browser for <strong>30 days</strong>
+          </span>
+        </label>
+
+        <button
+          className="demo-btn demo-btn--primary demo-btn--block demo-2fa-verify"
+          disabled={!filled}
+          type="button"
+        >
+          {filled ? (
+            <>
+              <Check size={14} strokeWidth={2.2} /> Verify and continue
+            </>
+          ) : (
+            <>Enter 6 digits to continue</>
+          )}
+        </button>
+
+        <div className="demo-2fa-recovery">
+          <div className="demo-2fa-recovery__head">
+            <KeyRound size={11} strokeWidth={1.8} />
+            <span>Lost access to your authenticator?</span>
+          </div>
+          <div className="demo-2fa-recovery__list">
+            <button className="demo-2fa-recovery__item" type="button">
+              <Fingerprint size={15} strokeWidth={1.8} />
+              <span className="demo-2fa-recovery__item-title">Use a security key</span>
+              <span className="demo-2fa-recovery__item-kbd">FIDO2</span>
+              <ChevronRight
+                size={13}
+                strokeWidth={1.8}
+                className="demo-2fa-recovery__item-arrow"
+              />
+            </button>
+            <button className="demo-2fa-recovery__item" type="button">
+              <KeyRound size={15} strokeWidth={1.8} />
+              <span className="demo-2fa-recovery__item-title">Enter a backup code</span>
+              <span className="demo-2fa-recovery__item-kbd">8 left</span>
+              <ChevronRight
+                size={13}
+                strokeWidth={1.8}
+                className="demo-2fa-recovery__item-arrow"
+              />
+            </button>
+            <button className="demo-2fa-recovery__item" type="button">
+              <Mail size={15} strokeWidth={1.8} />
+              <span className="demo-2fa-recovery__item-title">Email a recovery link</span>
+              <span className="demo-2fa-recovery__item-kbd">ada@…</span>
+              <ChevronRight
+                size={13}
+                strokeWidth={1.8}
+                className="demo-2fa-recovery__item-arrow"
+              />
+            </button>
+          </div>
         </div>
       </div>
+
+      <p
+        style={{
+          marginTop: 16,
+          fontSize: "var(--fs-10)",
+          color: "var(--fg-subtle)",
+          letterSpacing: "0.06em",
+          textAlign: "center",
+        }}
+      >
+        Verification attempts are logged for security review.
+      </p>
     </>
   );
 }

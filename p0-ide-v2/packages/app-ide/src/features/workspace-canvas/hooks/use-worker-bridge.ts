@@ -1,7 +1,29 @@
 import type { WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
-import type { SerializedLayout, SerializedAggregates } from "@quanta/canvas-worker";
+import type {
+  SerializedLayout,
+  SerializedAggregates,
+  HebBatch,
+  EdgeGeometryBatch,
+} from "@quanta/canvas-worker";
 import { deserializeLayout, deserializeAggregates, serializeLayout } from "@quanta/canvas-worker";
 import { sceneStore } from "../store/scene-store";
+
+// Geometry batch subscribers. The worker-side `BUILD_EDGE_GEOMETRY` handler
+// returns a flat Float32Array of bezier control points (8 floats/edge) keyed
+// by a parallel edgeIds array. MultiFileCanvas subscribes to stash the result
+// into its edge cache ref so future GPU-buffer consumers can skim the batch
+// without walking layout.edgeRoutes on the main thread. The per-request id
+// is forwarded so subscribers can drop payloads that predate their own
+// latest request (the bridge's `currentGeometryRequestId` guard already drops
+// stale messages, but subscribers may issue overlapping requests and need
+// local race checks). Subscribers returning void — no chaining.
+type GeometryListener = (batch: EdgeGeometryBatch, requestId: string) => void;
+const geometryListeners = new Set<GeometryListener>();
+
+export function onEdgeGeometryReady(listener: GeometryListener): () => void {
+  geometryListeners.add(listener);
+  return () => { geometryListeners.delete(listener); };
+}
 
 let worker: Worker | null = null;
 
@@ -16,6 +38,7 @@ let worker: Worker | null = null;
 let currentLayoutRequestId: string | null = null;
 let currentAggregatesRequestId: string | null = null;
 let currentGeometryRequestId: string | null = null;
+let currentHebRequestId: string | null = null;
 
 function spawnWorker(): Worker {
   const w = new Worker(
@@ -106,6 +129,30 @@ function handleMessage(event: MessageEvent) {
         return;
       }
       sceneStore.setWorkerState("workerGeometry", false);
+      // Fan out the batch to any subscribers. Wrapped in try/catch per
+      // listener so one buggy consumer doesn't block the others — the
+      // worker bridge is a shared resource and a throw here would leak
+      // into the next postMessage tick.
+      const batch = msg.payload as EdgeGeometryBatch | undefined;
+      if (batch && msg.id) {
+        for (const listener of geometryListeners) {
+          try { listener(batch, msg.id); } catch (err) {
+            console.error("[canvas-worker] geometry listener threw:", err);
+          }
+        }
+      }
+      break;
+    }
+    case "HEB_READY": {
+      // Stale-request guard. HEB is only rebuilt on LOD transitions; a
+      // late payload for an earlier graph/layout would paint edges at
+      // coordinates that no longer exist.
+      if (msg.id && msg.id !== currentHebRequestId) {
+        return;
+      }
+      const payload = msg.payload as HebBatch;
+      sceneStore.setHebPaths(payload);
+      sceneStore.setWorkerState("workerHeb", false);
       break;
     }
     case "WORKER_ERROR": {
@@ -118,6 +165,7 @@ function handleMessage(event: MessageEvent) {
       sceneStore.setWorkerState("workerLayout", false);
       sceneStore.setWorkerState("workerAggregates", false);
       sceneStore.setWorkerState("workerGeometry", false);
+      sceneStore.setWorkerState("workerHeb", false);
       break;
     }
   }
@@ -137,8 +185,15 @@ export function requestAggregates(graph: WorkspaceGraph) {
   getWorker().postMessage({ type: "BUILD_AGGREGATES", id, payload: { graph } });
 }
 
-export function requestEdgeGeometry(graph: WorkspaceGraph, layout: WorkspaceLayout) {
-  const id = `geom-${Date.now()}`;
+// Monotonic counter appended to Date.now() so two requests fired in the same
+// millisecond (common during rapid layout churn on graph swap) get distinct
+// ids. Without this, a subscriber using id-equality to drop stale responses
+// would treat the second request's LATER response as "stale" and drop it.
+let geometryRequestSeq = 0;
+
+export function requestEdgeGeometry(graph: WorkspaceGraph, layout: WorkspaceLayout): string {
+  geometryRequestSeq = (geometryRequestSeq + 1) | 0;
+  const id = `geom-${Date.now()}-${geometryRequestSeq}`;
   currentGeometryRequestId = id;
   sceneStore.setWorkerState("workerGeometry", true);
   getWorker().postMessage({
@@ -146,9 +201,39 @@ export function requestEdgeGeometry(graph: WorkspaceGraph, layout: WorkspaceLayo
     id,
     payload: { graph, layout: serializeLayout(layout) },
   });
+  return id;
+}
+
+/**
+ * Kick off a Hierarchical Edge Bundling rebuild. The worker builds the
+ * folder tree, resolves LCAs, samples a cubic B-spline per edge, and
+ * returns a single HebBatch via Transferable (zero-copy).
+ *
+ * Intended caller: a single galaxy-LOD entry hook (see
+ * `use-heb-paths.ts`) — calling this on every frame would be wasteful.
+ * Default tension of 0.85 matches Holten 2006.
+ */
+export function requestHebPaths(
+  graph: WorkspaceGraph,
+  layout: WorkspaceLayout,
+  options: { tension?: number; samples?: number } = {},
+) {
+  const id = `heb-${Date.now()}`;
+  currentHebRequestId = id;
+  sceneStore.setWorkerState("workerHeb", true);
+  getWorker().postMessage({
+    type: "BUILD_HEB",
+    id,
+    payload: {
+      graph,
+      layout: serializeLayout(layout),
+      tension: options.tension,
+      samples: options.samples,
+    },
+  });
 }
 
 export function useWorkerBridge() {
   // just returns the request functions — worker lifecycle managed globally
-  return { requestLayout, requestAggregates, requestEdgeGeometry };
+  return { requestLayout, requestAggregates, requestEdgeGeometry, requestHebPaths };
 }

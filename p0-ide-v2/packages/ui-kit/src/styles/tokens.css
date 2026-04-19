@@ -53,6 +53,8 @@
   /* Typography — system defaults */
   --font-sans: system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
+  --font-display: "Inter Tight", "Inter", system-ui, sans-serif;
+  --font-editorial: "Fraunces", "Times New Roman", Georgia, serif;
 
   /* Font-size scale */
   --fs-9: 9px;

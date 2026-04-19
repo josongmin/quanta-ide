@@ -6,6 +6,7 @@ import type {
   WorkspaceClusterView,
   WorkspaceSuperclusterView,
 } from "@quanta/canvas-engine";
+import type { HebBatch } from "@quanta/canvas-worker";
 
 // Scene store
 // -------------------------------------------------------------------
@@ -69,6 +70,13 @@ export interface SceneState {
   workerLayout: boolean;
   workerAggregates: boolean;
   workerGeometry: boolean;
+  workerHeb: boolean;
+
+  // Hierarchical Edge Bundling output, rebuilt on galaxy-LOD entry by the
+  // `use-heb-paths` hook. Consumers (future EdgeStaticRenderer integration)
+  // can iterate `edgeIds` + slice `samples` by `offsets`/`lengths`. Null
+  // until the first rebuild completes.
+  hebPaths: HebBatch | null;
 
   layoutProgress: LayoutProgress;
 
@@ -99,6 +107,9 @@ let state: SceneState = {
   workerLayout: false,
   workerAggregates: false,
   workerGeometry: false,
+  workerHeb: false,
+
+  hebPaths: null,
 
   layoutProgress: initialLayoutProgress,
 
@@ -138,6 +149,10 @@ const actions = {
       superclusterScene: null,
       groundData: {},
       groundLoading: {},
+      // HEB cache references file/edge ids that are about to disappear.
+      // Drop it so consumers don't render stale splines against the new
+      // layout; the hook will re-request once the new layout arrives.
+      hebPaths: null,
       layoutProgress: {
         stage: "requested",
         filesCount: graph.files.length,
@@ -245,9 +260,18 @@ const actions = {
     emit();
   },
 
-  setWorkerState(key: "workerLayout" | "workerAggregates" | "workerGeometry", val: boolean) {
+  setWorkerState(
+    key: "workerLayout" | "workerAggregates" | "workerGeometry" | "workerHeb",
+    val: boolean,
+  ) {
     if (state[key] === val) return;
     state = { ...state, [key]: val };
+    emit();
+  },
+
+  setHebPaths(paths: HebBatch | null) {
+    if (state.hebPaths === paths) return;
+    state = { ...state, hebPaths: paths };
     emit();
   },
 };
