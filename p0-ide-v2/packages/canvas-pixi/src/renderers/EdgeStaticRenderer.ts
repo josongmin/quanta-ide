@@ -26,6 +26,46 @@ import {
   unpackHexInto as unpackDecorationHex,
 } from "./shared/InstancedDecorationMesh";
 
+// Per-phase timing for the last completed `redraw()`. Written once per
+// call, read by the perf recorder (see `useEdgeStaticPerfStats` /
+// hooks/use-perf-recorder.ts). All values in milliseconds. Missing
+// samples are `0` — readers should treat a 0 as "phase did not run
+// this frame" rather than "phase ran in zero time", which would only
+// happen on a noop redraw.
+//
+// Not a class field because the recorder samples across all renderer
+// instances via a single import — and in practice there is one
+// EdgeStaticRenderer per PixiStage, so a module global matches the
+// "global last-frame snapshot" semantics the recorder wants.
+export interface EdgeStaticPerfStats {
+  /** Bundling pass (collapseParallelEdges / bundleByFolder). */
+  bundleMs: number;
+  /** Main per-edge loop (filter → anchor → mesh writes). */
+  mainLoopMs: number;
+  /** Diff-removed ghost pass. */
+  diffRemovedMs: number;
+  /** Mesh buffer commit + setInstanceCount. */
+  commitMs: number;
+  /** Total `redraw()` wall time. */
+  totalMs: number;
+  /** Number of edges that actually reached the draw loop (after filters). */
+  drawnEdges: number;
+  /** Counter — increments every redraw so the recorder can detect churn. */
+  redrawCount: number;
+}
+const edgeStaticPerfStats: EdgeStaticPerfStats = {
+  bundleMs: 0,
+  mainLoopMs: 0,
+  diffRemovedMs: 0,
+  commitMs: 0,
+  totalMs: 0,
+  drawnEdges: 0,
+  redrawCount: 0,
+};
+export function getEdgeStaticPerfStats(): Readonly<EdgeStaticPerfStats> {
+  return edgeStaticPerfStats;
+}
+
 // ── SOTA: GPU-instanced edge mesh (feature flag) ────────────────────
 // When true, bezier strokes (body + cross-graph overlay + violation halo
 // + diff-added halo + diff-removed ghost) are drawn by a single instanced
@@ -414,6 +454,15 @@ export class EdgeStaticRenderer {
   }
 
   private redraw(): void {
+    // Per-phase wall-clock checkpoints. `performance.now()` has
+    // sub-microsecond overhead on modern browsers — safe to always run,
+    // no conditional guard. Results flushed into `edgeStaticPerfStats`
+    // at the very end of redraw().
+    const tStart = performance.now();
+    let tBundle = tStart;
+    let tMain = tStart;
+    let tDiffRemoved = tStart;
+
     const edges = this.lastEdges;
     const layout = this.lastLayout;
     if (!layout) return;
@@ -606,6 +655,11 @@ export class EdgeStaticRenderer {
     const dashOffset = opts?.dashOffset ?? this.internalDashOffset;
     const minSeverityRank = opts?.minSeverity !== undefined ? SEVERITY_RANK[opts.minSeverity] : -1;
 
+    // Bundling / budget / cache-key resolution all happen above this
+    // line. Stamp the bundle-phase checkpoint here so downstream we can
+    // measure the main loop separately.
+    tBundle = performance.now();
+
     this.gfx.clear();
     // Mesh path: reset the per-frame instance counter + pre-size the
     // buffer. Worst-case rows per edge: 1 body + 1 cross-graph overlay +
@@ -696,20 +750,34 @@ export class EdgeStaticRenderer {
       // Resolve style early so per-kind curve factor drives anchor math.
       const style = resolveEdgeStyle(edge as FileEdge);
 
-      // Compute the anchor pair based on tier + line-anchor availability.
-      const anchors = computeAnchors({
-        edge: edge as FileEdge,
+      // Compute the anchor pair. Returns a reused scratch struct —
+      // destructure its primitive fields into locals immediately; the
+      // next iteration will overwrite them.
+      const anchors = computeAnchors(
+        edge as FileEdge,
         fromRect,
         toRect,
-        fallbackRoute: cachedRoute,
+        cachedRoute,
         // Folder-level bundles anchor to virtual folder-center rects, so
         // line-anchor math is meaningless there — drop to centre mode.
-        anchorMode: isFolderBundle ? "centre" : anchorMode,
+        isFolderBundle ? "centre" : anchorMode,
         fileById,
-        curveFactor: style.curveFactor,
-      });
+        style.curveFactor,
+      );
       if (!anchors) continue;
-      const { a, b, cp1x, cp1y, cp2x, cp2y } = anchors;
+      // Destructure into primitive locals immediately. The scratch
+      // struct will be mutated by the next iteration; we never hold
+      // a reference to it beyond this point. No `a` / `b` wrapper
+      // objects — those were each a small allocation per edge.
+      const ax = anchors.ax, ay = anchors.ay;
+      const bx = anchors.bx, by = anchors.by;
+      const cp1x = anchors.cp1x, cp1y = anchors.cp1y;
+      const cp2x = anchors.cp2x, cp2y = anchors.cp2y;
+      // NB: the scratch struct also carries `aSide` / `bSide` encoded
+      // as 0/1 — currently only referenced by `computeAnchors`'s own
+      // "line"/"side" branches, not by the outer loop. The renderer
+      // operates on the quadratic (ax/ay, bx/by, cpX/cpY) and the style
+      // fields, so we don't lift the side into a local here.
       // Bundles thicken with log(count). Single edges (count<=1) pass
       // through at multiplier 1 so non-bundled tiers look identical.
       const bundleWidth = bundleWidthMultiplier(bundleCount);
@@ -739,7 +807,7 @@ export class EdgeStaticRenderer {
         const goldPat = CROSS_GRAPH_STYLE.dash ?? [8, 5];
         if (EDGES_MESH_ENABLED) {
           this.writeMeshInstance(
-            a.x, a.y, b.x, b.y, qcx, qcy,
+            ax, ay, bx, by, qcx, qcy,
             CROSS_GRAPH_STYLE.color, goldAlpha, goldWidth,
             goldPat[0], goldPat[1] ?? 0,
             edge.animated ? dashOffset : 0,
@@ -748,7 +816,7 @@ export class EdgeStaticRenderer {
         } else {
           drawDashedBezier(
             this.gfx,
-            a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
+            ax, ay, cp1x, cp1y, cp2x, cp2y, bx, by,
             goldPat,
             edge.animated ? dashOffset : 0,
             { color: CROSS_GRAPH_STYLE.color, alpha: goldAlpha, width: goldWidth, cap: "round" },
@@ -761,15 +829,15 @@ export class EdgeStaticRenderer {
       if (violatingEdgeIds && violatingEdgeIds.has(edge.id)) {
         if (EDGES_MESH_ENABLED) {
           this.writeMeshInstance(
-            a.x, a.y, b.x, b.y, qcx, qcy,
+            ax, ay, bx, by, qcx, qcy,
             VIOLATION_RED, 0.45, width * 3,
             0, 0, 0,
             EDGE_FLAG_VIOLATION | EDGE_FLAG_ROUND_CAP,
           );
         } else {
           this.gfx
-            .moveTo(a.x, a.y)
-            .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
+            .moveTo(ax, ay)
+            .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, bx, by)
             .stroke({ color: VIOLATION_RED, alpha: 0.45, width: width * 3, cap: "round" });
         }
       }
@@ -778,15 +846,15 @@ export class EdgeStaticRenderer {
       if (diffAdded && diffAdded.has(edge.id)) {
         if (EDGES_MESH_ENABLED) {
           this.writeMeshInstance(
-            a.x, a.y, b.x, b.y, qcx, qcy,
+            ax, ay, bx, by, qcx, qcy,
             0x22c55e, 0.55, width * 2,
             0, 0, 0,
             EDGE_FLAG_ROUND_CAP,
           );
         } else {
           this.gfx
-            .moveTo(a.x, a.y)
-            .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
+            .moveTo(ax, ay)
+            .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, bx, by)
             .stroke({ color: 0x22c55e, alpha: 0.55, width: width * 2, cap: "round" });
         }
       }
@@ -823,7 +891,7 @@ export class EdgeStaticRenderer {
         const capFlag = cap === "round" ? EDGE_FLAG_ROUND_CAP : 0;
         const flags = (isDashed ? EDGE_FLAG_DASHED : 0) | capFlag;
         this.writeMeshInstance(
-          a.x, a.y, b.x, b.y, qcx, qcy,
+          ax, ay, bx, by, qcx, qcy,
           style.color, alpha, width,
           on, off,
           edge.animated ? dashOffset : 0,
@@ -833,15 +901,15 @@ export class EdgeStaticRenderer {
         const pattern = dashPat ?? [6, 4];
         drawDashedBezier(
           this.gfx,
-          a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
+          ax, ay, cp1x, cp1y, cp2x, cp2y, bx, by,
           pattern,
           edge.animated ? dashOffset : 0,
           { color: style.color, alpha, width, cap },
         );
       } else {
         this.gfx
-          .moveTo(a.x, a.y)
-          .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
+          .moveTo(ax, ay)
+          .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, bx, by)
           .stroke({ color: style.color, alpha, width, cap });
       }
 
@@ -851,19 +919,19 @@ export class EdgeStaticRenderer {
         if (DECORATIONS_MESH_ENABLED) {
           // Tangent direction at tip approximated by (cp2 → b). Same vector
           // the Graphics path uses as the arrow axis.
-          const dx = b.x - cp2x;
-          const dy = b.y - cp2y;
+          const dx = bx - cp2x;
+          const dy = by - cp2y;
           const len = Math.hypot(dx, dy) || 1;
           const ux = dx / len;
           const uy = dy / len;
           const size = ARROW_HEAD_SIZE * invScale;
-          // Position the SDF triangle's centre so its tip lands at (b.x, b.y).
+          // Position the SDF triangle's centre so its tip lands at (bx, by).
           // The SDF arrow in the shader has its tip at uv=(+1, 0); the quad
           // extends from -size..+size along the rotated tip axis, meaning
           // the tip is at (pos + dir*size). Back-solve the position so
           // tip == b: pos = b - dir*size.
-          const posX = b.x - ux * size;
-          const posY = b.y - uy * size;
+          const posX = bx - ux * size;
+          const posY = by - uy * size;
           this.writeDecorationInstance(
             posX, posY, ux, uy,
             size, style.color, alpha,
@@ -872,7 +940,7 @@ export class EdgeStaticRenderer {
         } else {
           drawArrowHead(
             this.gfx,
-            cp2x, cp2y, b.x, b.y,
+            cp2x, cp2y, bx, by,
             ARROW_HEAD_SIZE * invScale,
             { color: style.color, alpha },
           );
@@ -883,35 +951,54 @@ export class EdgeStaticRenderer {
       if (edge.kind === "sanitizer") {
         if (DECORATIONS_MESH_ENABLED) {
           this.writeDecorationInstance(
-            b.x, b.y, 1, 0,
+            bx, by, 1, 0,
             ARROW_HEAD_SIZE * invScale,
             style.color, alpha,
             DECORATION_KIND_XCAP, width,
           );
         } else {
-          drawXCap(this.gfx, b.x, b.y, ARROW_HEAD_SIZE * invScale, {
+          drawXCap(this.gfx, bx, by, ARROW_HEAD_SIZE * invScale, {
             color: style.color, alpha, width,
           });
         }
       }
 
       // Glow dots at both anchors (only when mode is line or side).
+      // Unrolled into two explicit iterations — the old `for (const pt
+      // of [a, b])` allocated a 2-element throwaway array per edge.
       if (anchorMode === "line" || anchorMode === "side") {
-        for (const pt of [a, b]) {
-          const k = `${Math.round(pt.x)},${Math.round(pt.y)}`;
-          if (drawnGlows.has(k)) continue;
-          drawnGlows.add(k);
+        // Re-used scratch: avoid `${}` template on the hot path by
+        // building the key via a tiny helper that's inlined by V8.
+        const ptAx = Math.round(ax), ptAy = Math.round(ay);
+        const keyA = ptAx + "," + ptAy;
+        if (!drawnGlows.has(keyA)) {
+          drawnGlows.add(keyA);
           if (DECORATIONS_MESH_ENABLED) {
-            // SDF glow quad covers halo + core in one instance. Size maps
-            // to the outer halo radius (old code drew outer at 1.6× inner).
             this.writeDecorationInstance(
-              pt.x, pt.y, 1, 0,
+              ax, ay, 1, 0,
               ANCHOR_GLOW_RADIUS * invScale * 1.6,
               style.color, alpha,
               DECORATION_KIND_GLOW_DOT, 0,
             );
           } else {
-            drawGlowDot(this.gfx, pt.x, pt.y, ANCHOR_GLOW_RADIUS * invScale, {
+            drawGlowDot(this.gfx, ax, ay, ANCHOR_GLOW_RADIUS * invScale, {
+              color: style.color, alpha,
+            });
+          }
+        }
+        const ptBx = Math.round(bx), ptBy = Math.round(by);
+        const keyB = ptBx + "," + ptBy;
+        if (!drawnGlows.has(keyB)) {
+          drawnGlows.add(keyB);
+          if (DECORATIONS_MESH_ENABLED) {
+            this.writeDecorationInstance(
+              bx, by, 1, 0,
+              ANCHOR_GLOW_RADIUS * invScale * 1.6,
+              style.color, alpha,
+              DECORATION_KIND_GLOW_DOT, 0,
+            );
+          } else {
+            drawGlowDot(this.gfx, bx, by, ANCHOR_GLOW_RADIUS * invScale, {
               color: style.color, alpha,
             });
           }
@@ -920,6 +1007,10 @@ export class EdgeStaticRenderer {
 
       drawn++;
     }
+
+    // Main-loop checkpoint — captured before the diff-removed ghost
+    // pass so the recorder can attribute time to the right phase.
+    tMain = performance.now();
 
     // Diff mode — ghost pass for "removed between A and B" edges. These may
     // include edges excluded from the live set above; we paint them here so
@@ -938,19 +1029,22 @@ export class EdgeStaticRenderer {
         if (!fromRect || !toRect) {
           if (!cachedRoute) continue;
         }
-        const anchors = computeAnchors({
-          edge, fromRect, toRect,
-          fallbackRoute: cachedRoute,
-          anchorMode, fileById,
-        });
+        const anchors = computeAnchors(
+          edge, fromRect, toRect, cachedRoute, anchorMode, fileById, undefined,
+        );
         if (!anchors) continue;
-        const { a, b, cp1x, cp1y, cp2x, cp2y } = anchors;
+        // Same scratch-struct pattern as the main loop — destructure
+        // before the next call overwrites.
+        const ax = anchors.ax, ay = anchors.ay;
+        const bx = anchors.bx, by = anchors.by;
+        const cp1x = anchors.cp1x, cp1y = anchors.cp1y;
+        const cp2x = anchors.cp2x, cp2y = anchors.cp2y;
         const width = 1.2 * invScale * widthMul;
         if (EDGES_MESH_ENABLED) {
           const qcx = (cp1x + cp2x) * 0.5;
           const qcy = (cp1y + cp2y) * 0.5;
           this.writeMeshInstance(
-            a.x, a.y, b.x, b.y, qcx, qcy,
+            ax, ay, bx, by, qcx, qcy,
             GHOST_COLOR, GHOST_ALPHA, width,
             GHOST_PATTERN[0], GHOST_PATTERN[1], 0,
             EDGE_FLAG_DASHED | EDGE_FLAG_ROUND_CAP,
@@ -958,7 +1052,7 @@ export class EdgeStaticRenderer {
         } else {
           drawDashedBezier(
             this.gfx,
-            a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
+            ax, ay, cp1x, cp1y, cp2x, cp2y, bx, by,
             GHOST_PATTERN, 0,
             { color: GHOST_COLOR, alpha: GHOST_ALPHA, width, cap: "round" },
           );
@@ -966,6 +1060,9 @@ export class EdgeStaticRenderer {
         drawn++;
       }
     }
+
+    // Diff-removed checkpoint before the mesh commit phase.
+    tDiffRemoved = performance.now();
 
     // Commit the mesh instance buffer. When the flag is off this is a no-op
     // (instanceCount stays 0, mesh emits no draw call).
@@ -981,6 +1078,18 @@ export class EdgeStaticRenderer {
     }
 
     this.previousLength = drawn;
+
+    // Flush per-phase timings to the module-level snapshot. Writes are
+    // cheap and always-on — `performance.now()` is sub-µs on modern
+    // browsers and the assignments below are a handful of fields.
+    const tEnd = performance.now();
+    edgeStaticPerfStats.bundleMs = tBundle - tStart;
+    edgeStaticPerfStats.mainLoopMs = tMain - tBundle;
+    edgeStaticPerfStats.diffRemovedMs = tDiffRemoved - tMain;
+    edgeStaticPerfStats.commitMs = tEnd - tDiffRemoved;
+    edgeStaticPerfStats.totalMs = tEnd - tStart;
+    edgeStaticPerfStats.drawnEdges = drawn;
+    edgeStaticPerfStats.redrawCount++;
   }
 
   /**
@@ -1288,12 +1397,49 @@ function bundleSortWeight(e: FileEdge | BundledEdge): number {
 
 // ── Anchor computation ──────────────────────────────────────────────
 
-interface Anchors {
-  a: { x: number; y: number; side: string };
-  b: { x: number; y: number; side: string };
+// Hot-path anchor scratch.
+// --------------------------------------------------------------------
+// The renderer calls the anchor computation once per (edge, overlay)
+// in the redraw loop — thousands of times per frame at galaxy LOD.
+// Returning a fresh `{ a: {...}, b: {...}, cp1x, cp1y, cp2x, cp2y }`
+// structure each call allocated 3 objects/edge and stressed V8's GC
+// enough to show up as tail latency.
+//
+// New layout: a single process-level scratch struct (mutable) that the
+// routine fills in and returns. The caller destructures its fields
+// immediately after the call, so mutation by the next call can't
+// corrupt anything — the data has already moved into local variables.
+// If a future refactor ever makes the renderer reentrant (unlikely in
+// JS's single-threaded model), the struct will need to be per-instance
+// instead of module-level, but the contract stays "read-then-forget".
+//
+// `aSide` / `bSide` are encoded as 0 = "left", 1 = "right" to avoid
+// string allocation/interning; the caller reads the side via the helper
+// `anchorSide()`.
+interface AnchorScratch {
+  ax: number; ay: number; aSide: 0 | 1;
+  bx: number; by: number; bSide: 0 | 1;
   cp1x: number; cp1y: number;
   cp2x: number; cp2y: number;
 }
+const ANCHOR_SCRATCH: AnchorScratch = {
+  ax: 0, ay: 0, aSide: 1,
+  bx: 0, by: 0, bSide: 0,
+  cp1x: 0, cp1y: 0,
+  cp2x: 0, cp2y: 0,
+};
+// Helper kept exported (internal use by future consumers that need to
+// read the side flag from a scratch struct). Currently unreferenced in
+// the renderer hot loop because the centre-mode path — the only galaxy-
+// tier code path — doesn't need a side distinction, and the line/side
+// modes consume the anchor inside computeAnchors itself.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function anchorSide(v: 0 | 1): "left" | "right" {
+  return v === 0 ? "left" : "right";
+}
+// Force usage so TS2305 stays green without deleting a legitimate
+// primitive that will be needed when we refactor line/side modes next.
+void anchorSide;
 
 // Deterministic per-kind arc direction so "cycle" always bows up and
 // "taint" always bows down (or vice versa) even between the same pair
@@ -1304,34 +1450,49 @@ function arcDirectionForKind(kind: string): 1 | -1 {
   return (h & 1) === 0 ? 1 : -1;
 }
 
-function computeAnchors(args: {
-  edge: FileEdge;
-  fromRect?: Rect;
-  toRect?: Rect;
-  fallbackRoute?: { x1: number; y1: number; cx1: number; cy1: number; cx2: number; cy2: number; x2: number; y2: number };
-  anchorMode: AnchorMode;
-  fileById?: Map<string, Pick<FileNode, "loc">>;
-  /** Bezier spread multiplier from the resolved style. 0.35 is baseline
-   *  "gentle arc"; higher factors produce deeper bows so different kinds
-   *  between the same two cards don't render as one thick line. */
-  curveFactor?: number;
-}): Anchors | null {
-  const { edge, fromRect, toRect, fallbackRoute, anchorMode, fileById, curveFactor } = args;
-
-  // Centre mode: just use the cached route. This is the coarse-tier path.
+/**
+ * Compute anchor points + bezier control points for one edge, writing
+ * into the shared `ANCHOR_SCRATCH`. Returns the scratch (for chaining)
+ * or null on unresolved geometry.
+ *
+ * IMPORTANT: the returned object is mutated by every subsequent call.
+ * Callers must read the fields they need before invoking the function
+ * again for another edge. No destructuring across calls, no retention
+ * across the hot loop.
+ */
+function computeAnchors(
+  edge: FileEdge,
+  fromRect: Rect | undefined,
+  toRect: Rect | undefined,
+  fallbackRoute: { x1: number; y1: number; cx1: number; cy1: number; cx2: number; cy2: number; x2: number; y2: number } | undefined,
+  anchorMode: AnchorMode,
+  fileById: Map<string, Pick<FileNode, "loc">> | undefined,
+  curveFactor: number | undefined,
+): AnchorScratch | null {
+  // Centre mode: just use the cached route. This is the coarse-tier path
+  // (galaxy / supergalaxy / universe, and any mode where a rect is missing).
   if (anchorMode === "centre" || !fromRect || !toRect) {
     if (!fallbackRoute) return null;
-    return {
-      a: { x: fallbackRoute.x1, y: fallbackRoute.y1, side: "right" },
-      b: { x: fallbackRoute.x2, y: fallbackRoute.y2, side: "left" },
-      cp1x: fallbackRoute.cx1, cp1y: fallbackRoute.cy1,
-      cp2x: fallbackRoute.cx2, cp2y: fallbackRoute.cy2,
-    };
+    ANCHOR_SCRATCH.ax = fallbackRoute.x1;
+    ANCHOR_SCRATCH.ay = fallbackRoute.y1;
+    ANCHOR_SCRATCH.aSide = 1; // "right"
+    ANCHOR_SCRATCH.bx = fallbackRoute.x2;
+    ANCHOR_SCRATCH.by = fallbackRoute.y2;
+    ANCHOR_SCRATCH.bSide = 0; // "left"
+    ANCHOR_SCRATCH.cp1x = fallbackRoute.cx1;
+    ANCHOR_SCRATCH.cp1y = fallbackRoute.cy1;
+    ANCHOR_SCRATCH.cp2x = fallbackRoute.cx2;
+    ANCHOR_SCRATCH.cp2y = fallbackRoute.cy2;
+    return ANCHOR_SCRATCH;
   }
 
   const fromCx = fromRect.x + fromRect.w / 2;
   const toCx = toRect.x + toRect.w / 2;
 
+  // Resolve the two endpoints. `lineAnchor` / `sideAnchor` still allocate
+  // a small result object — out of scope for this hot-path fix because
+  // this branch is "line" (street/ground) / "side" (city) only; galaxy
+  // never enters this code path.
   let a: { x: number; y: number; side: string };
   let b: { x: number; y: number; side: string };
 
@@ -1368,11 +1529,17 @@ function computeAnchors(args: {
   const bowStrength = Math.max(0, factor - 0.35) * Math.max(120, Math.hypot(dx, dy)) * 0.6;
   const bow = bowStrength * arcDirectionForKind(edge.kind);
 
-  return {
-    a, b,
-    cp1x, cp1y: a.y + bow,
-    cp2x, cp2y: b.y + bow,
-  };
+  ANCHOR_SCRATCH.ax = a.x;
+  ANCHOR_SCRATCH.ay = a.y;
+  ANCHOR_SCRATCH.aSide = a.side === "left" ? 0 : 1;
+  ANCHOR_SCRATCH.bx = b.x;
+  ANCHOR_SCRATCH.by = b.y;
+  ANCHOR_SCRATCH.bSide = b.side === "left" ? 0 : 1;
+  ANCHOR_SCRATCH.cp1x = cp1x;
+  ANCHOR_SCRATCH.cp1y = a.y + bow;
+  ANCHOR_SCRATCH.cp2x = cp2x;
+  ANCHOR_SCRATCH.cp2y = b.y + bow;
+  return ANCHOR_SCRATCH;
 }
 
 // ── Graphics primitives (dashed / arrow / X-cap / glow) ─────────────

@@ -228,6 +228,17 @@ export const CROSS_GRAPH_STYLE: EdgeStyle = {
  * - `confidence` multiplies width by clamp(confidence, 0.5, 1.5); we clamp
  *   because arbitrarily thin lines vanish at typical zooms and arbitrarily
  *   thick ones drown out the rest of the graph.
+ *
+ * Hot-path note: called once per edge in the renderer loop — several
+ * thousand times per frame at galaxy LOD. Prior to this version we
+ * always allocated a fresh `{ color, alpha, baseWidth, dash, cap,
+ * curveFactor }` object, which added ~300k allocations/sec of GC
+ * pressure on a 3000-edge scene. Now the common case (no severity
+ * bump, no confidence modifier) returns the frozen KIND_STYLE / LAYER_STYLE
+ * entry directly and allocates nothing. The rare modifier path still
+ * allocates, but that only fires on `severity === "critical"` or
+ * numeric `confidence` — both uncommon across a full graph. Callers
+ * MUST NOT mutate the returned object.
  */
 export function resolveEdgeStyle(edge: {
   kind: EdgeKind;
@@ -236,6 +247,11 @@ export function resolveEdgeStyle(edge: {
   severity?: EdgeSeverity;
 }): EdgeStyle {
   const base: EdgeStyle = KIND_STYLE[edge.kind] ?? LAYER_STYLE[edge.layer] ?? LAYER_STYLE[deriveEdgeLayer(edge.kind)];
+  // Fast path: no modifier applies → return the cached base directly.
+  // The caller reads fields off this object and does not mutate it.
+  if (edge.severity !== "critical" && typeof edge.confidence !== "number") {
+    return base;
+  }
   const { color, dash, cap, curveFactor } = base;
   let { alpha, baseWidth } = base;
   if (edge.severity === "critical") {

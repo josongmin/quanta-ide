@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { getEdgeStaticPerfStats } from "@quanta/canvas-pixi";
 import { viewportStore } from "../store/viewport-store";
 import { sceneStore } from "../store/scene-store";
 import { interactionStore } from "../store/interaction-store";
@@ -81,6 +82,18 @@ export interface FrameSample {
   memGround: number;
   // Chromium-only: performance.memory.usedJSHeapSize (null elsewhere).
   heapUsed: number | null;
+  // EdgeStaticRenderer per-phase timings (ms) for the last redraw().
+  // Populated for every sample but equal to the previous frame's values
+  // on frames where the renderer didn't redraw (no edge state change).
+  // Consumers wanting "this frame only" should diff `edgeRedrawCount`
+  // between samples.
+  edgeBundleMs: number;
+  edgeMainLoopMs: number;
+  edgeDiffRemovedMs: number;
+  edgeCommitMs: number;
+  edgeTotalMs: number;
+  edgeDrawn: number;
+  edgeRedrawCount: number;
 }
 
 export interface Transition {
@@ -177,6 +190,13 @@ function sampleCurrentFrame(dtMs: number): FrameSample {
     };
   }
 
+  // Edge-renderer per-phase snapshot — overwritten at the end of every
+  // `EdgeStaticRenderer.redraw()`. On frames where the renderer didn't
+  // redraw (scene state stable), the values reflect the most recent
+  // redraw, so diffing `edgeRedrawCount` between samples tells readers
+  // whether the timing is "stale" or fresh.
+  const edgeStats = getEdgeStaticPerfStats();
+
   return {
     t: performance.now(),
     dtMs,
@@ -207,6 +227,13 @@ function sampleCurrentFrame(dtMs: number): FrameSample {
     memLayout: cachedMem.layout,
     memGround: cachedMem.ground,
     heapUsed: readHeapUsed(),
+    edgeBundleMs: edgeStats.bundleMs,
+    edgeMainLoopMs: edgeStats.mainLoopMs,
+    edgeDiffRemovedMs: edgeStats.diffRemovedMs,
+    edgeCommitMs: edgeStats.commitMs,
+    edgeTotalMs: edgeStats.totalMs,
+    edgeDrawn: edgeStats.drawnEdges,
+    edgeRedrawCount: edgeStats.redrawCount,
   };
 }
 
@@ -452,6 +479,39 @@ function buildLlmSummary(
     lines.push(`mean: ${draws.mean.toFixed(1)}`);
     lines.push("");
   }
+
+  // Edge-renderer per-phase timings. Only meaningful when the renderer
+  // actually redrew during the sample window; if `edgeRedrawCount` is
+  // flat across the whole capture, the timings are stale "last known"
+  // values and we surface that explicitly so a reader doesn't chase a
+  // phantom bottleneck. Otherwise we show p50/p95 across the fresh
+  // samples only (frames where the counter ticked).
+  const firstRedrawCount = frames[0].edgeRedrawCount;
+  const lastRedrawCount = frames[n - 1].edgeRedrawCount;
+  const freshEdge = frames.filter((_, i) => {
+    if (i === 0) return true;
+    return frames[i].edgeRedrawCount !== frames[i - 1].edgeRedrawCount;
+  });
+  const anyEdgeFresh = lastRedrawCount > firstRedrawCount;
+  lines.push("[edge_renderer_ms]");
+  if (!anyEdgeFresh) {
+    lines.push(`(no redraw during capture — lastKnownTotal=${frames[n-1].edgeTotalMs.toFixed(2)}ms drawn=${frames[n-1].edgeDrawn})`);
+  } else {
+    const bundleStats = stats(freshEdge.map(f => f.edgeBundleMs));
+    const mainStats = stats(freshEdge.map(f => f.edgeMainLoopMs));
+    const diffStats = stats(freshEdge.map(f => f.edgeDiffRemovedMs));
+    const commitStats = stats(freshEdge.map(f => f.edgeCommitMs));
+    const totalStats = stats(freshEdge.map(f => f.edgeTotalMs));
+    const drawnStats = stats(freshEdge.map(f => f.edgeDrawn));
+    lines.push(`redraws:       ${lastRedrawCount - firstRedrawCount} (${((lastRedrawCount - firstRedrawCount) / n * 100).toFixed(1)}% of frames)`);
+    lines.push(`bundle.p50:    ${bundleStats.p50.toFixed(2)}  p95: ${bundleStats.p95.toFixed(2)}  max: ${bundleStats.max.toFixed(2)}`);
+    lines.push(`mainloop.p50:  ${mainStats.p50.toFixed(2)}  p95: ${mainStats.p95.toFixed(2)}  max: ${mainStats.max.toFixed(2)}`);
+    lines.push(`diffRem.p50:   ${diffStats.p50.toFixed(2)}  p95: ${diffStats.p95.toFixed(2)}  max: ${diffStats.max.toFixed(2)}`);
+    lines.push(`commit.p50:    ${commitStats.p50.toFixed(2)}  p95: ${commitStats.p95.toFixed(2)}  max: ${commitStats.max.toFixed(2)}`);
+    lines.push(`total.p50:     ${totalStats.p50.toFixed(2)}  p95: ${totalStats.p95.toFixed(2)}  max: ${totalStats.max.toFixed(2)}`);
+    lines.push(`drawn.p50:     ${drawnStats.p50}  p95: ${drawnStats.p95}  max: ${drawnStats.max}`);
+  }
+  lines.push("");
   lines.push("[lod_distribution]");
   lines.push(formatHistogram(lodHist));
   lines.push("");
