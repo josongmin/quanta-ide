@@ -410,13 +410,19 @@ export class EdgeStaticRenderer {
     this.gfx = new Graphics();
     // Instanced mesh sits behind the Graphics layer so arrowheads / glow
     // dots / x-caps drawn on the Graphics overlay stay on top of the
-    // ribbon body. Initial capacity picked to cover the ground/street
-    // baseline (~1.5k edges); grows power-of-two on demand.
-    this.lineMesh = new InstancedLineMesh(2048);
-    // Decoration mesh sized to cover ~4 decorations/edge at baseline.
-    // Glow-dot dedup usually brings this below the upper bound but we
-    // allocate generously to avoid resize churn on first frame.
-    this.decorationMesh = new InstancedDecorationMesh(4096);
+    // ribbon body. Initial capacity 8192 = enough to absorb a typical
+    // first-frame budget (workingEdges × 4 overlay rows) without any
+    // `setDataWithSize` realloc. Was 2048 — which tripped a realloc +
+    // GPU-buffer recreate on every real graph's first frame. 8192 × 18
+    // floats × 4 bytes ≈ 590KB upfront, trivial next to the working-set
+    // memory this already holds; grows power-of-two on demand from
+    // there.
+    this.lineMesh = new InstancedLineMesh(8192);
+    // Decoration mesh: ~4 decorations/edge at baseline. Bumped from
+    // 4096 → 8192 for the same reason — dodge the first-frame realloc
+    // on realistic graphs. Glow-dot dedup usually keeps actual writes
+    // below this.
+    this.decorationMesh = new InstancedDecorationMesh(8192);
     parent.addChildAt(this.lineMesh.mesh, 0);       // deepest: bezier ribbons
     parent.addChildAt(this.decorationMesh.mesh, 1); // mid: SDF decorations
     parent.addChildAt(this.gfx, 2);                 // top: Graphics fallback

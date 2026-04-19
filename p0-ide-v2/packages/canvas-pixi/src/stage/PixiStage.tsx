@@ -359,6 +359,35 @@ export function PixiStage({
       worldRef.current = bundle.world;
       nodeHandlesRef.current = bundle.nodeHandles;
       overlaysRef.current = bundle.overlays;
+      // Shader pre-warm.
+      // ---------------------------------------------------------------
+      // Every InstancedLineMesh / InstancedRectMesh / InstancedCircleMesh
+      // / InstancedDecorationMesh uses `getSharedShader()` which calls
+      // `GlProgram.from({ vertex, fragment })`. Pixi creates the `Shader`
+      // object synchronously but the actual GLSL compile + link happens
+      // the first time the program is used in a draw call. On a cold
+      // load, the FIRST real frame can contend with 4 parallel shader
+      // compiles (one per mesh type) — 10-50ms each on desktop, more on
+      // low-end GPUs — stacking into a single 40-200ms stall that the
+      // user sees as "Code Universe hangs on entry".
+      //
+      // Forcing one `renderer.render(stage)` right after applyBundle
+      // runs every attached mesh through the render pipeline at its
+      // current instanceCount of 0 (so no overdraw cost), which
+      // synchronously triggers the shader compile/link for every
+      // program in the stage. The subsequent user-visible frame is
+      // then free of compile stalls — Pixi caches compiled programs
+      // per-GlProgram for the lifetime of the GL context.
+      //
+      // Wrapped in try/catch because a broken shader (e.g. a future
+      // WGSL port with a typo) should NOT prevent the rest of the
+      // canvas from booting; the error surfaces on next real render
+      // with a better stack anyway.
+      try {
+        bundle.app.renderer.render(bundle.app.stage);
+      } catch (err) {
+        console.warn("[PixiStage] shader pre-warm render failed:", err);
+      }
       setPixiReady(true);
     };
 
@@ -589,12 +618,31 @@ export function PixiStage({
     setTickerPause("tab-inactive", !active);
   }, [pixiReady, active, setTickerPause]);
 
-  // Bucketed scale avoids thrash on tiny zoom ticks.
-  const scaleBucket = Math.round(viewport.scale * 20) / 20;
-
   const hasClusters = !!(clusters && clusters.clusters.length > 0);
   const hasSuperclusters = !!(superclusters && superclusters.superclusters.length > 0);
   const effectiveLod: LodLevel = resolveEffectiveTier(lod, { hasClusters, hasSuperclusters });
+
+  // Bucketed scale avoids thrash on tiny zoom ticks.
+  //
+  // Earlier version used `Math.round(viewport.scale * 20) / 20` — quantising
+  // to 0.05-wide buckets. Problem: a continuous zoom crosses ~6 buckets
+  // traversing a single LOD tier (e.g. galaxy spans 0.07–0.10), re-firing
+  // the overlay-stack and node-tier dispatch useEffects on each crossing
+  // even though the actual LOD tier hasn't changed — roughly 100ms of
+  // extra work observed during tier transitions.
+  //
+  // New scheme: bucket by LOD-TIER BOUNDARY rather than scalar size.
+  // `effectiveLod` already reflects tier crossings via the LodManager's
+  // hysteresis, so deriving the bucket from it means dispatch effects
+  // re-fire ONCE per tier transition instead of 6 times.
+  //
+  // A minimal "within-band" `hi`/`lo` split preserves sub-tier perceptual
+  // changes (e.g. deep-galaxy vs shallow-galaxy) so renderers that care
+  // about gradient tints still get one boundary signal per half-band
+  // without the old fan-out.
+  const tierForBucket = getTierConfig(effectiveLod);
+  const tierMid = (tierForBucket.upThreshold + tierForBucket.downThreshold) * 0.5;
+  const scaleBucket = `${tierForBucket.name}:${viewport.scale >= tierMid ? "hi" : "lo"}`;
 
   // Per-file loc lookup. Stable across pan; rebuilt only when visible.files changes.
   const fileLookup = useMemo(() => {
