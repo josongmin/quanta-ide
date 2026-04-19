@@ -161,8 +161,15 @@ export function BookmarksDrawer() {
       {open && (
         <div className="ws-bookmarks__grid">
           {forPage.length === 0 ? (
-            <div className="ws-bookmarks__empty">
-              No views yet — click <b>Capture</b> to save one{pagesOn ? " for this page" : ""}.
+            <div className="ws-bookmarks__empty" role="status">
+              <span className="ws-bookmarks__empty-icon" aria-hidden="true">◎</span>
+              <div className="ws-bookmarks__empty-body">
+                <span className="ws-bookmarks__empty-title">No views saved yet</span>
+                <span className="ws-bookmarks__empty-hint">
+                  Click <kbd>Capture</kbd> to pin the current camera + filters
+                  {pagesOn ? " to this page" : ""}.
+                </span>
+              </div>
             </div>
           ) : (
             forPage.map(bm => (

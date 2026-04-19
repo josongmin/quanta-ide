@@ -489,14 +489,14 @@
 /* ── Minimap ─────────────────────────────────────────────────────── */
 .ws-minimap {
   position: absolute;
-  bottom: 12px;
-  left: 12px;
+  bottom: var(--ws-space-edge);
+  left: var(--ws-space-edge);
   width: 180px;
   height: 110px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border-radius: var(--ws-radius-md);
+  box-shadow: var(--ws-elev-2);
   overflow: hidden;
 }
 
@@ -506,8 +506,10 @@
    stretch its canvas across the whole workspace (fixed by scoping). */
 .ws-tminimap {
   position: absolute;
+  /* 12 (edge) + 110 (minimap) + 2 (gap) = 124. Keeps alignment in sync if
+     minimap height changes — the magic number is isolated here. */
   bottom: 124px;
-  left: 12px;
+  left: var(--ws-space-edge);
   height: 8px;
   z-index: 2;
   pointer-events: auto;
@@ -515,8 +517,11 @@
 .ws-tminimap__canvas {
   display: block;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: var(--ws-radius-xs);
+  transition: filter var(--ws-dur-sm) var(--ws-ease-out);
 }
+.ws-tminimap__canvas:hover { filter: brightness(1.08); }
+.ws-tminimap__canvas:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-tminimap__tooltip {
   position: absolute;
   bottom: calc(100% + 4px);
@@ -526,11 +531,19 @@
   font-family: "JetBrains Mono", ui-monospace, monospace;
   color: var(--ws-hud-fg);
   background: var(--ws-hud-bg);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 3px;
+  border: 1px solid var(--ws-hud-surface-strong);
+  border-radius: var(--ws-radius-xs);
   white-space: nowrap;
   pointer-events: none;
   z-index: 3;
+  box-shadow: var(--ws-elev-2);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  animation: ws-tooltip-fade var(--ws-dur-sm) var(--ws-ease-out);
+}
+@keyframes ws-tooltip-fade {
+  from { opacity: 0; transform: translate(-50%, 2px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
 }
 
 .ws-minimap svg {
@@ -561,16 +574,20 @@
   color: var(--fg-muted);
   background: rgba(255, 255, 255, 0.8);
   border: 1px solid var(--border);
-  border-radius: 3px;
+  border-radius: var(--ws-radius-xs);
   cursor: pointer;
   pointer-events: auto;
-  transition: color 80ms, background 80ms, border-color 80ms;
+  transition:
+    color var(--ws-dur-xs) var(--ws-ease-out),
+    background var(--ws-dur-xs) var(--ws-ease-out),
+    border-color var(--ws-dur-xs) var(--ws-ease-out);
 }
 
 .ws-minimap__chip:hover {
   color: var(--fg);
   background: rgba(255, 255, 255, 0.95);
 }
+.ws-minimap__chip:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 
 .ws-minimap__chip.is-on {
   color: #b45309;
@@ -581,17 +598,17 @@
 /* ── Canvas controls ─────────────────────────────────────────────── */
 .ws-controls {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: var(--ws-space-edge);
+  right: var(--ws-space-edge);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--ws-radius-md);
   padding: 4px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  box-shadow: var(--ws-elev-2);
 }
 
 .ws-controls__btn {
@@ -601,18 +618,23 @@
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--ws-radius-sm);
   background: transparent;
   cursor: pointer;
   font-size: 16px;
   color: var(--fg-muted);
-  transition: background 80ms;
+  transition:
+    background var(--ws-dur-xs) var(--ws-ease-out),
+    color var(--ws-dur-xs) var(--ws-ease-out),
+    transform var(--ws-dur-xs) var(--ws-ease-out);
 }
 
 .ws-controls__btn:hover {
   background: var(--bg-subtle);
   color: var(--fg);
 }
+.ws-controls__btn:active { transform: translateY(1px); }
+.ws-controls__btn:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 
 .ws-controls__btn--toggle {
   color: var(--fg-subtle);
@@ -3276,13 +3298,13 @@
    upward (anchored at bottom) as the bookmarks drawer expands. */
 .ws-nav-stack {
   position: absolute;
-  right: 12px;
-  bottom: 12px;
+  right: var(--ws-space-edge);
+  bottom: var(--ws-space-edge);
   z-index: 17;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 6px;
+  gap: var(--ws-space-gap-sm);
   max-width: calc(100% - 220px);
   pointer-events: none;
 }
@@ -3297,11 +3319,14 @@
   padding: 4px 6px;
   background: var(--ws-hud-bg);
   color: var(--ws-hud-fg);
-  border-radius: 8px;
+  border-radius: var(--ws-radius-md);
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
   max-width: 100%;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--ws-elev-3);
+  /* backdrop-filter softens anything bleeding through the 0.92-opacity bg */
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
 .ws-pages__list {
   display: flex;
@@ -3312,24 +3337,31 @@
 }
 .ws-pages__list::-webkit-scrollbar { height: 4px; }
 .ws-pages__list::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: var(--ws-hud-surface-strong);
   border-radius: 2px;
 }
 .ws-pages__tab {
   font-family: inherit;
   font-size: 11px;
   padding: 4px 10px;
-  border-radius: 5px;
-  background: rgba(148, 163, 184, 0.12);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-hud-surface-weak);
   color: var(--ws-hud-fg-soft);
   border: 1px solid transparent;
   cursor: pointer;
   white-space: nowrap;
   min-width: 54px;
+  transition:
+    background var(--ws-dur-xs) var(--ws-ease-out),
+    color var(--ws-dur-xs) var(--ws-ease-out),
+    border-color var(--ws-dur-xs) var(--ws-ease-out),
+    transform var(--ws-dur-xs) var(--ws-ease-out);
 }
-.ws-pages__tab:hover { background: rgba(148, 163, 184, 0.22); }
+.ws-pages__tab:hover { background: var(--ws-hud-surface-med); color: var(--ws-hud-fg); }
+.ws-pages__tab:active { transform: translateY(1px); }
+.ws-pages__tab:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-pages__tab--active {
-  background: rgba(56, 189, 248, 0.18);
+  background: var(--ws-hud-accent-weak);
   color: var(--ws-hud-accent);
   border-color: rgba(56, 189, 248, 0.5);
 }
@@ -3344,64 +3376,81 @@
   font-family: inherit;
   font-size: 11px;
   padding: 0 2px;
-  border-radius: 3px;
+  border-radius: var(--ws-radius-xs);
   border: 1px solid rgba(56, 189, 248, 0.6);
   background: rgba(15, 23, 42, 0.85);
   color: var(--ws-hud-fg);
   width: 120px;
   outline: none;
 }
+.ws-pages__rename-input:focus-visible { box-shadow: var(--ws-focus-ring); }
 .ws-pages__actions {
   display: flex;
   gap: 4px;
   align-items: center;
-  border-left: 1px solid rgba(148, 163, 184, 0.25);
+  border-left: 1px solid var(--ws-hud-surface-med);
   padding-left: 6px;
 }
 .ws-pages__new {
   font-family: inherit;
   font-size: 11px;
   padding: 4px 8px;
-  border-radius: 5px;
-  background: rgba(148, 163, 184, 0.15);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-hud-surface-med);
   color: var(--ws-hud-fg-soft);
   border: 1px solid transparent;
   cursor: pointer;
+  transition:
+    background var(--ws-dur-xs) var(--ws-ease-out),
+    color var(--ws-dur-xs) var(--ws-ease-out),
+    transform var(--ws-dur-xs) var(--ws-ease-out);
 }
 .ws-pages__new:hover {
-  background: rgba(148, 163, 184, 0.25);
+  background: var(--ws-hud-surface-strong);
   color: var(--ws-hud-fg);
 }
+.ws-pages__new:active { transform: translateY(1px); }
+.ws-pages__new:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-pages__ctx {
   position: fixed;
   z-index: 40;
   min-width: 140px;
   background: var(--ws-hud-bg);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 6px;
+  border: 1px solid var(--ws-hud-surface-strong);
+  border-radius: var(--ws-radius-md);
   padding: 4px;
   display: flex;
   flex-direction: column;
   gap: 2px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--ws-elev-3);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  animation: ws-ctx-appear var(--ws-dur-sm) var(--ws-ease-out);
+}
+@keyframes ws-ctx-appear {
+  from { opacity: 0; transform: translateY(-2px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .ws-pages__ctx-item {
   font-family: inherit;
   font-size: 11px;
   padding: 5px 8px;
-  border-radius: 4px;
+  border-radius: var(--ws-radius-xs);
   background: transparent;
   color: var(--ws-hud-fg-soft);
   border: none;
   cursor: pointer;
   text-align: left;
+  transition: background var(--ws-dur-xs) var(--ws-ease-out), color var(--ws-dur-xs) var(--ws-ease-out);
 }
-.ws-pages__ctx-item:hover { background: rgba(148, 163, 184, 0.15); }
+.ws-pages__ctx-item:hover { background: var(--ws-hud-surface-med); color: var(--ws-hud-fg); }
+.ws-pages__ctx-item:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-pages__ctx-item:disabled { opacity: 0.4; cursor: not-allowed; }
 .ws-pages__ctx-item--danger { color: var(--ws-danger-soft); }
 .ws-pages__ctx-item--danger:hover { background: rgba(248, 113, 113, 0.15); }
+.ws-pages__ctx-item--danger:focus-visible { box-shadow: var(--ws-focus-ring-danger); }
 
 /* Templates dropdown — opens upward since pages tab bar now lives at
    the bottom of the viewport (inside .ws-nav-stack). */
@@ -3412,15 +3461,23 @@
   z-index: 30;
   width: 260px;
   background: var(--ws-hud-bg);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 8px;
+  border: 1px solid var(--ws-hud-surface-strong);
+  border-radius: var(--ws-radius-md);
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   color: var(--ws-hud-fg);
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--ws-elev-3);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
+  animation: ws-dropdown-up var(--ws-dur-md) var(--ws-ease-out);
+  transform-origin: bottom right;
+}
+@keyframes ws-dropdown-up {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 .ws-templates__title {
   font-size: 10px;
@@ -3431,18 +3488,24 @@
 }
 .ws-templates__item {
   font-family: inherit;
-  background: rgba(148, 163, 184, 0.08);
+  background: var(--ws-hud-surface-weak);
   color: var(--ws-hud-fg);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--ws-radius-sm);
   padding: 8px 10px;
   text-align: left;
   cursor: pointer;
+  transition:
+    background var(--ws-dur-sm) var(--ws-ease-out),
+    border-color var(--ws-dur-sm) var(--ws-ease-out),
+    transform var(--ws-dur-xs) var(--ws-ease-out);
 }
 .ws-templates__item:hover {
-  background: rgba(56, 189, 248, 0.15);
+  background: var(--ws-hud-accent-weak);
   border-color: rgba(56, 189, 248, 0.35);
 }
+.ws-templates__item:active { transform: translateY(1px); }
+.ws-templates__item:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-templates__item-label {
   font-size: 12px;
   font-weight: 600;
@@ -3461,10 +3524,12 @@
   max-width: 100%;
   background: var(--ws-hud-bg);
   color: var(--ws-hud-fg);
-  border-radius: 8px;
+  border-radius: var(--ws-radius-md);
   padding: 4px 8px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--ws-elev-3);
+  backdrop-filter: blur(8px) saturate(140%);
+  -webkit-backdrop-filter: blur(8px) saturate(140%);
 }
 .ws-bookmarks--collapsed {
   padding: 4px 8px;
@@ -3485,8 +3550,11 @@
   border: none;
   cursor: pointer;
   padding: 2px 4px;
+  border-radius: var(--ws-radius-xs);
+  transition: color var(--ws-dur-xs) var(--ws-ease-out);
 }
 .ws-bookmarks__toggle:hover { color: var(--ws-hud-fg); }
+.ws-bookmarks__toggle:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-bookmarks__actions {
   margin-left: auto;
   display: flex;
@@ -3496,16 +3564,22 @@
   font-family: inherit;
   font-size: 10px;
   padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(148, 163, 184, 0.15);
+  border-radius: var(--ws-radius-xs);
+  background: var(--ws-hud-surface-med);
   color: var(--ws-hud-fg-soft);
   border: 1px solid transparent;
   cursor: pointer;
+  transition:
+    background var(--ws-dur-xs) var(--ws-ease-out),
+    color var(--ws-dur-xs) var(--ws-ease-out),
+    transform var(--ws-dur-xs) var(--ws-ease-out);
 }
 .ws-bookmarks__btn:hover {
-  background: rgba(56, 189, 248, 0.2);
+  background: var(--ws-hud-accent-med);
   color: var(--ws-hud-accent);
 }
+.ws-bookmarks__btn:active { transform: translateY(1px); }
+.ws-bookmarks__btn:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-bookmarks__grid {
   display: flex;
   gap: 6px;
@@ -3516,13 +3590,54 @@
 }
 .ws-bookmarks__grid::-webkit-scrollbar { height: 4px; }
 .ws-bookmarks__grid::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
+  background: var(--ws-hud-surface-strong);
   border-radius: 2px;
 }
+/* Empty state — icon + title + microcopy. Centered, with a subtle
+   border so an empty drawer still reads as "product area" not "broken". */
 .ws-bookmarks__empty {
-  padding: 10px 8px;
-  font-size: 10.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  margin: 2px 0 4px;
+  font-size: 11px;
   color: var(--ws-hud-fg-muted);
+  border: 1px dashed var(--ws-hud-surface-strong);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-hud-surface-weak);
+  line-height: 1.35;
+}
+.ws-bookmarks__empty-icon {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ws-radius-xs);
+  background: var(--ws-hud-accent-weak);
+  color: var(--ws-hud-accent);
+  font-size: 12px;
+  line-height: 1;
+}
+.ws-bookmarks__empty-body { flex: 1 1 auto; }
+.ws-bookmarks__empty-title {
+  display: block;
+  font-weight: 600;
+  color: var(--ws-hud-fg);
+  letter-spacing: 0.02em;
+  margin-bottom: 1px;
+}
+.ws-bookmarks__empty-hint { color: var(--ws-hud-fg-muted); }
+.ws-bookmarks__empty kbd {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: var(--ws-radius-xs);
+  background: var(--ws-hud-surface-med);
+  color: var(--ws-hud-fg);
+  border: 1px solid var(--ws-hud-surface-strong);
 }
 .ws-bookmarks__thumb-wrap {
   position: relative;
@@ -3536,17 +3651,25 @@
   width: 120px;
   padding: 3px;
   font-family: inherit;
-  background: rgba(148, 163, 184, 0.1);
+  background: var(--ws-hud-surface-weak);
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: var(--ws-radius-sm);
   cursor: pointer;
   color: var(--ws-hud-fg-soft);
+  transition:
+    background var(--ws-dur-sm) var(--ws-ease-out),
+    border-color var(--ws-dur-sm) var(--ws-ease-out),
+    color var(--ws-dur-sm) var(--ws-ease-out),
+    transform var(--ws-dur-xs) var(--ws-ease-out);
 }
 .ws-bookmarks__thumb:hover {
-  background: rgba(56, 189, 248, 0.14);
+  background: var(--ws-hud-accent-weak);
   border-color: rgba(56, 189, 248, 0.45);
   color: var(--ws-hud-fg);
+  transform: translateY(-1px);
 }
+.ws-bookmarks__thumb:active { transform: translateY(0); }
+.ws-bookmarks__thumb:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-bookmarks__thumb--playing {
   border-color: rgba(56, 189, 248, 0.8);
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5);
@@ -3555,13 +3678,13 @@
   width: 100%;
   height: 66px;
   object-fit: cover;
-  border-radius: 3px;
+  border-radius: var(--ws-radius-xs);
   display: block;
 }
 .ws-bookmarks__thumb-placeholder {
   width: 100%;
   height: 66px;
-  border-radius: 3px;
+  border-radius: var(--ws-radius-xs);
   background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(15, 23, 42, 0.5));
   display: flex;
   align-items: center;
@@ -3583,7 +3706,7 @@
   right: 2px;
   width: 16px;
   height: 16px;
-  border-radius: 3px;
+  border-radius: var(--ws-radius-xs);
   background: rgba(15, 23, 42, 0.7);
   color: var(--ws-hud-fg-soft);
   border: none;
@@ -3592,15 +3715,19 @@
   line-height: 1;
   padding: 0;
   opacity: 0;
-  transition: opacity 120ms ease;
+  transition:
+    opacity var(--ws-dur-sm) var(--ws-ease-out),
+    background var(--ws-dur-xs) var(--ws-ease-out);
 }
-.ws-bookmarks__thumb-wrap:hover .ws-bookmarks__thumb-x {
+.ws-bookmarks__thumb-wrap:hover .ws-bookmarks__thumb-x,
+.ws-bookmarks__thumb-x:focus-visible {
   opacity: 1;
 }
 .ws-bookmarks__thumb-x:hover {
   background: var(--ws-danger-strong);
   color: #fff;
 }
+.ws-bookmarks__thumb-x:focus-visible { outline: none; box-shadow: var(--ws-focus-ring-danger); }
 
 /* Storyboard */
 .ws-storyboard {
