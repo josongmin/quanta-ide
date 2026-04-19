@@ -99,8 +99,6 @@ in float a_instFlags;
 uniform mat3 uProjectionMatrix;
 uniform mat3 uWorldTransformMatrix;
 uniform mat3 uTransformMatrix;
-uniform float uInvScale;
-uniform float uDimAlpha;
 
 out vec4 v_color;
 out float v_side;           // -1..+1 across ribbon
@@ -145,7 +143,7 @@ void main() {
     float chord = length(a_instTo - a_instFrom);
     v_arcLen = t * chord;
     v_totalLen = chord;
-    v_color = vec4(a_instColor.rgb, a_instColor.a * uDimAlpha);
+    v_color = a_instColor;
     v_side = side;
     v_t = t;
     v_halfWidth = halfW;
@@ -225,15 +223,7 @@ function getSharedShader(): Shader {
     fragment: FRAGMENT_SRC,
     name: "instanced-line",
   });
-  sharedShader = new Shader({
-    glProgram,
-    resources: {
-      lineUniforms: {
-        uInvScale: { value: 1, type: "f32" },
-        uDimAlpha: { value: 1, type: "f32" },
-      },
-    },
-  });
+  sharedShader = new Shader({ glProgram, resources: {} });
   return sharedShader;
 }
 
@@ -259,7 +249,6 @@ export class InstancedLineMesh {
   private instanceBuffer: Buffer;
   private capacity: number;
   private data: Float32Array | null;
-  private shader: Shader;
 
   constructor(initialCapacity = 1024) {
     this.capacity = Math.max(16, initialCapacity);
@@ -295,8 +284,7 @@ export class InstancedLineMesh {
       instanceCount: 0,
     });
 
-    this.shader = getSharedShader();
-    this.mesh = new Mesh<Geometry, Shader>({ geometry: this.geometry, shader: this.shader });
+    this.mesh = new Mesh<Geometry, Shader>({ geometry: this.geometry, shader: getSharedShader() });
   }
 
   ensureCapacity(n: number): void {
@@ -324,22 +312,6 @@ export class InstancedLineMesh {
   setInstanceCount(n: number): void {
     this.geometry.instanceCount = n;
     this.instanceBuffer.update(n * FLOATS_PER_EDGE_INSTANCE * 4);
-  }
-
-  /**
-   * Update global per-frame uniforms. `invScale` = 1/viewport.scale so the
-   * shader can convert screen-px widths to world-px. `dimAlpha` is a
-   * global alpha multiplier (1 = no dim).
-   */
-  setUniforms(invScale: number, dimAlpha: number): void {
-    // Pixi v8 uniform group layout. If the shader was built with a bare
-    // resources map the fields live under the group we defined.
-    const res = this.shader.resources as { lineUniforms?: { uniforms?: Record<string, number> } };
-    const group = res.lineUniforms?.uniforms;
-    if (group) {
-      group.uInvScale = invScale;
-      group.uDimAlpha = dimAlpha;
-    }
   }
 
   destroy(): void {

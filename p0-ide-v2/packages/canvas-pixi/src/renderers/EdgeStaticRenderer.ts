@@ -9,7 +9,22 @@ import {
   bundleWidthMultiplier,
   type BundledEdge,
 } from "./edge-bundling";
-import { InstancedLineMesh } from "./shared/InstancedLineMesh";
+import {
+  InstancedLineMesh,
+  FLOATS_PER_EDGE_INSTANCE,
+  EDGE_FLAG_DASHED,
+  EDGE_FLAG_VIOLATION,
+  EDGE_FLAG_ROUND_CAP,
+  unpackHexInto as unpackEdgeHex,
+} from "./shared/InstancedLineMesh";
+import {
+  InstancedDecorationMesh,
+  FLOATS_PER_DECORATION_INSTANCE,
+  DECORATION_KIND_ARROW,
+  DECORATION_KIND_XCAP,
+  DECORATION_KIND_GLOW_DOT,
+  unpackHexInto as unpackDecorationHex,
+} from "./shared/InstancedDecorationMesh";
 
 // ── SOTA: GPU-instanced edge mesh (feature flag) ────────────────────
 // When true, bezier strokes (body + cross-graph overlay + violation halo
@@ -35,6 +50,67 @@ export function setEdgesMeshEnabled(enabled: boolean): void {
 export function isEdgesMeshEnabled(): boolean {
   return EDGES_MESH_ENABLED;
 }
+
+// ── SOTA: GPU-instanced decoration mesh (feature flag) ──────────────
+// Controls the arrow / X-cap / glow-dot rendering path. When true, all
+// three decoration kinds funnel into a single InstancedDecorationMesh
+// draw call — the SDF in the fragment shader branches on per-instance
+// `kind`. When false, each decoration falls back to the per-edge
+// Graphics fill/stroke chain (drawArrowHead / drawXCap / drawGlowDot).
+//
+// Fallback path is intentionally preserved:
+//   1. Rollback safety: if the SDF silhouette is visibly off vs. the
+//      original Graphics fill at some zoom, we can flip the flag off
+//      without a release.
+//   2. Tests: EdgeStaticRenderer.test.ts spies on gfx.stroke() for
+//      branch coverage. Leaving the Graphics path alive means those
+//      assertions still check that e.g. violatingEdgeIds produces the
+//      expected stroke calls (even though production ships with the
+//      mesh path handling body + decoration both).
+//
+// Default: true. Tests flip to false via setDecorationsMeshEnabled()
+// the same way EDGES_MESH_ENABLED does.
+let DECORATIONS_MESH_ENABLED = true;
+/** Toggle the instanced-mesh decoration path. Intended for rollback / tests. */
+export function setDecorationsMeshEnabled(enabled: boolean): void {
+  DECORATIONS_MESH_ENABLED = enabled;
+}
+/** Read the current flag — used by tests to guard expectations. */
+export function isDecorationsMeshEnabled(): boolean {
+  return DECORATIONS_MESH_ENABLED;
+}
+
+// ── Hierarchical Edge Bundling (feature-flagged render path) ────────
+// When true AND `opts.hebPaths` carries a pre-sampled polyline for a
+// given edgeId AND the incoming LOD is "galaxy", the edge is stroked
+// along the HEB polyline (segment-per-instance via the existing line
+// mesh — each consecutive 3-point window is emitted as one quadratic
+// "bezier" whose control point equals the mid-sample, i.e. a straight
+// chord that visually approximates the smooth B-spline sampled by the
+// worker). Any edge missing from the batch falls back to the existing
+// bezier path transparently.
+//
+// Default OFF: the renderer refactor is large and the HEB worker is
+// fresh silicon — shipping dark keeps main safe. Flip true from dev
+// console or a test to exercise the code path. No runtime config UI
+// yet; promote to a user-facing toggle once we have a second round of
+// bake-off vs. the chord renderer at ~10k edges.
+let HEB_RENDER_ENABLED = false;
+/** Toggle the HEB-along-path edge render. Default off; intended for
+ *  progressive rollout. */
+export function setHebRenderEnabled(enabled: boolean): void {
+  HEB_RENDER_ENABLED = enabled;
+}
+/** Read the current flag — used by tests + HUD. */
+export function isHebRenderEnabled(): boolean {
+  return HEB_RENDER_ENABLED;
+}
+
+/** LOD at which HEB is visually meaningful. City/street/ground keep
+ *  per-file anchor bezier edges; supergalaxy/universe skip edges
+ *  entirely. Galaxy is the sweet spot: folder braiding reveals cluster
+ *  structure that raw density washes out. */
+const HEB_RENDER_LOD = "galaxy";
 
 // Line-anchored edges with per-kind visual vocabulary:
 //   - call / dataflow / impact / taint: arrowhead at target
@@ -191,6 +267,11 @@ export interface EdgeStaticBuildOpts {
   /** Cross-graph focus flash — when present, these edge ids render at full
    *  alpha and dim others. Used by the HUD "graph sources" row flash. */
   crossGraphFlash?: ReadonlySet<string>;
+  /** Pre-sampled Hierarchical Edge Bundling polylines (edgeId → flat
+   *  `[x0, y0, x1, y1, ...]` Float32Array of sampled points). Used only
+   *  when `HEB_RENDER_ENABLED` is true AND `lod === "galaxy"`. Edges
+   *  missing from the map fall through to the straight/bezier path. */
+  hebPaths?: Map<string, Float32Array>;
 }
 
 export class EdgeStaticRenderer {
@@ -201,6 +282,20 @@ export class EdgeStaticRenderer {
   // sits idle with instanceCount=0; when enabled Graphics only handles
   // decorations (arrowheads, glow dots, x-caps).
   private lineMesh: InstancedLineMesh;
+  // Instanced decoration mesh — arrowheads, X-caps and glow-dots funnel
+  // into a single instanced draw call when DECORATIONS_MESH_ENABLED. Sits
+  // in the child list ABOVE the line mesh so decorations visually stack on
+  // top of their bezier body (same z-order the Graphics layer used to have).
+  private decorationMesh: InstancedDecorationMesh;
+  // Per-frame counter of instances written to the mesh. Reset at the top
+  // of each redraw() and committed to the mesh via setInstanceCount() at
+  // the end. Overlays (cross-graph gold, violation halo, diff halos,
+  // diff-removed ghost) all append behind the body stroke, so this counter
+  // may exceed `workingEdges.length` by up to 3× per edge.
+  private meshInstanceCount = 0;
+  // Per-frame decoration counter. Upper bound: 1 arrow + 1 x-cap + 2 glow
+  // dots per edge ≈ 4× edges. Dedup via `drawnGlows` caps this in practice.
+  private decorationInstanceCount = 0;
   private previousLength = 0;
   private tickerHandle: ((ticker: Ticker) => void) | null = null;
   private ticker: Ticker | null = null;
@@ -278,8 +373,13 @@ export class EdgeStaticRenderer {
     // ribbon body. Initial capacity picked to cover the ground/street
     // baseline (~1.5k edges); grows power-of-two on demand.
     this.lineMesh = new InstancedLineMesh(2048);
-    parent.addChildAt(this.lineMesh.mesh, 0); // deepest: bezier ribbons
-    parent.addChildAt(this.gfx, 1);           // on top: arrowheads / glow
+    // Decoration mesh sized to cover ~4 decorations/edge at baseline.
+    // Glow-dot dedup usually brings this below the upper bound but we
+    // allocate generously to avoid resize churn on first frame.
+    this.decorationMesh = new InstancedDecorationMesh(4096);
+    parent.addChildAt(this.lineMesh.mesh, 0);       // deepest: bezier ribbons
+    parent.addChildAt(this.decorationMesh.mesh, 1); // mid: SDF decorations
+    parent.addChildAt(this.gfx, 2);                 // top: Graphics fallback
     // Shared pixi ticker runs every frame; we early-return when no animated
     // edges exist, so the per-tick cost is a single predicate check.
     this.ticker = Ticker.shared;
@@ -346,6 +446,7 @@ export class EdgeStaticRenderer {
       if (this.previousLength !== 0) {
         this.gfx.clear();
         this.lineMesh.setInstanceCount(0);
+        this.decorationMesh.setInstanceCount(0);
         this.previousLength = 0;
       }
       if (this.appliedMode !== effectiveMode) {
@@ -395,7 +496,18 @@ export class EdgeStaticRenderer {
     // edges array, fileRects map, or the active LOD band changes. Zoom
     // pans inside the same band are free.
     const shouldCollapseParallel = EDGE_COLLAPSE_LODS.has(opts?.lod ?? "");
-    const shouldFolderBundle = EDGE_FOLDER_BUNDLE_LODS.has(opts?.lod ?? "");
+    // HEB is the "smart" replacement for galaxy-tier folder bundling: the
+    // worker already grouped edges into folder-braid control polygons
+    // keyed by raw FileEdge.id. If we then ran folder-bundling on top,
+    // the edge ids would flip to `folder-bundle:...` and the hebPaths
+    // lookup would miss entirely. So when HEB is engaged for this frame
+    // we disable the renderer-side folder bundle — HEB's per-edge
+    // routing is more expressive anyway.
+    const hebEngaged = HEB_RENDER_ENABLED
+      && opts?.lod === HEB_RENDER_LOD
+      && !!opts?.hebPaths
+      && opts.hebPaths.size > 0;
+    const shouldFolderBundle = EDGE_FOLDER_BUNDLE_LODS.has(opts?.lod ?? "") && !hebEngaged;
     let workingEdges: (FileEdge | BundledEdge)[] = edges;
     let folderCenters: Map<string, { x: number; y: number }> | null = null;
 
@@ -495,16 +607,27 @@ export class EdgeStaticRenderer {
     const minSeverityRank = opts?.minSeverity !== undefined ? SEVERITY_RANK[opts.minSeverity] : -1;
 
     this.gfx.clear();
-    // Mesh path: pre-size the buffer. Worst-case rows per edge:
-    //   1 body + 1 cross-graph overlay + 1 violation halo + 1 diff-added halo
-    //   + 1 diff-removed ghost (in separate pass). Budget 4 per edge +
-    //   diffRemoved.size as a safety cushion.
-    const meshBudget = workingEdges.length * 4 + (opts?.diffRemoved?.size ?? 0);
+    // Mesh path: reset the per-frame instance counter + pre-size the
+    // buffer. Worst-case rows per edge: 1 body + 1 cross-graph overlay +
+    // 1 violation halo + 1 diff-added halo + 1 diff-removed ghost (in a
+    // separate pass). Budget 4× edges + diffRemoved.size as cushion.
+    this.meshInstanceCount = 0;
+    this.decorationInstanceCount = 0;
+    // HEB multiplier: when engaged, each edge emits up to ~N-2 instances
+    // (N samples per polyline, default 24). We overshoot with 32× to
+    // absorb higher-sample configurations without runtime resize churn.
+    // The flag + LOD guard means the cushion is only paid at galaxy zoom.
+    const perEdgeInstances = hebEngaged ? 32 : 4;
+    const meshBudget = workingEdges.length * perEdgeInstances + (opts?.diffRemoved?.size ?? 0);
     if (EDGES_MESH_ENABLED) {
       this.lineMesh.ensureCapacity(Math.max(16, meshBudget));
-      // Pull invScale + global dim into shader uniforms so the shader can
-      // render widths in screen-px regardless of zoom.
-      this.lineMesh.setUniforms(1, 1);
+    }
+    if (DECORATIONS_MESH_ENABLED) {
+      // Worst-case: every edge is directional (arrow) + anchor glow-dot
+      // pair + rare sanitizer x-cap. Budget 4× edges — glow dedup keeps
+      // actual writes well under, but the resize cost on overshoot
+      // would dwarf a slightly oversized VBO.
+      this.decorationMesh.ensureCapacity(Math.max(16, workingEdges.length * 4));
     }
     let drawn = 0;
 
@@ -677,7 +800,24 @@ export class EdgeStaticRenderer {
       // discrimination per kind.
       const dashPat = style.dash;
       const isDashed = !!(dashPat || edge.animated);
-      if (EDGES_MESH_ENABLED) {
+      // HEB gate: when engaged for this frame, strokes route along the
+      // HEB polyline segment-by-segment. Per-edge fallback: if the worker
+      // couldn't resolve this id (missing folder entry, stale batch),
+      // we fall through to the bezier emit below — no visual gap.
+      const hebPath = hebEngaged ? opts!.hebPaths!.get(edge.id) : undefined;
+      if (EDGES_MESH_ENABLED && hebPath && hebPath.length >= 4) {
+        const on = dashPat?.[0] ?? (edge.animated ? 6 : 0);
+        const off = dashPat?.[1] ?? (edge.animated ? 4 : 0);
+        const capFlag = cap === "round" ? EDGE_FLAG_ROUND_CAP : 0;
+        const flags = (isDashed ? EDGE_FLAG_DASHED : 0) | capFlag;
+        this.writeHebPolyline(
+          hebPath,
+          style.color, alpha, width,
+          on, off,
+          edge.animated ? dashOffset : 0,
+          flags,
+        );
+      } else if (EDGES_MESH_ENABLED) {
         const on = dashPat?.[0] ?? (edge.animated ? 6 : 0);
         const off = dashPat?.[1] ?? (edge.animated ? 4 : 0);
         const capFlag = cap === "round" ? EDGE_FLAG_ROUND_CAP : 0;
@@ -708,19 +848,51 @@ export class EdgeStaticRenderer {
       // Arrowhead for directional kinds. Placed at the tangent of the curve
       // approaching b (derivative at t=1) so it points inward correctly.
       if (DIRECTIONAL_KINDS.has(edge.kind)) {
-        drawArrowHead(
-          this.gfx,
-          cp2x, cp2y, b.x, b.y,
-          ARROW_HEAD_SIZE * invScale,
-          { color: style.color, alpha },
-        );
+        if (DECORATIONS_MESH_ENABLED) {
+          // Tangent direction at tip approximated by (cp2 → b). Same vector
+          // the Graphics path uses as the arrow axis.
+          const dx = b.x - cp2x;
+          const dy = b.y - cp2y;
+          const len = Math.hypot(dx, dy) || 1;
+          const ux = dx / len;
+          const uy = dy / len;
+          const size = ARROW_HEAD_SIZE * invScale;
+          // Position the SDF triangle's centre so its tip lands at (b.x, b.y).
+          // The SDF arrow in the shader has its tip at uv=(+1, 0); the quad
+          // extends from -size..+size along the rotated tip axis, meaning
+          // the tip is at (pos + dir*size). Back-solve the position so
+          // tip == b: pos = b - dir*size.
+          const posX = b.x - ux * size;
+          const posY = b.y - uy * size;
+          this.writeDecorationInstance(
+            posX, posY, ux, uy,
+            size, style.color, alpha,
+            DECORATION_KIND_ARROW, 0,
+          );
+        } else {
+          drawArrowHead(
+            this.gfx,
+            cp2x, cp2y, b.x, b.y,
+            ARROW_HEAD_SIZE * invScale,
+            { color: style.color, alpha },
+          );
+        }
       }
 
       // X-cap barrier for sanitizer edges.
       if (edge.kind === "sanitizer") {
-        drawXCap(this.gfx, b.x, b.y, ARROW_HEAD_SIZE * invScale, {
-          color: style.color, alpha, width,
-        });
+        if (DECORATIONS_MESH_ENABLED) {
+          this.writeDecorationInstance(
+            b.x, b.y, 1, 0,
+            ARROW_HEAD_SIZE * invScale,
+            style.color, alpha,
+            DECORATION_KIND_XCAP, width,
+          );
+        } else {
+          drawXCap(this.gfx, b.x, b.y, ARROW_HEAD_SIZE * invScale, {
+            color: style.color, alpha, width,
+          });
+        }
       }
 
       // Glow dots at both anchors (only when mode is line or side).
@@ -729,9 +901,20 @@ export class EdgeStaticRenderer {
           const k = `${Math.round(pt.x)},${Math.round(pt.y)}`;
           if (drawnGlows.has(k)) continue;
           drawnGlows.add(k);
-          drawGlowDot(this.gfx, pt.x, pt.y, ANCHOR_GLOW_RADIUS * invScale, {
-            color: style.color, alpha,
-          });
+          if (DECORATIONS_MESH_ENABLED) {
+            // SDF glow quad covers halo + core in one instance. Size maps
+            // to the outer halo radius (old code drew outer at 1.6× inner).
+            this.writeDecorationInstance(
+              pt.x, pt.y, 1, 0,
+              ANCHOR_GLOW_RADIUS * invScale * 1.6,
+              style.color, alpha,
+              DECORATION_KIND_GLOW_DOT, 0,
+            );
+          } else {
+            drawGlowDot(this.gfx, pt.x, pt.y, ANCHOR_GLOW_RADIUS * invScale, {
+              color: style.color, alpha,
+            });
+          }
         }
       }
 
@@ -763,17 +946,178 @@ export class EdgeStaticRenderer {
         if (!anchors) continue;
         const { a, b, cp1x, cp1y, cp2x, cp2y } = anchors;
         const width = 1.2 * invScale * widthMul;
-        drawDashedBezier(
-          this.gfx,
-          a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
-          GHOST_PATTERN, 0,
-          { color: GHOST_COLOR, alpha: GHOST_ALPHA, width, cap: "round" },
-        );
+        if (EDGES_MESH_ENABLED) {
+          const qcx = (cp1x + cp2x) * 0.5;
+          const qcy = (cp1y + cp2y) * 0.5;
+          this.writeMeshInstance(
+            a.x, a.y, b.x, b.y, qcx, qcy,
+            GHOST_COLOR, GHOST_ALPHA, width,
+            GHOST_PATTERN[0], GHOST_PATTERN[1], 0,
+            EDGE_FLAG_DASHED | EDGE_FLAG_ROUND_CAP,
+          );
+        } else {
+          drawDashedBezier(
+            this.gfx,
+            a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
+            GHOST_PATTERN, 0,
+            { color: GHOST_COLOR, alpha: GHOST_ALPHA, width, cap: "round" },
+          );
+        }
         drawn++;
       }
     }
 
+    // Commit the mesh instance buffer. When the flag is off this is a no-op
+    // (instanceCount stays 0, mesh emits no draw call).
+    if (EDGES_MESH_ENABLED) {
+      this.lineMesh.setInstanceCount(this.meshInstanceCount);
+    } else {
+      this.lineMesh.setInstanceCount(0);
+    }
+    if (DECORATIONS_MESH_ENABLED) {
+      this.decorationMesh.setInstanceCount(this.decorationInstanceCount);
+    } else {
+      this.decorationMesh.setInstanceCount(0);
+    }
+
     this.previousLength = drawn;
+  }
+
+  /**
+   * Append one bezier-ribbon instance to the mesh's backing buffer.
+   * Layout mirrors FLOATS_PER_EDGE_INSTANCE in InstancedLineMesh. Called
+   * up to ~4 times per edge in the worst case (body + cross-graph overlay
+   * + violation halo + diff halos). O(1): no allocation, no Pixi call chain.
+   */
+  private writeMeshInstance(
+    fromX: number, fromY: number,
+    toX: number, toY: number,
+    ctrlX: number, ctrlY: number,
+    color: number, alpha: number, width: number,
+    dashSize: number, gapSize: number,
+    dashPhase: number,
+    flags: number,
+  ): void {
+    const base = this.meshInstanceCount * FLOATS_PER_EDGE_INSTANCE;
+    let view = this.lineMesh.view();
+    if (base + FLOATS_PER_EDGE_INSTANCE > view.length) {
+      // Budget undershoot — grow and rebind. Rare; pre-size budget is 4×
+      // edge count + diffRemoved size, well above realistic overlays.
+      this.lineMesh.ensureCapacity(this.meshInstanceCount + 64);
+      view = this.lineMesh.view();
+    }
+    view[base + 0] = fromX;
+    view[base + 1] = fromY;
+    view[base + 2] = toX;
+    view[base + 3] = toY;
+    view[base + 4] = ctrlX;
+    view[base + 5] = ctrlY;
+    unpackEdgeHex(color, view, base + 6, alpha);
+    view[base + 10] = width;
+    view[base + 11] = dashSize;
+    view[base + 12] = gapSize;
+    view[base + 13] = dashPhase;
+    view[base + 14] = flags;
+    view[base + 15] = 0;
+    view[base + 16] = 0;
+    view[base + 17] = 0;
+    this.meshInstanceCount++;
+  }
+
+  /**
+   * Emit an HEB-sampled polyline as a chain of InstancedLineMesh quadratic
+   * "beziers" — one instance per consecutive 3-point window. The mesh was
+   * originally designed for a single quadratic per edge, so extending it
+   * to variable-length paths would require shader + VBO refactors. Option
+   * A (segment-per-instance) reuses the existing mesh unchanged: each
+   * window `(P[i-1], P[i], P[i+1])` becomes `(from=P[i-1], to=P[i+1],
+   * ctrl=P[i])`. Adjacent windows overlap by one point, which the fragment
+   * AA rounds over cleanly — no visible seam at the joint.
+   *
+   * Cost model: N sampled points → N-2 instances per edge. With the
+   * worker's default 24 samples that's 22 instances per bundled edge.
+   * At 9500 edges × 22 = ~210k instances — within the mesh's growth
+   * budget (power-of-two). Caller sized `ensureCapacity` for this case
+   * via the HEB cushion in `redraw`.
+   *
+   * Dash phase (`dashPhase`) is NOT advanced across sub-segments. The
+   * fragment shader treats each instance as its own 0..1 parameter
+   * space; carrying phase would require arc-length accumulation CPU-
+   * side. For animated edges this produces a faint seam at each control
+   * point, which at galaxy LOD (where HEB is active) is sub-pixel and
+   * invisible. Worth revisiting if we ever enable HEB at city LOD.
+   */
+  private writeHebPolyline(
+    path: Float32Array,
+    color: number, alpha: number, width: number,
+    dashSize: number, gapSize: number,
+    dashPhase: number,
+    flags: number,
+  ): void {
+    // path is [x0, y0, x1, y1, ...]. N points → N-2 overlapping windows.
+    const nPoints = path.length / 2;
+    if (nPoints < 3) {
+      // Degenerate — just one straight segment fallback. Emit directly.
+      if (nPoints < 2) return;
+      const x0 = path[0]!, y0 = path[1]!;
+      const x1 = path[2]!, y1 = path[3]!;
+      const mx = (x0 + x1) * 0.5, my = (y0 + y1) * 0.5;
+      this.writeMeshInstance(
+        x0, y0, x1, y1, mx, my,
+        color, alpha, width,
+        dashSize, gapSize, dashPhase,
+        flags,
+      );
+      return;
+    }
+    for (let i = 1; i < nPoints - 1; i++) {
+      const prevX = path[(i - 1) * 2]!;
+      const prevY = path[(i - 1) * 2 + 1]!;
+      const midX = path[i * 2]!;
+      const midY = path[i * 2 + 1]!;
+      const nextX = path[(i + 1) * 2]!;
+      const nextY = path[(i + 1) * 2 + 1]!;
+      this.writeMeshInstance(
+        prevX, prevY, nextX, nextY, midX, midY,
+        color, alpha, width,
+        dashSize, gapSize, dashPhase,
+        flags,
+      );
+    }
+  }
+
+  /**
+   * Append one decoration instance to the decoration mesh's backing buffer.
+   * Layout mirrors FLOATS_PER_DECORATION_INSTANCE in InstancedDecorationMesh.
+   * Called once per arrowhead / x-cap / glow-dot — up to ~4× edge count
+   * per frame before glow-dedup. O(1): no allocation, no Pixi call chain.
+   */
+  private writeDecorationInstance(
+    posX: number, posY: number,
+    dirX: number, dirY: number,
+    size: number,
+    color: number, alpha: number,
+    kind: number,
+    strokeWidth: number,
+  ): void {
+    const base = this.decorationInstanceCount * FLOATS_PER_DECORATION_INSTANCE;
+    let view = this.decorationMesh.view();
+    if (base + FLOATS_PER_DECORATION_INSTANCE > view.length) {
+      // Overshoot — grow and rebind. Rare; pre-size budget is 4× edge
+      // count, and glow-dot dedup typically lands us ~2× edges.
+      this.decorationMesh.ensureCapacity(this.decorationInstanceCount + 64);
+      view = this.decorationMesh.view();
+    }
+    view[base + 0] = posX;
+    view[base + 1] = posY;
+    view[base + 2] = dirX;
+    view[base + 3] = dirY;
+    view[base + 4] = size;
+    unpackDecorationHex(color, view, base + 5, alpha);
+    view[base + 9] = kind;
+    view[base + 10] = strokeWidth;
+    view[base + 11] = 0;
+    this.decorationInstanceCount++;
   }
 
   /**
@@ -788,6 +1132,10 @@ export class EdgeStaticRenderer {
    */
   clear(): void {
     this.gfx.clear();
+    this.lineMesh.setInstanceCount(0);
+    this.decorationMesh.setInstanceCount(0);
+    this.meshInstanceCount = 0;
+    this.decorationInstanceCount = 0;
     this.lastEdges = [];
     this.lastLayout = null;
     this.lastCache = undefined;
@@ -820,6 +1168,8 @@ export class EdgeStaticRenderer {
     // below handles the Pixi-side teardown.
     this.clear();
     this.gfx.destroy();
+    this.lineMesh.destroy();
+    this.decorationMesh.destroy();
   }
 
   // ── Cache-key helpers (instance) ────────────────────────────────
@@ -884,7 +1234,12 @@ export class EdgeStaticRenderer {
     const customId = this.fnId(
       opts.customPredicate as ((...args: unknown[]) => unknown) | undefined,
     );
-    return `${k}|${l}|${s}|${w}|${cg}|${hc}|f${focusId}:${focusDim}|t${temporalId}|da${diffAddId}|dr${diffRemId}|v${violatingId}|cf${flashId}|p${customId}`;
+    // HEB path set — identity-keyed so a fresh worker response invalidates
+    // the slice reuse path. The map content itself is not hashed (size +
+    // reference identity is enough; upstream replaces the map on every
+    // HEB_READY, see scene-store.setHebPaths).
+    const hebId = this.setId(opts.hebPaths as unknown as ReadonlySet<unknown> | undefined);
+    return `${k}|${l}|${s}|${w}|${cg}|${hc}|f${focusId}:${focusDim}|t${temporalId}|da${diffAddId}|dr${diffRemId}|v${violatingId}|cf${flashId}|p${customId}|h${hebId}`;
   }
 }
 

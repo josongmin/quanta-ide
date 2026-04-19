@@ -1,6 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Container, Graphics } from "pixi.js";
-import { EdgeStaticRenderer } from "./EdgeStaticRenderer";
+import {
+  EdgeStaticRenderer,
+  setEdgesMeshEnabled,
+  setDecorationsMeshEnabled,
+  setHebRenderEnabled,
+} from "./EdgeStaticRenderer";
+
+// The tests below spy on the private `gfx: Graphics` field's `stroke()`
+// method to assert branch coverage. Two SOTA instanced-mesh paths (bezier
+// body + arrow/x-cap/glow decorations) route work off Graphics and would
+// zero-out those spy counts. We disable BOTH flags for this test file so
+// the assertions continue to target the CPU Graphics fallback — a live-
+// code sanity check that the rollback path still draws correct geometry.
+// Separate integration tests can flip the flags on and assert mesh
+// instance counts.
+beforeEach(() => {
+  setEdgesMeshEnabled(false);
+  setDecorationsMeshEnabled(false);
+});
+afterEach(() => {
+  setEdgesMeshEnabled(true);
+  setDecorationsMeshEnabled(true);
+});
 import type {
   FileEdge,
   WorkspaceLayout,
@@ -446,5 +468,110 @@ describe("EdgeStaticRenderer — overlay branches", () => {
     );
     // Suppressing cross-graph must reduce the stroke count vs. including them.
     expect(strokeSpy.mock.calls.length).toBeGreaterThan(suppressed);
+  });
+});
+
+// HEB tests run with the mesh path ON (opposite of the default test
+// setup above) because HEB output is written to the InstancedLineMesh,
+// never to Graphics. The outer beforeEach/afterEach at the top of this
+// file force EDGES_MESH_ENABLED=false for stroke-spy assertions; this
+// block re-enables it in its own scope.
+describe("EdgeStaticRenderer — HEB render path", () => {
+  let parent: Container;
+  let renderer: EdgeStaticRenderer;
+
+  beforeEach(() => {
+    // Re-enable mesh path; HEB writes only to the mesh buffer.
+    setEdgesMeshEnabled(true);
+    setDecorationsMeshEnabled(true);
+    parent = new Container();
+    renderer = new EdgeStaticRenderer(parent);
+  });
+
+  afterEach(() => {
+    renderer.destroy();
+    parent.destroy({ children: true });
+    setHebRenderEnabled(false); // reset after each to guard default-OFF contract
+  });
+
+  // Pull the private mesh-instance counter — it advances one write per
+  // segment the renderer emits. We read it directly (same pattern as
+  // the `hasAnimatedEdges` access elsewhere in this file).
+  function meshCount(r: EdgeStaticRenderer): number {
+    return (r as unknown as { meshInstanceCount: number }).meshInstanceCount;
+  }
+
+  it("emits one instance per (N-2) window when HEB flag is on at galaxy LOD", () => {
+    setHebRenderEnabled(true);
+    const layout = makeLayout();
+    // 5-point polyline → 3 windows (5-2). If renderer falls back to the
+    // single-quadratic path it'd emit 1 instance; HEB path emits 3.
+    const path = new Float32Array([
+      10, 10,
+      20, 15,
+      30, 25,
+      40, 35,
+      50, 40,
+    ]);
+    const hebPaths = new Map<string, Float32Array>();
+    hebPaths.set("e1", path);
+    renderer.build(
+      [makeEdge("e1", "a", "b")],
+      layout,
+      undefined,
+      VP,
+      { lod: "galaxy", hebPaths },
+    );
+    // Body emits 3 segment-instances; no overlay pass because no
+    // violation/diff/crossGraph opts are set.
+    expect(meshCount(renderer)).toBe(3);
+  });
+
+  it("ignores hebPaths when flag is OFF (fallback to bezier path)", () => {
+    // Default flag state: OFF (reset in afterEach above). Explicit for clarity.
+    setHebRenderEnabled(false);
+    // Use "ground" LOD to bypass galaxy folder-bundling — this lets us
+    // assert emission count against raw edge count without the bundler
+    // collapsing our test file ids into an empty self-bundle.
+    const layout = makeLayout();
+    const path = new Float32Array([
+      10, 10, 20, 15, 30, 25, 40, 35, 50, 40,
+    ]);
+    const hebPaths = new Map<string, Float32Array>();
+    hebPaths.set("e1", path);
+    const before = meshCount(renderer);
+    renderer.build(
+      [makeEdge("e1", "a", "b")],
+      layout,
+      undefined,
+      VP,
+      { lod: "ground", hebPaths },
+    );
+    // With HEB OFF the renderer emits a single bezier body per edge (no
+    // HEB polyline segments). Ground LOD also dodges the galaxy folder-
+    // bundler so the edge id survives into the draw loop.
+    expect(meshCount(renderer)).toBeGreaterThan(before);
+    // Sanity: a 5-sample HEB path would produce 3 instances, so we assert
+    // *fewer* than the HEB-engaged count.
+    expect(meshCount(renderer)).toBeLessThan(3);
+  });
+
+  it("ignores hebPaths at non-galaxy LOD even with flag on", () => {
+    setHebRenderEnabled(true);
+    const layout = makeLayout();
+    const path = new Float32Array([
+      10, 10, 20, 15, 30, 25, 40, 35, 50, 40,
+    ]);
+    const hebPaths = new Map<string, Float32Array>();
+    hebPaths.set("e1", path);
+    renderer.build(
+      [makeEdge("e1", "a", "b")],
+      layout,
+      undefined,
+      VP,
+      { lod: "city", hebPaths },
+    );
+    // City LOD keeps the bezier path; HEB is galaxy-only.
+    expect(meshCount(renderer)).toBe(1);
   });
 });
