@@ -8,104 +8,105 @@
 // shader, so the atlas is never re-keyed and `.scale` becomes a transform-
 // only operation (no re-layout, no atlas re-lookup).
 //
-// Plan A — dynamic MSDF font: Pixi 8.6's `BitmapFont.install()` does not
-// expose a `distanceFieldType` knob (the .d.ts `BitmapFontInstallOptions`
-// does not include it). Dynamic MSDF fonts in Pixi 8 require a pre-generated
-// `.fnt` + MSDF atlas PNG loaded via `Assets.load()` — we don't ship one.
+// Implementation — prebuilt MSDF atlas via `Assets.load()`:
+//   Runtime loads two pre-generated .fnt files (Pretendard Regular + Bold)
+//   and their multi-page MSDF PNGs. Atlas generation happens at build time
+//   (see `scripts/build-msdf-font.mjs`) so the main thread never rasterizes
+//   glyphs or runs MSDF kerning passes.
 //
-// Plan B — shared font atlas: Keep the existing raster BitmapText, but route
-// every renderer through the same font name so duplicate atlas uploads
-// disappear, and consolidate the `new BitmapText({...})` call site so a
-// future MSDF font asset can be swapped in by editing this one file.
+//   An earlier iteration of this file called `BitmapFont.install(...)` with
+//   a runtime `distanceField` option and a [[" ", "~"], ["가", "힣"]] char
+//   range. Pixi 8 resolves that to a synchronous per-glyph canvas render +
+//   readPixels + kerning pair loop (~11k glyphs → ~O(n²) kerning), which
+//   froze the Code Universe tab for 90–140 s on first open. Plan A (atlas
+//   at build time) removes the synchronous install entirely.
 //
 // Runtime contract:
-//   `ensureMsdfFont()` — idempotent; attempts MSDF install; on failure marks
-//     fallback (plain raster) and warns exactly once. Safe to call before or
-//     after Pixi app init (the install call itself needs a Pixi renderer
-//     ready, so the caller must await app.init first).
-//   `msdfText(text, size, tint)` — always returns a usable BitmapText. Uses
-//     the MSDF font if the install succeeded, otherwise the shared raster
-//     font (CITY_FONT_NAME). Either way, the BitmapText object is live
-//     immediately — callers never need to branch on load state.
+//   `ensureMsdfFont()` — idempotent; resolves when both MSDF atlases are
+//     registered in Pixi's Assets cache, or when the load failed and the
+//     raster fallback has taken over. Safe to call before or after Pixi
+//     app init; the underlying BitmapFont parser needs a Renderer ready
+//     (guaranteed because PixiStage awaits this only inside `coldInit`
+//     after `await app.init()`).
+//   `msdfText(text, size, tint, rasterFamily)` — always returns a usable
+//     BitmapText. Uses MSDF when ready; raster fallback otherwise. Bold
+//     intent is signaled by passing `CITY_FONT_BOLD_NAME` as rasterFamily
+//     (the canonical mapping used by supercluster / cluster label renderers).
 
-import { BitmapFont, BitmapText } from "pixi.js";
-import { CITY_FONT_NAME, installCityFonts } from "./BitmapFontAtlas";
+import { Assets, BitmapText } from "pixi.js";
+import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, installCityFonts } from "./BitmapFontAtlas";
 
-const MSDF_FONT_NAME = "canvas-msdf-sans";
+// The `face` attribute baked into the generated .fnt by `msdf-bmfont-xml`
+// always mirrors the source OTF's internal name. Pixi registers the
+// BitmapFont under that face; `BitmapText({ style: { fontFamily: <face> } })`
+// then picks it up.
+const MSDF_REGULAR_FACE = "Pretendard-Regular";
+const MSDF_BOLD_FACE = "Pretendard-Bold";
 
-// Tri-state: "pending" before any install attempt, "msdf" after a successful
-// MSDF install, "raster" after an explicit fallback (either the install
-// threw, or the caller's Pixi build does not support MSDF via the
-// `BitmapFont.install` option bag).
+// Atlas URLs resolve against Vite's BASE_URL so web (`/ide/`) and Tauri
+// (`/`) builds both serve from `public/fonts/` correctly.
+function atlasUrl(fntFilename: string): string {
+  const base = import.meta.env?.BASE_URL ?? "/";
+  return `${base}fonts/${fntFilename}`;
+}
+
 type FontMode = "pending" | "msdf" | "raster";
 let mode: FontMode = "pending";
+let loadPromise: Promise<void> | null = null;
 let warnedFallback = false;
 
-/**
- * Install the MSDF font once. On any failure, falls back to the shared
- * raster font atlas (CITY_FONT_NAME) and warns. Safe to call repeatedly.
- * Must be called *after* `await app.init()` — Pixi's BitmapFont.install
- * requires an active renderer.
- */
-export async function ensureMsdfFont(): Promise<void> {
-  if (mode !== "pending") return;
+async function loadMsdfOnce(): Promise<void> {
   try {
-    // The dynamic-MSDF path: Pixi *may* accept a distanceField option in
-    // some 8.x builds even though the public .d.ts does not declare it.
-    // We pass it behind an unknown-cast so a stricter build rejects it at
-    // runtime (caught below) rather than at compile time — that way the
-    // wrapper compiles cleanly against the installed Pixi types while
-    // still attempting the optimization when supported.
-    const options: Record<string, unknown> = {
-      name: MSDF_FONT_NAME,
-      style: {
-        fontFamily: "system-ui, -apple-system, sans-serif",
-        // Source atlas size. Large enough to downscale cleanly in shader.
-        fontSize: 64,
-        fill: 0xffffff,
-      },
-      // Requested by the API in Pixi 8 docs; ignored by builds that do not
-      // support dynamic MSDF. In that case we hit the catch block below.
-      distanceField: { type: "msdf", range: 4 },
-      resolution: 2,
-      // ASCII (printable) + Hangul syllables. Matches the label surface area
-      // the canvas renderers emit today.
-      chars: [[" ", "~"], ["가", "힣"]],
-    };
-    // Cast is localized to this call; the options object is validated at
-    // runtime, not at compile time (see note above).
-    BitmapFont.install(options as Parameters<typeof BitmapFont.install>[0]);
+    // Parallel fetch. Pixi's BitmapFont parser handles multi-page atlases
+    // transparently (each .fnt's `<pages>` declares its PNG pages, which
+    // resolve relative to the .fnt URL).
+    await Promise.all([
+      Assets.load(atlasUrl("Pretendard-Regular.fnt")),
+      Assets.load(atlasUrl("Pretendard-Bold.fnt")),
+    ]);
     mode = "msdf";
   } catch (err) {
-    // Any install error means we stay on the raster atlas. Make sure it
-    // actually exists before `msdfText()` hands out a raster instance.
-    try { installCityFonts(); } catch { /* installCityFonts is idempotent & already best-effort */ }
+    // Any load error (404, parse error, offline) means we stay on the raster
+    // atlas — which must exist before `msdfText()` starts handing out
+    // BitmapText instances.
+    try { installCityFonts(); } catch { /* installCityFonts is idempotent */ }
     mode = "raster";
     if (!warnedFallback) {
       warnedFallback = true;
-      console.warn("[msdf-text] MSDF install failed, falling back to raster BitmapText", err);
+      console.warn("[msdf-text] MSDF atlas load failed, falling back to raster BitmapText", err);
     }
   }
 }
 
 /**
- * Construct a BitmapText. Uses the MSDF font if installed, otherwise the
- * shared raster atlas (CITY_FONT_NAME by default). Never throws — if
+ * Kick off (or await the in-flight) MSDF atlas load. Single-flight by
+ * module-level promise caching — concurrent callers share one `Assets.load`.
+ */
+export function ensureMsdfFont(): Promise<void> {
+  if (mode !== "pending") return Promise.resolve();
+  loadPromise ??= loadMsdfOnce();
+  return loadPromise;
+}
+
+/**
+ * Construct a BitmapText. Uses MSDF when its atlas is registered, otherwise
+ * the shared raster atlas (CITY_FONT_NAME by default). Never throws — if
  * neither font is available (ensureMsdfFont() was not awaited yet), the
  * returned BitmapText still compiles but may render empty glyphs until the
  * font registers.
  *
  * @param rasterFamily — fallback font-family name used when MSDF is
- *   unavailable. Defaults to CITY_FONT_NAME. Renderers that need bold or
- *   mono variants pass their own family (CITY_FONT_BOLD_NAME /
- *   CITY_MONO_FONT_NAME) so the raster-path preserves the existing visual.
- *   When MSDF *is* available, all variants collapse to the single MSDF
- *   family — acceptable because MSDF rendering is shader-sized and bold/
- *   mono differentiation at runtime would require parallel MSDF atlases
- *   we do not ship.
+ *   unavailable. Defaults to CITY_FONT_NAME. Passing CITY_FONT_BOLD_NAME
+ *   signals bold intent — the MSDF path honors it by routing to the bold
+ *   atlas. All other rasterFamily values (including CITY_MONO_FONT_NAME)
+ *   collapse to the regular MSDF atlas; mono variants at runtime would
+ *   require a third MSDF atlas we do not ship.
  */
 export function msdfText(text: string, size: number, tint?: number, rasterFamily?: string): BitmapText {
-  const fontFamily = mode === "msdf" ? MSDF_FONT_NAME : (rasterFamily ?? CITY_FONT_NAME);
+  const wantBold = rasterFamily === CITY_FONT_BOLD_NAME;
+  const fontFamily = mode === "msdf"
+    ? (wantBold ? MSDF_BOLD_FACE : MSDF_REGULAR_FACE)
+    : (rasterFamily ?? CITY_FONT_NAME);
   const style: { fontFamily: string; fontSize: number; fill?: number } = {
     fontFamily,
     fontSize: size,
@@ -122,5 +123,6 @@ export function _msdfMode(): FontMode {
 /** Test-only reset. Clears the module-level mode/warn flags. */
 export function _resetMsdfForTests(): void {
   mode = "pending";
+  loadPromise = null;
   warnedFallback = false;
 }

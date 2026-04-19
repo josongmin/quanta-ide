@@ -1,9 +1,8 @@
 import { memo } from "react";
 import type { Rect } from "@quanta/canvas-engine";
-import { useViewportStore } from "../store/viewport-store";
 
 interface Props {
-  /** Full folder path used as the display label. */
+  /** Full folder path — used as a stable key / debugging handle. */
   path: string;
   /** Bounding rect (in canvas coordinates) enclosing every descendant. */
   rect: Rect;
@@ -11,79 +10,39 @@ interface Props {
   depth: number;
   /** 0 = innermost wrapper (nearest to leaves), higher = outer shell. */
   rdepth: number;
+  /** Label text to display — either the leaf segment (natural) or the
+   *  full path (when the label has been clamped into the viewport). */
+  label: string;
+  /** World-space position of the label pill. */
+  labelX: number;
+  labelY: number;
+  /** Whether the label has been pushed off its natural corner by the
+   *  viewport edge. Drives the `--clamped` variant for styling hooks. */
+  clamped: boolean;
+  /** Hide the label entirely — used when a same-branch descendant's
+   *  clamped label is already carrying the full path. The frame itself
+   *  still renders. */
+  labelHidden: boolean;
 }
-
-// Screen-space padding we insert between the viewport edge and the
-// clamped label so the text doesn't sit flush against the window bezel.
-const LABEL_VIEWPORT_PAD_PX = 8;
-// Natural offsets from the folder frame's own top-left corner (world px).
-// Mirror the CSS defaults so the label sits just above the top border.
-const LABEL_NATURAL_X = 16;
-const LABEL_NATURAL_Y = -14;
 
 /**
  * Visual wrapper that draws a frame around files belonging to the same
  * ancestor folder. Nested folders stack — the outermost top-level package
  * wraps every descendant, down to the innermost leaf folder.
  *
- * Label shows only the segment for this folder (not the full path) so
- * stacked frames don't repeat their parents — the enclosing frames
- * already communicate the hierarchy visually.
- *
- * When the folder extends past the viewport's top or left edge, the label
- * is clamped to stay just inside the viewport — the user can still see
- * which folder they're inside even when its top-left corner is off-screen.
+ * Label state (text, position, visibility) is computed by the parent via
+ * `computeFolderLabels` so overlap between same-branch ancestor/descendant
+ * breadcrumbs can be resolved with global knowledge — a single frame
+ * can't see its siblings.
  *
  * Rendered *behind* GroundCards (see `.folder-frame` z-index), so the
  * cards remain fully interactive on top. `pointer-events: none` on the
  * frame itself ensures the overlay never swallows clicks.
  */
-function FolderFrameImpl({ path, rect, depth, rdepth }: Props) {
-  const viewport = useViewportStore(s => s.viewport);
-  const name = path.split("/").pop() ?? path;
-
-  // Viewport extents in world coordinates. The dom-layer applies
-  // `translate(viewport.x, viewport.y) scale(viewport.scale)`, so inverse
-  // transform gives the visible world rect.
-  const scale = viewport.scale;
-  const vLeft = -viewport.x / scale;
-  const vTop = -viewport.y / scale;
-  const vRight = (viewport.width - viewport.x) / scale;
-  const vBottom = (viewport.height - viewport.y) / scale;
-
-  // Clamp label origin into the viewport. The ideal position (natural
-  // offsets) wins whenever the folder corner is already on-screen; only
-  // when the frame pokes off the top/left do we push the label inward so
-  // it rides the viewport edge instead of vanishing with the corner.
-  const pad = LABEL_VIEWPORT_PAD_PX / scale;
-  const minLocalX = vLeft + pad - rect.x;
-  const minLocalY = vTop + pad - rect.y;
-  // Never let the label slide past the folder's opposite edge — it must
-  // visually belong to this frame, not the one beyond.
-  const maxLocalX = Math.max(LABEL_NATURAL_X, rect.w - 24);
-  const maxLocalY = Math.max(LABEL_NATURAL_Y, rect.h - 24);
-
-  const localX = Math.min(maxLocalX, Math.max(LABEL_NATURAL_X, minLocalX));
-  const localY = Math.min(maxLocalY, Math.max(LABEL_NATURAL_Y, minLocalY));
-
-  const clamped = localX !== LABEL_NATURAL_X || localY !== LABEL_NATURAL_Y;
-
-  // Frame offscreen entirely — nothing to do. Cheap bail to avoid painting
-  // folders the user can't see.
-  const offscreen =
-    rect.x + rect.w < vLeft ||
-    rect.x > vRight ||
-    rect.y + rect.h < vTop ||
-    rect.y > vBottom;
-  if (offscreen) return null;
-
-  // Label world position — frame is at (rect.x, rect.y), label is at local
-  // offset (localX, localY). We render the label as a *sibling* of the
-  // frame (not its child) so it can escape the frame's negative-z
-  // stacking context and paint above code cards.
-  const labelWorldX = rect.x + localX;
-  const labelWorldY = rect.y + localY;
-
+function FolderFrameImpl({
+  rect, depth, rdepth,
+  label, labelX, labelY, clamped, labelHidden,
+}: Props) {
   return (
     <>
       <div
@@ -92,12 +51,14 @@ function FolderFrameImpl({ path, rect, depth, rdepth }: Props) {
         data-rdepth={rdepth}
         style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       />
-      <div
-        className={`folder-frame__label folder-frame__label--d${Math.min(rdepth, 3)}`}
-        style={{ left: labelWorldX, top: labelWorldY }}
-      >
-        {name}
-      </div>
+      {!labelHidden && (
+        <div
+          className={`folder-frame__label folder-frame__label--d${Math.min(rdepth, 3)}${clamped ? " folder-frame__label--clamped" : ""}`}
+          style={{ left: labelX, top: labelY }}
+        >
+          {label}
+        </div>
+      )}
     </>
   );
 }

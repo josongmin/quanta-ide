@@ -6,6 +6,8 @@
   "packageManager": "pnpm@10.33.0",
   "scripts": {
     "dev": "vite",
+    "build:fonts": "node scripts/build-msdf-font.mjs",
+    "prebuild": "node scripts/build-msdf-font.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
@@ -58,6 +60,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "jest-axe": "^10.0.0",
     "jsdom": "^29.0.2",
+    "msdf-bmfont-xml": "^2.8.0",
     "size-limit": "^12.1.0",
     "storybook": "^8.6.18",
     "typescript": "^5.7.2",

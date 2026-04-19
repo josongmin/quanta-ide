@@ -203,7 +203,10 @@
 }
 
 /* ── PixiJS canvas fills container ─────────────────────────────── */
-.workspace-canvas canvas {
+/* Scoped to the direct child so HUD canvases (e.g. TemporalMinimapStrip
+   inside .ws-minimap) aren't stretched across the whole workspace. The
+   Pixi stage renders <canvas> as a direct child of .workspace-canvas. */
+.workspace-canvas > canvas {
   position: absolute;
   inset: 0;
   width: 100% !important;
@@ -440,6 +443,39 @@
   border-radius: 6px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
   overflow: hidden;
+}
+
+/* Temporal churn strip — sits directly above the minimap, same width so
+   the two visually anchor together. Without explicit positioning it
+   would flow to (0,0) and the CSS rule on direct-child <canvas> used to
+   stretch its canvas across the whole workspace (fixed by scoping). */
+.ws-tminimap {
+  position: absolute;
+  bottom: 124px;
+  left: 12px;
+  height: 8px;
+  z-index: 2;
+  pointer-events: auto;
+}
+.ws-tminimap__canvas {
+  display: block;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.ws-tminimap__tooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  color: var(--ws-hud-fg);
+  background: var(--ws-hud-bg);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
 }
 
 .ws-minimap svg {
@@ -3180,12 +3216,26 @@
    Batch 5 — Navigation (pages, bookmarks, storyboard, templates)
    ═══════════════════════════════════════════════════════════════════ */
 
-.ws-pages {
+/* Bottom-right navigation stack — wraps BookmarksDrawer + PagesTabBar
+   so they share a single anchor and never overlap each other. Grows
+   upward (anchored at bottom) as the bookmarks drawer expands. */
+.ws-nav-stack {
   position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 18;
+  right: 12px;
+  bottom: 12px;
+  z-index: 17;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: calc(100% - 220px);
+  pointer-events: none;
+}
+.ws-nav-stack > * { pointer-events: auto; }
+
+.ws-pages {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -3195,7 +3245,7 @@
   border-radius: 8px;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 11px;
-  max-width: calc(100% - 160px);
+  max-width: 100%;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 .ws-pages__list {
@@ -3298,10 +3348,11 @@
 .ws-pages__ctx-item--danger { color: var(--ws-danger-soft); }
 .ws-pages__ctx-item--danger:hover { background: rgba(248, 113, 113, 0.15); }
 
-/* Templates dropdown */
+/* Templates dropdown — opens upward since pages tab bar now lives at
+   the bottom of the viewport (inside .ws-nav-stack). */
 .ws-templates {
   position: absolute;
-  top: 46px;
+  bottom: calc(100% + 4px);
   right: 0;
   z-index: 30;
   width: 260px;
@@ -3348,14 +3399,11 @@
   color: var(--ws-hud-fg-muted);
 }
 
-/* Bookmarks drawer */
+/* Bookmarks drawer — lives inside `.ws-nav-stack` (bottom-right). The
+   stack owns positioning; this rule only handles appearance. */
 .ws-bookmarks {
-  position: absolute;
-  top: 52px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 17;
-  max-width: calc(100% - 160px);
+  position: relative;
+  max-width: 100%;
   background: var(--ws-hud-bg);
   color: var(--ws-hud-fg);
   border-radius: 8px;
@@ -4451,6 +4499,42 @@
   font-size: 21px;
   padding: 3px 14px;
   letter-spacing: 0.015em;
+}
+/* Clamped labels switch to the full project-relative path (see
+   compute-folder-labels.ts). Tone the weight down so a long path doesn't
+   visually scream — the breadcrumb pill still stands out against cards. */
+.folder-frame__label--clamped {
+  font-weight: 500;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── File Sticky Label ───────────────────────────────────────────
+   Per-card breadcrumb pill that appears only when the card's own
+   header has scrolled above the viewport. Shows the full project-
+   relative path so deeply-nested files stay identifiable when the
+   filename header is hidden. Sibling of cards (not child), so it
+   can paint above surrounding cards while the card itself scrolls.
+   pointer-events: none — never swallows card clicks. */
+.file-sticky-label {
+  position: absolute;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--fg, #0f172a);
+  background: #ffffff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border, rgba(100, 116, 139, 0.4));
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Above cards (z:auto), below folder labels (z:20) so folder
+     breadcrumbs remain the dominant hierarchy marker. */
+  z-index: 15;
 }
 
 /* ═══════════════════════════════════════════════════════════════════

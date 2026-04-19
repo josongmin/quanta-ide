@@ -10,7 +10,8 @@ import { runGeometryTask } from "./geometry-task";
 import {
   buildFolderTree,
   fillFolderCenters,
-  computeHEBPaths,
+  computeHEBPathsAsync,
+  isHebAbort,
 } from "@quanta/canvas-engine";
 
 // ELK is disabled: elkjs bundled build tries to spawn nested Workers from
@@ -19,28 +20,29 @@ import {
 // Grid layout is sufficient for the stress test. Re-enable by moving ELK to
 // the main thread or using elk-api.js with an explicit worker factory.
 
-// ── Post-compute supersession guard ────────────────────────────────
+// ── Supersession + mid-compute abort ───────────────────────────────
 // The worker runs one message at a time (`onmessage` is serialized).
-// A heavy compute (BUILD_HEB on a 6k-edge graph ≈ 200ms) blocks the
-// next incoming request until the current one finishes, so we can't
-// TRULY abort a running job mid-compute without chunked yielding —
-// that's a future refactor for computeHEBPaths et al.
+// Two-layer strategy:
 //
-// What we CAN do cheaply: drop the result on the floor when a newer
-// request of the same task-type has already landed. That saves the
-// structured-clone + postMessage + main-thread handler cost (roughly
-// 5-15ms per superseded HEB batch on a 6k-edge graph). The
-// `currentLayoutRequestId` / `currentAggregatesRequestId` guards on
-// the main-thread side already drop stale messages; this puts the
-// check at the source so we never pay the clone cost either.
+// 1. Post-compute supersession: each task-type tracks its OWN latest
+//    request id; results from superseded compute are dropped at the
+//    source, saving structured-clone + postMessage cost (~5-15ms per
+//    HEB batch). The main-thread side has parallel guards.
 //
-// Each task-type tracks its OWN latest id so that e.g. a new HEB
-// request doesn't supersede an in-flight LAYOUT result. CANCEL sets
-// every id to a sentinel so any in-flight result is treated as stale.
+// 2. Mid-compute abort for HEB: computeHEBPathsAsync yields every N
+//    edges via setTimeout(0), which lets the worker's message queue
+//    drain. On each yield it checks its AbortSignal — if set, it
+//    throws HebAbortError. We wire `hebAbortController` so a newer
+//    BUILD_HEB (or a CANCEL) aborts the running compute ~immediately
+//    at the next chunk boundary (sub-20ms on realistic graphs).
+//    LAYOUT / AGGREGATES / GEOMETRY remain sync for now; the
+//    post-compute guard is enough since those tasks are cheaper.
 let latestLayoutRequestId: string | null = null;
 let latestAggregatesRequestId: string | null = null;
 let latestGeometryRequestId: string | null = null;
 let latestHebRequestId: string | null = null;
+
+let hebAbortController: AbortController | null = null;
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data;
@@ -125,6 +127,13 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
 
       case "BUILD_HEB": {
+        // Abort any in-flight HEB compute — the chunked async variant
+        // will throw HebAbortError at the next yield point (within one
+        // chunkSize window, typically <20ms on a 6k-edge graph).
+        hebAbortController?.abort();
+        const controller = new AbortController();
+        hebAbortController = controller;
+
         latestHebRequestId = req.id;
         const t0 = Date.now();
         const { graph, tension, samples } = req.payload;
@@ -135,12 +144,27 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         // graph-identity in a weak ref.
         const tree = buildFolderTree(graph.files);
         fillFolderCenters(tree, layout.fileRects);
-        const paths = computeHEBPaths(
-          graph.fileEdges,
-          layout.fileRects,
-          tree,
-          { tension, samples },
-        );
+
+        let paths;
+        try {
+          paths = await computeHEBPathsAsync(
+            graph.fileEdges,
+            layout.fileRects,
+            tree,
+            { tension, samples, signal: controller.signal },
+          );
+        } catch (err) {
+          if (isHebAbort(err)) {
+            // Newer request (or CANCEL) superseded this compute. Drop
+            // silently — the follow-up request will post its own result.
+            break;
+          }
+          throw err;
+        }
+
+        // Clear our controller slot if it's still us (a newer BUILD_HEB
+        // would have already replaced it and aborted us above).
+        if (hebAbortController === controller) hebAbortController = null;
 
         // Concatenate all sampled polylines into a single Float32Array so
         // we post one Transferable instead of N-thousand. `offsets` and
@@ -182,15 +206,15 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 
       case "CANCEL": {
         // Reset every task's "latest id" so any in-flight compute whose
-        // result is still pending postMessage is treated as superseded.
-        // Does NOT interrupt the running compute (see the module-level
-        // comment) — just short-circuits the result dispatch so the main
-        // thread doesn't waste structured-clone cycles on data it was
-        // about to drop anyway.
+        // result is still pending postMessage is treated as superseded,
+        // and abort the HEB compute mid-flight (the other tasks run to
+        // completion; their results are dropped at the post-compute guard).
         latestLayoutRequestId = null;
         latestAggregatesRequestId = null;
         latestGeometryRequestId = null;
         latestHebRequestId = null;
+        hebAbortController?.abort();
+        hebAbortController = null;
         break;
       }
     }

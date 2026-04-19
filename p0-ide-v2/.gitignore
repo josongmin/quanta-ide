@@ -3,3 +3,7 @@ dist
 .vite
 *.log
 .DS_Store
+
+# Build-cache for scripts/build-msdf-font.mjs — regenerated deterministically
+# from the source OTFs + charset hash, no need to track in git.
+public/fonts/.build-cache.json

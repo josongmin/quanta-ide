@@ -34,7 +34,7 @@ import { FolderFrame } from "./FolderFrame";
 import { FileStickyLabel } from "./FileStickyLabel";
 import { DebugKillSwitchBanner } from "./DebugKillSwitchBanner";
 import { computeFolderRects } from "../lib/compute-folder-rects";
-import { computeFolderLabels } from "../lib/compute-folder-labels";
+import { computeCanvasLabels } from "../lib/compute-canvas-labels";
 import { LoadingOverlay } from "./LoadingOverlay";
 import { CanvasLayers } from "./CanvasLayers";
 import { useKeyboardHints } from "./KeyboardHints";
@@ -179,12 +179,18 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
     [graph.files, layout],
   );
 
-  // Folder breadcrumb label state depends on viewport (clamping) and on
-  // sibling folders (overlap resolution), so it has to recompute per
-  // pan/zoom. Cheap — folderRects is usually < 30 entries.
-  const folderLabels = useMemo(
-    () => computeFolderLabels(folderRects, viewport),
-    [folderRects, viewport],
+  // Single pass that produces both folder breadcrumbs and per-file sticky
+  // pills, with cross-kind overlap resolution. Depends on viewport, so it
+  // recomputes per pan/zoom — cheap because both input lists are small
+  // (folderRects is <30, visible files already culled).
+  const canvasLabels = useMemo(
+    () => computeCanvasLabels(
+      folderRects,
+      visibleScene?.files ?? [],
+      layout?.fileRects ?? new Map(),
+      viewport,
+    ),
+    [folderRects, visibleScene, layout, viewport],
   );
 
   const {
@@ -538,7 +544,7 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
               they sit visually behind the cards. pointer-events: none on
               the frame ensures card interactions are never blocked. */}
           {folderRects.map((fr, i) => {
-            const lbl = folderLabels[i];
+            const lbl = canvasLabels.folders[i];
             if (!lbl || lbl.offscreen) return null;
             return (
               <FolderFrame
@@ -586,21 +592,18 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
               />
             );
           })}
-          {/* Sticky per-file breadcrumb pills. Rendered last so they paint
-              above the cards; each only appears when its card's own header
-              has scrolled above the viewport. Shows the full project-
-              relative path so a buried file is still identifiable. */}
-          {visibleScene.files.map(file => {
-            const rect = layout?.fileRects.get(file.id);
-            if (!rect) return null;
-            return (
-              <FileStickyLabel
-                key={`sticky-${file.id}`}
-                filePath={file.id}
-                rect={rect}
-              />
-            );
-          })}
+          {/* Sticky per-file breadcrumb pills. Layout + overlap resolution
+              already resolved by computeCanvasLabels — we just paint what
+              survived. Shows the full project-relative path so a buried
+              file is still identifiable. */}
+          {canvasLabels.files.map(lbl => lbl.hidden ? null : (
+            <FileStickyLabel
+              key={`sticky-${lbl.fileId}`}
+              text={lbl.text}
+              worldX={lbl.worldX}
+              worldY={lbl.worldY}
+            />
+          ))}
         </div>
       )}
 

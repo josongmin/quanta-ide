@@ -152,8 +152,10 @@ export function CanvasLayers(props: CanvasLayersProps) {
         onToggleEdges={controls.onToggleEdges}
       />
       <AnnotationToolbar />
-      <PagesTabBar />
-      <BookmarksDrawer />
+      <div className="ws-nav-stack">
+        <BookmarksDrawer />
+        <PagesTabBar />
+      </div>
       <StoryboardPlayer />
       <TimerMount />
       <LassoOverlay containerRef={containerRef} layout={layout} />
