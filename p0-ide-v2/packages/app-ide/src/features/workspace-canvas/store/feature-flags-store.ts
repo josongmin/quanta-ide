@@ -63,6 +63,10 @@ let state: FeatureFlagsState = {
 };
 const listeners = new Set<() => void>();
 
+// Dev-only set so we warn at most once per cycle-participant id; a registry
+// mistake would otherwise spam the console on every selector evaluation.
+const warnedCycleIds = new Set<string>();
+
 function emit() {
   for (const l of [...listeners]) l();
 }
@@ -84,11 +88,22 @@ function isEnabled(id: string, seen?: Set<string>): boolean {
   const desc = FEATURE_BY_ID.get(id);
   if (!desc) return false;
   if (state.flags[id] === false) return false;
+  // Cycle guard — a malformed registry entry (A dependsOn B dependsOn A)
+  // would otherwise recurse infinitely and overflow the stack. We now treat
+  // cycles as a hard error and fail closed (disabled) so a broken registry
+  // never silently masks a dependency failure as "enabled".
+  const visited = seen ?? new Set<string>();
+  if (visited.has(id)) {
+    if (import.meta.env?.DEV && !warnedCycleIds.has(id)) {
+      warnedCycleIds.add(id);
+      console.warn(
+        `[feature-flags] dependency cycle detected at "${id}" — treating as disabled. ` +
+        `Fix dependsOn chain in feature-registry.`,
+      );
+    }
+    return false;
+  }
   if (desc.dependsOn) {
-    // Cycle guard — a malformed registry entry (A dependsOn B dependsOn A)
-    // would otherwise recurse infinitely and overflow the stack.
-    const visited = seen ?? new Set<string>();
-    if (visited.has(id)) return true;
     visited.add(id);
     for (const dep of desc.dependsOn) {
       if (!isEnabled(dep, visited)) return false;

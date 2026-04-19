@@ -91,18 +91,18 @@ describe("Shell", () => {
   });
 
   it("renders Topbar with correct tab count", () => {
-    registerApp("ide", "IDE", "IDE Page");
+    registerApp("demo", "Demo", "Demo Page");
     render(<Shell />);
     const topbar = screen.getByTestId("topbar");
-    // Shell hardcodes 2 initial tabs (t1, t2).
-    expect(topbar.getAttribute("data-tab-count")).toBe("2");
+    // Shell hardcodes 4 initial tabs (t1..t4).
+    expect(topbar.getAttribute("data-tab-count")).toBe("4");
   });
 
   it("shows active tab content via appRegistry", () => {
-    registerApp("ide", "IDE", "IDE Page Content");
+    registerApp("demo", "Demo", "Demo Page Content");
     render(<Shell />);
-    // First tab (t1) is active and is app="ide".
-    expect(screen.getByTestId("app-ide")).toHaveTextContent("IDE Page Content");
+    // First tab (t1) is active and is app="demo".
+    expect(screen.getByTestId("app-demo")).toHaveTextContent("Demo Page Content");
   });
 
   it("settings override shows settings page instead of active tab", () => {
@@ -114,15 +114,11 @@ describe("Shell", () => {
   });
 
   it("home override shows home page instead of active tab", () => {
-    registerApp("ide", "IDE", "IDE Content");
+    registerApp("demo", "Demo", "Demo Content");
     registerApp("home", "Home", "Home Page");
-    // The home state is managed internally by useTabManager. We can't directly
-    // set it before render, but we can check that the home component is
-    // registered correctly. The Shell renders homeOpen from state, which
-    // defaults to false — so the IDE page shows.
+    // `homeOpen` defaults to false, so the active tab's app (demo) shows.
     render(<Shell />);
-    // With homeOpen=false, the IDE should show.
-    expect(screen.getByTestId("app-ide")).toHaveTextContent("IDE Content");
+    expect(screen.getByTestId("app-demo")).toHaveTextContent("Demo Content");
   });
 
   it("renders registered overlays", () => {

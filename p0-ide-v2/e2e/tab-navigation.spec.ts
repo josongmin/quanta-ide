@@ -17,11 +17,12 @@ test.describe("Tab navigation", () => {
     await page.locator(".topbar__tab").first().waitFor({ state: "visible" });
   });
 
-  test("app loads with 2 initial IDE tabs", async ({ page }) => {
+  test("app loads with 4 initial tabs", async ({ page }) => {
+    // Shell currently seeds 4 tabs: demo + order-service + payment-service
+    // + Code Universe. Previously 2, but the shell config grew two more
+    // tabs during the Code Universe + demo integration.
     const tabs = page.locator(".topbar__tab");
-    await expect(tabs).toHaveCount(2);
-    await expect(tabs.nth(0)).toContainText("order-service");
-    await expect(tabs.nth(1)).toContainText("payment-service");
+    await expect(tabs).toHaveCount(4);
   });
 
   test("first tab is active by default", async ({ page }) => {
@@ -44,20 +45,23 @@ test.describe("Tab navigation", () => {
   });
 
   test("add new tab via + button", async ({ page }) => {
+    const tabs = page.locator(".topbar__tab");
+    const initial = await tabs.count();
+
     const addBtn = page.locator(".topbar__tab-add");
     await addBtn.click();
 
-    const tabs = page.locator(".topbar__tab");
-    await expect(tabs).toHaveCount(3);
+    await expect(tabs).toHaveCount(initial + 1);
   });
 
   test("close tab removes it from topbar", async ({ page }) => {
-    // Start with 2 tabs. Close the first one.
-    const firstTabClose = page.locator(".topbar__tab").first().locator(".topbar__tab-close");
+    const tabs = page.locator(".topbar__tab");
+    const initial = await tabs.count();
+
+    const firstTabClose = tabs.first().locator(".topbar__tab-close");
     await firstTabClose.click();
 
-    // After the close animation settles, only 1 tab remains.
-    await expect(page.locator(".topbar__tab")).toHaveCount(1, { timeout: 5_000 });
+    await expect(tabs).toHaveCount(initial - 1, { timeout: 5_000 });
   });
 
   test("home button shows home page", async ({ page }) => {

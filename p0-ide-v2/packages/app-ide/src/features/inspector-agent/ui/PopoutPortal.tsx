@@ -82,6 +82,9 @@ function TauriNativeWindow({ title, onClose }: { title: string; onClose: () => v
         wv.destroy().catch(() => {});
       }
     };
+    // WHY: Tauri webview is a one-shot imperative resource; recreating on
+    // `title` change would relaunch the native window.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return null;

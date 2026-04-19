@@ -2,6 +2,7 @@ import { BitmapText, Container, Graphics, FederatedPointerEvent } from "pixi.js"
 import type { ClusterMeta, Viewport } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_BOLD_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
+import { msdfText } from "./shared/msdf-text";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 import { registerRenderer, type RendererHandle, type RenderContext } from "./shared/renderer-registry";
 import { setText, hashStep, hashStringStep, makeGrowingPool, type GrowingPool } from "./shared/pixi-guards";
@@ -152,7 +153,7 @@ export class ClusterNodeRenderer {
       t.visible = true;
       return t;
     }
-    const t = new BitmapText({ text: "", style: { fontFamily: CITY_FONT_BOLD_NAME, fontSize: 11 } });
+    const t = msdfText("", 11, undefined, CITY_FONT_BOLD_NAME);
     this.labelContainer.addChild(t);
     this.labelPool.push(t);
     this.labelPoolCursor = this.labelPool.length;

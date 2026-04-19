@@ -23,7 +23,10 @@ export function CodePaneView({ codePane, markers, activeLines, viewport, contain
   // ── Tokenize once per source change ────────────────────────────
   const tokenized = useMemo(
     () => lines.map((l) => tokenizeLine(l)),
-    [codePane.source], // lines는 source에서 파생 — source만 deps로 충분
+    // WHY: `lines` is derived from `codePane.source`; tracking source alone
+    // keeps the memo stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [codePane.source],
   );
 
   const markersByLine = useMemo(() => {

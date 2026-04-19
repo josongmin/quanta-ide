@@ -4,9 +4,9 @@ import type {
   LodLevel,
   PathQuery,
   PathResult,
-  WorkspaceGraph,
 } from "@quanta/canvas-engine";
 import { findPaths } from "@quanta/canvas-engine";
+import { sceneStore } from "./scene-store";
 
 // Interaction store
 // -------------------------------------------------------------------
@@ -67,9 +67,10 @@ const initialViewState: ViewState = {
   focusedNodeId: null,
 };
 
-// Path-query solves against the active graph's edges. Injected by the orchestrator
-// on graph swap so the store does not own a reference to the full graph.
-let pathGraph: Pick<WorkspaceGraph, "fileEdges"> | null = null;
+// Path-query solves against the active graph's edges. The graph is read
+// on demand from the scene store at query time (see `setPathQuery`); the
+// interaction store does NOT cache or own a reference to it, so a graph
+// swap can never leave path queries running against stale data.
 
 const initialTemporal: TemporalState = {
   mode: "off",
@@ -194,22 +195,12 @@ const actions = {
 
   // Path query — set/clear a Bloom-style source→target query and compute
   // the result synchronously (BFS is O(V+E) which is cheap at our graph
-  // sizes and avoids a reactive indirection).
-  setPathGraph(g: Pick<WorkspaceGraph, "fileEdges"> | null) {
-    pathGraph = g;
-    // Re-solve if a query is live and the graph changed under us.
-    if (state.pathQuery && g) {
-      const pathResult = findPaths(g, state.pathQuery);
-      state = { ...state, pathResult };
-      emit();
-    } else if (!g && state.pathResult) {
-      state = { ...state, pathResult: null };
-      emit();
-    }
-  },
-
+  // sizes and avoids a reactive indirection). The graph is read from
+  // sceneStore at call time so path results always reflect the active
+  // graph without a separate injection ceremony.
   setPathQuery(q: PathQuery) {
-    const pathResult = pathGraph ? findPaths(pathGraph, q) : null;
+    const graph = sceneStore.getState().graph;
+    const pathResult = graph ? findPaths(graph, q) : null;
     state = { ...state, pathQuery: q, pathResult };
     emit();
   },

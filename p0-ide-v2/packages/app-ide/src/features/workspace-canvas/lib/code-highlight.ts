@@ -280,7 +280,8 @@ const DIGIT = /\d/;
 const SCREAMING = /^[A-Z][A-Z0-9_]+$/;
 
 interface LineState {
-  /** True if we entered this line inside a `/* … *​/` block comment. */
+  // True if we entered this line inside a slash-star…star-slash block
+  // comment. Delimiter spelled out to dodge a JSDoc parser trap.
   inBlockComment: boolean;
 }
 

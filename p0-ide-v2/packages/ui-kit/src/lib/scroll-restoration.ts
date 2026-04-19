@@ -8,6 +8,9 @@ export function useScrollRestoration(
   ref: RefObject<HTMLElement | null>,
 ): void {
   useEffect(() => {
+    // Capture the element once so the cleanup reads the SAME node that
+    // was mounted during this effect run. If we read `ref.current` in
+    // cleanup, a later React remount would have already swapped the ref.
     const el = ref.current;
     if (el) {
       const cached = cache.get(key);
@@ -16,9 +19,8 @@ export function useScrollRestoration(
       }
     }
     return () => {
-      const current = ref.current;
-      if (current) {
-        cache.set(key, current.scrollTop);
+      if (el) {
+        cache.set(key, el.scrollTop);
       }
     };
   }, [key, ref]);

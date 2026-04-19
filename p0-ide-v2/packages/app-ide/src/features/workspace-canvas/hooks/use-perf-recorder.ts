@@ -159,7 +159,7 @@ function sampleCurrentFrame(dtMs: number): FrameSample {
     scState.superclusterScene ? "supercluster" :
     scState.clusterScene ? "cluster" :
     scState.visibleScene ? "file" : "none";
-  let drawCalls: number | null = null;
+  let drawCalls: number | null;
   try {
     drawCalls =
       (globalThis as { __pixi?: { app?: { renderer?: { statistics?: { drawCalls?: number } } } } })

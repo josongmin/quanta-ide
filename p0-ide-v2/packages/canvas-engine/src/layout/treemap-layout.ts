@@ -101,16 +101,16 @@ interface Placement {
   h: number;
 }
 
-function rowCost(rowCs: Child[], longSide: number): number {
-  if (rowCs.length === 0) return Infinity;
+// In-place row cost. Avoids the per-trial `[...row, c]` allocation in the
+// squarify hot loop by letting callers pass an optional additional child
+// which is folded in without spreading the array.
+function rowCost(row: Child[], newChild: Child | null, longSide: number): number {
+  const len = row.length + (newChild ? 1 : 0);
+  if (len === 0) return Infinity;
   let rowW = 0;
-  let rowH = 0;
-  for (const c of rowCs) {
-    rowW += c.w + DIR_PAD;
-    if (c.h > rowH) rowH = c.h;
-  }
+  for (const c of row) rowW += c.w + DIR_PAD;
+  if (newChild) rowW += newChild.w + DIR_PAD;
   rowW = Math.max(rowW - DIR_PAD, 1);
-  rowH = Math.max(rowH, 1);
   const fill = rowW / longSide;
   return Math.abs(Math.log(fill));
 }
@@ -131,8 +131,13 @@ function squarify(
   }
 
   const sorted = [...children].sort((a, b) => b.area - a.area);
-  const totalArea = sorted.reduce((s, c) => s + c.area, 0);
-  const maxChildW = sorted.reduce((m, c) => (c.w > m ? c.w : m), 0);
+  // Fuse totalArea + maxChildW into one pass over sorted[].
+  let totalArea = 0;
+  let maxChildW = 0;
+  for (const c of sorted) {
+    totalArea += c.area;
+    if (c.w > maxChildW) maxChildW = c.w;
+  }
   const longSide = Math.max(
     Math.sqrt(totalArea * targetAspect * (longsideK / 1.5)),
     maxChildW,
@@ -141,12 +146,10 @@ function squarify(
   const placements: Placement[] = [];
   let cursorY = 0;
   let row: Child[] = [];
-
-  const rowWidth = (rs: Child[]): number => {
-    let w = 0;
-    for (const r of rs) w += r.w + DIR_PAD;
-    return Math.max(w - DIR_PAD, 0);
-  };
+  // Incremental running sum of `c.w + DIR_PAD` for the current row; the
+  // effective row width is `max(rowSum - DIR_PAD, 0)`. Replaces the per-
+  // iteration `rowWidth(row)` scan.
+  let rowSum = 0;
 
   const flushRow = (): void => {
     if (row.length === 0) return;
@@ -159,26 +162,33 @@ function squarify(
     }
     cursorY += rowMaxH + DIR_PAD;
     row = [];
+    rowSum = 0;
   };
 
   for (const c of sorted) {
     if (row.length === 0) {
       row.push(c);
+      rowSum += c.w + DIR_PAD;
       continue;
     }
-    const trialW = rowWidth(row) + DIR_PAD + c.w;
+    // Current row width without the extra trailing DIR_PAD.
+    const currentW = Math.max(rowSum - DIR_PAD, 0);
+    const trialW = currentW + DIR_PAD + c.w;
     if (trialW > longSide) {
       flushRow();
       row.push(c);
+      rowSum += c.w + DIR_PAD;
       continue;
     }
-    const currentCost = rowCost(row, longSide);
-    const trialCost = rowCost([...row, c], longSide);
+    const currentCost = rowCost(row, null, longSide);
+    const trialCost = rowCost(row, c, longSide);
     if (trialCost <= currentCost) {
       row.push(c);
+      rowSum += c.w + DIR_PAD;
     } else {
       flushRow();
       row.push(c);
+      rowSum += c.w + DIR_PAD;
     }
   }
   flushRow();
@@ -195,10 +205,12 @@ function squarify(
 // ── sizing pass (bottom-up) ────────────────────────────────────────────
 
 function sizeDir(dir: DirNode, longsideK: number): void {
-  for (const child of dir.children.values()) sizeDir(child, longsideK);
-
+  // Recurse + build childBoxes in a single pass. The recursion populates
+  // child.box bottom-up, so by the time we push the Child record the box
+  // is already final.
   const childBoxes: Child[] = [];
   for (const child of dir.children.values()) {
+    sizeDir(child, longsideK);
     childBoxes.push({
       area: child.box.w * child.box.h,
       w: child.box.w,
@@ -277,10 +289,12 @@ function dirBounds(dir: DirNode, fileRects: Map<string, Rect>): Rect | null {
     for (const f of d.files) {
       const r = fileRects.get(f.id);
       if (!r) continue;
-      minX = Math.min(minX, r.x);
-      minY = Math.min(minY, r.y);
-      maxX = Math.max(maxX, r.x + r.w);
-      maxY = Math.max(maxY, r.y + r.h);
+      if (r.x < minX) minX = r.x;
+      if (r.y < minY) minY = r.y;
+      const rx = r.x + r.w;
+      const ry = r.y + r.h;
+      if (rx > maxX) maxX = rx;
+      if (ry > maxY) maxY = ry;
     }
     for (const c of d.children.values()) visit(c);
   };
@@ -343,15 +357,24 @@ export function treemapLayout(
     topLevel.push(child);
   }
 
+  // Memoize per DirNode so cluster + supercluster passes don't re-walk
+  // overlapping subtrees. For N files across K clusters this drops the
+  // work from O(N·K) to O(N).
+  const countFilesMemo = new WeakMap<DirNode, { n: number; loc: number }>();
   const countFiles = (d: DirNode): { n: number; loc: number } => {
+    const hit = countFilesMemo.get(d);
+    if (hit) return hit;
     let n = d.files.length;
-    let loc = d.files.reduce((s, f) => s + f.loc, 0);
+    let loc = 0;
+    for (const f of d.files) loc += f.loc;
     for (const c of d.children.values()) {
       const sub = countFiles(c);
       n += sub.n;
       loc += sub.loc;
     }
-    return { n, loc };
+    const result = { n, loc };
+    countFilesMemo.set(d, result);
+    return result;
   };
 
   const totalFiles = graph.files.length;

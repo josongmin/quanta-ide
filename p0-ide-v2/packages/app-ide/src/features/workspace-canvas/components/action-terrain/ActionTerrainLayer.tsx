@@ -12,6 +12,11 @@ export function ActionTerrainLayer(): null {
   const on = useFeature("action-terrain.mode");
   const derived = useActionTerrain();
 
+  // WHY: the pump effect must NOT return a cleanup — React calls cleanup
+  // on every dep change, which would emit reset→set on every ROI tick and
+  // unmount/remount `RefactorBacklogPanel` (wiping its local `expandedFileIds`
+  // state). Unmount-time reset lives in the separate effect below with []
+  // deps so it only fires on true unmount.
   useEffect(() => {
     if (!on || !derived.enabled) {
       actionTerrainRenderStore.reset();
@@ -26,11 +31,9 @@ export function ActionTerrainLayer(): null {
       coneForRenderer: derived.coneForRenderer,
       isoConfig: derived.isoConfig,
     });
-    return () => {
-      // Reset on unmount so a remount of the canvas gets a clean slate.
-      actionTerrainRenderStore.reset();
-    };
   }, [on, derived]);
+
+  useEffect(() => () => { actionTerrainRenderStore.reset(); }, []);
 
   return null;
 }

@@ -76,7 +76,7 @@ function parseFunctions(src: string): FunctionBlock[] {
     const m =
       l.match(/^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)\s*[<(]/) ??
       l.match(/^\s*(?:export\s+)?const\s+(\w+)\s*(?::<[^>]+>)?\s*=\s*(?:async\s+)?\(/) ??
-      l.match(/^  (?:(?:public|private|protected|static|async|override|abstract)\s+)*([a-z]\w*)\s*\(/);
+      l.match(/^ {2}(?:(?:public|private|protected|static|async|override|abstract)\s+)*([a-z]\w*)\s*\(/);
     const name = m?.[1];
     if (!name || SKIP_FN.has(name) || seen.has(name)) continue;
     seen.add(name);
@@ -817,7 +817,7 @@ function synthesizeEdges(
       while (common < Math.min(a.base.length, b.base.length) && a.base[common] === b.base[common]) common++;
       if (common < 8 || a.base === b.base) continue;
       const diffA = a.base.slice(common), diffB = b.base.slice(common);
-      if (!/^[\-_v\d]{0,6}$/.test(diffA) || !/^[\-_v\d]{0,6}$/.test(diffB)) continue;
+      if (!/^[-_v\d]{0,6}$/.test(diffA) || !/^[-_v\d]{0,6}$/.test(diffB)) continue;
       push(withAnchors(a.f.id, b.f.id, "rename-pair", 0, 0, {
         weight: 0.6, confidence: 0.6,
       }));
@@ -1725,7 +1725,6 @@ function synthesizeTrace(scaffold: TraceScaffold, files: readonly FileNode[]): T
       selfMs: retryDur,
       depth: 1,
     });
-    cursor += retryDur;
     const key = `${from}→${to}`;
     const prev = edgeAcc.get(key);
     if (prev) {

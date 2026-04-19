@@ -68,8 +68,11 @@ function CommandPaletteInner({ open, onClose, zoomToFile, fitToGraph, resetViewp
   const commands: readonly Command[] = useMemo(() => {
     if (!open) return [];
     return seedCommands({ graph, layout, zoomToFile, fitToGraph, resetViewport, exportPng });
-    // `stickies` inclusion re-seeds when stickies change, even though we
-    // read the snapshot through the store inside seedCommands.
+    // WHY: `stickies` is an invalidation token — seedCommands reads the
+    // stickies store imperatively (not via this arg), so listing it here
+    // is how we re-seed on pin add/remove. Rule flags "unnecessary" because
+    // the body doesn't reference it directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, graph, layout, stickies, zoomToFile, fitToGraph, resetViewport, exportPng]);
 
   const ranked = useMemo(

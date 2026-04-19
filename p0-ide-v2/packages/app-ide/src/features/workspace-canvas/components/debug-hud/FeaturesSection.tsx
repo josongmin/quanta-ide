@@ -62,9 +62,9 @@ export function FeaturesSection() {
   }, []);
 
   const presets = useMemo(() => listPresets(), []);
-  // inferActivePreset reads the flags store; re-computed whenever `flags`
-  // changes because we also select `flags` above (useSyncExternalStore
-  // notifies on every flag edit).
+  // WHY: `flags` is an invalidation token — `inferActivePreset` reads the
+  // flag store imperatively (not via this arg).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const activePreset = useMemo(() => inferActivePreset(), [flags]);
 
   const total = Object.keys(flags).length;

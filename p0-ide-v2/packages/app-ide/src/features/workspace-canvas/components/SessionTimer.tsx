@@ -24,8 +24,13 @@ function getAudioCtx(): AudioContext | null {
   if (typeof window === "undefined") return null;
   if (audioCtx) return audioCtx;
   // Safari older than 14 exposes only the webkit-prefixed constructor.
-  const w = window as Window & { webkitAudioContext?: typeof AudioContext };
-  const Ctor: typeof AudioContext | undefined = w.AudioContext ?? w.webkitAudioContext;
+  // `AudioContext` is the DOM global; `webkitAudioContext` isn't typed on
+  // Window by default, so cast narrowly just for the legacy lookup.
+  const legacyCtor = (window as Window & {
+    webkitAudioContext?: typeof AudioContext;
+  }).webkitAudioContext;
+  const Ctor: typeof AudioContext | undefined =
+    typeof AudioContext !== "undefined" ? AudioContext : legacyCtor;
   if (!Ctor) return null;
   try {
     audioCtx = new Ctor();

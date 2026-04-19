@@ -837,7 +837,7 @@ async function narrateCommit(input: NarrateCommitInput): Promise<NarrateCommitRe
 
   const touched = filesTouchedAt(history, index, edgeById);
   const byFileCount = new Map<string, number>();
-  let addedCount = 0;
+  let addedCount: number;
   let removedCount = 0;
   const deltaIds: string[] = [];
   if (index === 0) {

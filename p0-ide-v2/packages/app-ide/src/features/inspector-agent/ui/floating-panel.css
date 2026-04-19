@@ -92,6 +92,15 @@
   background: rgba(30, 41, 59, 0.92);
 }
 
+/* Firefox (and any browser) without backdrop-filter support — swap the
+ * translucent HUD background for a fully opaque slate so the content
+ * behind the panel isn't bleeding through an un-blurred window. */
+@supports not (backdrop-filter: blur(1px)) {
+  .float-panel--hud {
+    background: rgba(15, 23, 42, 1);
+  }
+}
+
 /* ── Body ── */
 .float-panel__body {
   flex: 1;

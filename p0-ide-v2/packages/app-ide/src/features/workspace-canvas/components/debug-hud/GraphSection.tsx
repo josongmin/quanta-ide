@@ -315,7 +315,9 @@ function GraphSources() {
 function TracesList() {
   const pack = useSceneStore(s => s.graph?.traces);
   const activeTraceId = useInteractionStore(s => s.activeTraceId);
-  const traces = pack?.traces ?? [];
+  // Stabilize the fallback empty array so the memo below doesn't re-fire
+  // every render when `pack` is undefined.
+  const traces = useMemo(() => pack?.traces ?? [], [pack]);
   const active = useMemo<Trace | null>(() => {
     if (!activeTraceId) return null;
     return traces.find(t => t.id === activeTraceId) ?? null;

@@ -78,6 +78,18 @@ export function FloatingPanel({
     document.body.style.cursor = "";
   }, []);
 
+  // Browsers silently fire pointercancel/lostpointercapture (e.g. the user
+  // drags off-window onto a system scrollbar, or another pointer preempts the
+  // capture) without a matching pointerup. Without this cleanup, `dragging`
+  // stays `true` and every subsequent pointermove snaps the panel to the
+  // cursor. Route both events to the same teardown as pointerup.
+  const onDragCancel = useCallback(() => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    document.body.style.userSelect = "";
+    document.body.style.cursor = "";
+  }, []);
+
   /* ── Resize ── */
   const onResizeDown = useCallback(
     (edge: string) => (e: React.PointerEvent) => {
@@ -109,9 +121,18 @@ export function FloatingPanel({
 
     setSize({ w: nw, h: nh });
     setPos({ x: nx, y: ny });
-  }, []);
+  }, [minWidth, minHeight]);
 
   const onResizeUp = useCallback(() => {
+    resizing.current = false;
+    document.body.style.userSelect = "";
+  }, []);
+
+  // Same rationale as onDragCancel — pointercancel / lostpointercapture can
+  // strand `resizing.current = true` forever and make subsequent mouse moves
+  // stretch the panel without a button being pressed.
+  const onResizeCancel = useCallback(() => {
+    if (!resizing.current) return;
     resizing.current = false;
     document.body.style.userSelect = "";
   }, []);
@@ -161,6 +182,8 @@ export function FloatingPanel({
         onPointerDown={onDragDown}
         onPointerMove={onDragMove}
         onPointerUp={onDragUp}
+        onPointerCancel={onDragCancel}
+        onLostPointerCapture={onDragCancel}
       >
         <span className="float-panel__title">{title}</span>
         {collapsible && (
@@ -205,6 +228,8 @@ export function FloatingPanel({
           onPointerDown={onResizeDown(edge)}
           onPointerMove={onResizeMove}
           onPointerUp={onResizeUp}
+          onPointerCancel={onResizeCancel}
+          onLostPointerCapture={onResizeCancel}
         />
       ))}
     </div>,

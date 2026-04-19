@@ -1,4 +1,5 @@
 import { BitmapText, Container, Graphics, FederatedPointerEvent } from "pixi.js";
+import { msdfText } from "./shared/msdf-text";
 import type { ClusterMeta, Viewport } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_BOLD_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
@@ -187,8 +188,8 @@ export class SuperclusterNodeRenderer {
       pair.meta.visible = true;
       return pair;
     }
-    const name = new BitmapText({ text: "", style: { fontFamily: CITY_FONT_BOLD_NAME, fontSize: 11 } });
-    const meta = new BitmapText({ text: "", style: { fontFamily: CITY_FONT_BOLD_NAME, fontSize: 11 } });
+    const name = msdfText("", 11, undefined, CITY_FONT_BOLD_NAME);
+    const meta = msdfText("", 11, undefined, CITY_FONT_BOLD_NAME);
     this.labelContainer.addChild(name);
     this.labelContainer.addChild(meta);
     const pair: LabelPair = { name, meta };

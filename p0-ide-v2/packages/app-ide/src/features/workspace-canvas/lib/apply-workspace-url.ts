@@ -29,9 +29,10 @@ export function applyWorkspaceUrlState(state: WorkspaceUrlState): void {
     interactionStore.selectFile(state.selectedFileId);
   }
 
-  if (state.forceLod !== undefined) {
-    debugSettingsStore.setForceLod(state.forceLod);
-  }
+  // WHY: forceLod is a debug-only knob. Carrying it across share URLs
+  // stranded users on a forced tier with no obvious exit, so we drop it
+  // here — even if a URL fragment still contains it for backward compat.
+  // `captureWorkspaceUrlState` below similarly never emits it.
 
   if (state.edgeLayers) {
     for (const [layer, on] of Object.entries(state.edgeLayers)) {
@@ -111,7 +112,6 @@ export function applyWorkspaceUrlState(state: WorkspaceUrlState): void {
 export function captureWorkspaceUrlState(): WorkspaceUrlState {
   const render = renderSettingsStore.getState();
   const ux = uxSettingsStore.getState();
-  const debug = debugSettingsStore.getState();
   const viewport = viewportStore.getState().viewport;
   const interaction = interactionStore.getState();
 
@@ -119,7 +119,6 @@ export function captureWorkspaceUrlState(): WorkspaceUrlState {
     version: 1,
     viewport: { x: viewport.x, y: viewport.y, scale: viewport.scale },
     selectedFileId: interaction.viewState.selectedFileId,
-    forceLod: debug.forceLod,
     edgeLayers: { ...render.edgeLayers },
     edgeMinSeverity: render.edgeMinSeverity,
     focusMode: interaction.focusMode,

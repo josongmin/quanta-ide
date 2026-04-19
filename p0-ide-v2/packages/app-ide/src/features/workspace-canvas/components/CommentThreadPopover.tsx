@@ -127,6 +127,10 @@ export function CommentThreadPopover({ thread, scale }: Props) {
       e.preventDefault();
       commentsStore.setOpen(null);
     }
+    // WHY: `commitDraft` is declared below — it captures `draft`, but we
+    // want the handler identity to change only when the mention UI state
+    // shifts, not every keystroke (draft changes N×/s).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mentionMatch, suggestions, highlightIdx, applyMention]);
 
   const commitDraft = useCallback(() => {

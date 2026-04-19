@@ -7,6 +7,7 @@ import type {
 } from "@quanta/canvas-engine";
 import { useSceneStore } from "../store/scene-store";
 import { useInteractionStore, interactionStore } from "../store/interaction-store";
+import { actionTerrainStore } from "../store/action-terrain-store";
 import { useFeature } from "../store/feature-flags-store";
 import { toMermaidDiagram, toDotGraph, toShareUrl } from "../lib/export-helpers";
 import { showToast, showSuccessToast, showErrorToast } from "../lib/toast";
@@ -222,7 +223,13 @@ export function InspectorPanel() {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") interactionStore.selectFile(null);
+      if (e.key === "Escape") {
+        interactionStore.selectFile(null);
+        // Keep action-terrain cone anchored to canvas selection — otherwise
+        // Esc blanks the Inspector but leaves the blast/fix cone hovering
+        // over a phantom file.
+        actionTerrainStore.selectFile(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

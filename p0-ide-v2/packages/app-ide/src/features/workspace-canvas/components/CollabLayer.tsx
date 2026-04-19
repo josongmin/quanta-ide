@@ -267,9 +267,6 @@ function useFollowIntegration(
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
     };
-    // width/height intentionally referenced to re-anchor on container resize;
-    // targetId/enabled primary deps keep loop lifecycle clean.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, targetId, width, height]);
 
   // ESC stops following.

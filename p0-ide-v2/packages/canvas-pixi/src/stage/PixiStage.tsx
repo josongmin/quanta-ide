@@ -21,6 +21,7 @@ import type {
 import { resolveEffectiveTier, getTierConfig, resolveLayerPolicy } from "@quanta/canvas-engine";
 import { RENDERER_REGISTRY, type RendererHandle, type RenderContext } from "../renderers";
 import { installCityFonts } from "../renderers/shared/BitmapFontAtlas";
+import { ensureMsdfFont } from "../renderers/shared/msdf-text";
 import type { AgentPresenceInput } from "../renderers/PresenceRingRenderer";
 import { RendererStack, type OverlayRenderCtx } from "../renderers/overlay-registry";
 import type { IsoTerrainBar } from "../renderers/iso/IsoTerrainRenderer";
@@ -251,15 +252,34 @@ export function PixiStage({
       setPixiReady(true);
     };
 
+    const LOST_GRACE_MS = 3000;
+    let contextLostEscalation: ReturnType<typeof setTimeout> | null = null;
     const handleContextLost = () => {
       setPixiReady(false);
       appRef.current?.ticker.stop();
+      contextLostAtRef.current = Date.now();
+      // Escalate to the parent if restore doesn't fire within the grace
+      // window — a permanently-lost context means the canvas stays blank,
+      // and a "reload the page" CTA is the only way forward.
+      if (contextLostEscalation !== null) clearTimeout(contextLostEscalation);
+      contextLostEscalation = setTimeout(() => {
+        contextLostEscalation = null;
+        if (contextLostAtRef.current !== null) {
+          onPixiErrorRef.current?.(new Error("WebGL context lost — try reloading the page"));
+        }
+      }, LOST_GRACE_MS);
     };
 
     // Context restore — browsers re-raise after a GPU reset or memory-pressure
     // tab restore. Every GPU-resident resource is dead; replace the whole
     // bundle rather than surgically re-uploading per renderer.
     const handleContextRestored = () => {
+      // Clear the escalation watchdog — restore arrived in time.
+      contextLostAtRef.current = null;
+      if (contextLostEscalation !== null) {
+        clearTimeout(contextLostEscalation);
+        contextLostEscalation = null;
+      }
       try {
         const old = pixiByCanvas.get(canvas);
         if (old) {
@@ -267,6 +287,11 @@ export function PixiStage({
           pixiByCanvas.delete(canvas);
         }
         installCityFonts();
+        // Reinstall MSDF atlas after context-restore. The in-flight mode
+        // flag inside msdf-text keeps this idempotent unless it fails; in
+        // the unlikely case it failed the first time and would succeed on
+        // restore, we accept the one-shot raster rendering.
+        void ensureMsdfFont();
         initInFlight.delete(canvas);
         const promise = coldInit(canvas);
         initInFlight.set(canvas, promise);
@@ -310,6 +335,12 @@ export function PixiStage({
       const world = new Container();
       app.stage.addChild(world);
       app.stage.eventMode = "static";
+
+      // Install the MSDF font *before* renderer constructors run. Renderers
+      // call `installCityFonts()` internally, which is the raster fallback.
+      // `ensureMsdfFont` is idempotent and self-logs on failure; we do not
+      // want to block rendering if MSDF declines, so we await and continue.
+      await ensureMsdfFont();
 
       const callbacks = {
         onFileClick: (id: string) => onFileClickRef.current?.(id),

@@ -3,6 +3,7 @@ import type { FileNode, WorkspaceLayout, ViewState, Viewport, FileLatency, Rect 
 import { latencyColor, mixHex } from "@quanta/canvas-engine";
 import { InstancedRectMesh, FLOATS_PER_INSTANCE, unpackHexInto } from "./shared/InstancedRectMesh";
 import { CITY_FONT_NAME, CITY_FONT_BOLD_NAME, CITY_MONO_FONT_NAME, installCityFonts } from "./shared/BitmapFontAtlas";
+import { msdfText } from "./shared/msdf-text";
 import { SpatialPickIndex, type PickRect } from "./shared/SpatialPickIndex";
 import {
   riskFill,
@@ -232,7 +233,10 @@ export class CityNodeRenderer {
       return t;
     }
     if (pool.entries.length < TEXT_POOL_CAP_PER_FONT) {
-      const text = new BitmapText({ text: "", style: { fontFamily: fontName, fontSize: 11 } });
+      // Route through msdfText() so MSDF (when available) replaces the
+      // raster atlas without touching callers; rasterFamily preserves the
+      // existing bold/mono variant when the wrapper falls back.
+      const text = msdfText("", 11, undefined, fontName);
       pool.entries.push(text);
       pool.cursor = pool.entries.length;
       this.labelContainer.addChild(text);

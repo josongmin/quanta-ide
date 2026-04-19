@@ -10,16 +10,12 @@ import { useInteractionStore, interactionStore, type TemporalMode } from "../../
 import {
   useRenderSettings,
   renderSettingsStore,
-  ALL_EDGE_KINDS,
-  type EdgeKind,
   type EdgeLayer,
   type EdgeSeverity,
 } from "../../store/render-settings-store";
-import { KIND_STYLE, LAYER_STYLE } from "@quanta/canvas-pixi";
-import { deriveEdgeLayer } from "@quanta/canvas-engine";
 import { useUxSettings, uxSettingsStore } from "../../store/ux-settings-store";
 import { useDebugSettings, debugSettingsStore } from "../../store/debug-settings-store";
-import { stickiesStore, useStickiesStore, type Sticky } from "../../store/stickies-store";
+import { stickiesStore, useStickiesStore } from "../../store/stickies-store";
 import { featureFlagsStore, useFeature } from "../../store/feature-flags-store";
 import { usePagesStore } from "../../store/pages-store";
 import {
@@ -32,7 +28,7 @@ import { useImagesStore, imagesStore, IMAGE_MAX_COUNT } from "../../store/images
 import { useTicketLinksStore, ticketLinksStore } from "../../store/ticket-links-store";
 import { listMockTickets, type TicketSource, type TicketState } from "../../lib/mock-tickets";
 import { listMockPrs, buildPrsByFile } from "../../lib/mock-prs";
-import { listMockSlackThreads, resolveSlackRelatedFileId } from "../../lib/mock-slack";
+import { listMockSlackThreads } from "../../lib/mock-slack";
 import { SlackEmbed } from "../SlackEmbed";
 import { CommentsSection } from "./CommentsSection";
 import { buildShareUrl, decodeWorkspaceState } from "../../lib/workspace-url";
@@ -41,65 +37,28 @@ import {
   captureWorkspaceUrlState,
   resetWorkspaceUrlState,
 } from "../../lib/apply-workspace-url";
+import {
+  KIND_LABEL,
+  KINDS_BY_LAYER,
+  countByLayer,
+  kindColorHex,
+  scenePct,
+} from "../../lib/debug-hud/aggregate-edges";
+import {
+  collectEdgeKindValues,
+  collectFileIds,
+  deriveEnabledLayers,
+} from "../../lib/debug-hud/filter-edges-by-dsl";
+import { basename, previewText } from "../../lib/debug-hud/format-helpers";
+import {
+  collectLinkedTicketIds,
+  countPrTouches,
+  filterLinkedTickets,
+  filterSlackThreadsByFile,
+} from "../../lib/debug-hud/embeds-selectors";
 
 const EDGE_LAYERS: readonly EdgeLayer[] = ["structural", "flow", "safety", "impact"] as const;
 const EDGE_SEVERITIES: readonly EdgeSeverity[] = ["low", "medium", "high", "critical"] as const;
-
-// Short labels that fit in a debug chip without truncating the kind's
-// meaning past the point of recognition. `taint-propagation` → `taint`
-// is the only lossy shortening; everything else is just compact.
-const KIND_LABEL: Record<EdgeKind, string> = {
-  import: "import", call: "call", reference: "ref", cfg: "cfg", inheritance: "inherit",
-  "test-covers": "test-cov", clone: "clone",
-  dataflow: "dataflow", effect: "effect", pdg: "pdg", alias: "alias",
-  "feature-flag": "flag",
-  "taint-propagation": "taint", sanitizer: "sanitize", race: "race", cycle: "cycle", finding: "finding",
-  contract: "contract", "dead-edge": "dead", "runtime-divergence": "divergence",
-  blast: "blast", impact: "impact", diff: "diff", dependency: "dep", witness: "witness",
-  cochange: "cochange", "rename-pair": "rename", "supply-chain": "supply",
-};
-
-function kindColorHex(kind: EdgeKind): string {
-  const style = KIND_STYLE[kind] ?? LAYER_STYLE[deriveEdgeLayer(kind)];
-  return "#" + style.color.toString(16).padStart(6, "0");
-}
-
-const KINDS_BY_LAYER: Record<EdgeLayer, readonly EdgeKind[]> = {
-  structural: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "structural"),
-  flow: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "flow"),
-  safety: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "safety"),
-  impact: ALL_EDGE_KINDS.filter(k => deriveEdgeLayer(k) === "impact"),
-};
-
-function scenePct(n: number, total: number): number {
-  return total > 0 ? Math.round((n / total) * 100) : 0;
-}
-
-type LayerBreakdown = Record<EdgeLayer, { total: number; byKind: Record<string, number> }>;
-
-function emptyLayerBreakdown(): LayerBreakdown {
-  return {
-    structural: { total: 0, byKind: {} },
-    flow: { total: 0, byKind: {} },
-    safety: { total: 0, byKind: {} },
-    impact: { total: 0, byKind: {} },
-  };
-}
-
-function countByLayer(
-  edges: readonly { kind: string; layer?: EdgeLayer }[],
-): LayerBreakdown {
-  const out = emptyLayerBreakdown();
-  for (const e of edges) {
-    // Fallback: if an older edge somehow lacks layer, skip the layer bucket.
-    const layer = e.layer;
-    if (!layer) continue;
-    const bucket = out[layer];
-    bucket.total += 1;
-    bucket.byKind[e.kind] = (bucket.byKind[e.kind] ?? 0) + 1;
-  }
-  return out;
-}
 
 function copyViewportToClipboard(): void {
   const v = viewportStore.getState().viewport;
@@ -813,11 +772,6 @@ function TemporalSection({
   );
 }
 
-function basename(path: string): string {
-  const idx = path.lastIndexOf("/");
-  return idx >= 0 ? path.slice(idx + 1) : path;
-}
-
 // Filter input — toggles between the raw DSL and the natural-language
 // entry when the ai.naturalLanguageFilter feature is on. Cmd+/ flips
 // between modes; default is DSL to match the existing muscle memory.
@@ -847,19 +801,11 @@ function FilterSection({
   }, [nlOn]);
 
   const enabledLayers = useMemo(
-    () => (Object.entries(edgeLayers) as [EdgeLayer, boolean][])
-      .filter(([, v]) => v)
-      .map(([k]) => k),
+    () => deriveEnabledLayers(edgeLayers),
     [edgeLayers],
   );
-  const edgeKinds = useMemo(() => {
-    const set = new Set<string>();
-    for (const e of graph?.fileEdges ?? []) set.add(e.kind);
-    return [...set];
-  }, [graph]);
-  const fileIds = useMemo(() => {
-    return (graph?.files ?? []).map(f => f.id);
-  }, [graph]);
+  const edgeKinds = useMemo(() => collectEdgeKindValues(graph), [graph]);
+  const fileIds = useMemo(() => collectFileIds(graph), [graph]);
 
   return (
     <>
@@ -957,12 +903,6 @@ function panToWorld(x: number, y: number, w: number, h: number) {
   const nx = vp.width / 2 - cx * vp.scale;
   const ny = vp.height / 2 - cy * vp.scale;
   viewportStore.setViewport({ ...vp, x: nx, y: ny });
-}
-
-function previewText(s: Sticky): string {
-  const t = s.text.trim();
-  if (t.length === 0) return "(비어 있음)";
-  return t.length > 48 ? t.slice(0, 45) + "…" : t;
 }
 
 function StickiesSection() {
@@ -1176,20 +1116,15 @@ function TicketsHudRow() {
   const [ticketState, setTicketState] = useState<TicketState | "all">("all");
   const byFile = useTicketLinksStore(s => s.byFile);
 
-  const linkedIds = useMemo(() => {
-    const s = new Set<string>();
-    for (const ids of byFile.values()) for (const id of ids) s.add(id);
-    return s;
-  }, [byFile]);
+  const linkedIds = useMemo(
+    () => collectLinkedTicketIds(byFile),
+    [byFile],
+  );
 
-  const rows = useMemo(() => {
-    return listMockTickets().filter(t => {
-      if (!linkedIds.has(t.id)) return false;
-      if (source !== "all" && t.source !== source) return false;
-      if (ticketState !== "all" && t.state !== ticketState) return false;
-      return true;
-    });
-  }, [linkedIds, source, ticketState]);
+  const rows = useMemo(
+    () => filterLinkedTickets(listMockTickets(), linkedIds, source, ticketState),
+    [linkedIds, source, ticketState],
+  );
 
   return (
     <>
@@ -1277,13 +1212,7 @@ function PrsHudRow() {
     return buildPrsByFile(graph.files.map(f => f.id));
   }, [graph]);
   const open = listMockPrs().filter(p => p.state === "open");
-  const touchCount = (prNumber: number): number => {
-    let n = 0;
-    for (const row of prsByFile.values()) {
-      if (row.some(p => p.number === prNumber)) n += 1;
-    }
-    return n;
-  };
+  const touchCount = (prNumber: number): number => countPrTouches(prsByFile, prNumber);
   return (
     <>
       <div className="ws-debug__grid">
@@ -1316,12 +1245,7 @@ function SlackHudRow() {
   const selected = useInteractionStore(s => s.viewState.selectedFileId);
   const threads = useMemo(() => {
     const fileIds = graph?.files.map(f => f.id) ?? [];
-    const allThreads = listMockSlackThreads();
-    if (!selected) return allThreads;
-    return allThreads.filter(t => {
-      const fid = resolveSlackRelatedFileId(t, fileIds);
-      return fid === selected;
-    });
+    return filterSlackThreadsByFile(listMockSlackThreads(), fileIds, selected);
   }, [graph, selected]);
   return (
     <>

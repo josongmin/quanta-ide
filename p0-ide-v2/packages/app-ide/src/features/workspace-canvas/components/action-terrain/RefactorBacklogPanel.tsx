@@ -183,6 +183,8 @@ export function RefactorBacklogPanel() {
                   type="button"
                   className="ws-roi-row__main"
                   onClick={() => onRowClick(score.fileId)}
+                  aria-pressed={isSelected}
+                  aria-label={`Rank ${score.rank} — ${basename(score.fileId)}, ROI ${Math.round(score.score)}. ${isSelected ? "Selected — press to clear." : "Press to select."}`}
                   title={isSelected ? `${score.fileId} — click to clear` : score.fileId}
                 >
                   <span className="ws-roi-row__rank">#{score.rank}</span>

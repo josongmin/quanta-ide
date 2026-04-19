@@ -60,7 +60,7 @@ function initialState(): HistoryState {
   // box in production. Tests that want to override the source still call
   // `registerSourceFactory(...)` which rebuilds `state.source`.
   const kind = getPreferredHistoryKind();
-  let source: HistorySource | null = null;
+  let source: HistorySource | null;
   try {
     source = getHistorySource(kind);
   } catch {

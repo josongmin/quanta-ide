@@ -201,7 +201,7 @@ function buildHeatmap(): HeatmapCell[][] {
     for (let d = 0; d < 7; d++) {
       const p = rand();
       // Bias so most cells are low/zero, with occasional streaks.
-      let level: HeatmapCell["level"] = 0;
+      let level: HeatmapCell["level"];
       if (p < 0.42) level = 0;
       else if (p < 0.66) level = 1;
       else if (p < 0.84) level = 2;

@@ -74,6 +74,9 @@ export function TicketsLayer({ transform }: Props) {
       });
     }
     return out;
+    // WHY: `byFile` is an invalidation token for an imperative
+    // `ticketLinksStore.listFor` read that the rule can't see.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, lod, layout, visible, byFile]);
 
   if (!enabled || !isVisibleLod(lod)) return null;

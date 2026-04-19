@@ -3,8 +3,8 @@ import { presenceStore, type AgentActivity, type AgentPresence } from "../store/
 import { getPresenceTransport } from "./presence-transport-ref";
 import { MockPresenceTransport, type PresenceMessage } from "./presence-transport";
 
-// perf: was 3000ms; raised to 12000ms to reduce main-thread tax.
-const TICK_MS = 12000;
+// perf: was 12s (too dead-feeling), 7s still throttled vs original 3s.
+const TICK_MS = 7000;
 
 const ACTIVITY_CYCLE: Record<string, readonly AgentActivity[]> = {
   "claude-reviewer": ["reading", "analyzing", "idle", "reading"],

@@ -22,6 +22,12 @@ export function ActionTerrainToggle() {
       onMouseDownCapture={e => e.stopPropagation()}
       onPointerDownCapture={e => e.stopPropagation()}
     >
+      {/* Polite announcement for screen readers — fires on mode change so
+          blind users get the same "the layout just changed drastically"
+          cue sighted users get visually. */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {mode ? "Action Terrain mode entered — refactor ROI topography visible." : ""}
+      </div>
       <button
         type="button"
         className="ws-action-terrain-toggle"

@@ -6,18 +6,14 @@ import { PixiStage } from "@quanta/canvas-pixi";
 import { useWorkspaceCanvasOrchestrator } from "../hooks/use-workspace-canvas";
 import { useCanvasViewport, INITIAL_FIT_MAX_SCALE } from "../hooks/use-canvas-viewport";
 import { useCanvasInteractions } from "../hooks/use-canvas-interactions";
+import { useTouchGestures } from "../hooks/use-touch-gestures";
+import { useCanvasInitialize } from "../hooks/use-canvas-initialize";
 import {
   useModifierKeyTracking,
   useGlobalKeybinds,
-  isCmdK,
-  isCmdShiftT,
-  isCmdShiftA,
-  isCmdE,
-  type GlobalKeybind,
 } from "../hooks/use-keyboard-shortcuts";
-import { inlineEditorStore, useInlineEditorStore } from "../store/inline-editor-store";
-import { sceneStore } from "../store/scene-store";
-import { EditModeHint } from "./inline-editor/EditModeHint";
+import { useCanvasKeybinds } from "../hooks/use-canvas-keybinds";
+import { useInlineEditorStore } from "../store/inline-editor-store";
 import { useSmoothCamera } from "../hooks/use-smooth-camera";
 import { useUrlStateSync } from "../hooks/use-url-state-sync";
 import { useEdgeFocusLogic } from "../hooks/use-edge-focus-logic";
@@ -30,52 +26,19 @@ import { useSceneStore } from "../store/scene-store";
 import { useInteractionStore, interactionStore } from "../store/interaction-store";
 import { useRenderSettings, renderSettingsStore } from "../store/render-settings-store";
 import { usePresenceStore } from "../store/presence-store";
-import { stickiesStore } from "../store/stickies-store";
-import { startMockPresence } from "../lib/mock-presence";
-import { installPresenceBridge } from "../lib/presence-store-bridge";
 import { StreetCard } from "./StreetCard";
 import { GroundCard } from "./GroundCard";
 import { FolderFrame } from "./FolderFrame";
 import { computeFolderRects } from "../lib/compute-folder-rects";
-import { Minimap } from "./Minimap";
-import { CanvasControls } from "./CanvasControls";
 import { LoadingOverlay } from "./LoadingOverlay";
-import { DebugHud } from "./DebugHud";
-import { EvidencePanel } from "./EvidencePanel";
-import { StickiesLayer } from "./StickiesLayer";
-import { AnnotationsLayer } from "./AnnotationsLayer";
-import { AnnotationToolbar } from "./AnnotationToolbar";
-import { CollabLayer } from "./CollabLayer";
-import { ReviewLayer } from "./ReviewLayer";
-import { SessionTimer } from "./SessionTimer";
-import { DevModeLayer, type DevModeLayerApi } from "./DevModeLayer";
-import { AnomalyBadgesLayer } from "./AnomalyBadgesLayer";
-import { CommandPalette } from "./CommandPalette";
-import { KeyboardHints, useKeyboardHints } from "./KeyboardHints";
-import { LassoOverlay, BulkActionsToolbar } from "./LassoOverlay";
-import { ZoomLens } from "./ZoomLens";
-import { ApplyThemeAttribute } from "./ThemeSwitcher";
+import { CanvasLayers } from "./CanvasLayers";
+import { useKeyboardHints } from "./KeyboardHints";
+import { type DevModeLayerApi } from "./DevModeLayer";
 import { exportAsPNG } from "../lib/export-canvas";
 import { featureFlagsStore } from "../store/feature-flags-store";
-import { themeStore } from "../store/theme-store";
 import { useAnomalyDetectionRun } from "../hooks/use-anomaly-detection";
-import { PagesTabBar } from "./PagesTabBar";
-import { BookmarksDrawer } from "./BookmarksDrawer";
-import { StoryboardPlayer } from "./StoryboardPlayer";
-import { ImagesLayer } from "./ImagesLayer";
-import { TicketsLayer } from "./TicketsLayer";
-import { PrBadgesLayer } from "./PrBadgesLayer";
-import { FilmStripScrubber } from "./FilmStripScrubber";
-import { DualCanvasContainer, DualSplitToggleButton } from "./DualCanvasContainer";
 import { useFeature } from "../store/feature-flags-store";
-import { RegressionHuntPanel } from "./RegressionHuntPanel";
-import { RefactorPreviewOverlay } from "./RefactorPreviewOverlay";
-import { PrReplayLauncher } from "./PrReplayLauncher";
-import { BisectGame } from "./BisectGame";
-import { AuthorFootprintLegend, computeAuthorTints } from "./AuthorFootprintOverlay";
-import { ActionTerrainLayer } from "./action-terrain/ActionTerrainLayer";
-import { RefactorBacklogPanel } from "./action-terrain/RefactorBacklogPanel";
-import { ActionTerrainToggle } from "./action-terrain/ActionTerrainToggle";
+import { computeAuthorTints } from "./AuthorFootprintOverlay";
 import {
   actionTerrainStore,
   useActionTerrainRender,
@@ -147,12 +110,9 @@ export function MultiFileCanvas({ graph }: Props) {
     isoConfig: actionTerrainIsoCfg,
   }), [actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoCfg]);
 
-  // When action-terrain is on, iso bars are the primary signal — flat
-  // graph edges compete with them visually and, worse, would show
-  // through the cards (see the CSS note near `data-action-terrain`).
-  // Suppress them in the Pixi edge pass while the mode is active. The
-  // user-facing `showEdges` toggle in CanvasControls still tracks the
-  // user's preference so turning the mode off restores their choice.
+  // Iso bars are the primary signal in action-terrain mode; suppress flat
+  // graph edges so they don't compete. The user-facing `showEdges` toggle
+  // still reflects preference — flipping the mode off restores it.
   const effectiveShowEdges = showEdges && !actionTerrainMode;
 
   const { edgeFocus, edgePredicate, edgeViolations } =
@@ -196,6 +156,10 @@ export function MultiFileCanvas({ graph }: Props) {
     viewportWidth: viewport.width,
     viewportHeight: viewport.height,
   });
+
+  // Mobile / pen input. Parallel to the mouse path, guarded on
+  // pointerType so mouse events stay owned by onMouseDown/Move/Up.
+  useTouchGestures({ containerRef, panBy, zoomAt });
 
   // Wrap cluster/supercluster zoom so the transition eases when
   // power.smoothCamera is on. The inner hook already writes to the
@@ -249,19 +213,26 @@ export function MultiFileCanvas({ graph }: Props) {
   }, [transform]);
 
   // Inline-edit: when a new fileId enters edit mode, glide the camera to
-  // fit that card so the editor shows at a legible scale. Runs whether
-  // edit was triggered by double-click on the card, Cmd+E from the
-  // canvas, or a future command-palette entry point.
+  // fit that card so the editor shows at a legible scale. Seeded with the
+  // current editingFileId (not null) so a non-null value carried across a
+  // remount does not get interpreted as a fresh transition and auto-zoom
+  // the user into ground tier on every Code Universe (re-)entry.
   const editingFileId = useInlineEditorStore(s => s.editingFileId);
-  const prevEditingRef = useRef<string | null>(null);
+  const prevEditingRef = useRef<string | null>(editingFileId);
   useEffect(() => {
     const prev = prevEditingRef.current;
+    if (editingFileId === prev) return;
     prevEditingRef.current = editingFileId;
-    if (!editingFileId || editingFileId === prev) return;
+    if (!editingFileId) return;
     const rect = layout?.fileRects.get(editingFileId);
     if (!rect) return;
     smoothCamera.fitRect(rect, 0.85);
   }, [editingFileId, layout, smoothCamera]);
+
+  // Mount-time side effects (edit-session cleanup, forceLod reset,
+  // presence bridge + mock presence, demo stickies seeding) are
+  // consolidated in useCanvasInitialize.
+  useCanvasInitialize({ layout, graph });
 
   // Toggle master edges — reads from the store at click time so we don't
   // need `showEdges` in deps (keeps the ref stable for CanvasControls).
@@ -299,53 +270,9 @@ export function MultiFileCanvas({ graph }: Props) {
     void exportAsPNG(container);
   }, []);
 
-  // Global keybinds — registered once, extended here instead of scattering
-  // fresh window.addEventListener calls. Cmd+K opens the palette; Cmd+Shift+T
-  // cycles the theme when the theme-switcher feature is on. Cmd+Shift+D is
-  // still owned by DebugHud directly and is intentionally not duplicated here.
-  const keybinds = useMemo<readonly GlobalKeybind[]>(() => ([
-    {
-      label: "Open command palette",
-      match: isCmdK,
-      fireInEditable: false,
-      handler: () => {
-        if (!featureFlagsStore.isEnabled("power.commandPalette")) return;
-        setPaletteOpen(true);
-      },
-    },
-    {
-      label: "Cycle theme",
-      match: isCmdShiftT,
-      handler: () => {
-        if (!featureFlagsStore.isEnabled("power.themeSwitcher")) return;
-        themeStore.cycle();
-      },
-    },
-    {
-      label: "Toggle Action Terrain",
-      match: isCmdShiftA,
-      handler: () => {
-        if (!featureFlagsStore.isEnabled("action-terrain.mode")) return;
-        actionTerrainStore.toggleMode();
-      },
-    },
-    {
-      label: "Edit selected card inline",
-      match: isCmdE,
-      fireInEditable: false,
-      handler: () => {
-        const selectedId = interactionStore.getState().viewState.selectedFileId;
-        if (!selectedId) return;
-        const source = sceneStore.getState().groundData[selectedId]?.source;
-        if (typeof source !== "string") return;
-        inlineEditorStore.beginEdit(selectedId, source);
-        // Zoom-to-card is handled by a dedicated effect that watches
-        // `editingFileId` — works whether edit was triggered by Cmd+E
-        // or by double-clicking the card.
-      },
-    },
-  ]), []);
-  useGlobalKeybinds(keybinds);
+  // Global keybinds live in use-canvas-keybinds. Cmd+Shift+D is still
+  // owned by DebugHud directly and intentionally not duplicated there.
+  useGlobalKeybinds(useCanvasKeybinds({ setPaletteOpen }));
 
   // Edge cache + pick index rebuilds tied to layout.
   useEffect(() => {
@@ -354,7 +281,10 @@ export function MultiFileCanvas({ graph }: Props) {
       layout.edgeRoutes.size > 0 ? (visibleScene?.edges ?? []) : [],
       layout,
     );
-    // intentionally exclude visibleScene.edges — rebuild on layout change only
+    // WHY: edge cache rebuilds only when layout changes — edge updates
+    // flow through the layout pipeline, so `visibleScene?.edges` here is
+    // a snapshot read, not a reactive dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout]);
   useEffect(() => {
     if (!layout) {
@@ -367,8 +297,6 @@ export function MultiFileCanvas({ graph }: Props) {
 
   // Track whether we've already auto-fit this graph. Reset on graph swap
   // (layout → null → new layout) so a new repo's first layout always fits.
-  // Split from the fit trigger itself so RO callbacks don't fight the
-  // useEffect that watches layout + container size.
   const fittedRef = useRef(false);
   useEffect(() => {
     if (!layout) fittedRef.current = false;
@@ -392,9 +320,8 @@ export function MultiFileCanvas({ graph }: Props) {
 
   // Single source of truth for initial auto-fit: fires exactly once per
   // graph, as soon as BOTH the layout and a non-zero container size are
-  // available — whichever arrives last. Replaces the old split (ResizeObserver
-  // path + worker bridge inline fit) that duplicated the math and diverged on
-  // the scale cap. INITIAL_FIT_MAX_SCALE keeps first paint off the ground tier.
+  // available — whichever arrives last. INITIAL_FIT_MAX_SCALE keeps first
+  // paint off the ground tier.
   useEffect(() => {
     if (fittedRef.current) return;
     if (!layout) return;
@@ -403,49 +330,6 @@ export function MultiFileCanvas({ graph }: Props) {
     fittedRef.current = true;
     fitToGraph(layout.totalBounds.w, layout.totalBounds.h, INITIAL_FIT_MAX_SCALE);
   }, [layout, viewport.width, viewport.height, fitToGraph]);
-
-  useEffect(() => {
-    // Install the transport↔store bridge once — idempotent across remounts.
-    const uninstallBridge = installPresenceBridge();
-    const stop = startMockPresence();
-    return () => {
-      stop();
-      uninstallBridge();
-    };
-  }, []);
-
-  // Demo stickies — once per layout, when no stickies exist yet.
-  useEffect(() => {
-    if (!layout) return;
-    if (stickiesStore.getState().stickies.length > 0) return;
-    const rects = layout.fileRects;
-    if (rects.size === 0) return;
-    const files = graph.files;
-    if (files.length === 0) return;
-    const scored = files
-      .map(f => ({ file: f, risk: typeof f.riskScore === "number" ? f.riskScore : 0 }))
-      .sort((a, b) => b.risk - a.risk);
-    const topRisk = scored[0]?.file;
-    const taintEdge = graph.fileEdges.find(
-      e => e.kind === "taint-propagation" || e.layer === "safety",
-    );
-    const taintOriginId = taintEdge?.from;
-    const taintOriginFile = taintOriginId ? files.find(f => f.id === taintOriginId) : undefined;
-    const seed: Array<{ fileId: string; text: string }> = [];
-    if (topRisk) seed.push({ fileId: topRisk.id, text: "TODO: refactor — high risk surface" });
-    if (taintOriginFile && taintOriginFile.id !== topRisk?.id) {
-      seed.push({ fileId: taintOriginFile.id, text: "ask security team about this source" });
-    }
-    if (seed.length < 2 && files[0]) {
-      seed.push({ fileId: files[0].id, text: "welcome — shift+dblclick to add a note" });
-    }
-    for (const s of seed) {
-      const r = rects.get(s.fileId);
-      if (!r) continue;
-      stickiesStore.create(r.x + r.w + 24, r.y, { text: s.text, anchorFileId: s.fileId });
-    }
-    stickiesStore.setActive(null);
-  }, [layout, graph]);
 
   if (!visibleScene && !clusterScene && !superclusterScene) {
     return (
@@ -570,92 +454,35 @@ export function MultiFileCanvas({ graph }: Props) {
         </div>
       )}
 
-      <StickiesLayer transform={transform} scale={viewport.scale} />
-      <ImagesLayer transform={transform} scale={viewport.scale} containerRef={containerRef} />
-      <CollabLayer
+      <CanvasLayers
         transform={transform}
         scale={viewport.scale}
+        viewport={viewport}
         layout={layout}
         graph={graph}
+        containerRef={containerRef}
+        zoomLensHeldRef={modifiers.zoomLensHeldRef}
+        controls={{
+          showEdges,
+          edgeCount: visibleScene?.edges.length ?? 0,
+          onZoomIn,
+          onZoomOut,
+          onFit,
+          onToggleEdges: toggleEdges,
+        }}
+        palette={{
+          open: paletteOpen,
+          onClose: () => setPaletteOpen(false),
+          zoomToFile: zoomToFileSmooth,
+          resetViewport,
+          exportPng,
+        }}
+        keyboardHints={{
+          open: keyboardHints.open,
+          onClose: () => keyboardHints.setOpen(false),
+        }}
+        onDevModeReady={onDevModeReady}
       />
-      <AnnotationsLayer transform={transform} scale={viewport.scale} containerRef={containerRef} />
-      <ReviewLayer graph={graph} transform={transform} scale={viewport.scale} />
-      <TicketsLayer transform={transform} />
-      <PrBadgesLayer transform={transform} />
-      <AnomalyBadgesLayer layout={layout} transform={transform} />
-      <Minimap layout={layout} viewport={viewport} />
-      <CanvasControls
-        scale={viewport.scale}
-        onZoomIn={onZoomIn}
-        onZoomOut={onZoomOut}
-        onFit={onFit}
-        showEdges={showEdges}
-        edgeCount={visibleScene?.edges.length ?? 0}
-        onToggleEdges={toggleEdges}
-      />
-      <AnnotationToolbar />
-      <PagesTabBar />
-      <BookmarksDrawer />
-      <StoryboardPlayer />
-      <TimerMount />
-      <LassoOverlay containerRef={containerRef} layout={layout} />
-      <BulkActionsToolbar layout={layout} />
-      <ZoomLens containerRef={containerRef} layout={layout} zoomLensHeldRef={modifiers.zoomLensHeldRef} />
-      <CommandPalette
-        open={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-        zoomToFile={zoomToFileSmooth}
-        fitToGraph={onFit}
-        resetViewport={resetViewport}
-        exportPng={exportPng}
-      />
-      <KeyboardHints
-        open={keyboardHints.open}
-        onClose={() => keyboardHints.setOpen(false)}
-      />
-      <ApplyThemeAttribute containerRef={containerRef} />
-      <FilmStripScrubber graph={graph} />
-      <DualSplitMount graph={graph} />
-      <DebugHud />
-      <EvidencePanel />
-      <DevModeLayer onReady={onDevModeReady} />
-      <RegressionHuntPanel />
-      <RefactorPreviewOverlay />
-      <PrReplayLauncher />
-      <BisectGame />
-      <AuthorFootprintLegend history={graph.history} />
-      <ActionTerrainLayer />
-      <ActionTerrainToggle />
-      <RefactorBacklogPanel />
-      <EditModeHint />
-    </div>
-  );
-}
-
-// Feature-gated mount for the session timer widget. Rendered as a
-// separate component so the gate lookup doesn't re-run the canvas
-// body's memoization.
-function TimerMount() {
-  const on = useFeature("review.timer");
-  if (!on) return null;
-  return <SessionTimer />;
-}
-
-// Feature-gated mount for the dual-split toggle + container. The split
-// UI is rendered as an overlay on top of the shared canvas; the toggle
-// is a small button affordance placed near the minimap.
-function DualSplitMount({ graph }: { graph: WorkspaceGraph }) {
-  const on = useFeature("temporal.dualSplit");
-  if (!on) return null;
-  return (
-    <div style={{ position: "absolute", bottom: 12, left: 200, zIndex: 3 }}>
-      <DualSplitToggleButton graph={graph} />
-      <DualCanvasContainer graph={graph}>
-        {/* The split renders its own chrome; the actual canvas content
-            is the surrounding MultiFileCanvas tree, shared across panes
-            in the v1 implementation. */}
-        <span />
-      </DualCanvasContainer>
     </div>
   );
 }

@@ -1,0 +1,76 @@
+import type { FeatureDescriptor } from "../feature-registry-types";
+
+// Annotation tools (Batch 3) — pen / text / shape / connector / laser / frame.
+// Essentials (toolbar + pen + text + shape) default ON because they don't
+// do anything until the user clicks them.
+export const annotationFeatures: readonly FeatureDescriptor[] = [
+  {
+    id: "annotation.toolbar",
+    category: "annotation",
+    label: "Annotation toolbar",
+    description: "Floating toolbar with pen / text / shape / connector / laser / frame.",
+    defaultEnabled: true,
+    maturity: "beta",
+    introducedIn: "batch-3",
+  },
+  {
+    id: "annotation.pen",
+    category: "annotation",
+    label: "Pen (freehand)",
+    description: "Freehand pen strokes on canvas.",
+    defaultEnabled: true,
+    maturity: "beta",
+    dependsOn: ["annotation.toolbar"],
+    introducedIn: "batch-3",
+  },
+  {
+    id: "annotation.text",
+    category: "annotation",
+    label: "Text labels",
+    description: "Lightweight world-positioned text (simpler than stickies).",
+    defaultEnabled: true,
+    maturity: "beta",
+    dependsOn: ["annotation.toolbar"],
+    introducedIn: "batch-3",
+  },
+  {
+    id: "annotation.shape",
+    category: "annotation",
+    label: "Shapes",
+    description: "Rect / circle / arrow shapes for emphasis.",
+    defaultEnabled: true,
+    maturity: "beta",
+    dependsOn: ["annotation.toolbar"],
+    introducedIn: "batch-3",
+  },
+  {
+    id: "annotation.connector",
+    category: "annotation",
+    label: "User connectors",
+    description: "Hand-drawn arrows between elements (separate from engine edges).",
+    defaultEnabled: false,
+    maturity: "beta",
+    dependsOn: ["annotation.toolbar"],
+    introducedIn: "batch-3",
+  },
+  {
+    id: "annotation.laser",
+    category: "annotation",
+    label: "Laser pointer",
+    description: "Presentation-mode fading laser cursor trail.",
+    defaultEnabled: false,
+    maturity: "experimental",
+    dependsOn: ["annotation.toolbar"],
+    introducedIn: "batch-3",
+  },
+  {
+    id: "annotation.frame",
+    category: "annotation",
+    label: "Frames",
+    description: "Labeled bounding-box group around N files.",
+    defaultEnabled: false,
+    maturity: "beta",
+    dependsOn: ["annotation.toolbar"],
+    introducedIn: "batch-3",
+  },
+];

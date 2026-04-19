@@ -33,6 +33,13 @@ export interface AiEditState {
   errorMessage: string | null;
 }
 
+/** Transient "just committed" signal — consumed by CommitFlash to paint
+ *  a one-shot success glow over the target card, then cleared. */
+export interface CommitSignal {
+  fileId: string;
+  at: number;
+}
+
 export interface InlineEditorState {
   /** The file currently in inline-edit mode, or null if none. */
   editingFileId: string | null;
@@ -41,6 +48,8 @@ export interface InlineEditorState {
   /** Which drafts have diverged from their originally-loaded source. */
   dirtyByFileId: Readonly<Record<string, boolean>>;
   ai: AiEditState;
+  /** Most recent successful commit — null once consumed. */
+  lastCommit: CommitSignal | null;
 }
 
 const initialAi: AiEditState = {
@@ -57,6 +66,7 @@ let state: InlineEditorState = {
   draftByFileId: {},
   dirtyByFileId: {},
   ai: initialAi,
+  lastCommit: null,
 };
 
 const listeners = new Set<() => void>();
@@ -178,6 +188,45 @@ const actions = {
 
   aiStreamError(message: string): void {
     state = { ...state, ai: { ...state.ai, status: "error", errorMessage: message } };
+    emit();
+  },
+
+  /** Mark `fileId`'s draft as committed. Clears dirty flag, exits edit
+   *  mode, and fires a one-shot `lastCommit` signal for CommitFlash.
+   *  No-op when there's no draft for `fileId` — nothing to commit. */
+  commitDraft(fileId: string): void {
+    const hasDraft = Object.prototype.hasOwnProperty.call(state.draftByFileId, fileId);
+    if (!hasDraft) return;
+    state = {
+      ...state,
+      editingFileId: state.editingFileId === fileId ? null : state.editingFileId,
+      // Explicit `false` (not key removal) — consumers want to distinguish
+      // "known clean" from "unknown / never touched".
+      dirtyByFileId: { ...state.dirtyByFileId, [fileId]: false },
+      ai: state.ai.fileId === fileId ? initialAi : state.ai,
+      lastCommit: { fileId, at: Date.now() },
+    };
+    emit();
+  },
+
+  /** Consumed by CommitFlash after the success animation — clears the
+   *  one-shot signal so the next commit re-fires. */
+  clearCommitSignal(): void {
+    if (state.lastCommit === null) return;
+    state = { ...state, lastCommit: null };
+    emit();
+  },
+
+  /** Wipe every dirty draft — used by "Discard all" commands. */
+  discardAllDrafts(): void {
+    if (Object.keys(state.draftByFileId).length === 0 && Object.keys(state.dirtyByFileId).length === 0) return;
+    state = {
+      ...state,
+      draftByFileId: {},
+      dirtyByFileId: {},
+      editingFileId: null,
+      ai: initialAi,
+    };
     emit();
   },
 };

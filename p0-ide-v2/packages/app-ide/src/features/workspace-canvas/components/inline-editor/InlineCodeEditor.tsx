@@ -234,12 +234,15 @@ export function InlineCodeEditor({
         },
         {
           key: "Mod-Enter",
-          run: () => { onExit(); return true; },
+          // WHY: Cmd/Ctrl+Enter saves the draft and exits. `commitDraft`
+          // clears dirty + fires `lastCommit` so CommitFlash can animate.
+          run: () => { inlineEditorStore.commitDraft(fileId); onExit(); return true; },
         },
         {
           key: "Mod-s",
           preventDefault: true,
-          run: () => { onExit(); return true; },
+          // WHY: mirrors Cmd+Enter (traditional save shortcut).
+          run: () => { inlineEditorStore.commitDraft(fileId); onExit(); return true; },
         },
         {
           key: "Escape",
@@ -249,7 +252,7 @@ export function InlineCodeEditor({
       ])),
       ...languageExtensionsFor(filename),
     ];
-  }, [captureSelectionAndOpen, onExit, filename]);
+  }, [captureSelectionAndOpen, onExit, filename, fileId]);
 
   // Auto-focus on mount so the user can start typing without an extra click.
   useEffect(() => {

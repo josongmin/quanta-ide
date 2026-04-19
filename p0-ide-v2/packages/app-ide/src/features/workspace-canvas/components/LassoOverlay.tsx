@@ -64,6 +64,7 @@ export function LassoOverlay({ containerRef, layout }: Props) {
       if (target && target.closest(
         ".file-card, .street-card, .ground-card, .ws-sticky, " +
         ".ws-inspector, .ws-palette, .ws-debug, .ws-bulk-toolbar, " +
+        ".float-panel, " +
         "button, a, input, textarea",
       )) return;
       const bounds = el.getBoundingClientRect();

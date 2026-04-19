@@ -167,6 +167,11 @@ export function Editor() {
         }
       }),
     ],
+    // WHY: CodeMirror extensions must be a stable array tied to file
+    // identity; the omitted closures (activateGutter / scheduleDismiss)
+    // read refs/setState — identity-stable so including them would just
+    // churn the extensions array on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [file],
   );
 

@@ -51,7 +51,8 @@ export function useWorkspaceCanvasOrchestrator(graph: WorkspaceGraph) {
       sceneStore.setGraph(graph);
       interactionStore.resetSelection();
     });
-    interactionStore.setPathGraph({ fileEdges: graph.fileEdges });
+    // Path queries read graph from sceneStore on demand (see
+    // interaction-store.setPathQuery); no injection needed here.
     requestLayout(graph, "grid-then-elk");
     requestAggregates(graph);
   }, [graph]);

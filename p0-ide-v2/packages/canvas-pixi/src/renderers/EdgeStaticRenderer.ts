@@ -9,6 +9,32 @@ import {
   bundleWidthMultiplier,
   type BundledEdge,
 } from "./edge-bundling";
+import { InstancedLineMesh } from "./shared/InstancedLineMesh";
+
+// ── SOTA: GPU-instanced edge mesh (feature flag) ────────────────────
+// When true, bezier strokes (body + cross-graph overlay + violation halo
+// + diff-added halo + diff-removed ghost) are drawn by a single instanced
+// Mesh draw call instead of one Graphics.stroke() per edge. CPU cost drops
+// from O(edges × bezier samples × tess ops) to O(edges × ~18 floats) per
+// frame. GPU evaluates the quadratic bezier in the vertex shader, fragment
+// shader handles SDF anti-alias + dashed pattern.
+//
+// Arrowheads, X-cap barriers and anchor glow-dots stay on Graphics — they
+// are small, heterogeneous decorations, not the hot path.
+//
+// Default: true (shipping the new path). Set to false for rollback or in
+// tests that still assert on Graphics.stroke() call counts. Exposed as a
+// mutable module-level `let` so test setup can flip it; production flips
+// it once at module load if needed.
+let EDGES_MESH_ENABLED = true;
+/** Toggle the instanced-mesh edge path. Intended for rollback / tests. */
+export function setEdgesMeshEnabled(enabled: boolean): void {
+  EDGES_MESH_ENABLED = enabled;
+}
+/** Read the current flag — used by tests to guard expectations. */
+export function isEdgesMeshEnabled(): boolean {
+  return EDGES_MESH_ENABLED;
+}
 
 // Line-anchored edges with per-kind visual vocabulary:
 //   - call / dataflow / impact / taint: arrowhead at target
@@ -169,6 +195,12 @@ export interface EdgeStaticBuildOpts {
 
 export class EdgeStaticRenderer {
   private gfx: Graphics;
+  // Instanced bezier mesh — drives the hot path (bezier body strokes) when
+  // EDGES_MESH_ENABLED. Always constructed so we can flip the flag at
+  // runtime without tearing down the renderer. When disabled the mesh
+  // sits idle with instanceCount=0; when enabled Graphics only handles
+  // decorations (arrowheads, glow dots, x-caps).
+  private lineMesh: InstancedLineMesh;
   private previousLength = 0;
   private tickerHandle: ((ticker: Ticker) => void) | null = null;
   private ticker: Ticker | null = null;
@@ -241,7 +273,13 @@ export class EdgeStaticRenderer {
 
   constructor(parent: Container) {
     this.gfx = new Graphics();
-    parent.addChildAt(this.gfx, 0); // behind everything
+    // Instanced mesh sits behind the Graphics layer so arrowheads / glow
+    // dots / x-caps drawn on the Graphics overlay stay on top of the
+    // ribbon body. Initial capacity picked to cover the ground/street
+    // baseline (~1.5k edges); grows power-of-two on demand.
+    this.lineMesh = new InstancedLineMesh(2048);
+    parent.addChildAt(this.lineMesh.mesh, 0); // deepest: bezier ribbons
+    parent.addChildAt(this.gfx, 1);           // on top: arrowheads / glow
     // Shared pixi ticker runs every frame; we early-return when no animated
     // edges exist, so the per-tick cost is a single predicate check.
     this.ticker = Ticker.shared;
@@ -307,6 +345,7 @@ export class EdgeStaticRenderer {
     if (effectiveMode === "skip") {
       if (this.previousLength !== 0) {
         this.gfx.clear();
+        this.lineMesh.setInstanceCount(0);
         this.previousLength = 0;
       }
       if (this.appliedMode !== effectiveMode) {
@@ -456,6 +495,17 @@ export class EdgeStaticRenderer {
     const minSeverityRank = opts?.minSeverity !== undefined ? SEVERITY_RANK[opts.minSeverity] : -1;
 
     this.gfx.clear();
+    // Mesh path: pre-size the buffer. Worst-case rows per edge:
+    //   1 body + 1 cross-graph overlay + 1 violation halo + 1 diff-added halo
+    //   + 1 diff-removed ghost (in separate pass). Budget 4 per edge +
+    //   diffRemoved.size as a safety cushion.
+    const meshBudget = workingEdges.length * 4 + (opts?.diffRemoved?.size ?? 0);
+    if (EDGES_MESH_ENABLED) {
+      this.lineMesh.ensureCapacity(Math.max(16, meshBudget));
+      // Pull invScale + global dim into shader uniforms so the shader can
+      // render widths in screen-px regardless of zoom.
+      this.lineMesh.setUniforms(1, 1);
+    }
     let drawn = 0;
 
     // Deduplicate glow dots so crossings at the same anchor don't over-render.
@@ -553,40 +603,94 @@ export class EdgeStaticRenderer {
         alpha = alpha * 0.25;
       }
 
+      // Quadratic control point approximating the cubic bezier (cp1, cp2).
+      // Quadratic suffices for the ribbon tessellation — the two cubic
+      // control points always produce a similar S-curve visually, and
+      // we average them. Keeps the shader simple + vertex count half.
+      const qcx = (cp1x + cp2x) * 0.5;
+      const qcy = (cp1y + cp2y) * 0.5;
+
       if (isCross && highlightCrossGraph) {
         const goldWidth = CROSS_GRAPH_STYLE.baseWidth * invScale * widthMul * (isFlashed ? 1.8 : 1.4);
         const goldAlpha = (isFlashed ? 1 : CROSS_GRAPH_STYLE.alpha);
-        drawDashedBezier(
-          this.gfx,
-          a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
-          CROSS_GRAPH_STYLE.dash ?? [8, 5],
-          edge.animated ? dashOffset : 0,
-          { color: CROSS_GRAPH_STYLE.color, alpha: goldAlpha, width: goldWidth, cap: "round" },
-        );
+        const goldPat = CROSS_GRAPH_STYLE.dash ?? [8, 5];
+        if (EDGES_MESH_ENABLED) {
+          this.writeMeshInstance(
+            a.x, a.y, b.x, b.y, qcx, qcy,
+            CROSS_GRAPH_STYLE.color, goldAlpha, goldWidth,
+            goldPat[0], goldPat[1] ?? 0,
+            edge.animated ? dashOffset : 0,
+            EDGE_FLAG_DASHED | EDGE_FLAG_ROUND_CAP,
+          );
+        } else {
+          drawDashedBezier(
+            this.gfx,
+            a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,
+            goldPat,
+            edge.animated ? dashOffset : 0,
+            { color: CROSS_GRAPH_STYLE.color, alpha: goldAlpha, width: goldWidth, cap: "round" },
+          );
+        }
       }
 
       // Arch violation — draw a wider red halo underneath so the violating
       // edge reads first regardless of its base colour.
       if (violatingEdgeIds && violatingEdgeIds.has(edge.id)) {
-        this.gfx
-          .moveTo(a.x, a.y)
-          .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
-          .stroke({ color: VIOLATION_RED, alpha: 0.45, width: width * 3, cap: "round" });
+        if (EDGES_MESH_ENABLED) {
+          this.writeMeshInstance(
+            a.x, a.y, b.x, b.y, qcx, qcy,
+            VIOLATION_RED, 0.45, width * 3,
+            0, 0, 0,
+            EDGE_FLAG_VIOLATION | EDGE_FLAG_ROUND_CAP,
+          );
+        } else {
+          this.gfx
+            .moveTo(a.x, a.y)
+            .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
+            .stroke({ color: VIOLATION_RED, alpha: 0.45, width: width * 3, cap: "round" });
+        }
       }
 
       // Diff mode — green halo under edges that exist in B but not A.
       if (diffAdded && diffAdded.has(edge.id)) {
-        this.gfx
-          .moveTo(a.x, a.y)
-          .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
-          .stroke({ color: 0x22c55e, alpha: 0.55, width: width * 2, cap: "round" });
+        if (EDGES_MESH_ENABLED) {
+          this.writeMeshInstance(
+            a.x, a.y, b.x, b.y, qcx, qcy,
+            0x22c55e, 0.55, width * 2,
+            0, 0, 0,
+            EDGE_FLAG_ROUND_CAP,
+          );
+        } else {
+          this.gfx
+            .moveTo(a.x, a.y)
+            .bezierCurveTo(cp1x, cp1y, cp2x, cp2y, b.x, b.y)
+            .stroke({ color: 0x22c55e, alpha: 0.55, width: width * 2, cap: "round" });
+        }
       }
 
-      // Dashed paths are simulated via arc-length sampling — Pixi v8 Graphics
-      // lacks native dashing. Animated dashed edges (taint flow) shift the
-      // pattern offset each tick so the user sees source→sink motion.
-      if (style.dash || edge.animated) {
-        const pattern = style.dash ?? [6, 4];
+      // Dashed paths: on mesh path the fragment shader handles the dash
+      // pattern from dashSize/gapSize + phase. For multi-segment patterns
+      // like [6, 2, 1, 2] (dash-dot-dot) we collapse to the first [on, off]
+      // pair — GPU doesn't support the arbitrary-length silhouette the
+      // Graphics path emulates, so distinct kinds fall back to the primary
+      // on/off ratio. Hue + width + curveFactor already carry enough
+      // discrimination per kind.
+      const dashPat = style.dash;
+      const isDashed = !!(dashPat || edge.animated);
+      if (EDGES_MESH_ENABLED) {
+        const on = dashPat?.[0] ?? (edge.animated ? 6 : 0);
+        const off = dashPat?.[1] ?? (edge.animated ? 4 : 0);
+        const capFlag = cap === "round" ? EDGE_FLAG_ROUND_CAP : 0;
+        const flags = (isDashed ? EDGE_FLAG_DASHED : 0) | capFlag;
+        this.writeMeshInstance(
+          a.x, a.y, b.x, b.y, qcx, qcy,
+          style.color, alpha, width,
+          on, off,
+          edge.animated ? dashOffset : 0,
+          flags,
+        );
+      } else if (isDashed) {
+        const pattern = dashPat ?? [6, 4];
         drawDashedBezier(
           this.gfx,
           a.x, a.y, cp1x, cp1y, cp2x, cp2y, b.x, b.y,

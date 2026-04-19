@@ -33,6 +33,9 @@ describe("toastStore", () => {
     const id = toastStore.push({ kind: "success", title: "OK", ttlMs: 0 });
     expect(toastStore.get().toasts).toHaveLength(1);
     toastStore.dismiss(id);
+    // Two-phase: dismiss marks leaving; removal follows the ~240ms exit
+    // animation window. Advance time to collapse the animation.
+    vi.advanceTimersByTime(240);
     expect(toastStore.get().toasts).toHaveLength(0);
   });
 
@@ -66,6 +69,9 @@ describe("toastStore", () => {
     expect(toastStore.get().toasts).toHaveLength(1);
 
     vi.advanceTimersByTime(1);
+    // Auto-dismiss begins at ttlMs; actual removal waits for the exit
+    // animation to complete (~240ms total).
+    vi.advanceTimersByTime(240);
     expect(toastStore.get().toasts).toHaveLength(0);
   });
 

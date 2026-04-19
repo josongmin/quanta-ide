@@ -9,7 +9,7 @@ import type {
 } from "@quanta/canvas-engine";
 
 function makeLayout(): WorkspaceLayout {
-  const bounds: Rect = { x: 0, y: 0, width: 100, height: 100 };
+  const bounds: Rect = { x: 0, y: 0, w: 100, h: 100 };
   return {
     fileRects: new Map(),
     edgeRoutes: new Map(),

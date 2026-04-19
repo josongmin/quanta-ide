@@ -1,5 +1,6 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import reactHooks from "eslint-plugin-react-hooks";
 
 /**
  * Architecture boundary rules for the micro-web shell monorepo.
@@ -81,6 +82,7 @@ export default tseslint.config(
   // ── Global rules (all packages) ────────────────────────────────────
   {
     files: ["packages/*/src/**/*.{ts,tsx}", "src/**/*.{ts,tsx}"],
+    plugins: { "react-hooks": reactHooks },
     rules: {
       // Ban legacy @/ alias everywhere
       "no-restricted-imports": ["error", { patterns: legacyBan }],
@@ -96,6 +98,10 @@ export default tseslint.config(
 
       // No console in production code
       "no-console": ["warn", { allow: ["warn", "error"] }],
+
+      // React hooks — catches stale-closure / missing-dep bugs.
+      "react-hooks/rules-of-hooks": "error",
+      "react-hooks/exhaustive-deps": "warn",
     },
   },
 
