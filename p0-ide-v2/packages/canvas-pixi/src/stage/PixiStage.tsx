@@ -210,6 +210,15 @@ const TRACE_DIM_ALPHA = 0.15;
 // flipping. To try it locally, change the constant and rebuild.
 export const TICKER_RENDER_LOOP_ENABLED: boolean = false;
 
+// RCA kill-switches — set to `true` while bisecting a canvas hang to
+// isolate which dispatch path triggers the loop. These currently stay
+// ON because earlier investigation traced a Code Universe hang into
+// overlay + node-tier update dispatches. Flip to `false` (and delete
+// this block) once the offending overlay is patched; verify with a
+// fresh perf capture before removing.
+const RCA_DISABLE_NODE_TIER_UPDATE: boolean = true;
+const RCA_DISABLE_OVERLAY_STACK_UPDATE: boolean = true;
+
 // ── WebGPU backend preference ────────────────────────────────────────
 // Pixi 8's `app.init` accepts `preference: 'webgpu' | 'webgl' | 'canvas'`.
 // When a single string is provided, Pixi falls back to the remaining
@@ -745,6 +754,12 @@ export function PixiStage({
   useEffect(() => {
     if (TICKER_RENDER_LOOP_ENABLED) return;
     if (!pixiReady) return;
+    // RCA: also disable node tier update. Guarded by a module constant
+    // below (`RCA_DISABLE_NODE_TIER_UPDATE`) so the body's existing null
+    // checks still type-check — otherwise `const handles = ref.current`
+    // followed by an unreachable `.get()` call leaves TS thinking the
+    // post-guard access might be nullable.
+    if (RCA_DISABLE_NODE_TIER_UPDATE) return;
     const handles = nodeHandlesRef.current;
     if (!handles) return;
     const ctx = latestNodeCtxRef.current;
@@ -763,11 +778,10 @@ export function PixiStage({
     if (!stack) return;
     // RCA: temporarily disable overlay stack update to isolate the hang
     // source. If Code Universe becomes responsive with this off, the loop
-    // is inside one of the overlay renderers' update() path.
-    //
-    // eslint-disable-next-line no-constant-condition
-    if (true) return;
-    // @ts-expect-error — unreachable under the RCA guard above.
+    // is inside one of the overlay renderers' update() path. The
+    // RCA_DISABLE_OVERLAY_STACK_UPDATE constant below is the single
+    // toggle — flipping to `false` restores normal overlay dispatch.
+    if (RCA_DISABLE_OVERLAY_STACK_UPDATE) return;
     stack.update(latestOverlayCtxRef.current);
   }, [
     pixiReady, visible, layout, edgeCache, scaleBucket, effectiveLod, fileLookup,
