@@ -39,6 +39,61 @@
   --ws-roi-warm: #facc15;
   --ws-roi-hot:  #ef4444;
   --ws-roi-panel-bg: color-mix(in srgb, var(--ws-hud-bg) 94%, transparent);
+
+  /* ── Design tokens ────────────────────────────────────────────────
+     Consolidated elevation/radius/motion/surface scales. Prefer these
+     over ad-hoc values so future polish stays consistent. Keep scales
+     small (3-4 tiers) so every component picks from a known vocabulary. */
+
+  /* Elevation — low to high. Use the lowest tier that still reads as
+     "floating" at the component's size. Palette/modal should reach for
+     elev-4; resting HUD chips can usually sit at elev-2. */
+  --ws-elev-1: 0 1px 4px rgba(0, 0, 0, 0.06);
+  --ws-elev-2: 0 2px 8px rgba(15, 23, 42, 0.18);
+  --ws-elev-3: 0 6px 20px rgba(15, 23, 42, 0.35);
+  --ws-elev-4: 0 12px 32px rgba(15, 23, 42, 0.5);
+
+  /* Radius — small (chips/inputs/thumbs), medium (panels), large (modal). */
+  --ws-radius-xs: 3px;
+  --ws-radius-sm: 5px;
+  --ws-radius-md: 8px;
+  --ws-radius-lg: 12px;
+  --ws-radius-pill: 999px;
+
+  /* Motion — pair with the easing tokens below. Use -xs for color-only
+     hover changes; -sm for opacity/transform; -md for panel enter/exit. */
+  --ws-dur-xs: 80ms;
+  --ws-dur-sm: 120ms;
+  --ws-dur-md: 180ms;
+  --ws-dur-lg: 260ms;
+  --ws-ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ws-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ws-ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.15);
+
+  /* Surface tints on the HUD background — reused for hover/press states
+     on dark chips. The `-accent-*` ramp is for selected/active states. */
+  --ws-hud-surface-weak: rgba(148, 163, 184, 0.1);
+  --ws-hud-surface-med:  rgba(148, 163, 184, 0.16);
+  --ws-hud-surface-strong: rgba(148, 163, 184, 0.24);
+  --ws-hud-accent-weak:  rgba(56, 189, 248, 0.14);
+  --ws-hud-accent-med:   rgba(56, 189, 248, 0.22);
+  --ws-hud-accent-strong-bg: rgba(56, 189, 248, 0.32);
+
+  /* Focus ring — pair with `:focus-visible`. The two-stop pattern lets
+     the inner stop carry color contrast on dark chips while the outer
+     halo softens the edge on light surfaces. */
+  --ws-focus-ring:
+    0 0 0 2px rgba(56, 189, 248, 0.55),
+    0 0 0 4px rgba(56, 189, 248, 0.18);
+  --ws-focus-ring-danger:
+    0 0 0 2px rgba(248, 113, 113, 0.6),
+    0 0 0 4px rgba(248, 113, 113, 0.18);
+
+  /* Spacing — edge = canvas edge to HUD. gap = between HUD groups. */
+  --ws-space-edge: 12px;
+  --ws-space-gap-sm: 8px;
+  --ws-space-gap: 16px;
+  --ws-space-gap-lg: 24px;
 }
 
 .workspace-canvas {
