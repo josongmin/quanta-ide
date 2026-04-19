@@ -31,6 +31,8 @@ import { startMockPresence } from "../lib/mock-presence";
 import { installPresenceBridge } from "../lib/presence-store-bridge";
 import { StreetCard } from "./StreetCard";
 import { GroundCard } from "./GroundCard";
+import { FolderFrame } from "./FolderFrame";
+import { computeFolderRects } from "../lib/compute-folder-rects";
 import { Minimap } from "./Minimap";
 import { CanvasControls } from "./CanvasControls";
 import { LoadingOverlay } from "./LoadingOverlay";
@@ -142,6 +144,14 @@ export function MultiFileCanvas({ graph }: Props) {
     isoConfig: actionTerrainIsoCfg,
   }), [actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoCfg]);
 
+  // When action-terrain is on, iso bars are the primary signal — flat
+  // graph edges compete with them visually and, worse, would show
+  // through the cards (see the CSS note near `data-action-terrain`).
+  // Suppress them in the Pixi edge pass while the mode is active. The
+  // user-facing `showEdges` toggle in CanvasControls still tracks the
+  // user's preference so turning the mode off restores their choice.
+  const effectiveShowEdges = showEdges && !actionTerrainMode;
+
   const { edgeFocus, edgePredicate, edgeViolations } =
     useEdgeFocusLogic(graph, layout, viewState);
   const { temporalEdgeSet, diffAdded, diffRemoved } = useTemporalEdgeSets(graph);
@@ -159,6 +169,14 @@ export function MultiFileCanvas({ graph }: Props) {
     const ctx = computeAuthorTints(graph.history, temporalState.snapshotIndex, graph.fileEdges);
     return ctx.tintByFile;
   }, [authorFootprintOn, temporalState.mode, temporalState.snapshotIndex, graph.history, graph.fileEdges]);
+
+  // Post-process the layout into per-folder wrapper rects. Purely visual
+  // overlay — does not feed back into layout placement. Rebuilt only when
+  // the graph's files or the layout reference change.
+  const folderRects = useMemo(
+    () => (layout ? computeFolderRects(graph.files, layout) : []),
+    [graph.files, layout],
+  );
 
   const {
     onMouseDown, onMouseMove, onMouseUp,
@@ -417,7 +435,7 @@ export function MultiFileCanvas({ graph }: Props) {
             edgeCache: edgeCacheRef.current,
           }}
           edgeRender={{
-            showEdges,
+            showEdges: effectiveShowEdges,
             edgeKinds,
             edgeLayers,
             edgeMinSeverity,
@@ -457,6 +475,18 @@ export function MultiFileCanvas({ graph }: Props) {
           className="workspace-canvas__dom-layer"
           style={{ transformOrigin: "0 0", willChange: "transform" }}
         >
+          {/* Folder frames render first (and carry z-index: 1 via CSS) so
+              they sit visually behind the cards. pointer-events: none on
+              the frame ensures card interactions are never blocked. */}
+          {folderRects.map(fr => (
+            <FolderFrame
+              key={fr.path}
+              path={fr.path}
+              rect={fr.rect}
+              depth={fr.depth}
+              rdepth={fr.rdepth}
+            />
+          ))}
           {visibleScene.files.map(file => {
             const rect = layout?.fileRects.get(file.id);
             if (!rect) return null;

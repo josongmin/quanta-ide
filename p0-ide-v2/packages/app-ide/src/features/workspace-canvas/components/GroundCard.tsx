@@ -103,10 +103,13 @@ function GroundCardImpl({
   // from widening the card. When the layout tier later sizes cards from real
   // line counts, the two converge and `minHeight` becomes a no-op.
   const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, minHeight: rect.h };
+  // Author / latency tints blend toward white (not `var(--bg)`) so cards
+  // stay crisp even when a tint is active — previous 24% / 18% blends
+  // against a non-white `--bg` made the whole card look faded.
   if (authorTint) {
-    style.background = `color-mix(in srgb, ${authorTint} 24%, var(--bg))`;
+    style.background = `color-mix(in srgb, ${authorTint} 10%, #ffffff)`;
   } else if (latencyTint) {
-    style.background = `color-mix(in srgb, ${latencyTint} 18%, var(--bg))`;
+    style.background = `color-mix(in srgb, ${latencyTint} 8%, #ffffff)`;
   }
   if (elevation > 0) {
     const ox = elevation * 0.3;

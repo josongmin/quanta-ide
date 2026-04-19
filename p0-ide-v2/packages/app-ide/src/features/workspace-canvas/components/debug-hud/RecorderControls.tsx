@@ -1,4 +1,5 @@
 import { usePerfRecorder } from "../../hooks/use-perf-recorder";
+import { ToggleRow } from "./ToggleRow";
 
 export function RecorderControls() {
   // Default-off per recorder contract — user opts in from this HUD.
@@ -15,15 +16,13 @@ export function RecorderControls() {
   return (
     <>
       <div className="ws-debug__divider">성능 레코더</div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={perf.status.enabled}
-          onChange={e => perf.setEnabled(e.target.checked)}
-          disabled={manual}
-        />
-        <span>FPS&lt;45일 때 자동 녹화</span>
-      </label>
+      <ToggleRow
+        label="FPS<45일 때 자동 녹화"
+        checked={perf.status.enabled}
+        onChange={v => perf.setEnabled(v)}
+        disabled={manual}
+        disabledReason="수동 녹화 중에는 변경 불가"
+      />
       <div className="ws-debug__grid">
         <span className="ws-debug__k">상태</span>
         <span className={`ws-debug__v${perf.status.capturing ? " ws-debug__v--hl" : ""}`}>

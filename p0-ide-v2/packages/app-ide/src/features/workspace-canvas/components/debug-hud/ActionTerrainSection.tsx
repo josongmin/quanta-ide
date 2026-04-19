@@ -6,6 +6,7 @@ import {
   ACTION_TERRAIN_HEIGHT_RANGE,
 } from "../../store/action-terrain-store";
 import { useFeature, featureFlagsStore } from "../../store/feature-flags-store";
+import { ToggleRow } from "./ToggleRow";
 
 const TOP_N = 5;
 
@@ -30,23 +31,19 @@ export function ActionTerrainSection() {
   return (
     <>
       <div className="ws-debug__divider">액션 지형</div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={on}
-          onChange={e => featureFlagsStore.setFlag("action-terrain.mode", e.target.checked)}
-        />
-        <span>기능 활성</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={mode}
-          disabled={!on}
-          onChange={e => actionTerrainStore.setMode(e.target.checked)}
-        />
-        <span>아이소 모드 (⌘⇧A)</span>
-      </label>
+      <ToggleRow
+        label="기능 활성"
+        checked={on}
+        onChange={v => featureFlagsStore.setFlag("action-terrain.mode", v)}
+      />
+      <ToggleRow
+        label="아이소 모드"
+        checked={mode}
+        onChange={v => actionTerrainStore.setMode(v)}
+        disabled={!on}
+        disabledReason="먼저 '기능 활성'을 켜세요"
+        hint="⌘⇧A 단축키"
+      />
       <div className="ws-debug__row ws-debug__row--aligned">
         <span className="ws-debug__row-label">높이</span>
         <input

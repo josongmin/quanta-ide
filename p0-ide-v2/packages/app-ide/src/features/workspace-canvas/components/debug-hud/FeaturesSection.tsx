@@ -15,6 +15,7 @@ import {
 } from "../../store/feature-flags-store";
 import { ThemeChipRow } from "../ThemeSwitcher";
 import { toastStore } from "@quanta/shell/stores/toast-store";
+import { ToggleRow } from "./ToggleRow";
 
 const CATEGORY_LABEL: Record<FeatureCategory, string> = {
   collab: "협업",
@@ -191,38 +192,30 @@ function CategoryBlock({
 
 function FeatureRow({ feature, enabled }: { feature: FeatureDescriptor; enabled: boolean }) {
   const depMissing = (feature.dependsOn ?? []).some(id => !featureFlagsStore.isEnabled(id));
-  const effectivelyOn = enabled && !depMissing;
+  const label = !depMissing || !enabled ? feature.label : `${feature.label} (의존성 꺼짐)`;
 
   return (
-    <label
-      className="ws-debug__row"
+    <div
       title={`${feature.description}${feature.dependsOn ? `\n\n필요 기능: ${feature.dependsOn.join(", ")}` : ""}${feature.introducedIn ? `\n도입: ${feature.introducedIn}` : ""}`}
-      style={{ opacity: depMissing ? 0.5 : 1 }}
     >
-      <input
-        type="checkbox"
+      <ToggleRow
+        label={label}
         checked={enabled}
-        onChange={e => featureFlagsStore.setFlag(feature.id, e.target.checked)}
+        onChange={v => featureFlagsStore.setFlag(feature.id, v)}
+        leading={
+          <span
+            style={{
+              display: "inline-block",
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: MATURITY_COLOR[feature.maturity],
+            }}
+            title={feature.maturity}
+            aria-hidden
+          />
+        }
       />
-      <span style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
-        <span
-          style={{
-            display: "inline-block",
-            width: 6,
-            height: 6,
-            borderRadius: "50%",
-            background: MATURITY_COLOR[feature.maturity],
-            flexShrink: 0,
-          }}
-          title={feature.maturity}
-        />
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {feature.label}
-        </span>
-        {!effectivelyOn && enabled && (
-          <span style={{ fontSize: 9, color: "#f59e0b" }}>(의존성 꺼짐)</span>
-        )}
-      </span>
-    </label>
+    </div>
   );
 }

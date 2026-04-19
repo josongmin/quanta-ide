@@ -58,6 +58,21 @@
   cursor: default;
 }
 
+/* Annotation tool active → swap cursor so the user sees "draw mode"
+   immediately. AnnotationsLayer writes `data-annotation-tool` onto the
+   workspace-canvas root; keeps cursor logic in CSS instead of threading
+   state through every child. */
+.workspace-canvas[data-annotation-tool="pen"],
+.workspace-canvas[data-annotation-tool="shape"],
+.workspace-canvas[data-annotation-tool="connector"],
+.workspace-canvas[data-annotation-tool="frame"],
+.workspace-canvas[data-annotation-tool="laser"] {
+  cursor: crosshair;
+}
+.workspace-canvas[data-annotation-tool="text"] {
+  cursor: text;
+}
+
 /* Shared transform layer for DOM nodes.
    width/height 100% so absolute children aren't affected by a 0×0 layout box.
    No `contain: layout` — it interferes with transformed absolute descendants. */
@@ -228,12 +243,13 @@
   position: absolute;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: #ffffff;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   overflow: hidden;
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  z-index: 5;
 }
 
 .street-card--selected {
@@ -334,12 +350,16 @@
   position: absolute;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: #ffffff;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   overflow: hidden;
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  /* Force above PixiStage canvas + folder frames + any sibling overlay.
+     DOM source order alone wasn't holding against parent stacking
+     contexts created by `transform` / `willChange` on the dom-layer. */
+  z-index: 5;
 }
 
 .ground-card--selected {
@@ -378,20 +398,53 @@
 
 .ground-card__body {
   flex: 1;
-  overflow: hidden;
+  /* Allow code to grow the card vertically. The card's `minHeight` comes from
+     `rect.h`; once tokenized source exceeds that, the body grows and the card
+     with it. Horizontal scroll is confined to `.ground-card__source`. */
+  overflow: visible;
   position: relative;
 }
 
 .ground-card__source {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  line-height: 1.5;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.55;
   margin: 0;
   padding: 8px 12px 8px 18px;
+  /* `white-space: pre` preserves indentation; horizontal auto-scroll keeps
+     long lines from widening the card. Vertical is hidden here — the card
+     itself grows via `minHeight` on the rect. */
   white-space: pre;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   color: var(--fg);
 }
+
+.ground-card__line {
+  display: block;
+  min-height: 1.55em;
+}
+
+/* ── Syntax highlight palette (VS Code Light+ inspired) ───────────────
+   Cards render on solid white (see `.ground-card`), so we use high-contrast
+   colors designed for a light background — the previous Dark+ palette
+   (`#c586c0`, `#4ec9b0`, etc.) was low-luminance-delta vs white and read
+   as faded / washed out. GroundCard renders tokens as
+   `<span className="hl hl--${cls}">` where `cls` comes from
+   `workspace-canvas/lib/code-highlight.ts` (e.g. `hl-keyword`, `hl-fn`).
+   The resulting class is `hl--hl-keyword` — double prefix is intentional
+   and matches the existing JSX. */
+.ground-card__source .hl--hl-keyword   { color: #0000ff; }
+.ground-card__source .hl--hl-type      { color: #267f99; }
+.ground-card__source .hl--hl-string    { color: #a31515; }
+.ground-card__source .hl--hl-comment   { color: #008000; font-style: italic; }
+.ground-card__source .hl--hl-number    { color: #098658; }
+.ground-card__source .hl--hl-decorator { color: #795e26; }
+.ground-card__source .hl--hl-fn        { color: #795e26; }
+.ground-card__source .hl--hl-op        { color: #000000; }
+.ground-card__source .hl--hl-punct     { color: #000000; }
+.ground-card__source .hl--hl-macro     { color: #af00db; }
+.ground-card__source .hl--hl-constant  { color: #0070c1; }
 
 /* Blame gutter — GitLens-style age gradient pinned to the left edge of the
    card body. `viewBox` is normalised to lineCount so stripes stretch to fit
@@ -746,6 +799,58 @@
   color: var(--ws-hud-accent);
   border-color: rgba(56, 189, 248, 0.5);
 }
+
+/* Uniform ON/OFF pill — fills with accent when on, outlined when off.
+   Used via <ToggleRow> to replace the dense <input type=checkbox> lists
+   that gave no colour feedback and all looked the same. */
+.ws-debug__toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 6px 3px 5px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ws-hud-fg-soft);
+  background: transparent;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  transition: background-color 80ms linear, border-color 80ms linear;
+}
+.ws-debug__toggle:hover { background: rgba(148, 163, 184, 0.10); border-color: rgba(148, 163, 184, 0.35); }
+.ws-debug__toggle:disabled { opacity: 0.38; cursor: not-allowed; }
+.ws-debug__toggle-dot {
+  flex: 0 0 14px;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--ws-hud-fg-subtle);
+}
+.ws-debug__toggle-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-debug__toggle-hint { color: var(--ws-hud-fg-subtle); font-size: 10px; }
+.ws-debug__toggle-state {
+  flex: 0 0 auto;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  padding: 1px 4px;
+  border-radius: 2px;
+  color: var(--ws-hud-fg-subtle);
+  background: rgba(148, 163, 184, 0.12);
+  font-variant-numeric: tabular-nums;
+}
+.ws-debug__toggle.is-on {
+  background: rgba(56, 189, 248, 0.14);
+  color: var(--ws-hud-fg);
+  border-color: rgba(56, 189, 248, 0.55);
+}
+.ws-debug__toggle.is-on .ws-debug__toggle-dot { color: var(--ws-hud-accent); }
+.ws-debug__toggle.is-on .ws-debug__toggle-state {
+  color: #082f49;
+  background: var(--ws-hud-accent);
+  font-weight: 600;
+}
 .ws-debug__hint {
   margin-top: 2px;
   font-size: 9.5px;
@@ -753,7 +858,7 @@
   word-break: break-all;
   font-family: "JetBrains Mono", ui-monospace, monospace;
 }
-.ws-debug__toggle {
+.ws-debug__launcher {
   position: absolute;
   top: 12px;
   left: 12px;
@@ -767,7 +872,7 @@
   border-radius: 4px;
   cursor: pointer;
 }
-.ws-debug__toggle:hover { background: rgba(15, 23, 42, 0.92); }
+.ws-debug__launcher:hover { background: rgba(15, 23, 42, 0.92); }
 
 /* ── Effect badges (Street + Ground cards) ──────────────────────── */
 .street-card__effects,
@@ -3926,21 +4031,22 @@
    Action Terrain — isometric refactor-ROI mode
    ═══════════════════════════════════════════════════════════════════ */
 
-/* Dim 2D dom-layer so iso bars dominate, but leave selection outline
-   at full intensity — the outline drives which file the blast/fix cone
-   points at, so it must stay readable through the dim. */
-.workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer {
-  opacity: 0.6;
-  transition: opacity 160ms ease;
-}
+/* Selected card gets a prominent outline in action-terrain mode — the
+   outline drives which file the blast/fix cone points at, so it must
+   read clearly against the iso bars behind.
+   NOTE: an earlier version dimmed the whole dom-layer via `opacity: 0.6`
+   to let iso bars dominate. That created a nasty side effect — because
+   `opacity` makes the card's own background translucent, the graph
+   edges drawn on the Pixi canvas underneath bled THROUGH the cards,
+   crossing over the code text. The fix is twofold: (1) keep cards fully
+   opaque here, and (2) suppress flat graph edges while action-terrain
+   is on (done in MultiFileCanvas where `effectiveShowEdges` is derived).
+   With edges hidden there is nothing left to "bleed through", so the
+   card dim is no longer needed. */
 .workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer .ws-card--selected,
 .workspace-canvas[data-action-terrain="on"] .workspace-canvas__dom-layer .ws-card.is-selected {
-  opacity: 1;
   outline: 2px solid var(--ws-selection-accent);
   outline-offset: 2px;
-}
-.workspace-canvas[data-action-terrain="off"] .workspace-canvas__dom-layer {
-  transition: opacity 160ms ease;
 }
 
 /* Floating toggle — sits above the minimap (which occupies bottom 12-122)
@@ -4445,4 +4551,60 @@
 .ws-graph-empty__btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* ── Folder Frame (grouped-folders visual wrapper) ────────────────
+   Pure overlay rendered behind GroundCards so readers can see which
+   files share a parent directory. The dashed border + subtle tint is
+   intentionally low-contrast; the label sits on the top-left edge
+   like a Figma / Excalidraw frame title. pointer-events: none so
+   the wrapper never swallows card clicks. z-index: 0 places it below
+   default GroundCards (auto z-index ⇒ painted above z:0). */
+.folder-frame {
+  position: absolute;
+  border: 1.5px solid rgba(100, 116, 139, 0.55);
+  border-radius: 12px;
+  /* No fill — stacked semi-transparent backgrounds made the enclosed code
+     area read as dim. Borders alone are enough to communicate the group. */
+  background: transparent;
+  pointer-events: none;
+  /* Negative z-index puts the frame unambiguously behind every sibling
+     card — explicit `z-index: 0` had the same painting-order level as
+     ground-card's `auto` which is fragile under doc-order shuffles. */
+  z-index: -1;
+}
+/* Innermost wrapper (closest to leaf cards) — subtle so files stay the
+   focus. Outer shells get progressively stronger strokes so the top-level
+   package boundary reads as the dominant grouping. */
+.folder-frame--d0 {
+  border-style: dashed;
+  border-color: rgba(148, 163, 184, 0.45);
+}
+.folder-frame--d1 { border-color: rgba(100, 116, 139, 0.6); }
+.folder-frame--d2 { border-color: rgba(71, 85, 105, 0.75); }
+.folder-frame--d3 { border-color: rgba(51, 65, 85, 0.85); }
+.folder-frame__label {
+  position: absolute;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--fg, #0f172a);
+  background: #ffffff;
+  padding: 2px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+  white-space: nowrap;
+  /* Label is a sibling of the frame (not a child) so it sits in the
+     dom-layer's stacking context and can paint above cards (z:5). */
+  z-index: 20;
+}
+/* Outer shells get a larger, bolder label so hierarchy reads at a glance. */
+.folder-frame__label--d1 { font-size: 17px; }
+.folder-frame__label--d2 { font-size: 19px; padding: 3px 12px; }
+.folder-frame__label--d3 {
+  font-size: 21px;
+  padding: 3px 14px;
+  letter-spacing: 0.015em;
 }

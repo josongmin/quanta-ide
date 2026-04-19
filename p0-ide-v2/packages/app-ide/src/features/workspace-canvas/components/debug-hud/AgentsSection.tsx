@@ -3,6 +3,7 @@ import { usePresenceStore, type AgentActivity } from "../../store/presence-store
 import { interactionStore } from "../../store/interaction-store";
 import { useSceneStore } from "../../store/scene-store";
 import { useRenderSettings, renderSettingsStore } from "../../store/render-settings-store";
+import { ToggleRow } from "./ToggleRow";
 
 function colorToCss(n: number): string {
   return `#${n.toString(16).padStart(6, "0")}`;
@@ -46,14 +47,12 @@ export function AgentsSection() {
 
   return (
     <>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showAgentPresence}
-          onChange={e => renderSettingsStore.setShowAgentPresence(e.target.checked)}
-        />
-        <span>프레즌스 링 표시</span>
-      </label>
+      <ToggleRow
+        label="프레즌스 링 표시"
+        checked={showAgentPresence}
+        onChange={v => renderSettingsStore.setShowAgentPresence(v)}
+        hint="에이전트가 보는 파일에 링 오버레이"
+      />
 
       <div className="ws-debug__divider">에이전트 ({agents.length})</div>
       {agents.length === 0 ? (

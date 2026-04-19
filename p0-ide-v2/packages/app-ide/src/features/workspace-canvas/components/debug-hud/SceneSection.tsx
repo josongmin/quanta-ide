@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { FilterDslInput } from "./FilterDslInput";
 import { NlFilterInput } from "./NlFilterInput";
 import { AiAssistSection } from "./AiAssistSection";
+import { ToggleRow } from "./ToggleRow";
 import { diffSnapshots } from "@quanta/canvas-engine";
 import { viewportStore, useViewportStore } from "../../store/viewport-store";
 import { useSceneStore } from "../../store/scene-store";
@@ -267,18 +268,18 @@ export function SceneSection() {
       </div>
 
       <div className="ws-debug__divider">렌더링 토글</div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showEdges}
-          onChange={e => renderSettingsStore.setShowEdges(e.target.checked)}
-        />
-        <span>엣지 (전체)</span>
-      </label>
+      <ToggleRow
+        label="엣지 전체 표시"
+        checked={showEdges}
+        onChange={v => renderSettingsStore.setShowEdges(v)}
+        hint="꺼지면 아래 kind 칩은 모두 비활성"
+      />
       {EDGE_LAYERS.map(layer => {
         const kinds = KINDS_BY_LAYER[layer];
-        const allOn = kinds.every(k => edgeKinds[k]);
-        const allOff = kinds.every(k => !edgeKinds[k]);
+        const onCount = kinds.filter(k => edgeKinds[k]).length;
+        const allOn = onCount === kinds.length;
+        const allOff = onCount === 0;
+        const bulkLabel = allOn ? "전부 끄기" : allOff ? "전부 켜기" : `${onCount}/${kinds.length} · 전부 켜기`;
         return (
           <div key={layer} style={{ marginLeft: 20 }}>
             <div className="ws-debug__row" style={{ alignItems: "center", opacity: 0.7, fontSize: 11 }}>
@@ -293,7 +294,7 @@ export function SceneSection() {
                 disabled={!showEdges}
                 title={allOn ? "이 레이어의 kind 전부 끄기" : "이 레이어의 kind 전부 켜기"}
               >
-                {allOn ? "all off" : allOff ? "all on" : "all on"}
+                {bulkLabel}
               </button>
             </div>
             <div className="ws-debug__lod" style={{ gap: 2, flexWrap: "wrap" }}>
@@ -341,88 +342,65 @@ export function SceneSection() {
         </span>
       </div>
 
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showGridBg}
-          onChange={e => uxSettingsStore.setShowGridBg(e.target.checked)}
-        />
-        <span>그리드 배경</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showHitLayers}
-          onChange={e => uxSettingsStore.setShowHitLayers(e.target.checked)}
-        />
-        <span>히트 레이어</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={freezeScene}
-          onChange={e => debugSettingsStore.setFreezeScene(e.target.checked)}
-        />
-        <span>씬 고정</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showHeatmap}
-          onChange={e => uxSettingsStore.setShowHeatmap(e.target.checked)}
-        />
-        <span>미니맵 히트맵</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={elevationMode}
-          onChange={e => renderSettingsStore.setElevationMode(e.target.checked)}
-        />
-        <span>고도 모드 (3D)</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showBlameGutter}
-          onChange={e => renderSettingsStore.setShowBlameGutter(e.target.checked)}
-        />
-        <span>블레임 거터 (그라운드)</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showEffectBadges}
-          onChange={e => renderSettingsStore.setShowEffectBadges(e.target.checked)}
-        />
-        <span>이펙트 배지 (칩)</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showLatencyOverlay}
-          onChange={e => renderSettingsStore.setShowLatencyOverlay(e.target.checked)}
-        />
-        <span>비용 오버레이 (p95 틴트)</span>
-      </label>
+      <ToggleRow
+        label="그리드 배경"
+        checked={showGridBg}
+        onChange={v => uxSettingsStore.setShowGridBg(v)}
+      />
+      <ToggleRow
+        label="히트 레이어"
+        checked={showHitLayers}
+        onChange={v => uxSettingsStore.setShowHitLayers(v)}
+        hint="hover/click 타겟 사각형을 그려줌"
+      />
+      <ToggleRow
+        label="씬 고정"
+        checked={freezeScene}
+        onChange={v => debugSettingsStore.setFreezeScene(v)}
+        hint="현재 씬을 스냅샷으로 잠금 (레이아웃 정지)"
+      />
+      <ToggleRow
+        label="미니맵 히트맵"
+        checked={showHeatmap}
+        onChange={v => uxSettingsStore.setShowHeatmap(v)}
+      />
+      <ToggleRow
+        label="고도 모드 (3D)"
+        checked={elevationMode}
+        onChange={v => renderSettingsStore.setElevationMode(v)}
+        hint="risk 점수로 카드 띄우기"
+      />
+      <ToggleRow
+        label="블레임 거터"
+        checked={showBlameGutter}
+        onChange={v => renderSettingsStore.setShowBlameGutter(v)}
+        hint="그라운드 줌에서만 보임"
+      />
+      <ToggleRow
+        label="이펙트 배지"
+        checked={showEffectBadges}
+        onChange={v => renderSettingsStore.setShowEffectBadges(v)}
+        hint="io / env / db 등 side-effect 칩"
+      />
+      <ToggleRow
+        label="비용 오버레이"
+        checked={showLatencyOverlay}
+        onChange={v => renderSettingsStore.setShowLatencyOverlay(v)}
+        hint="p95 레이턴시 틴트"
+      />
 
       <div className="ws-debug__divider">오버레이</div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showSccBubbles}
-          onChange={e => renderSettingsStore.setShowSccBubbles(e.target.checked)}
-        />
-        <span>사이클 버블 (SCC)</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showStartHereBadges}
-          onChange={e => renderSettingsStore.setShowStartHereBadges(e.target.checked)}
-        />
-        <span>시작점 배지</span>
-      </label>
+      <ToggleRow
+        label="사이클 버블 (SCC)"
+        checked={showSccBubbles}
+        onChange={v => renderSettingsStore.setShowSccBubbles(v)}
+      />
+      <ToggleRow
+        label="시작점 배지"
+        checked={showStartHereBadges}
+        onChange={v => renderSettingsStore.setShowStartHereBadges(v)}
+        hint="진입점 후보 top-N 마킹"
+      />
       <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
         {([3, 5, 10] as const).map(n => (
           <button
@@ -437,32 +415,24 @@ export function SceneSection() {
           </button>
         ))}
       </div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showClusterEdges}
-          onChange={e => renderSettingsStore.setShowClusterEdges(e.target.checked)}
-        />
-        <span>클러스터 슈퍼 엣지</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showAgentPresence}
-          onChange={e => renderSettingsStore.setShowAgentPresence(e.target.checked)}
-        />
-        <span>에이전트 프레즌스 링</span>
-      </label>
+      <ToggleRow
+        label="클러스터 슈퍼 엣지"
+        checked={showClusterEdges}
+        onChange={v => renderSettingsStore.setShowClusterEdges(v)}
+      />
+      <ToggleRow
+        label="에이전트 프레즌스 링"
+        checked={showAgentPresence}
+        onChange={v => renderSettingsStore.setShowAgentPresence(v)}
+      />
 
       <div className="ws-debug__divider">포커스</div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={focusMode === "on"}
-          onChange={e => interactionStore.setFocusMode(e.target.checked ? "on" : "off")}
-        />
-        <span>포커스 모드</span>
-      </label>
+      <ToggleRow
+        label="포커스 모드"
+        checked={focusMode === "on"}
+        onChange={v => interactionStore.setFocusMode(v ? "on" : "off")}
+        hint="선택한 파일의 이웃만 강조"
+      />
       <div className="ws-debug__lod" style={{ gap: 2, marginLeft: 20 }}>
         {([1, 2] as const).map(h => (
           <button
@@ -503,46 +473,39 @@ export function SceneSection() {
           <span style={{ color: "#f87171" }}> · {archViolations.edgeIds.length}</span>
         )}
       </div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={highlightArchViolations}
-          onChange={e => renderSettingsStore.setHighlightArchViolations(e.target.checked)}
-        />
-        <span>위반 엣지 강조</span>
-      </label>
+      <ToggleRow
+        label="위반 엣지 강조"
+        checked={highlightArchViolations}
+        onChange={v => renderSettingsStore.setHighlightArchViolations(v)}
+      />
       {archViolations && Object.keys(archViolations.byPair).length > 0 && (
         <div className="ws-debug__grid">
           {Object.entries(archViolations.byPair).map(([pair, n]) => (
-            <>
-              <span key={`k-${pair}`} className="ws-debug__k" style={{ paddingLeft: 8, opacity: 0.75 }}>
+            <Fragment key={pair}>
+              <span className="ws-debug__k" style={{ paddingLeft: 8, opacity: 0.75 }}>
                 · {pair}
               </span>
-              <span key={`v-${pair}`} className="ws-debug__v" style={{ color: "#f87171" }}>
+              <span className="ws-debug__v" style={{ color: "#f87171" }}>
                 {n}
               </span>
-            </>
+            </Fragment>
           ))}
         </div>
       )}
 
       <div className="ws-debug__divider">크로스 그래프 엣지</div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showCrossGraphEdges}
-          onChange={e => renderSettingsStore.setShowCrossGraphEdges(e.target.checked)}
-        />
-        <span>크로스 그래프 엣지 표시</span>
-      </label>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={highlightCrossGraph}
-          onChange={e => renderSettingsStore.setHighlightCrossGraph(e.target.checked)}
-        />
-        <span>크로스 그래프 강조 (골드 오버레이)</span>
-      </label>
+      <ToggleRow
+        label="크로스 그래프 엣지 표시"
+        checked={showCrossGraphEdges}
+        onChange={v => renderSettingsStore.setShowCrossGraphEdges(v)}
+      />
+      <ToggleRow
+        label="골드 오버레이"
+        checked={highlightCrossGraph}
+        onChange={v => renderSettingsStore.setHighlightCrossGraph(v)}
+        disabled={!showCrossGraphEdges}
+        disabledReason="먼저 '크로스 그래프 엣지 표시'를 켜세요"
+      />
 
       <div className="ws-debug__divider">
         경로 질의 {pathQuery && <span style={{ color: "#7dd3fc" }}>· 활성</span>}
@@ -713,14 +676,12 @@ function ShareSection() {
           초기화
         </button>
       </div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={autoSyncUrl}
-          onChange={e => uxSettingsStore.setAutoSyncUrl(e.target.checked)}
-        />
-        <span>URL 자동 동기화</span>
-      </label>
+      <ToggleRow
+        label="URL 자동 동기화"
+        checked={autoSyncUrl}
+        onChange={v => uxSettingsStore.setAutoSyncUrl(v)}
+        hint="상태 변경이 URL에 즉시 반영됨"
+      />
     </>
   );
 }
@@ -1033,14 +994,11 @@ function StickiesSection() {
           <span style={{ color: "#22c55e" }}> · {resolvedCount} 완료</span>
         )}
       </div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={showStickies}
-          onChange={e => uxSettingsStore.setShowStickies(e.target.checked)}
-        />
-        <span>스티커 표시</span>
-      </label>
+      <ToggleRow
+        label="스티커 표시"
+        checked={showStickies}
+        onChange={v => uxSettingsStore.setShowStickies(v)}
+      />
       {recent.length === 0 ? (
         <div className="ws-debug__hint">빈 캔버스에 Shift+더블클릭하여 스티커를 남기세요.</div>
       ) : (
@@ -1098,42 +1056,26 @@ function NavigationSection() {
         <span className="ws-debug__k">뷰</span>
         <span className="ws-debug__v">{forPage.length}</span>
       </div>
-      <div className="ws-debug__lod" style={{ gap: 2 }}>
-        <label className="ws-debug__row" style={{ flex: 1 }}>
-          <input
-            type="checkbox"
-            checked={pagesOn}
-            onChange={e => featureFlagsStore.setFlag("nav.pages", e.target.checked)}
-          />
-          <span>페이지</span>
-        </label>
-        <label className="ws-debug__row" style={{ flex: 1 }}>
-          <input
-            type="checkbox"
-            checked={bookmarksOn}
-            onChange={e => featureFlagsStore.setFlag("nav.bookmarks", e.target.checked)}
-          />
-          <span>뷰</span>
-        </label>
-      </div>
-      <div className="ws-debug__lod" style={{ gap: 2 }}>
-        <label className="ws-debug__row" style={{ flex: 1 }}>
-          <input
-            type="checkbox"
-            checked={storyboardOn}
-            onChange={e => featureFlagsStore.setFlag("nav.storyboard", e.target.checked)}
-          />
-          <span>스토리보드</span>
-        </label>
-        <label className="ws-debug__row" style={{ flex: 1 }}>
-          <input
-            type="checkbox"
-            checked={templatesOn}
-            onChange={e => featureFlagsStore.setFlag("nav.templates", e.target.checked)}
-          />
-          <span>템플릿</span>
-        </label>
-      </div>
+      <ToggleRow
+        label="페이지"
+        checked={pagesOn}
+        onChange={v => featureFlagsStore.setFlag("nav.pages", v)}
+      />
+      <ToggleRow
+        label="뷰 (북마크)"
+        checked={bookmarksOn}
+        onChange={v => featureFlagsStore.setFlag("nav.bookmarks", v)}
+      />
+      <ToggleRow
+        label="스토리보드"
+        checked={storyboardOn}
+        onChange={v => featureFlagsStore.setFlag("nav.storyboard", v)}
+      />
+      <ToggleRow
+        label="템플릿"
+        checked={templatesOn}
+        onChange={v => featureFlagsStore.setFlag("nav.templates", v)}
+      />
       <div className="ws-debug__lod" style={{ gap: 2 }}>
         <button
           type="button"
@@ -1168,14 +1110,12 @@ function DevModeSection() {
   return (
     <>
       <div className="ws-debug__divider">개발자 모드</div>
-      <label className="ws-debug__row">
-        <input
-          type="checkbox"
-          checked={hoverSummary}
-          onChange={e => featureFlagsStore.setFlag("devmode.hoverSummary", e.target.checked)}
-        />
-        <span>호버 요약</span>
-      </label>
+      <ToggleRow
+        label="호버 요약"
+        checked={hoverSummary}
+        onChange={v => featureFlagsStore.setFlag("devmode.hoverSummary", v)}
+        hint="호버한 파일의 미리보기 툴팁"
+      />
       <div className="ws-debug__hint">
         측정 모드 (M 키){measure ? "" : " — 비활성"}: M 키 누른 채로 두 파일을 클릭하세요.
       </div>

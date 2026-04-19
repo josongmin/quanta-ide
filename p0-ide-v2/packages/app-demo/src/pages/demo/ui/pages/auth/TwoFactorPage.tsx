@@ -14,13 +14,17 @@ export function TwoFactorPage() {
       <div className="demo-card">
         <div
           style={{
-            width: 44, height: 44, borderRadius: 999,
-            background: "var(--bg-accent-subtle)", color: "var(--accent)",
+            width: 52, height: 52, borderRadius: 999,
+            background:
+              "radial-gradient(120% 120% at 30% 20%, color-mix(in srgb, var(--accent) 22%, var(--bg)) 0%, var(--bg-accent-subtle) 60%, var(--bg) 100%)",
+            color: "var(--accent)",
             display: "inline-flex", alignItems: "center", justifyContent: "center",
-            marginBottom: 12,
+            marginBottom: 14,
+            boxShadow:
+              "inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent), 0 8px 22px -12px color-mix(in srgb, var(--accent) 55%, transparent)",
           }}
         >
-          <ShieldCheck size={22} strokeWidth={1.8} />
+          <ShieldCheck size={24} strokeWidth={1.8} />
         </div>
 
         <h1 className="demo-card__title">Two-factor authentication</h1>

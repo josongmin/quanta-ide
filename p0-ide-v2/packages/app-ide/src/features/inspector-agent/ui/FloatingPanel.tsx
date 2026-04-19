@@ -125,26 +125,18 @@ export function FloatingPanel({
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  /* ── Stop canvas pan/zoom while interacting with the panel ──
-   * The workspace canvas registers native (non-React) wheel/pointer handlers,
-   * so React's synthetic stopPropagation isn't enough. We attach native
-   * capture-phase listeners on the panel root and terminate the DOM walk
-   * before canvas handlers see the event. */
-  useEffect(() => {
-    const el = panelRef.current;
-    if (!el) return;
-    const stop = (e: Event) => { e.stopPropagation(); };
-    el.addEventListener("wheel", stop, { passive: false, capture: true });
-    el.addEventListener("pointerdown", stop, { capture: true });
-    el.addEventListener("mousedown", stop, { capture: true });
-    el.addEventListener("touchstart", stop, { capture: true, passive: false });
-    return () => {
-      el.removeEventListener("wheel", stop, { capture: true });
-      el.removeEventListener("pointerdown", stop, { capture: true });
-      el.removeEventListener("mousedown", stop, { capture: true });
-      el.removeEventListener("touchstart", stop, { capture: true });
-    };
-  }, []);
+  /* ── Panel/canvas event isolation ──
+   * React synthetic events propagate through the *React tree*, not the DOM
+   * tree: even though this panel is portaled to document.body, its React
+   * parent is the caller component (e.g. DebugHud inside MultiFileCanvas),
+   * so React bubbles pointerdown/mousedown up into MultiFileCanvas's div —
+   * whose onMouseDown starts a canvas pan. Stopping *React* propagation at
+   * the panel root keeps titlebar/content handlers working (they fire on
+   * the way up before this stop) while preventing leakage into the canvas.
+   * Native capture-phase stopping would instead kill React's delegation on
+   * document.body and break the drag itself — so stop at the synthetic
+   * layer, not the native layer. */
+  const stopReactBubble = (e: React.SyntheticEvent) => e.stopPropagation();
 
   const widthStyle = size.w;
   const heightStyle = collapsed ? undefined : size.h;
@@ -154,6 +146,14 @@ export function FloatingPanel({
       ref={panelRef}
       className={`float-panel${collapsed ? " is-collapsed" : ""}${variant === "hud" ? " float-panel--hud" : ""}`}
       style={{ left: pos.x, top: pos.y, width: widthStyle, height: heightStyle }}
+      onPointerDown={stopReactBubble}
+      onPointerMove={stopReactBubble}
+      onPointerUp={stopReactBubble}
+      onMouseDown={stopReactBubble}
+      onMouseMove={stopReactBubble}
+      onMouseUp={stopReactBubble}
+      onClick={stopReactBubble}
+      onWheel={stopReactBubble}
     >
       {/* Title bar */}
       <div

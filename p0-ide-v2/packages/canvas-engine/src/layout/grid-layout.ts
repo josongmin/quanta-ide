@@ -2,27 +2,48 @@ import type { WorkspaceGraph } from "../graph/types";
 import type { WorkspaceLayout, BezierRoute } from "./types";
 import {
   FILE_CARD_W,
-  FILE_CARD_H,
   GRID_GAP_X,
   GRID_GAP_H,
   GRID_COLS,
+  computeFileHeight,
 } from "./types";
 import { enrichLayout } from "./enrich-layout";
 
+/**
+ * Greedy-balanced column packer. Each file card takes a height proportional
+ * to its LOC count (see `computeFileHeight`) so the ground tier renders a
+ * paper-like skyline — long files read long, short files stay compact.
+ *
+ * Column count follows the legacy `GRID_COLS` constant so downstream callers
+ * (worker bounds estimation, tests that snapshot x-coords at multiples of
+ * `FILE_CARD_W + GRID_GAP_X`) keep the same horizontal rhythm. The packer
+ * only changes y — each file goes to whichever column currently has the
+ * smallest cumulative height, minimising the ragged bottom edge.
+ */
 export function gridLayout(graph: WorkspaceGraph): WorkspaceLayout {
   const fileRects = new Map<string, { x: number; y: number; w: number; h: number }>();
 
-  // Position files in a grid, left-to-right, top-to-bottom
-  for (let i = 0; i < graph.files.length; i++) {
-    const file = graph.files[i];
-    const col = i % GRID_COLS;
-    const row = Math.floor(i / GRID_COLS);
-    fileRects.set(file.id, {
-      x: col * (FILE_CARD_W + GRID_GAP_X),
-      y: row * (FILE_CARD_H + GRID_GAP_H),
-      w: FILE_CARD_W,
-      h: FILE_CARD_H,
-    });
+  // Column count: cap at GRID_COLS, but never more columns than files.
+  const nCols = Math.max(1, Math.min(GRID_COLS, graph.files.length));
+  const columnTops: number[] = new Array(nCols).fill(0);
+
+  for (const file of graph.files) {
+    const h = computeFileHeight(file.loc ?? 0);
+
+    // Pick the shortest column (ties → left-most for stable output).
+    let col = 0;
+    let minTop = columnTops[0];
+    for (let c = 1; c < nCols; c++) {
+      if (columnTops[c] < minTop) {
+        minTop = columnTops[c];
+        col = c;
+      }
+    }
+
+    const x = col * (FILE_CARD_W + GRID_GAP_X);
+    const y = columnTops[col];
+    fileRects.set(file.id, { x, y, w: FILE_CARD_W, h });
+    columnTops[col] = y + h + GRID_GAP_H;
   }
 
   // Build straight bezier routes: right-center of source to left-center of target

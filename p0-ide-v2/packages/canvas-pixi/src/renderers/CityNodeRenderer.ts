@@ -416,10 +416,11 @@ export class CityNodeRenderer {
       this.pickRects.push({ x: 0, y: 0, w: 0, h: 0, id: "" });
       this.pickRectsCapacity++;
     }
-    // Expose all allocated slots so indexed writes land on live entries;
-    // `update()` trims logical length at the end of the frame.
-    if (this.pickRects.length < this.pickRectsCapacity) {
-      this.pickRects.length = this.pickRectsCapacity;
+    // Restore slots trimmed by `.length = pickCount` at the end of last
+    // frame. Must push real objects — plain `.length = cap` would create
+    // sparse holes (undefined), breaking the in-place writes below.
+    while (this.pickRects.length < this.pickRectsCapacity) {
+      this.pickRects.push({ x: 0, y: 0, w: 0, h: 0, id: "" });
     }
   }
 
@@ -529,7 +530,7 @@ export class CityNodeRenderer {
       fillColor,
       borderColor,
       selBorder: isSelected ? SELECTION_ACCENT : borderColor,
-      fillAlpha: isSelected ? 1.0 : isHovered ? 0.95 : 0.88,
+      fillAlpha: 1.0,
       borderAlpha: isSelected ? 1.0 : 0.85,
       isSelected,
     };

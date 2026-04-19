@@ -98,11 +98,12 @@ export function makeGrowingPool<T>(factory: () => T): GrowingPool<T> {
         pool.slots.push(factory());
         pool.capacity++;
       }
-      // Re-expose all allocated slots so indexed writes land on live
-      // entries. The caller still truncates `.slots.length` to the logical
-      // used count at end of frame.
-      if (pool.slots.length < pool.capacity) {
-        pool.slots.length = pool.capacity;
+      // Restore slots trimmed by the previous frame's `.slots.length = used`.
+      // Must push real entries — plain `.length = capacity` extension would
+      // create sparse holes (undefined), and indexed writes on those slots
+      // crash with "Cannot set properties of undefined".
+      while (pool.slots.length < pool.capacity) {
+        pool.slots.push(factory());
       }
     },
     reset(): void {

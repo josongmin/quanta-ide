@@ -12,7 +12,7 @@ export const WS_CLASSES = {
   debugTab: "ws-debug__tab",
   debugBody: "ws-debug__body",
   debugGrid: "ws-debug__grid",
-  debugToggle: "ws-debug__toggle",
+  debugToggle: "ws-debug__launcher",
   debugK: "ws-debug__k",
   debugV: "ws-debug__v",
 

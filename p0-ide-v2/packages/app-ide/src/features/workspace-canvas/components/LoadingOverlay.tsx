@@ -6,16 +6,16 @@ interface Props {
   hasGraph: boolean;
 }
 
-// Human-readable stage labels. elk-running shows a nondeterministic spinner
-// because ELK doesn't report internal progress.
+// Human-readable stage labels. The "refining" stage shows a nondeterministic
+// spinner because the layered-layout pass doesn't report internal progress.
 const STAGE_LABEL: Record<LayoutProgress["stage"], string> = {
   idle:         "Preparing workspace…",
-  requested:    "Computing grid layout…",
-  "grid-ready": "Rendering grid…",
-  "elk-running": "Refining with ELK layered layout…",
-  "elk-skipped": "Grid layout ready (ELK skipped — too many nodes)",
-  "elk-done":    "ELK layout applied",
-  "elk-failed":  "Grid layout ready (ELK failed, using grid)",
+  requested:    "Computing layout…",
+  "grid-ready": "Rendering…",
+  "elk-running": "Refining layout…",
+  "elk-skipped": "Layout ready",
+  "elk-done":    "Layout ready",
+  "elk-failed":  "Layout ready",
   "worker-error": "Canvas worker crashed",
 };
 

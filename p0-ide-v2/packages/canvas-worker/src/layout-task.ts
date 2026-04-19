@@ -1,21 +1,21 @@
 import type { WorkspaceGraph, WorkspaceLayout, BezierRoute } from "@quanta/canvas-engine";
 import type { LayoutStrategy } from "./messages";
-import { gridLayout, treemapLayout, FILE_CARD_W, FILE_CARD_H } from "@quanta/canvas-engine";
+import { treemapLayout, FILE_CARD_W, FILE_CARD_H } from "@quanta/canvas-engine";
 
 /**
- * Node-count threshold above which we switch from grid to treemap. Grid
- * produces readable output for small graphs; treemap only pays off when
- * the grid's aspect ratio starts hurting (~>100 files in 8-col grid).
+ * Kept for backwards-compat with callers that still import the name. Layout
+ * no longer branches on it — we always use treemap so that files are grouped
+ * by directory hierarchy at every LOD tier (city/street/ground). Grid was
+ * flat and hid the folder structure.
  */
-export const TREEMAP_THRESHOLD = 100;
+export const TREEMAP_THRESHOLD = 0;
 
 export async function runLayoutTask(
   graph: WorkspaceGraph,
   strategy: LayoutStrategy,
   pinnedNodes?: Record<string, { x: number; y: number; w: number; h: number }>,
 ): Promise<WorkspaceLayout> {
-  const useTreemap = graph.files.length > TREEMAP_THRESHOLD;
-  const baseResult = useTreemap ? treemapLayout(graph) : gridLayout(graph);
+  const baseResult = treemapLayout(graph);
 
   if (strategy === "grid") {
     return baseResult;
@@ -29,10 +29,11 @@ export async function runLayoutTask(
   }
 }
 
-// Sync grid layout — exported so the worker can send an immediate
-// LAYOUT_READY before (optionally) following up with a slower ELK pass.
+// Sync layout — exported so the worker can send an immediate LAYOUT_READY
+// before (optionally) following up with a slower refinement pass. Always
+// treemap so folder hierarchy is preserved even on small graphs.
 export function runGridLayout(graph: WorkspaceGraph): WorkspaceLayout {
-  return gridLayout(graph);
+  return treemapLayout(graph);
 }
 
 /**

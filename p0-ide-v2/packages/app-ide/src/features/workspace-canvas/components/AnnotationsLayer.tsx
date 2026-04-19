@@ -438,10 +438,32 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
     e.stopPropagation();
   }, [toWorld]);
 
+  // Mirror the active tool onto the workspace-canvas root via a data-attr
+  // so CSS can switch cursor without threading tool state into every
+  // sibling. Cleared when the layer unmounts or tool resets.
+  useEffect(() => {
+    const root = containerRef.current;
+    if (!root) return;
+    if (activeTool === "none") {
+      root.removeAttribute("data-annotation-tool");
+    } else {
+      root.setAttribute("data-annotation-tool", activeTool);
+    }
+    return () => { root.removeAttribute("data-annotation-tool"); };
+  }, [activeTool, containerRef]);
+
   if (!toolbarOn) return null;
 
   const laserPath =
     laserTrail.length >= 2 ? laserTrail.map(p => `${p.x},${p.y}`).join(" ") : "";
+
+  // When a tool is active the layer also swallows the companion native
+  // mousedown event — the parent canvas's `onMouseDown` listens for that
+  // (separate event from pointerdown) and would start a pan drag on top
+  // of our annotation drag. Kill the React-synthetic bubble early.
+  const swallowMouseDown = (e: React.MouseEvent) => {
+    if (activeTool !== "none") e.stopPropagation();
+  };
 
   return (
     <div
@@ -449,6 +471,7 @@ export function AnnotationsLayer({ transform, scale, containerRef }: Props) {
       className="workspace-canvas__annotations-layer"
       style={{ transformOrigin: "0 0", pointerEvents: activeTool === "none" ? "none" : "auto" }}
       onPointerDown={onLayerPointerDown}
+      onMouseDown={swallowMouseDown}
     >
       <svg
         className="workspace-canvas__annotations-svg"

@@ -51,13 +51,19 @@ function StreetCardImpl({
   authorTint,
   onSelect,
 }: StreetCardProps) {
-  const HEADER_H = 32;
-  const FOOTER_H = 20;
-  const ROW_H    = 22;
-
-  const bodyHeight = rect.h - HEADER_H - FOOTER_H;
-  const maxRows    = Math.max(0, Math.floor(bodyHeight / ROW_H));
-  const visibleFns = file.functions.slice(0, maxRows);
+  // Street card shows one row per function, so its intrinsic content
+  // height is (header + N * row + footer) — which is much smaller than
+  // `rect.h` (which the layout now sizes from the file's LOC to fit the
+  // Ground card's rendered source). Two consequences:
+  //   1. We render *all* functions, not a slice — the rect is always
+  //      large enough, the previous `Math.floor(bodyHeight / ROW_H)` cap
+  //      only cut rows off when `rect.h` under-provisioned Ground too.
+  //   2. We position the card using `rect.{x,y,w}` but let its height be
+  //      content-driven (no fixed `height`); a `minHeight` keeps small
+  //      cards tappable. Layout slot is reserved at `rect.h` — the empty
+  //      space below short Street cards is the visual cost of using one
+  //      shared layout across LODs.
+  const visibleFns = file.functions;
 
   const elevation = elevationMode ? elevationFromRisk(file.riskScore) : 0;
   const effectKinds = effects?.effects ?? [];
@@ -66,13 +72,14 @@ function StreetCardImpl({
   const latencyTint = showLatencyOverlay && latency
     ? hexFromInt(latencyColor(latency.p95))
     : null;
-  const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, height: rect.h };
+  const style: CSSProperties = { left: rect.x, top: rect.y, width: rect.w, minHeight: 120 };
+  // Author tint wins over latency — they'd otherwise fight for the same
+  // background slot. Latency overlay keeps its footer glyph. Blend toward
+  // white so the card stays crisp when either overlay is active.
   if (authorTint) {
-    // Author tint wins over latency — they'd otherwise fight for the
-    // same background slot. Latency overlay keeps its footer glyph.
-    style.background = `color-mix(in srgb, ${authorTint} 28%, var(--bg))`;
+    style.background = `color-mix(in srgb, ${authorTint} 12%, #ffffff)`;
   } else if (latencyTint) {
-    style.background = `color-mix(in srgb, ${latencyTint} 22%, var(--bg))`;
+    style.background = `color-mix(in srgb, ${latencyTint} 10%, #ffffff)`;
   }
   if (elevation > 0) {
     const ox = elevation * 0.3;

@@ -69,13 +69,14 @@ export function MarketplacePage() {
         sub="Connect Quanta to the tools your team already uses."
       />
       <div className="demo-app__body">
-        <div className="demo-sectionbar">
+        <div className="demo-sectionbar" style={{ flexWrap: "wrap", rowGap: "var(--space-2)" }}>
           <div
             style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               border: "1px solid var(--border)", padding: "0 10px", height: 28,
               borderRadius: "var(--radius-sm)", background: "var(--bg)",
               color: "var(--fg-subtle)", fontSize: "var(--fs-xs)",
+              flex: "0 0 auto",
             }}
           >
             <Search size={13} strokeWidth={2} />
@@ -84,11 +85,11 @@ export function MarketplacePage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search integrations"
-              style={{ border: 0, outline: "none", background: "transparent", color: "var(--fg)", font: "inherit", width: 180 }}
+              style={{ border: 0, outline: "none", background: "transparent", color: "var(--fg)", font: "inherit", width: 180, minWidth: 0 }}
             />
           </div>
           <span className="demo-sectionbar__spacer" />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minWidth: 0, justifyContent: "flex-end" }}>
             {CATEGORIES.map((c) => (
               <button
                 key={c}
@@ -104,19 +105,28 @@ export function MarketplacePage() {
         </div>
 
         <div
-          className="demo-grid-3"
-          style={{ gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "var(--space-3)" }}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(260px, 320px))",
+            gap: "var(--space-3)",
+            justifyContent: "start",
+          }}
         >
           {shown.map((i) => {
             const Icon = i.icon;
             return (
               <div key={i.name} className="demo-catalog__card" style={{ position: "relative", textAlign: "left" }}>
-                <div className="demo-catalog__card-head">
+                <div className="demo-catalog__card-head" style={{ minWidth: 0 }}>
                   <span className="demo-catalog__card-icon" aria-hidden>
                     <Icon size={16} strokeWidth={1.8} />
                   </span>
-                  <span className="demo-catalog__card-cat">{i.category}</span>
-                  <span style={{ marginLeft: "auto" }}>
+                  <span
+                    className="demo-catalog__card-cat"
+                    style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: "1 1 auto" }}
+                  >
+                    {i.category}
+                  </span>
+                  <span style={{ marginLeft: "auto", flex: "0 0 auto" }}>
                     {i.connected ? (
                       <span className="demo-badge demo-badge--success">✓ Connected</span>
                     ) : (

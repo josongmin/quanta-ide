@@ -4,6 +4,7 @@ import { sceneStore } from "../store/scene-store";
 import { viewportStore } from "../store/viewport-store";
 import { interactionStore } from "../store/interaction-store";
 import { stickiesStore } from "../store/stickies-store";
+import { annotationsStore } from "../store/annotations-store";
 import type { ModifierState } from "./use-keyboard-shortcuts";
 
 // Drag vs click disambiguation: a pan gesture and an intra-element click
@@ -124,6 +125,9 @@ export function useCanvasInteractions(opts: UseCanvasInteractionsOpts): CanvasIn
   // Mouse drag for pan.
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button,a,.file-card")) return;
+    // Annotation tool active → drawing takes over, pan must not start.
+    // Otherwise pointerdown would draw while mousedown simultaneously pans.
+    if (annotationsStore.getState().activeTool !== "none") return;
     e.preventDefault();
     dragging.current = true;
     dragDistance.current = 0;

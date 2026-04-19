@@ -23,31 +23,63 @@
 
 /* OTP input */
 .demo-otp {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1h);
   width: 100%;
 }
 .demo-otp input {
-  width: 100%;
+  flex: 1 1 0;
   min-width: 0;
-  height: 48px;
+  height: 56px;
   padding: 0;
   text-align: center;
-  font-size: 20px;
+  font-size: 22px;
   font-weight: var(--fw-semibold);
   letter-spacing: 0;
   font-family: var(--font-mono);
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg-muted) 55%, var(--bg));
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--fg);
   box-sizing: border-box;
+  caret-color: var(--accent);
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+.demo-otp input::placeholder {
+  color: color-mix(in srgb, var(--fg-subtle) 60%, transparent);
+  font-weight: var(--fw-regular);
+}
+.demo-otp input.is-filled {
+  background: var(--bg);
+  border-color: var(--border-strong);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 6%, transparent);
 }
 .demo-otp input:focus {
   outline: none;
+  background: var(--bg);
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 6px 18px -8px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.demo-otp__sep {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 1px;
+  background: var(--border-strong);
+  border-radius: var(--radius-pill);
+  opacity: 0.7;
+}
+.demo-otp.is-complete input {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 /* Pricing cards */

@@ -171,17 +171,28 @@ export const GRID_GAP_X  = 100;
 export const GRID_GAP_H  = 60;
 export const GRID_COLS   = 8;
 
-// Variable-height file card constants. The renderer now draws the full
-// source inside each card (per the Code Universe spec), so heights must
-// scale with LOC instead of a single fixed `FILE_CARD_H`. Formula:
-//     h = FILE_CARD_HEADER_H + loc * FILE_CARD_LINE_H + FILE_CARD_PAD_H
-// with a sensible floor so tiny files still have a tappable surface.
-// Upper bound: intentionally none — long files render long, and the
-// shelf packer below handles the uneven column heights.
-export const FILE_CARD_HEADER_H = 40;
-export const FILE_CARD_LINE_H   = 12;
-export const FILE_CARD_PAD_H    = 16;
+// Variable-height file card constants. The renderer draws the full source
+// inside each Ground card (per the Code Universe spec), so layout heights
+// must match what the DOM actually paints — otherwise the minHeight
+// fallback in GroundCard lets the card grow past rect.h and overlaps the
+// next card in its column.
+//
+// Formula:  h = FILE_CARD_HEADER_H + loc * FILE_CARD_LINE_H + FILE_CARD_PAD_H
+// with a floor so tiny files stay tappable. Values mirror the CSS:
+//   HEADER_H = 32  → `.ground-card__header` / `.street-card__header`
+//   LINE_H   = 17  → `.ground-card__source` (11px × 1.55 line-height ≈ 17.05)
+//   PAD_H    = 24  → source vertical padding (16) + small buffer for the
+//                    optional effects strip / footer
+// MAX_H is set high so real source files are never truncated — the cap
+// only kicks in for pathological cases (minified bundles, lockfiles).
+// Street cards (function-row list) consume far less vertical space than
+// the LOC-derived height, so they render inside a larger rect than they
+// need; that is an acceptable trade for keeping a single shared layout.
+export const FILE_CARD_HEADER_H = 32;
+export const FILE_CARD_LINE_H   = 17;
+export const FILE_CARD_PAD_H    = 24;
 export const FILE_CARD_MIN_H    = 120;
+export const FILE_CARD_MAX_H    = 30000;
 
 /**
  * Compute the rendered height for a file card from its LOC count.
@@ -190,5 +201,6 @@ export const FILE_CARD_MIN_H    = 120;
  */
 export function computeFileHeight(loc: number): number {
   const l = Math.max(0, Math.floor(loc));
-  return Math.max(FILE_CARD_MIN_H, FILE_CARD_HEADER_H + l * FILE_CARD_LINE_H + FILE_CARD_PAD_H);
+  const raw = FILE_CARD_HEADER_H + l * FILE_CARD_LINE_H + FILE_CARD_PAD_H;
+  return Math.max(FILE_CARD_MIN_H, Math.min(FILE_CARD_MAX_H, raw));
 }
