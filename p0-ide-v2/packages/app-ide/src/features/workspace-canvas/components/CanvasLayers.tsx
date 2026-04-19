@@ -6,6 +6,7 @@ import { CollabLayer } from "./CollabLayer";
 import { AnnotationsLayer } from "./AnnotationsLayer";
 import { ReviewLayer } from "./ReviewLayer";
 import { TicketsLayer } from "./TicketsLayer";
+import { SlackThreadsLayer } from "./SlackThreadsLayer";
 import { PrBadgesLayer } from "./PrBadgesLayer";
 import { AnomalyBadgesLayer } from "./AnomalyBadgesLayer";
 import { Minimap } from "./Minimap";
@@ -139,6 +140,7 @@ export function CanvasLayers(props: CanvasLayersProps) {
       <AnnotationsLayer transform={transform} scale={scale} containerRef={containerRef} />
       <ReviewLayer graph={graph} transform={transform} scale={scale} />
       <TicketsLayer transform={transform} />
+      <SlackThreadsLayer transform={transform} />
       <PrBadgesLayer transform={transform} />
       <AnomalyBadgesLayer layout={layout} transform={transform} />
       <Minimap layout={layout} viewport={viewport} />

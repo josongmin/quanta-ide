@@ -261,6 +261,48 @@ export function BisectGame() {
   );
 }
 
+// Demo-friendly bug suggestions. Real bisect is unprejudiced (we don't
+// actually evaluate the text — the user casts yes/no votes), but seeding
+// realistic-sounding scenarios makes the "what should I type?" question
+// evaporate.
+const SAMPLE_BUGS: readonly string[] = [
+  "Canvas stops rendering edges after opening inspector",
+  "Film strip thumbnails flash black on scrub",
+  "Dual split loses diff overlay at LOD change",
+  "AI summary popover never dismisses on Esc",
+];
+
+function SampleBugHints({ onPick }: { onPick: (text: string) => void }) {
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: -2 }}>
+      <span style={{ fontSize: 10, opacity: 0.6, alignSelf: "center" }}>try</span>
+      {SAMPLE_BUGS.map(b => (
+        <button
+          key={b}
+          type="button"
+          onClick={() => onPick(b)}
+          style={{
+            background: "rgba(56, 189, 248, 0.14)",
+            border: "1px solid rgba(56, 189, 248, 0.35)",
+            color: "#7dd3fc",
+            fontSize: 10.5,
+            padding: "3px 8px",
+            borderRadius: 999,
+            cursor: "pointer",
+            maxWidth: 210,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+          title={b}
+        >
+          {b.length > 34 ? b.slice(0, 32) + "…" : b}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Bracket({
   lo, hi, mid, total,
 }: {

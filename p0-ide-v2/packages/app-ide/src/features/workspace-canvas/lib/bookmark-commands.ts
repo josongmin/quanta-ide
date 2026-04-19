@@ -83,7 +83,11 @@ export function autoLabelBookmark(): string {
 // a consistent thumbnail regardless of drawer mount state.
 export function captureThumbnail(): string | undefined {
   if (typeof document === "undefined") return undefined;
-  const canvas = document.querySelector(".workspace-canvas canvas");
+  // Direct-child selector: the Pixi stage canvas is mounted as the first
+  // immediate child of `.workspace-canvas`. Using a descendant selector
+  // would also match HUD canvases (minimap heat, temporal strip) and
+  // grab whichever appears first in document order.
+  const canvas = document.querySelector(".workspace-canvas > canvas");
   if (!(canvas instanceof HTMLCanvasElement)) return undefined;
   try {
     const scaled = scaledThumbnail(canvas, 240, 144);

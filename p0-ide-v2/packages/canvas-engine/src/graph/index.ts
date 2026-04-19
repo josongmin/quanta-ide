@@ -69,6 +69,9 @@ export { findCycleGenesis } from "./cycle-archaeology";
 export type { SmellKind, SmellGenesis, SmellDetectionOpts } from "./smell-genesis";
 export { findSmellGenesis } from "./smell-genesis";
 
+export type { SymbolMatch, SymbolSearchOpts } from "./symbol-first-appearance";
+export { findSymbolFirstAppearance } from "./symbol-first-appearance";
+
 export type { DebtSnapshot } from "./debt-trajectory";
 export { computeDebtTrajectory } from "./debt-trajectory";
 

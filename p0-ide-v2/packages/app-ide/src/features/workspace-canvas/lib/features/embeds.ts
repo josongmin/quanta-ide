@@ -34,7 +34,7 @@ export const embedsFeatures: readonly FeatureDescriptor[] = [
     id: "embeds.slackThread",
     category: "embeds",
     label: "Slack thread embed",
-    description: "Mock Slack thread cards — last reply preview, message count, linked to files in the HUD.",
+    description: "Mock Slack thread cards pinned to the right edge of each linked file (city+ zoom). Threads without a resolved file collapse into a bottom-left stack.",
     defaultEnabled: false,
     maturity: "beta",
     introducedIn: "batch-8",

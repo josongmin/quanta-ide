@@ -31,11 +31,11 @@ function defaultLabel(n: number): string {
 }
 
 function captureThumbnail(): string | undefined {
-  // Grab the first <canvas> under .workspace-canvas — that's the Pixi
-  // stage. Worst case (node not found or toDataURL refuses), skip the
-  // thumbnail; bookmarks still carry camera state.
+  // Direct-child selector pins this to the Pixi stage canvas. A plain
+  // descendant selector also matches HUD canvases (minimap heat, temporal
+  // strip) and would pick whichever appears first in document order.
   if (typeof document === "undefined") return undefined;
-  const canvas = document.querySelector(".workspace-canvas canvas");
+  const canvas = document.querySelector(".workspace-canvas > canvas");
   if (!(canvas instanceof HTMLCanvasElement)) return undefined;
   try {
     const scaled = scaledThumbnail(canvas, 160, 96);

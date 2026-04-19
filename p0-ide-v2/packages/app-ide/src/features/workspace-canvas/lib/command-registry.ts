@@ -23,6 +23,7 @@ import { renderSettingsStore } from "../store/render-settings-store";
 import { stickiesStore, type Sticky } from "../store/stickies-store";
 import { themeStore } from "../store/theme-store";
 import { actionTerrainStore } from "../store/action-terrain-store";
+import { cancelAiRepoTour, runAiClusterStickies, runAiRepoTour } from "./ai-launchers";
 
 export type CommandCategory =
   | "files"
@@ -236,6 +237,34 @@ export function seedCommands(ctx: CommandSeedContext): readonly Command[] {
         window.dispatchEvent(new CustomEvent("temporal-bisect-toggle", { detail: true }));
       }
     },
+  });
+
+  // AI launchers — same launcher functions the HUD uses. Commands only
+  // appear when the matching flag is on; the launcher itself
+  // double-checks the flag so it's safe to invoke from anywhere.
+  out.push({
+    id: "action.ai.clusterStickies",
+    label: "AI: cluster stickies",
+    category: "actions",
+    keywords: ["ai", "sticky", "group", "cluster", "organize"],
+    when: () => featureFlagsStore.isEnabled("ai.clusterStickies"),
+    run: () => { void runAiClusterStickies(); },
+  });
+  out.push({
+    id: "action.ai.repoTour",
+    label: "AI: start repo tour",
+    category: "actions",
+    keywords: ["ai", "tour", "onboarding", "start here", "guide"],
+    when: () => featureFlagsStore.isEnabled("ai.repoTour"),
+    run: () => { void runAiRepoTour(); },
+  });
+  out.push({
+    id: "action.ai.cancelRepoTour",
+    label: "AI: cancel repo tour",
+    category: "actions",
+    keywords: ["ai", "tour", "stop", "cancel"],
+    when: () => featureFlagsStore.isEnabled("ai.repoTour"),
+    run: () => { cancelAiRepoTour(); },
   });
 
   // Files --------------------------------------------------------------

@@ -55,6 +55,7 @@ import {
 } from "../store/action-terrain-store";
 
 const EMPTY_TINT_MAP: ReadonlyMap<string, string> = new Map();
+const EMPTY_AGENT_PRESENCE: readonly AgentPresence[] = Object.freeze([]);
 
 interface Props {
   graph: WorkspaceGraph;
@@ -136,7 +137,13 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   // through the 20+ store selectors above.
   const presenceActivityMap = usePresenceActivity(m => m);
   const presenceCursorMap   = usePresenceCursors(m => m);
+  // `collab.presence` gates the rings. The render-settings `showAgentPresence`
+  // knob acts as a secondary HUD toggle (on by default) so the flag is the
+  // master switch: OFF → we short-circuit to an empty array, which is cheaper
+  // than asking PixiStage to render nothing.
+  const presenceFlag = useFeature("collab.presence");
   const agentPresence = useMemo<readonly AgentPresence[]>(() => {
+    if (!presenceFlag) return EMPTY_AGENT_PRESENCE;
     const out: AgentPresence[] = [];
     for (const [id, a] of presenceActivityMap) {
       const c = presenceCursorMap.get(id);
@@ -154,7 +161,7 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
       out.push(rec);
     }
     return out;
-  }, [presenceActivityMap, presenceCursorMap]);
+  }, [presenceFlag, presenceActivityMap, presenceCursorMap]);
 
   const actionTerrainMode    = useActionTerrainStore(s => s.mode);
   const actionTerrainEnabled = useActionTerrainRender(s => s.enabled);
@@ -505,7 +512,6 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
       ref={containerRef}
       className="workspace-canvas"
       data-action-terrain={actionTerrainMode ? "on" : "off"}
-      data-inline-editing={editingFileId ? "on" : "off"}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}

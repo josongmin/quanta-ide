@@ -5,11 +5,13 @@ import type {
   SmellGenesis,
   SmellKind,
   CycleGenesis,
+  SymbolMatch,
 } from "@quanta/canvas-engine";
 import {
   detectDrift,
   findCycleGenesis,
   findSmellGenesis,
+  findSymbolFirstAppearance,
   materializeEdgeSet,
 } from "@quanta/canvas-engine";
 import { useSceneStore } from "../../store/scene-store";
@@ -120,6 +122,7 @@ export function ArchaeologyPanel() {
           <DriftFindings />
           <CycleGenesisBlock />
           <SmellGenesisBlock />
+          <SymbolFirstAppearanceBlock />
           <DebtTrajectoryBlock />
         </>
       )}
@@ -322,6 +325,118 @@ function SmellGenesisBlock() {
             </div>
           ))}
         </div>
+      )}
+    </>
+  );
+}
+
+function SymbolFirstAppearanceBlock() {
+  const on = useFeature("archaeology.symbolFirstAppearance");
+  const graph = useSceneStore(s => s.graph);
+  const [query, setQuery] = useState("");
+
+  // Debounce-less live search — the engine routine walks snapshots
+  // linearly and we cap results so even a one-char query stays cheap.
+  // A real debounce can land later if repo sizes push the naive filter
+  // past a frame budget.
+  const matches = useMemo<readonly SymbolMatch[]>(() => {
+    if (!on || !graph || !graph.history) return [];
+    const q = query.trim();
+    if (q.length < 2) return [];
+    return findSymbolFirstAppearance(q, graph.history, {
+      files: graph.files,
+      fileEdges: graph.fileEdges,
+    }, { limit: 12 });
+  }, [on, graph, query]);
+
+  if (!on) return null;
+
+  const jumpTo = (match: SymbolMatch) => {
+    // Rewind the temporal slider to the snapshot where the symbol first
+    // appeared, select the file, and re-centre the viewport on it so the
+    // archaeology block behaves like a navigation surface, not just a
+    // read-only result list.
+    interactionStore.selectFile(match.fileId);
+    interactionStore.setTemporalMode("live");
+    interactionStore.setSnapshotIndex(match.firstSnapshotIndex);
+  };
+
+  return (
+    <>
+      <div className="ws-debug__divider">symbol first-appearance</div>
+      {!graph?.history ? (
+        <div className="ws-debug__hint">히스토리 소스가 연결되지 않았습니다.</div>
+      ) : (
+        <>
+          <input
+            type="text"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="함수/파일 이름 검색 (2자+)"
+            className="ws-debug__input"
+            style={{
+              width: "100%",
+              background: "rgba(148, 163, 184, 0.08)",
+              border: "1px solid rgba(148, 163, 184, 0.2)",
+              borderRadius: 4,
+              color: "#e2e8f0",
+              padding: "4px 6px",
+              fontSize: 11,
+              outline: "none",
+              marginTop: 2,
+            }}
+          />
+          {query.trim().length >= 2 && matches.length === 0 && (
+            <div className="ws-debug__hint">이 쿼리에 해당하는 심볼을 찾지 못했습니다.</div>
+          )}
+          {matches.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, marginTop: 2 }}>
+              {matches.map(m => (
+                <button
+                  key={`${m.fileId}:${m.matchedName}:${m.kind}`}
+                  type="button"
+                  className="ws-debug__sticky-row"
+                  onClick={() => jumpTo(m)}
+                  title={`${m.firstCommitSha ?? "(no sha)"} · ${new Date(m.firstTimestamp).toLocaleString()}\n${m.firstSnapshotLabel}`}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    textAlign: "left",
+                    padding: "2px 4px",
+                    cursor: "pointer",
+                    color: "inherit",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 26,
+                      fontSize: 9,
+                      opacity: 0.6,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    {m.kind === "function" ? "fn" : "file"}
+                  </span>
+                  <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {m.matchedName}
+                  </span>
+                  <span
+                    style={{
+                      opacity: 0.75,
+                      fontSize: 10,
+                      marginLeft: 6,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {m.firstCommitSha ? m.firstCommitSha.slice(0, 7) : `#${m.firstSnapshotIndex}`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
     </>
   );
