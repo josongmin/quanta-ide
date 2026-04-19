@@ -129,8 +129,12 @@ export class MockHistorySource implements HistorySource {
 
     for (let i = 0; i < snaps.length; i++) {
       const snap = snaps[i];
-      const sha = longShaFor(i, snap.timestamp);
-      const shortSha = shortShaFor(i, snap.timestamp);
+      // Prefer the snapshot's own commit sha when present so film-strip
+      // picks and PR replay can round-trip through deep-link URLs. Fall
+      // back to the deterministic hash so legacy histories (pre-T1 upgrade)
+      // still produce a unique sha.
+      const sha = snap.commitSha ?? longShaFor(i, snap.timestamp);
+      const shortSha = sha.slice(0, 7);
       // Derive a delta — prefer the snapshot's declared add/remove; when
       // a snapshot ships an absolute edgeIds (as the base does) we treat
       // the diff against an empty set as the "added" side. The UI never
@@ -141,20 +145,27 @@ export class MockHistorySource implements HistorySource {
       deltaMap.set(sha, delta);
 
       const filesTouched = filesTouchedInDelta([...added, ...removed], edgeById);
-      const author = AUTHORS[i % AUTHORS.length];
+      // Prefer per-snapshot author metadata when the snapshot carries it
+      // (richer synthesized histories + real git sources set this). Fall
+      // back to the deterministic roster cycle so tests keep their
+      // existing alice→bob→charlie→dana assumption.
+      const rosterAuthor = AUTHORS[i % AUTHORS.length];
+      const authorName = snap.author ?? rosterAuthor.name;
+      const authorEmail = snap.authorEmail
+        ?? (snap.author ? `${snap.author}@quanta.dev` : rosterAuthor.email);
       const meta: CommitMeta = {
         sha,
         shortSha,
         timestamp: snap.timestamp,
-        author: author.name,
-        authorEmail: author.email,
-        message: synthesizeMessage(snap, filesTouched),
+        author: authorName,
+        authorEmail,
+        message: snap.message ?? synthesizeMessage(snap, filesTouched),
         filesChanged: filesTouched,
         // Edges aren't lines, but additions/deletions must be non-trivial
         // for the UI's bar chart. Use delta sizes as a proxy × a small
         // fudge factor so the film strip has visible variance.
-        additions: added.length * 7,
-        deletions: removed.length * 5,
+        additions: snap.additions ?? added.length * 7,
+        deletions: snap.deletions ?? removed.length * 5,
         parentShas: prevSha ? [prevSha] : [],
       };
       metas.push(meta);

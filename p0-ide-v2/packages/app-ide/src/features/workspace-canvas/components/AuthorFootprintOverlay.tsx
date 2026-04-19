@@ -66,7 +66,10 @@ export function computeAuthorTints(
   const snap = history.snapshots[snapshotIndex];
   if (!snap) return { tintByFile, authorsInSnapshot: [] };
 
-  const author = mockAuthorForSnapshot(snapshotIndex);
+  // Prefer the snapshot's own author (rich synthesized histories +
+  // git-sourced snapshots carry this) so tints match the displayed commit
+  // author instead of the deterministic roster cycle.
+  const author = snap.author ?? mockAuthorForSnapshot(snapshotIndex);
   authorSet.add(author);
   const tint = authorColor(author);
 
@@ -102,10 +105,15 @@ export function AuthorFootprintLegend({ history }: { history: GraphHistory | und
   if (!enabled || !history) return null;
   if (temporal.mode !== "live") return null;
   const idx = temporal.snapshotIndex;
-  const author = mockAuthorForSnapshot(idx);
-  // Mock source cycles 4 authors — we render the full palette so
-  // legend is stable even if the current snapshot only surfaces one.
-  const authors = ["alice", "bob", "charlie", "dana"];
+  const snap = history.snapshots[idx];
+  const author = snap?.author ?? mockAuthorForSnapshot(idx);
+  // Collect all authors actually present in the history when available;
+  // fall back to the roster so legend stays stable.
+  const authorSet = new Set<string>();
+  for (const s of history.snapshots) if (s.author) authorSet.add(s.author);
+  const authors = authorSet.size > 0
+    ? [...authorSet].sort()
+    : ["alice", "bob", "charlie", "dana"];
 
   return (
     <div style={legendStyle} role="status" aria-label="Author footprint legend">

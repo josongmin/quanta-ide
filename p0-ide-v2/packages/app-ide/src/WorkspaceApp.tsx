@@ -5,6 +5,7 @@ import {
   MultiFileCanvas,
   SAMPLE_GRAPH,
   debugSettingsStore,
+  installTemporalHistoryBridge,
   loadRepoGraph,
   sceneStore,
   setActiveGraphSource,
@@ -94,6 +95,16 @@ export function WorkspaceApp(props: WorkspaceAppProps) {
   useTabFocus(isActive, () => {
     debugSettingsStore.resetDebugKnobs();
   });
+
+  // Install the temporal history bridge once per app lifetime. The bridge
+  // listens to the historyStore (owner of the mock↔git source swap) and
+  // patches `sceneStore.graph.history` whenever commits arrive or the
+  // `temporal.gitSource` flag flips. Without this, the store is dead
+  // code and the flag is a silent no-op — see temporal-history-bridge.ts.
+  useEffect(() => {
+    const dispose = installTemporalHistoryBridge();
+    return dispose;
+  }, []);
 
   const load = async (path: string, exts?: string[], max?: number) => {
     setStatus({ kind: "loading", path });

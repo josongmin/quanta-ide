@@ -20,6 +20,18 @@ export interface GraphSnapshot {
   removed?: readonly string[];
   /** Absolute edge set. When present, overrides delta application. */
   edgeIds?: readonly string[];
+  /** Author name at this snapshot. When absent, callers may derive
+   *  deterministic placeholder authors by index. */
+  author?: string;
+  /** Author email — used when projecting into a HistorySource CommitMeta. */
+  authorEmail?: string;
+  /** Commit subject line. When absent, `label` is used as the display
+   *  string. Populated for richer synthesized histories and for snapshots
+   *  projected from a live HistorySource. */
+  message?: string;
+  /** Stats for the commit. When absent, proxied from delta sizes. */
+  additions?: number;
+  deletions?: number;
 }
 
 export interface GraphHistory {

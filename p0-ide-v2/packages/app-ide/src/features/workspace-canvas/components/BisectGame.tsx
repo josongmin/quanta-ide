@@ -159,6 +159,7 @@ export function BisectGame() {
                   style={{ ...inputStyle, height: 80, resize: "vertical" }}
                 />
               </label>
+              <SampleBugHints onPick={text => setBug(text)} />
               <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                 <button type="button" onClick={() => setOpen(false)} style={ghostBtnStyle}>
                   Cancel
@@ -195,7 +196,13 @@ export function BisectGame() {
               {!state.done && (
                 <>
                   <div style={{ fontSize: 12 }}>
-                    Is the bug present at <strong>{history.snapshots[state.mid]?.label ?? `#${state.mid}`}</strong>?
+                    Is the bug present at{" "}
+                    <strong>{history.snapshots[state.mid]?.message ?? history.snapshots[state.mid]?.label ?? `#${state.mid}`}</strong>
+                    {history.snapshots[state.mid]?.author && (
+                      <span style={{ opacity: 0.6, marginLeft: 6 }}>
+                        · {history.snapshots[state.mid]?.author}
+                      </span>
+                    )}?
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <button type="button" onClick={() => answer("yes")} style={yesBtnStyle}>
@@ -220,7 +227,7 @@ export function BisectGame() {
                   fontSize: 12,
                 }}>
                   <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                    Found it: {history.snapshots[state.culprit]?.label} introduced the bug.
+                    Found it: {history.snapshots[state.culprit]?.message ?? history.snapshots[state.culprit]?.label} introduced the bug.
                   </div>
                   {bug && <div style={{ opacity: 0.8, fontStyle: "italic" }}>{bug}</div>}
                 </div>

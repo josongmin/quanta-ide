@@ -129,7 +129,8 @@ function TemporalMinimapStripImpl({ history, width }: Props) {
     const range = bucket.startIndex === bucket.endIndex
       ? ""
       : ` (+${bucket.endIndex - bucket.startIndex} more)`;
-    setTooltip({ x: e.nativeEvent.offsetX, text: `${sha} · ${s.label}${range}` });
+    const summary = s.message ?? s.label;
+    setTooltip({ x: e.nativeEvent.offsetX, text: `${sha} · ${summary}${range}` });
   }, [history, bucketForX, layout]);
 
   const onMouseLeave = useCallback(() => setTooltip(null), []);

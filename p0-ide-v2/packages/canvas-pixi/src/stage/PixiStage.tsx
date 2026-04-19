@@ -56,6 +56,11 @@ interface PixiBundle {
 const pixiByCanvas = new WeakMap<HTMLCanvasElement, PixiBundle>();
 const initInFlight = new WeakMap<HTMLCanvasElement, Promise<PixiBundle>>();
 
+// Mutable pointer to the most-recently-initialized Pixi canvas. Used by
+// external thumbnail capture helpers so consumers don't need to plumb
+// refs back up to the React tree. Cleared on unmount (destroyBundle).
+let latestPixiCanvas: HTMLCanvasElement | null = null;
+
 // Grace window before an unmount-triggered destroy actually fires. StrictMode's
 // mount → unmount → mount cycle and Fast Refresh both can unmount/remount
 // within a few ms; we wait long enough for a remount to cancel the destroy,
@@ -210,6 +215,42 @@ const TRACE_DIM_ALPHA = 0.15;
 // flipping. To try it locally, change the constant and rebuild.
 export const TICKER_RENDER_LOOP_ENABLED: boolean = false;
 
+/**
+ * Extract a thumbnail data-URL from the most recently initialized Pixi
+ * canvas. Uses `renderer.extract.canvas(stage)` (which bypasses Pixi's
+ * preserveDrawingBuffer requirement) and downsamples to `maxDim`.
+ *
+ * Returns `null` when no Pixi canvas is live (pre-init, SSR, stage
+ * torn down) so callers can short-circuit without try/catch.
+ */
+export async function extractActiveCanvasThumbnail(maxDim = 160): Promise<string | null> {
+  const canvas = latestPixiCanvas;
+  if (!canvas) return null;
+  const bundle = pixiByCanvas.get(canvas);
+  if (!bundle) return null;
+  try {
+    const snap = (await bundle.app.renderer.extract.canvas(bundle.app.stage)) as HTMLCanvasElement;
+    const srcW = snap.width;
+    const srcH = snap.height;
+    if (srcW <= 0 || srcH <= 0) return null;
+    const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+    const dstW = Math.max(1, Math.round(srcW * scale));
+    const dstH = Math.max(1, Math.round(srcH * scale));
+    const dst = document.createElement("canvas");
+    dst.width = dstW;
+    dst.height = dstH;
+    const ctx = dst.getContext("2d");
+    if (!ctx) return null;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "medium";
+    ctx.drawImage(snap, 0, 0, dstW, dstH);
+    return dst.toDataURL("image/webp", 0.7);
+  } catch (e) {
+    console.warn("[PixiStage] thumbnail extraction failed", e);
+    return null;
+  }
+}
+
 // ── WebGPU backend preference ────────────────────────────────────────
 // Pixi 8's `app.init` accepts `preference: 'webgpu' | 'webgl' | 'canvas'`.
 // When a single string is provided, Pixi falls back to the remaining
@@ -359,6 +400,9 @@ export function PixiStage({
       worldRef.current = bundle.world;
       nodeHandlesRef.current = bundle.nodeHandles;
       overlaysRef.current = bundle.overlays;
+      // Track the active canvas so thumbnail extractors outside React can
+      // find the Pixi renderer without a context prop chain.
+      latestPixiCanvas = canvas;
       // Shader pre-warm.
       // ---------------------------------------------------------------
       // Every InstancedLineMesh / InstancedRectMesh / InstancedCircleMesh
@@ -559,6 +603,7 @@ export function PixiStage({
       worldRef.current = null;
       nodeHandlesRef.current = null;
       overlaysRef.current = null;
+      if (latestPixiCanvas === canvas) latestPixiCanvas = null;
       const bundle = pixiByCanvas.get(canvas);
       if (!bundle) return;
       const prior = pendingDestroys.get(canvas);

@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import type { GraphSnapshot, WorkspaceGraph } from "@quanta/canvas-engine";
+import { extractActiveCanvasThumbnail } from "@quanta/canvas-pixi";
 import { interactionStore, useInteractionStore } from "../store/interaction-store";
-import { commitThumbnailsStore } from "../store/commit-thumbnails-store";
+import { commitThumbnailsStore, useCommitThumbnail } from "../store/commit-thumbnails-store";
 import { useFeature } from "../store/feature-flags-store";
 
 interface Props {
@@ -41,9 +42,10 @@ interface CellDatum {
 }
 
 function authorColorFor(snapshot: GraphSnapshot): string {
-  // Snapshots carry a label + optional sha but no dedicated author field;
-  // hash the label so the dot color is stable but visually varied.
-  const src = snapshot.commitSha ?? snapshot.label ?? "";
+  // Hash prefers the explicit author name (rich histories + git sources
+  // populate this), falling back to sha/label so placeholder snapshots
+  // still get a stable but varied hue.
+  const src = snapshot.author ?? snapshot.commitSha ?? snapshot.label ?? "";
   let h = 2166136261;
   for (let i = 0; i < src.length; i++) {
     h ^= src.charCodeAt(i);
@@ -56,6 +58,10 @@ function authorColorFor(snapshot: GraphSnapshot): string {
 function shortShaFor(s: GraphSnapshot, index: number): string {
   if (s.commitSha) return s.commitSha.slice(0, 7);
   return `s${index.toString(16).padStart(3, "0")}`;
+}
+
+function messageFor(s: GraphSnapshot): string {
+  return s.message ?? s.label;
 }
 
 function formatTime(ts: number): string {
@@ -76,7 +82,7 @@ function buildCells(history: WorkspaceGraph["history"]): CellDatum[] {
       snapshot: s,
       index: i,
       shortSha: shortShaFor(s, i),
-      message: s.label,
+      message: messageFor(s),
       authorColor: authorColorFor(s),
       timestamp: s.timestamp,
     }));
@@ -89,7 +95,7 @@ function buildCells(history: WorkspaceGraph["history"]): CellDatum[] {
       snapshot: s,
       index: idx,
       shortSha: shortShaFor(s, idx),
-      message: s.label,
+      message: messageFor(s),
       authorColor: authorColorFor(s),
       timestamp: s.timestamp,
     });
@@ -102,6 +108,34 @@ function FilmStripScrubberImpl({ graph }: Props) {
   const snapshotIndex = useInteractionStore(s => s.temporal.snapshotIndex);
   const rootRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
+
+  // Thumbnail capture — after the scrub settles, grab a low-res snapshot
+  // of the live Pixi canvas and stash it under the active commit's
+  // shortSha so future hovers light up with a real preview. Kept out of
+  // the hot scrub path by a 220ms debounce and by skipping captures when
+  // a fingerprint-matching thumb already exists.
+  useEffect(() => {
+    if (!enabled) return;
+    const snap = graph.history?.snapshots[snapshotIndex];
+    if (!snap) return;
+    const shortSha = snap.commitSha?.slice(0, 7)
+      ?? `s${snapshotIndex.toString(16).padStart(3, "0")}`;
+    const fingerprint = `snap:${snapshotIndex}`;
+    const existing = commitThumbnailsStore.getThumbnail(shortSha);
+    if (existing?.fingerprint === fingerprint && existing.dataUrl) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const dataUrl = await extractActiveCanvasThumbnail(160);
+      if (cancelled || !dataUrl) return;
+      commitThumbnailsStore.capture(shortSha, {
+        sha: snap.commitSha ?? shortSha,
+        dataUrl,
+        capturedAt: Date.now(),
+        fingerprint,
+      });
+    }, 220);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [enabled, snapshotIndex, graph.history]);
 
   const cells = useMemo(() => buildCells(graph.history), [graph.history]);
 
@@ -254,10 +288,10 @@ interface CellProps {
 }
 
 const FilmStripCell = memo(function FilmStripCell({ cell, active }: CellProps) {
-  // Peek at the thumbnail store each render — we don't subscribe here
-  // because the strip as a whole is cheap to re-render and T1 will bump
-  // the store (which re-renders the parent) whenever a tile is captured.
-  const thumb = commitThumbnailsStore.getThumbnail(cell.shortSha);
+  // Subscribe so the tile re-renders when a capture lands after the scrub
+  // settle debounce. Store writes are bounded (one per settled snapshot)
+  // so the extra subscription is cheap.
+  const thumb = useCommitThumbnail(cell.shortSha);
   const [tipOpen, setTipOpen] = useState(false);
 
   const style: CSSProperties = thumb?.dataUrl

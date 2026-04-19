@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type {
+  GraphHistory,
   WorkspaceGraph,
   WorkspaceLayout,
   WorkspaceView,
@@ -272,6 +273,19 @@ const actions = {
   setHebPaths(paths: HebBatch | null) {
     if (state.hebPaths === paths) return;
     state = { ...state, hebPaths: paths };
+    emit();
+  },
+
+  // Patch only the graph.history field in place. Used by the temporal
+  // history bridge so swapping between mock and git commit sources doesn't
+  // tear down layout/scenes/ground caches the way `setGraph` does. The
+  // graph must already be installed; no-op otherwise. Pass `undefined` to
+  // clear the history (temporal UI falls back to "no commits").
+  setGraphHistory(history: GraphHistory | undefined) {
+    const g = state.graph;
+    if (!g) return;
+    if (g.history === history) return;
+    state = { ...state, graph: { ...g, history } };
     emit();
   },
 };

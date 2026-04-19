@@ -76,22 +76,6 @@
   50%      { opacity: 1; }
 }
 
-/* ── canvas-wide "focused edit" ambient ──────────────────────────── */
-
-.workspace-canvas[data-inline-editing="on"] .ground-card:not(.ground-card--editing) {
-  /* Soft dim + slight desaturation on everything except the active
-     card — Figma double-click pattern. Keeps the edit target center-
-     of-attention without hiding surrounding context. */
-  opacity: 0.55;
-  filter: saturate(0.85);
-  transition: opacity 160ms ease, filter 160ms ease;
-}
-
-.workspace-canvas[data-inline-editing="on"] .street-card {
-  opacity: 0.65;
-  transition: opacity 160ms ease;
-}
-
 /* ── AI edit prompt popup (portaled to body) ─────────────────────── */
 
 .ai-edit-prompt {

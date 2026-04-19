@@ -1,4 +1,4 @@
-export { PixiStage } from "./stage/PixiStage";
+export { PixiStage, extractActiveCanvasThumbnail } from "./stage/PixiStage";
 export type { PixiStageProps, ActionTerrainProps } from "./stage/PixiStage";
 export type { IsoTerrainBar } from "./renderers/iso/IsoTerrainRenderer";
 export type { IsoConeInput, IsoConeRing } from "./renderers/iso/IsoConeRenderer";

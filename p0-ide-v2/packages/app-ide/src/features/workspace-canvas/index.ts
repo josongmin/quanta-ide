@@ -33,3 +33,6 @@ export type { GraphSource, GraphSourceDescription } from "./data/graph-source";
 export { createMockGraphSource } from "./data/mock-graph-source";
 export type { MockGraphSourceConfig } from "./data/mock-graph-source";
 export { setActiveGraphSource, getActiveGraphSource } from "./data/loaders";
+
+// Temporal wiring — bridge historyStore (mock↔git swap) into graph.history.
+export { installTemporalHistoryBridge, projectCommitsToGraphHistory } from "./lib/temporal-history-bridge";

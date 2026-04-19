@@ -999,54 +999,139 @@ function synthesizeProofs(edges: FileEdge[], fileIds: string[]): Record<string, 
 }
 
 // ── Mock history (Stage 5: temporal slider + diff) ────────────────────
-// Five snapshots over ~10 days. Baseline carries 60% of the eventual
-// edge set; each later snapshot adds 10% and removes 5% of the *current*
-// set. Indexed picks (no RNG) so dev-reload doesn't flicker the slider.
+// 24 snapshots over ~60 days. Baseline carries 55% of the eventual edge
+// set; each later snapshot adds 8% and removes 4% of the *current* set.
+// Indexed picks (no RNG) so dev-reload doesn't flicker the slider.
+//
+// Each snapshot carries realistic metadata (commit sha, author, subject
+// line, additions/deletions) directly on the GraphSnapshot so the
+// temporal UI doesn't have to re-derive it through mock-ai-service or
+// MockHistorySource. Callers that bypass those layers (dual-split,
+// bisect, film strip) can read snap.message / snap.author directly.
 
-interface HistoryPlan {
-  dayOffset: number;
-  label: string;
+const MOCK_HISTORY_AUTHORS: readonly { name: string; email: string }[] = [
+  { name: "alice",   email: "alice@quanta.dev"   },
+  { name: "bob",     email: "bob@quanta.dev"     },
+  { name: "charlie", email: "charlie@quanta.dev" },
+  { name: "dana",    email: "dana@quanta.dev"    },
+] as const;
+
+const HISTORY_SNAPSHOT_COUNT = 24;
+const HISTORY_SPAN_DAYS = 60;
+
+function mockShortShaForSnapshot(index: number, timestamp: number): string {
+  const n = (index * 2654435761) ^ (timestamp | 0);
+  return (n >>> 0).toString(16).padStart(8, "0").slice(0, 7);
 }
 
-const HISTORY_PLAN: readonly HistoryPlan[] = [
-  { dayOffset: 0,  label: "day-0"  },
-  { dayOffset: 2,  label: "day-2"  },
-  { dayOffset: 5,  label: "day-5"  },
-  { dayOffset: 7,  label: "day-7"  },
-  { dayOffset: 10, label: "day-10" },
-] as const;
+function mockLongShaForSnapshot(index: number, timestamp: number): string {
+  const head = mockShortShaForSnapshot(index, timestamp);
+  let acc = (index + 1) * 2246822519;
+  const parts: string[] = [head];
+  for (let i = 0; i < 5; i++) {
+    acc = (acc ^ (acc << 13)) >>> 0;
+    acc = (acc ^ (acc >>> 17)) >>> 0;
+    acc = (acc ^ (acc << 5)) >>> 0;
+    parts.push((acc >>> 0).toString(16).padStart(8, "0"));
+  }
+  return parts.join("").slice(0, 40);
+}
+
+function inferCommitPrefix(touched: readonly string[]): string {
+  if (touched.length === 0) return "chore";
+  if (touched.some(f => /\.test\.|__tests__/.test(f))) return "test";
+  if (touched.some(f => /render|shader|msdf|pixi|gpu/i.test(f))) return "perf";
+  if (touched.some(f => /store|state|reducer/i.test(f))) return "refactor";
+  if (touched.some(f => /hook|components/i.test(f))) return "feat";
+  if (touched.some(f => /worker|spatial|algorithm|graph/i.test(f))) return "refactor";
+  if (touched.some(f => /(fix|bug|regress)/i.test(f))) return "fix";
+  return "refactor";
+}
+
+function inferCommitScope(touched: readonly string[]): string | null {
+  if (touched.length === 0) return null;
+  // Pick the most common top-level folder: canvas-engine, canvas-pixi,
+  // app-ide, canvas-worker.
+  const scopes = new Map<string, number>();
+  for (const id of touched) {
+    const parts = id.split("/");
+    const root = parts[0] ?? "";
+    if (!root) continue;
+    const tag = root.replace(/^(canvas-|app-)/, "").slice(0, 8);
+    scopes.set(tag, (scopes.get(tag) ?? 0) + 1);
+  }
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [tag, count] of scopes) {
+    if (count > bestCount) { best = tag; bestCount = count; }
+  }
+  return best;
+}
+
+function synthesizeCommitMessage(
+  touched: readonly string[],
+  addedCount: number,
+  removedCount: number,
+): string {
+  const prefix = inferCommitPrefix(touched);
+  const scope = inferCommitScope(touched);
+  const head = scope ? `${prefix}(${scope})` : prefix;
+  if (touched.length === 0) {
+    return `${head}: housekeeping`;
+  }
+  const primary = touched[0];
+  const base = primary.split("/").pop()?.replace(/\.(ts|tsx|js|jsx)$/, "") ?? primary;
+  if (touched.length === 1) {
+    if (addedCount > removedCount) return `${head}: wire up ${base}`;
+    if (removedCount > addedCount) return `${head}: trim dead paths in ${base}`;
+    return `${head}: tidy ${base}`;
+  }
+  if (addedCount > removedCount * 2) return `${head}: extend ${base} surface (+${touched.length - 1} more)`;
+  if (removedCount > addedCount * 2) return `${head}: prune ${base} callsites (+${touched.length - 1} more)`;
+  return `${head}: reshape ${base} & ${touched.length - 1} related`;
+}
 
 function synthesizeHistory(edges: readonly FileEdge[]): GraphHistory | undefined {
   if (edges.length < 5) return undefined;
   const ids = edges.map(e => e.id);
+  const edgeById = new Map<string, FileEdge>();
+  for (const e of edges) edgeById.set(e.id, e);
   const N = ids.length;
-  const baseCount = Math.max(1, Math.floor(N * 0.6));
-  // Deterministic baseline: every (N/baseCount)-th edge starting at 0.
+  const baseCount = Math.max(1, Math.floor(N * 0.55));
   const baseStride = Math.max(1, Math.floor(N / baseCount));
   const base = new Set<string>();
   for (let i = 0; i < N && base.size < baseCount; i += baseStride) base.add(ids[i]);
-  // Top up if stride under-filled due to rounding.
   for (let i = 0; i < N && base.size < baseCount; i++) base.add(ids[i]);
 
   const now = Date.UTC(2026, 3, 17);
   const DAY_MS = 86_400_000;
+  const stepDays = HISTORY_SPAN_DAYS / (HISTORY_SNAPSHOT_COUNT - 1);
 
   const snapshots: GraphSnapshot[] = [];
   const current = new Set<string>(base);
+
+  const rootTs = now - HISTORY_SPAN_DAYS * DAY_MS;
+  const rootAuthor = MOCK_HISTORY_AUTHORS[0];
+  const rootTouched = filesTouchedForSnapshot([...current], edgeById).slice(0, 6);
   snapshots.push({
-    timestamp: now - HISTORY_PLAN[HISTORY_PLAN.length - 1].dayOffset * DAY_MS,
-    label: HISTORY_PLAN[0].label,
+    timestamp: rootTs,
+    label: "day-0",
+    commitSha: mockLongShaForSnapshot(0, rootTs),
     edgeIds: [...current],
+    added: [...current],
+    author: rootAuthor.name,
+    authorEmail: rootAuthor.email,
+    message: `feat(workspace): initial import (${current.size} edges)`,
+    additions: current.size * 7,
+    deletions: 0,
+    ...(rootTouched.length > 0 ? {} : {}),
   });
 
-  for (let s = 1; s < HISTORY_PLAN.length; s++) {
-    const plan = HISTORY_PLAN[s];
-    const addCount = Math.max(1, Math.floor(current.size * 0.10));
-    const removeCount = Math.max(1, Math.floor(current.size * 0.05));
+  for (let s = 1; s < HISTORY_SNAPSHOT_COUNT; s++) {
+    const dayOffset = Math.round(s * stepDays);
+    const addCount = Math.max(1, Math.floor(current.size * 0.08));
+    const removeCount = Math.max(1, Math.floor(current.size * 0.04));
 
-    // Candidates for add = edges NOT currently present, picked with a
-    // prime-strided offset so successive snapshots don't rediscover the
-    // same set.
     const missing: string[] = [];
     for (const id of ids) if (!current.has(id)) missing.push(id);
     const added: string[] = [];
@@ -1055,9 +1140,6 @@ function synthesizeHistory(edges: readonly FileEdge[]): GraphHistory | undefined
       if (!current.has(pick) && !added.includes(pick)) added.push(pick);
     }
 
-    // Candidates for removal: take edges that existed in the baseline
-    // before this snapshot — stride by a different prime to avoid
-    // always-removing the oldest entries.
     const present = [...current];
     const removed: string[] = [];
     for (let i = 0; i < removeCount && present.length > 0; i++) {
@@ -1070,15 +1152,38 @@ function synthesizeHistory(edges: readonly FileEdge[]): GraphHistory | undefined
     for (const id of added) current.add(id);
     for (const id of removed) current.delete(id);
 
+    const touched = filesTouchedForSnapshot([...added, ...removed], edgeById);
+    const author = MOCK_HISTORY_AUTHORS[s % MOCK_HISTORY_AUTHORS.length];
+    const ts = now - (HISTORY_SPAN_DAYS - dayOffset) * DAY_MS;
     snapshots.push({
-      timestamp: now - (HISTORY_PLAN[HISTORY_PLAN.length - 1].dayOffset - plan.dayOffset) * DAY_MS,
-      label: plan.label,
+      timestamp: ts,
+      label: `day-${dayOffset}`,
+      commitSha: mockLongShaForSnapshot(s, ts),
       added,
       removed,
+      author: author.name,
+      authorEmail: author.email,
+      message: synthesizeCommitMessage(touched, added.length, removed.length),
+      additions: added.length * 7,
+      deletions: removed.length * 5,
     });
   }
 
   return { snapshots, baseIndex: 0 };
+}
+
+function filesTouchedForSnapshot(
+  edgeIds: readonly string[],
+  edgeById: ReadonlyMap<string, FileEdge>,
+): string[] {
+  const set = new Set<string>();
+  for (const id of edgeIds) {
+    const edge = edgeById.get(id);
+    if (!edge) continue;
+    set.add(edge.from);
+    set.add(edge.to);
+  }
+  return [...set];
 }
 
 // ── Blame synthesis (Stage 6: line-age overlay) ───────────────────────

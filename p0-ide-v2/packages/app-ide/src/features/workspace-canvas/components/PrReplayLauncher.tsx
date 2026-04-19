@@ -200,6 +200,12 @@ export function PrReplayLauncher() {
                 style={inputStyle}
               />
             </label>
+            {history && history.snapshots.length >= 2 && (
+              <SamplePrHints
+                history={history}
+                onPick={(pr, range) => { setPrNumber(pr); setRangeText(range); }}
+              />
+            )}
             {error && <div style={errorStyle}>{error}</div>}
             <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
               <button type="button" onClick={() => setOpen(false)} style={ghostBtnStyle}>
@@ -318,7 +324,10 @@ function InlineStepper({
           />
         </div>
       </div>
-      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6 }}>{snap?.label}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, marginTop: 6 }}>
+        {snap?.message ?? snap?.label}
+        {snap?.author && <span style={{ opacity: 0.6, fontWeight: 400, marginLeft: 6 }}>· {snap.author}</span>}
+      </div>
       {narration && (
         <>
           <div style={{ lineHeight: 1.55, color: "#cbd5e1" }}>{narration.summary}</div>
@@ -347,6 +356,64 @@ function InlineStepper({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Sample PR hints ───────────────────────────────────────────────
+// Surface 3 ready-made PR/range examples derived from the current
+// history so users have something meaningful to click. The deterministic
+// prToSnapshotRange formula (in-file above) means picking PR numbers
+// 7/21/42 gives three distinct, non-trivial slice shapes.
+
+function SamplePrHints({
+  history,
+  onPick,
+}: {
+  history: GraphHistory;
+  onPick: (pr: string, range: string) => void;
+}) {
+  const total = history.snapshots.length;
+  if (total < 3) return null;
+  const samples: { pr: string; range: string; label: string }[] = [];
+  const candidates = [7, 21, 42];
+  for (const n of candidates) {
+    const span = Math.max(2, Math.min(total - 1, (n % (total - 1)) + 2));
+    const end = total - 1;
+    const start = Math.max(1, end - span + 1);
+    const base = history.snapshots[start - 1];
+    const head = history.snapshots[end];
+    if (!base || !head) continue;
+    const baseTok = base.commitSha?.slice(0, 7) ?? base.label;
+    const headTok = head.commitSha?.slice(0, 7) ?? head.label;
+    samples.push({
+      pr: String(n),
+      range: `${baseTok}..${headTok}`,
+      label: `#${n} · ${span} commits`,
+    });
+  }
+  if (samples.length === 0) return null;
+  return (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: -2 }}>
+      <span style={{ fontSize: 10, opacity: 0.6, alignSelf: "center" }}>try</span>
+      {samples.map(s => (
+        <button
+          key={s.pr}
+          type="button"
+          onClick={() => onPick(s.pr, s.range)}
+          style={{
+            background: "rgba(56, 189, 248, 0.14)",
+            border: "1px solid rgba(56, 189, 248, 0.35)",
+            color: "#7dd3fc",
+            fontSize: 11,
+            padding: "3px 8px",
+            borderRadius: 999,
+            cursor: "pointer",
+          }}
+        >
+          {s.label}
+        </button>
+      ))}
     </div>
   );
 }
