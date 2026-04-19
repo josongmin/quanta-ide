@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Application, Container } from "pixi.js";
+import { Application, Container, Ticker } from "pixi.js";
+import {
+  markDirty,
+  markAllDirty,
+  consumeDirty,
+  anyDirty,
+  type DirtyFlags,
+} from "./render-dirty-store";
 import type {
   WorkspaceView,
   WorkspaceClusterView,
@@ -75,6 +82,10 @@ export interface EdgeRenderProps {
   edgePredicate?: (edge: FileEdge) => boolean;
   /** Arch-violating edge ids — rendered with a red halo pass. */
   edgeViolations?: ReadonlySet<string>;
+  /** Hierarchical Edge Bundling pre-sampled polylines, keyed by edgeId.
+   *  Only consumed at galaxy LOD when the renderer's HEB flag is on —
+   *  missing entries (or a null map) fall through to the bezier path. */
+  hebPaths?: Map<string, Float32Array>;
 }
 
 export interface OverlayProps {
@@ -143,6 +154,20 @@ export interface PixiStageProps {
   showEffectBadges?: boolean;
   showLatencyOverlay?: boolean;
 
+  /**
+   * Whether the host workspace tab is visible. When `false`, the Pixi
+   * ticker stops so background tabs don't burn CPU/GPU on invisible
+   * frames. Defaults to `true` for callers that don't yet thread a
+   * tab-visibility signal through (tests, isolated previews).
+   *
+   * Complements the browser-level `visibilitychange` pause already
+   * wired inside the stage — that handles the user tabbing to another
+   * browser window; this handles switching to a sibling tab within the
+   * in-app shell (which keeps inactive tabs mounted under `display:none`,
+   * so the ticker would otherwise keep firing for hidden canvases).
+   */
+  active?: boolean;
+
   onFileClick?: (fileId: string) => void;
   onFileHover?: (fileId: string | null) => void;
   onClusterClick?: (clusterId: string) => void;
@@ -175,6 +200,60 @@ function destroyBundle(bundle: PixiBundle): void {
 const EMPTY_EDGE_ID_SET: ReadonlySet<string> = new Set<string>();
 const TRACE_DIM_ALPHA = 0.15;
 
+// ── Ticker-based render loop (Audit #1: dep-hell useEffect) ────────
+// When the flag is true, PixiStage bypasses the 30+ dep overlay
+// useEffect and instead drives renders from a Pixi ticker callback
+// that consumes `render-dirty-store`. Upstream prop churn still
+// re-runs the small gating effects, but those only flip dirty bits —
+// the heavy `stack.update(ctx)` path only fires on no-op-free frames.
+// Flag is OFF by default so we can merge + observe in dev before
+// flipping. To try it locally, change the constant and rebuild.
+export const TICKER_RENDER_LOOP_ENABLED: boolean = false;
+
+// ── WebGPU backend preference ────────────────────────────────────────
+// Pixi 8's `app.init` accepts `preference: 'webgpu' | 'webgl' | 'canvas'`.
+// When a single string is provided, Pixi falls back to the remaining
+// renderers in priority order if the preferred one is unavailable, and
+// the outer try/catch below covers the case where construction of the
+// preferred backend throws hard (e.g. GPU device lost at init).
+//
+// IMPORTANT — SHADER COMPATIBILITY WARNING:
+// The instanced mesh renderers in this package (InstancedLineMesh,
+// InstancedRectMesh, InstancedCircleMesh, InstancedDecorationMesh) are
+// currently authored with GlProgram (GLSL) only — no GpuProgram (WGSL)
+// counterpart. If Pixi selects the WebGPU backend, those meshes will
+// fail to render. Until the shaders are ported to `Shader.from({ gl, gpu })`
+// with WGSL sources, this flag MUST stay `false`. Flipping this to true
+// without shipping the WGSL pairs will produce a blank canvas.
+//
+// URL query override `?webgl` forces WebGL for test convenience.
+export const WEBGPU_PREFERRED: boolean = false;
+
+function resolveRendererPreference(): "webgpu" | "webgl" {
+  if (typeof window !== "undefined") {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("webgl")) return "webgl";
+    } catch {
+      // URL parse failures are harmless — just fall through to the flag.
+    }
+  }
+  return WEBGPU_PREFERRED ? "webgpu" : "webgl";
+}
+
+// Pixi 8 `RendererType` enum values — hardcoded because the enum is marked
+// `@internal` in pixi.js type declarations even though the runtime value is
+// exported. Keeping the numbers local avoids a TS2304 from the typings and
+// matches the stable Pixi 8 API contract (WEBGL=1, WEBGPU=2, CANVAS=4).
+function rendererBackendName(type: number): string {
+  switch (type) {
+    case 2: return "webgpu";
+    case 1: return "webgl";
+    case 4: return "canvas";
+    default: return `unknown(${type})`;
+  }
+}
+
 export function PixiStage({
   scene,
   edgeRender,
@@ -188,6 +267,7 @@ export function PixiStage({
   latency,
   showEffectBadges = true,
   showLatencyOverlay = false,
+  active = true,
   onFileClick,
   onFileHover,
   onClusterClick,
@@ -195,7 +275,7 @@ export function PixiStage({
   onPixiError,
 }: PixiStageProps) {
   const { visible, clusters, superclusters, layout, viewState, viewport, lod, edgeCache } = scene;
-  const { showEdges = true, edgeKinds, edgeLayers, edgeMinSeverity, edgeWidthMul, edgeFocus, edgePredicate, edgeViolations } = edgeRender;
+  const { showEdges = true, edgeKinds, edgeLayers, edgeMinSeverity, edgeWidthMul, edgeFocus, edgePredicate, edgeViolations, hebPaths } = edgeRender;
   const { showClusterEdges, showSccBubbles, showStartHereBadges, startHereTopN = 5, showCrossGraphEdges, crossGraphFlash } = overlays;
   const { temporalEdgeSet, diffAdded, diffRemoved } = temporal;
   const { activeTrace, traceEdgeSet } = trace;
@@ -317,20 +397,36 @@ export function PixiStage({
     async function coldInit(el: HTMLCanvasElement): Promise<PixiBundle> {
       const initW = el.clientWidth || 800;
       const initH = el.clientHeight || 600;
+      const preferred = resolveRendererPreference();
+      const baseOpts = {
+        canvas: el,
+        width: initW,
+        height: initH,
+        backgroundAlpha: 0,
+        antialias: true,
+        resolution: window.devicePixelRatio || 1,
+        autoDensity: true,
+      } as const;
       let app: Application;
       try {
         app = new Application();
-        await app.init({
-          canvas: el,
-          width: initW,
-          height: initH,
-          backgroundAlpha: 0,
-          antialias: true,
-          resolution: window.devicePixelRatio || 1,
-          autoDensity: true,
-        });
+        // Pixi 8: `preference` as a single string tries that backend
+        // first, then falls back automatically. The outer catch still
+        // handles hard init failures (e.g. GPU device lost at boot).
+        await app.init({ ...baseOpts, preference: preferred });
       } catch (err) {
-        throw err instanceof Error ? err : new Error(String(err));
+        if (preferred === "webgpu") {
+          console.warn("[PixiStage] WebGPU init failed, falling back to WebGL", err);
+          app = new Application();
+          await app.init({ ...baseOpts, preference: "webgl" });
+        } else {
+          throw err instanceof Error ? err : new Error(String(err));
+        }
+      }
+      if (import.meta.env?.DEV) {
+        // Dev-only so production bundles don't ship the console chatter.
+        const backend = rendererBackendName(app.renderer.type);
+        console.warn(`[PixiStage] renderer backend: ${backend} (preferred=${preferred})`);
       }
       const world = new Container();
       app.stage.addChild(world);
@@ -440,6 +536,26 @@ export function PixiStage({
     world.scale.set(viewport.scale);
   }, [pixiReady, viewport]);
 
+  // ── Tab-visibility ticker gate ──────────────────────────────────
+  // The shell keeps inactive tabs mounted under `display:none`, which
+  // means neither unmount nor the browser-level `visibilitychange`
+  // event fires when the user switches tabs inside the app. Without
+  // this gate every mounted canvas keeps driving its ticker — for
+  // renderers that subscribe to Ticker.shared (e.g. EdgeStaticRenderer's
+  // animated-dash loop) that's 60Hz of wasted CPU + GPU per hidden tab.
+  //
+  // The `active` prop is supplied by the owning workspace component
+  // (MultiFileCanvas) from its own `isActive` shell prop. Browser-level
+  // visibility is handled separately a few blocks up — the two are
+  // additive: the ticker runs only when both agree.
+  useEffect(() => {
+    if (!pixiReady) return;
+    const app = appRef.current;
+    if (!app) return;
+    if (active) app.ticker.start();
+    else app.ticker.stop();
+  }, [pixiReady, active]);
+
   // Bucketed scale avoids thrash on tiny zoom ticks.
   const scaleBucket = Math.round(viewport.scale * 20) / 20;
 
@@ -458,12 +574,17 @@ export function PixiStage({
   // so the overlay context carries the *effective* gates, not raw props.
   const tier = getTierConfig(effectiveLod);
   const tierLayers = resolveLayerPolicy(tier);
-  const effectiveLayerFilter: Record<EdgeLayer, boolean> = {
+  // Memoised so downstream useMemo/useEffect deps stay referentially
+  // stable across renders that didn't change the tier or user toggles.
+  const effectiveLayerFilter: Record<EdgeLayer, boolean> = useMemo(() => ({
     structural: tierLayers.structural && (edgeLayers?.structural ?? true),
     flow:       tierLayers.flow       && (edgeLayers?.flow       ?? true),
     safety:     tierLayers.safety     && (edgeLayers?.safety     ?? true),
     impact:     tierLayers.impact     && (edgeLayers?.impact     ?? true),
-  };
+  }), [
+    tierLayers.structural, tierLayers.flow, tierLayers.safety, tierLayers.impact,
+    edgeLayers?.structural, edgeLayers?.flow, edgeLayers?.safety, edgeLayers?.impact,
+  ]);
   const anyLayerOn =
     effectiveLayerFilter.structural ||
     effectiveLayerFilter.flow ||
@@ -482,10 +603,15 @@ export function PixiStage({
 
   // When a trace overlay is active, static edges dim to TRACE_DIM_ALPHA
   // so the dynamic path dominates. User `edgeFocus` (path query) wins.
-  const effectiveEdgeFocus = edgeFocus ?? (
-    activeTrace && traceEdgeSet
-      ? { edgeIds: EMPTY_EDGE_ID_SET, dimAlpha: TRACE_DIM_ALPHA }
-      : undefined
+  // Memoised so the fallback object identity stays stable; otherwise
+  // every render would spawn a new `{edgeIds,dimAlpha}` and churn deps.
+  const effectiveEdgeFocus = useMemo(
+    () => edgeFocus ?? (
+      activeTrace && traceEdgeSet
+        ? { edgeIds: EMPTY_EDGE_ID_SET, dimAlpha: TRACE_DIM_ALPHA }
+        : undefined
+    ),
+    [edgeFocus, activeTrace, traceEdgeSet],
   );
 
   // Cluster-edge gate — tier must opt in, layout must carry edges, and
@@ -502,55 +628,13 @@ export function PixiStage({
 
   const startHereAllowed = showStartHereBadges !== false;
 
-  // ── Node tier dispatch ───────────────────────────────────────────
-  useEffect(() => {
-    if (!pixiReady) return;
-    const handles = nodeHandlesRef.current;
-    if (!handles) return;
-
-    let ctx: RenderContext | null = null;
-    switch (tier.sceneKind) {
-      case "files":
-        ctx = {
-          sceneKind: "files",
-          files: visible.files,
-          layout,
-          viewState,
-          viewport,
-          metrics: layout.metrics,
-          latency,
-          showLatencyOverlay,
-        };
-        break;
-      case "clusters":
-        ctx = { sceneKind: "clusters", clusters: clusters?.clusters ?? [], viewport };
-        break;
-      case "superclusters":
-        ctx = { sceneKind: "superclusters", superclusters: superclusters?.superclusters ?? [], viewport };
-        break;
-    }
-
-    const activeHandle = handles.get(tier.rendererKind);
-    if (activeHandle && ctx) activeHandle.update(ctx);
-    for (const [kind, handle] of handles) {
-      if (kind !== tier.rendererKind) handle.clear();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId, latency, showLatencyOverlay]);
-
-  // ── Overlay stack dispatch ──────────────────────────────────────
-  // Single effect drives every overlay registered in `overlay-registry.ts`.
-  // Each overlay reads only the slice of ctx it cares about; identity of
-  // ctx changes on every render, but React only re-runs when a dep in
-  // the list below changes. Deps intentionally match the union of all
-  // overlays' inputs so adding a field to `OverlayRenderCtx` is the only
-  // place a new dep would need to land.
-  useEffect(() => {
-    if (!pixiReady) return;
-    const stack = overlaysRef.current;
-    if (!stack) return;
+  // Build the overlay ctx once per React render. Cheap — it's just an
+  // object literal. Both the legacy effect path and the ticker path
+  // read from the same `latestCtxRef` so the data source is identical;
+  // only *when* it's applied to the renderer stack differs.
+  const overlayCtx: OverlayRenderCtx = useMemo(() => {
     const edgesToRender = showEdges && anyLayerOn ? visible.edges : [];
-    const ctx: OverlayRenderCtx = {
+    return {
       visible: edgesToRender === visible.edges ? visible : { ...visible, edges: edgesToRender },
       layout,
       viewport,
@@ -572,6 +656,7 @@ export function PixiStage({
       showCrossGraphEdges,
       highlightCrossGraph,
       crossGraphFlash,
+      hebPaths,
       clusterEdgesToRender,
       sccBubblesAllowed,
       startHereAllowed,
@@ -586,20 +671,177 @@ export function PixiStage({
       actionTerrainCone,
       actionTerrainIsoConfig,
     };
-    stack.update(ctx);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    visible, layout, viewport, viewState, effectiveLod, edgeCache, fileLookup,
+    showEdges, edgeKinds, effectiveLayerFilter, effectiveMinSeverity, edgeWidthMul,
+    effectiveEdgeFocus, edgePredicate, edgeViolations,
+    temporalEdgeSet, diffAdded, diffRemoved,
+    showCrossGraphEdges, highlightCrossGraph, crossGraphFlash, hebPaths,
+    clusterEdgesToRender, sccBubblesAllowed, startHereAllowed, startHereTopN,
+    activeTrace, agentPresence, showAgentPresence, anyLayerOn,
+    effects, showEffectBadges,
+    actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoConfig,
+  ]);
+
+  // Build the node-tier ctx similarly.
+  const nodeCtx: RenderContext | null = useMemo(() => {
+    switch (tier.sceneKind) {
+      case "files":
+        return {
+          sceneKind: "files",
+          files: visible.files,
+          layout,
+          viewState,
+          viewport,
+          metrics: layout.metrics,
+          latency,
+          showLatencyOverlay,
+        };
+      case "clusters":
+        return { sceneKind: "clusters", clusters: clusters?.clusters ?? [], viewport };
+      case "superclusters":
+        return { sceneKind: "superclusters", superclusters: superclusters?.superclusters ?? [], viewport };
+      default:
+        return null;
+    }
+  }, [tier.sceneKind, visible.files, clusters, superclusters, layout, viewState, viewport, latency, showLatencyOverlay]);
+
+  // Latest-value refs so the ticker callback can read current ctx without
+  // re-subscribing. Without these, the ticker would need its own deps
+  // list — reintroducing the problem we're solving.
+  const latestOverlayCtxRef = useRef(overlayCtx);
+  const latestNodeCtxRef = useRef(nodeCtx);
+  const latestTierRef = useRef(tier);
+  latestOverlayCtxRef.current = overlayCtx;
+  latestNodeCtxRef.current = nodeCtx;
+  latestTierRef.current = tier;
+
+  // ── Legacy path: large useEffects, run only when flag is OFF ─────
+  // These are identical to the pre-refactor effects. Under the flag
+  // they are no-ops; under the ticker path the render loop below
+  // drives dispatch instead.
+  useEffect(() => {
+    if (TICKER_RENDER_LOOP_ENABLED) return;
+    if (!pixiReady) return;
+    const handles = nodeHandlesRef.current;
+    if (!handles) return;
+    const ctx = latestNodeCtxRef.current;
+    const t = latestTierRef.current;
+    const activeHandle = handles.get(t.rendererKind);
+    if (activeHandle && ctx) activeHandle.update(ctx);
+    for (const [kind, handle] of handles) {
+      if (kind !== t.rendererKind) handle.clear();
+    }
+  }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId, latency, showLatencyOverlay]);
+
+  useEffect(() => {
+    if (TICKER_RENDER_LOOP_ENABLED) return;
+    if (!pixiReady) return;
+    const stack = overlaysRef.current;
+    if (!stack) return;
+    stack.update(latestOverlayCtxRef.current);
   }, [
     pixiReady, visible, layout, edgeCache, scaleBucket, effectiveLod, fileLookup,
     viewState.selectedEdgeId, viewState.hoveredEdgeId, viewState.hoveredFileId,
     showEdges, edgeKinds, effectiveLayerFilter.structural, effectiveLayerFilter.flow, effectiveLayerFilter.safety, effectiveLayerFilter.impact,
     effectiveMinSeverity, edgeWidthMul, effectiveEdgeFocus, edgePredicate, edgeViolations,
     temporalEdgeSet, diffAdded, diffRemoved,
-    showCrossGraphEdges, highlightCrossGraph, crossGraphFlash,
+    showCrossGraphEdges, highlightCrossGraph, crossGraphFlash, hebPaths,
     clusterEdgesToRender, sccBubblesAllowed, startHereAllowed, startHereTopN,
     activeTrace, agentPresence, showAgentPresence,
     effects, showEffectBadges,
     actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoConfig,
   ]);
+
+  // ── Ticker path: mark-dirty effects + single ticker subscriber ───
+  // Each small effect below only flips a dirty bit when its slice of
+  // the scene changed referentially. React still runs the comparisons,
+  // but each deps array has 1–4 entries instead of 30+, and the body
+  // is a single boolean write — not a renderer update.
+  useEffect(() => {
+    if (!TICKER_RENDER_LOOP_ENABLED) return;
+    markDirty("layout");
+  }, [visible.files, clusters, superclusters, layout, effectiveLod]);
+
+  useEffect(() => {
+    if (!TICKER_RENDER_LOOP_ENABLED) return;
+    markDirty("edges");
+  }, [visible.edges, edgeCache, clusterEdgesToRender, edgeViolations, temporalEdgeSet, diffAdded, diffRemoved, hebPaths]);
+
+  useEffect(() => {
+    if (!TICKER_RENDER_LOOP_ENABLED) return;
+    markDirty("filters");
+  }, [
+    showEdges, edgeKinds,
+    effectiveLayerFilter.structural, effectiveLayerFilter.flow, effectiveLayerFilter.safety, effectiveLayerFilter.impact,
+    effectiveMinSeverity, edgeWidthMul, effectiveEdgeFocus, edgePredicate,
+    showCrossGraphEdges, highlightCrossGraph, showEffectBadges, showLatencyOverlay,
+  ]);
+
+  useEffect(() => {
+    if (!TICKER_RENDER_LOOP_ENABLED) return;
+    markDirty("viewport");
+  }, [viewport, scaleBucket]);
+
+  useEffect(() => {
+    if (!TICKER_RENDER_LOOP_ENABLED) return;
+    markDirty("selection");
+  }, [viewState.selectedFileId, viewState.hoveredFileId, viewState.selectedEdgeId, viewState.hoveredEdgeId]);
+
+  useEffect(() => {
+    if (!TICKER_RENDER_LOOP_ENABLED) return;
+    markDirty("overlays");
+  }, [
+    sccBubblesAllowed, startHereAllowed, startHereTopN,
+    activeTrace, agentPresence, showAgentPresence,
+    effects, crossGraphFlash,
+    actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoConfig,
+  ]);
+
+  // Single ticker subscription. Runs once per animation frame, checks
+  // six booleans, and dispatches only the renderers whose inputs
+  // actually changed. The ticker is `Ticker.shared` so the renderer
+  // stack's per-overlay tickers (PresenceRing, TraceEdge dash-offset,
+  // etc.) keep ticking independently — we only own the *scene update*
+  // cadence, not animation cadence.
+  useEffect(() => {
+    if (!TICKER_RENDER_LOOP_ENABLED) return;
+    if (!pixiReady) return;
+    // First frame after ready: force a full render so initial content
+    // appears even if no prop has changed since mount.
+    markAllDirty();
+    const ticker = Ticker.shared;
+    const tick = (_t: Ticker): void => {
+      const flags: DirtyFlags = consumeDirty();
+      if (!anyDirty(flags)) return;
+      const handles = nodeHandlesRef.current;
+      const stack = overlaysRef.current;
+      // Node-tier dispatch: any layout/selection/viewport bit
+      // potentially affects the active renderer's instance buffers
+      // (selection ring, hover highlight, zoom-driven label density).
+      if (handles && (flags.layout || flags.selection || flags.viewport || flags.filters)) {
+        const ctx = latestNodeCtxRef.current;
+        const t = latestTierRef.current;
+        const activeHandle = handles.get(t.rendererKind);
+        if (activeHandle && ctx) activeHandle.update(ctx);
+        for (const [kind, handle] of handles) {
+          if (kind !== t.rendererKind) handle.clear();
+        }
+      }
+      // Overlay stack dispatch: any of the six bits can touch some
+      // overlay, and the stack internally dispatches to each
+      // registered overlay with the shared ctx. The per-overlay
+      // gates inside `overlay-registry.ts` remain the fine-grained
+      // filter.
+      if (stack) {
+        stack.update(latestOverlayCtxRef.current);
+      }
+    };
+    ticker.add(tick);
+    return () => {
+      ticker.remove(tick);
+    };
+  }, [pixiReady]);
 
   return (
     <canvas

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import type { WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import { inlineEditorStore } from "../store/inline-editor-store";
-import { debugSettingsStore } from "../store/debug-settings-store";
 import { stickiesStore } from "../store/stickies-store";
 import { startMockPresence } from "../lib/mock-presence";
 import { installPresenceBridge } from "../lib/presence-store-bridge";
@@ -16,11 +15,16 @@ import { installPresenceBridge } from "../lib/presence-store-bridge";
 //
 // Covered init concerns:
 //   1) Tab-switch cleanup — end any in-flight inline edit on unmount.
-//   2) forceLod reset — normalise the LOD kill-switch back to "auto"
-//      so a pinned tier never silently survives a remount.
-//   3) Presence transport bridge + mock presence ticker (idempotent).
-//   4) Demo stickies seeding — seed 1-2 demo stickies the first time
+//   2) Presence transport bridge + mock presence ticker (idempotent).
+//   3) Demo stickies seeding — seed 1-2 demo stickies the first time
 //      a layout arrives on an empty stickies store.
+//
+// Debug kill-switch resets (forceLod / freezeScene) intentionally
+// live elsewhere: WorkspaceApp.tsx uses `useTabFocus` to call
+// `debugSettingsStore.resetDebugKnobs()` on every tab (re-)entry,
+// which is the correct scope — the Shell keeps tabs mounted under
+// `display:none`, so a mount-only reset here would only fire on the
+// very first mount and silently miss every subsequent re-entry.
 //
 // Anything that genuinely tracks live state (editing-card zoom,
 // edge cache rebuilds, auto-fit, ResizeObserver, imperative transform
@@ -47,36 +51,6 @@ export function useCanvasInitialize({ layout, graph }: UseCanvasInitializeArgs):
     return () => {
       inlineEditorStore.endEdit();
     };
-  }, []);
-
-  // LOD kill-switch reset on mount. `forceLod` is a DEBUG knob — its
-  // whole purpose is to pin the canvas to a single tier while testing.
-  // It should NEVER survive a Code Universe (re-)entry for a casual
-  // user, because any non-"auto" value completely disables the
-  // viewport → LOD feedback loop and leaves the graph frozen at the
-  // pinned tier (most damagingly: "ground", which force-renders every
-  // visible file as a DOM syntax-highlighted card and both looks stuck
-  // and tanks perf).
-  //
-  // Root-cause chain this closes:
-  //   (a) Someone (user, share link, HUD click) set forceLod ≠ "auto".
-  //   (b) Module-scoped debugSettingsStore keeps that value across
-  //       tab switches, hard refreshes (via URL), and even after the
-  //       user zooms out — because useLodSync reads forceLod FIRST
-  //       and short-circuits `manager.update(scale)`.
-  //   (c) The user has no indication the tier is pinned; the HUD chip
-  //       is the only surface that exposes it, and not every user
-  //       opens the HUD.
-  //
-  // Reset happens AFTER the URL-state-sync effect so an explicit share
-  // link carrying `forceLod` still applies for the very first render,
-  // then this effect normalises back to auto on the next tick. The
-  // user retains full manual control via the HUD chip row — they just
-  // don't get silently pinned anymore.
-  useEffect(() => {
-    if (debugSettingsStore.getState().forceLod !== "auto") {
-      debugSettingsStore.setForceLod("auto");
-    }
   }, []);
 
   useEffect(() => {

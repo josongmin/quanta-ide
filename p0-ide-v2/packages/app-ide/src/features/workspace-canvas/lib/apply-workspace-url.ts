@@ -29,10 +29,13 @@ export function applyWorkspaceUrlState(state: WorkspaceUrlState): void {
     interactionStore.selectFile(state.selectedFileId);
   }
 
-  // WHY: forceLod is a debug-only knob. Carrying it across share URLs
-  // stranded users on a forced tier with no obvious exit, so we drop it
-  // here — even if a URL fragment still contains it for backward compat.
-  // `captureWorkspaceUrlState` below similarly never emits it.
+  // NOTE: `forceLod` was removed from `WorkspaceUrlState` (see the type
+  // declaration). The omission is the primary firewall — there is no
+  // typed field for us to read. We keep this gap in the apply sequence
+  // as a deliberate defense-in-depth marker: even a legacy URL that
+  // still carries the field at runtime cannot reach debugSettingsStore
+  // because nothing here reads it. `captureWorkspaceUrlState` likewise
+  // never emits it.
 
   if (state.edgeLayers) {
     for (const [layer, on] of Object.entries(state.edgeLayers)) {

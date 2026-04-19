@@ -43,4 +43,43 @@ describe("debug-settings-store", () => {
     debugSettingsStore.setFreezeScene(false);
     expect(debugSettingsStore.getState().freezeScene).toBe(false);
   });
+
+  it("resetDebugKnobs clears kill-switches atomically", () => {
+    debugSettingsStore.setForceLod("ground");
+    debugSettingsStore.setFreezeScene(true);
+    let ticks = 0;
+    const unsub = debugSettingsStore.subscribe(() => { ticks += 1; });
+
+    debugSettingsStore.resetDebugKnobs();
+
+    expect(debugSettingsStore.getState().forceLod).toBe("auto");
+    expect(debugSettingsStore.getState().freezeScene).toBe(false);
+    // Single atomic emit — downstream subscribers rebuild once, not twice.
+    expect(ticks).toBe(1);
+    unsub();
+  });
+
+  it("resetDebugKnobs preserves debugHudOpen (UI pref, not a kill-switch)", () => {
+    debugSettingsStore.setDebugHudOpen(true);
+    debugSettingsStore.setForceLod("ground");
+    debugSettingsStore.resetDebugKnobs();
+    expect(debugSettingsStore.getState().debugHudOpen).toBe(true);
+
+    debugSettingsStore.setDebugHudOpen(false);
+    debugSettingsStore.setForceLod("ground");
+    debugSettingsStore.resetDebugKnobs();
+    expect(debugSettingsStore.getState().debugHudOpen).toBe(false);
+
+    debugSettingsStore.setDebugHudOpen(true); // restore
+  });
+
+  it("resetDebugKnobs is a no-op (no emit) when already clean", () => {
+    debugSettingsStore.setForceLod("auto");
+    debugSettingsStore.setFreezeScene(false);
+    let ticks = 0;
+    const unsub = debugSettingsStore.subscribe(() => { ticks += 1; });
+    debugSettingsStore.resetDebugKnobs();
+    expect(ticks).toBe(0);
+    unsub();
+  });
 });

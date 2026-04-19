@@ -40,3 +40,5 @@ export type {
 } from "./events";
 
 export { LayoutProvider, useLayout, type LayoutCallbacks } from "./layout-types";
+
+export { useTabFocus } from "./use-tab-focus";

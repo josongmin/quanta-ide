@@ -4,6 +4,8 @@ import { EdgeGeometryCache, createEdgePickIndex } from "@quanta/canvas-engine";
 import type { EdgePickIndex, WorkspaceGraph } from "@quanta/canvas-engine";
 import { PixiStage } from "@quanta/canvas-pixi";
 import { useWorkspaceCanvasOrchestrator } from "../hooks/use-workspace-canvas";
+import { requestEdgeGeometry, onEdgeGeometryReady } from "../hooks/use-worker-bridge";
+import { useHebPaths } from "../hooks/use-heb-paths";
 import { useCanvasViewport, INITIAL_FIT_MAX_SCALE } from "../hooks/use-canvas-viewport";
 import { useCanvasInteractions } from "../hooks/use-canvas-interactions";
 import { useTouchGestures } from "../hooks/use-touch-gestures";
@@ -29,6 +31,7 @@ import { usePresenceStore } from "../store/presence-store";
 import { StreetCard } from "./StreetCard";
 import { GroundCard } from "./GroundCard";
 import { FolderFrame } from "./FolderFrame";
+import { DebugKillSwitchBanner } from "./DebugKillSwitchBanner";
 import { computeFolderRects } from "../lib/compute-folder-rects";
 import { LoadingOverlay } from "./LoadingOverlay";
 import { CanvasLayers } from "./CanvasLayers";
@@ -49,12 +52,32 @@ const EMPTY_TINT_MAP: ReadonlyMap<string, string> = new Map();
 
 interface Props {
   graph: WorkspaceGraph;
+  /**
+   * Whether the host tab is currently visible. The Shell keeps inactive
+   * tabs mounted under `display: none`, so this prop is the only reliable
+   * signal that the canvas is on-screen. We use it to:
+   *   - pause the Pixi ticker while the tab is hidden (saves CPU on
+   *     multi-tab workflows; complements the browser-level
+   *     `visibilitychange` pause inside PixiStage).
+   *   - The Code-Universe-level `resetDebugKnobs` fires from WorkspaceApp
+   *     via `useTabFocus`; no extra wiring needed here.
+   *
+   * Defaults to `true` so callers that don't yet forward the prop
+   * (tests, isolated previews) keep working.
+   */
+  isActive?: boolean;
 }
 
-export function MultiFileCanvas({ graph }: Props) {
+export function MultiFileCanvas({ graph, isActive = true }: Props) {
   useWorkspaceCanvasOrchestrator(graph);
   useUrlStateSync();
   useAnomalyDetectionRun();
+  // HEB path precompute — writes to sceneStore.hebPaths at galaxy-tier
+  // LODs and returns a Map<edgeId, Float32Array> view for the renderer.
+  // When EdgeStaticRenderer's HEB flag is off (default), the renderer
+  // ignores the map; when on, it strokes edges along the pre-sampled
+  // polyline at galaxy LOD only.
+  const hebPaths = useHebPaths();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -274,18 +297,80 @@ export function MultiFileCanvas({ graph }: Props) {
   // owned by DebugHud directly and intentionally not duplicated there.
   useGlobalKeybinds(useCanvasKeybinds({ setPaletteOpen }));
 
-  // Edge cache + pick index rebuilds tied to layout.
+  // Edge geometry: the main-thread `edgeCacheRef.current.build(...)` call
+  // used to spread every route into a `BezierGeometry` and compute a 4-way
+  // min/max bbox per edge — roughly 2000 entries × (spread + 4× Math.min/max
+  // + new Rect) per layout rebuild. The bbox field is dead data (no reader
+  // in the renderer pipeline; `EdgeOverlayRenderer`/`EdgeStaticRenderer`
+  // only call `cache?.get(id) ?? layout.edgeRoutes.get(id)` for the route
+  // fields), so that main-thread work was ~1ms of pure GC churn on every
+  // graph swap.
+  //
+  // New path: fire `requestEdgeGeometry` at the worker instead. The worker
+  // already owns `runGeometryTask`, which writes the 8-floats-per-edge
+  // control points into a single transferable `Float32Array`. The renderer
+  // keeps working unchanged: `cache.get(id)` returns undefined for entries
+  // the worker hasn't delivered yet, and the `?? layout.edgeRoutes.get(id)`
+  // fallback picks up the route from the layout Map — identical to what the
+  // old `build()` was writing into the cache. The worker result is stashed
+  // in `edgeGeometryBatchRef` for downstream consumers (GPU-buffer edge
+  // renderer wiring is a follow-up) and for measurement.
+  //
+  // Expected saving per layout rebuild at 2000 edges: ~0.8-1.2ms main-
+  // thread time, ~2000 throwaway objects (spread + bbox) off the heap.
+  // First-paint is not regressed because the renderer has always read the
+  // same fallback path when `cache.get()` misses.
+  const edgeGeometryBatchRef = useRef<{
+    requestId: string;
+    positions: Float32Array;
+    edgeIds: string[];
+  } | null>(null);
+  const pendingGeometryRequestIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!layout) return;
-    edgeCacheRef.current.build(
-      layout.edgeRoutes.size > 0 ? (visibleScene?.edges ?? []) : [],
-      layout,
-    );
+    if (!layout) {
+      edgeCacheRef.current.clear();
+      edgeGeometryBatchRef.current = null;
+      pendingGeometryRequestIdRef.current = null;
+      return;
+    }
+    const edges = layout.edgeRoutes.size > 0 ? (visibleScene?.edges ?? []) : [];
+    // Cache stays empty — the renderer fallback (`layout.edgeRoutes.get`)
+    // covers the reads until the worker batch lands. We keep the class
+    // instance around because `PixiStage`'s type expects it.
+    edgeCacheRef.current.clear();
+    if (edges.length === 0) {
+      edgeGeometryBatchRef.current = null;
+      pendingGeometryRequestIdRef.current = null;
+      return;
+    }
+    // Fire-and-forget: bridge tracks its own `currentGeometryRequestId` to
+    // drop superseded responses, and we stash the id here so the listener
+    // below can ignore payloads that predate our latest effect run (covers
+    // the race where pan-driven layout invalidation triggers back-to-back
+    // rebuilds).
+    pendingGeometryRequestIdRef.current = requestEdgeGeometry(graph, layout);
     // WHY: edge cache rebuilds only when layout changes — edge updates
     // flow through the layout pipeline, so `visibleScene?.edges` here is
     // a snapshot read, not a reactive dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout]);
+  }, [layout, graph]);
+
+  // Subscribe once on mount. The bridge guards against stale responses at
+  // the module level (via `currentGeometryRequestId`), but since multiple
+  // mounts of this component could race, we also compare to our own
+  // `pendingGeometryRequestIdRef` and drop any batch whose id doesn't match
+  // the most recent request WE issued.
+  useEffect(() => {
+    const off = onEdgeGeometryReady((batch, requestId) => {
+      if (pendingGeometryRequestIdRef.current !== requestId) return;
+      edgeGeometryBatchRef.current = {
+        requestId,
+        positions: batch.positions,
+        edgeIds: batch.edgeIds,
+      };
+    });
+    return off;
+  }, []);
   useEffect(() => {
     if (!layout) {
       edgePickIndexRef.current.clear();
@@ -356,6 +441,8 @@ export function MultiFileCanvas({ graph }: Props) {
         style={{ transformOrigin: "0 0" }}
       />
 
+      <DebugKillSwitchBanner />
+
       {layout && (
         <PixiStage
           scene={{
@@ -377,6 +464,7 @@ export function MultiFileCanvas({ graph }: Props) {
             edgeFocus,
             edgePredicate,
             edgeViolations,
+            hebPaths: hebPaths ?? undefined,
           }}
           overlays={{
             showClusterEdges,
@@ -395,6 +483,7 @@ export function MultiFileCanvas({ graph }: Props) {
           latency={graph.latency}
           showEffectBadges={showEffectBadges}
           showLatencyOverlay={showLatencyOverlay}
+          active={isActive}
           onFileClick={selectFile}
           onFileHover={hoverFile}
           onClusterClick={onClusterClick}

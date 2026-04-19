@@ -48,13 +48,17 @@ describe("apply-workspace-url", () => {
 
   it("intentionally drops forceLod — share links never force a tier", () => {
     // forceLod is a debug-only knob; carrying it in share URLs stranded
-    // users on a forced tier with no obvious exit. Contract: a fragment
-    // with forceLod set must NOT mutate debugSettingsStore.
+    // users on a forced tier with no obvious exit. Primary firewall is
+    // the type-level omission from WorkspaceUrlState. This test asserts
+    // the defense-in-depth behaviour when a LEGACY URL (from before the
+    // type change) still carries the field: the apply path must treat
+    // it as unrecognised and leave debugSettingsStore untouched.
     debugSettingsStore.setForceLod("auto");
-    applyWorkspaceUrlState({
-      version: 1,
+    const legacyPayload = {
+      version: 1 as const,
       forceLod: "ground",
-    });
+    } as unknown as WorkspaceUrlState;
+    applyWorkspaceUrlState(legacyPayload);
     expect(debugSettingsStore.getState().forceLod).toBe("auto");
   });
 
@@ -87,7 +91,8 @@ describe("apply-workspace-url", () => {
     const recaptured = captureWorkspaceUrlState();
 
     // Core fields survive the round trip. forceLod is intentionally NOT in
-    // this list — see applyWorkspaceUrlState: share links never force a tier.
+    // this list — it was removed from WorkspaceUrlState entirely (see the
+    // type declaration for the rationale).
     expect(recaptured.viewport).toEqual(captured.viewport);
     expect(recaptured.selectedFileId).toBe(captured.selectedFileId);
     expect(recaptured.edgeMinSeverity).toBe(captured.edgeMinSeverity);
@@ -104,9 +109,9 @@ describe("apply-workspace-url", () => {
     expect(recaptured.showBlameGutter).toBe(captured.showBlameGutter);
     expect(recaptured.inspectedEvidenceId).toBe(captured.inspectedEvidenceId);
     expect(recaptured.temporal?.mode).toBe(captured.temporal?.mode);
-    // Captured state never carries forceLod.
-    expect(captured.forceLod).toBeUndefined();
-    expect(recaptured.forceLod).toBeUndefined();
+    // Captured state never carries forceLod (removed from the type).
+    expect((captured as { forceLod?: unknown }).forceLod).toBeUndefined();
+    expect((recaptured as { forceLod?: unknown }).forceLod).toBeUndefined();
   });
 
   it("encoded → decoded → applied preserves viewport + selection", () => {

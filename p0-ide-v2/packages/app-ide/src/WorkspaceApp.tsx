@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import type { TabAppProps } from "@quanta/shell-contract";
+import { useTabFocus, type TabAppProps } from "@quanta/shell-contract";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import {
   MultiFileCanvas,
   SAMPLE_GRAPH,
+  debugSettingsStore,
   loadRepoGraph,
   sceneStore,
   setActiveGraphSource,
@@ -58,7 +59,7 @@ export interface WorkspaceAppProps extends TabAppProps {
 }
 
 export function WorkspaceApp(props: WorkspaceAppProps) {
-  const { graphSource: externalSource } = props;
+  const { graphSource: externalSource, isActive } = props;
   const [graph, setGraph] = useState<WorkspaceGraph>(SAMPLE_GRAPH);
   const [pathInput, setPathInput] = useState(DEFAULT_PATH);
   const [extsInput, setExtsInput] = useState(DEFAULT_EXTS);
@@ -75,6 +76,24 @@ export function WorkspaceApp(props: WorkspaceAppProps) {
     }
     return undefined;
   }, [externalSource]);
+
+  // Clear any debug kill-switches (forceLod / freezeScene) on every Code
+  // Universe (re-)entry.
+  //
+  // Why: the Shell keeps every tab mounted under `display: none` (see
+  // TabRenderer), so "mount-only" resets — the usual React idiom —
+  // only fire on the very first mount. Without this, a pinned forceLod
+  // silently survives tab switches, most painfully at "ground" tier where
+  // every visible file force-renders as a DOM code pane and the canvas
+  // reads as frozen.
+  //
+  // `useTabFocus` fires on first mount when active AND on every
+  // `isActive` false→true transition — the correct semantics for "reset
+  // on entry". Legacy share-links carrying `?forceLod=...` are blocked
+  // at the URL parser (see workspace-url.ts / apply-workspace-url.ts).
+  useTabFocus(isActive, () => {
+    debugSettingsStore.resetDebugKnobs();
+  });
 
   const load = async (path: string, exts?: string[], max?: number) => {
     setStatus({ kind: "loading", path });

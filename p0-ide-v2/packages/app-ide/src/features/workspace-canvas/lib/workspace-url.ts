@@ -2,7 +2,13 @@ export interface WorkspaceUrlState {
   version: 1;
   viewport?: { x: number; y: number; scale: number };
   selectedFileId?: string | null;
-  forceLod?: "auto" | "universe" | "supergalaxy" | "galaxy" | "city" | "street" | "ground";
+  // NOTE: `forceLod` is intentionally NOT part of this shape. It is a
+  // debug-only kill-switch that disables the zoom→LOD feedback loop;
+  // stranding share-link recipients on a pinned tier (esp. "ground")
+  // caused the canvas to read as frozen with no obvious exit. The
+  // type-level omission is the primary firewall; `applyWorkspaceUrlState`
+  // additionally defends at runtime against legacy URLs that still
+  // contain the field (see comment there).
   edgeLayers?: Partial<Record<"structural" | "flow" | "safety" | "impact", boolean>>;
   edgeMinSeverity?: "low" | "medium" | "high" | "critical";
   focusMode?: "on" | "off";

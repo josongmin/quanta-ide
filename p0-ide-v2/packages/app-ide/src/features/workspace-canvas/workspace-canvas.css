@@ -4536,3 +4536,57 @@
   }
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   Debug kill-switch banner (forceLod / freezeScene rescue surface)
+   ═══════════════════════════════════════════════════════════════════ */
+.ws-killswitch-banner {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #1f1105;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 18px rgba(245, 158, 11, 0.35);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.ws-killswitch-banner__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #1f1105;
+  animation: ws-killswitch-pulse 1.2s ease-in-out infinite;
+}
+
+.ws-killswitch-banner__label strong {
+  font-weight: 700;
+}
+
+.ws-killswitch-banner__btn {
+  border: none;
+  background: #1f1105;
+  color: #fef3c7;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.ws-killswitch-banner__btn:hover {
+  background: #111;
+}
+
+@keyframes ws-killswitch-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.35; }
+}
