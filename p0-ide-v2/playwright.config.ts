@@ -7,7 +7,12 @@ const cacheRoot = path.join(os.homedir(), ".cache", "quanta-ide", "playwright");
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30_000,
+  // Per-test timeout. `gotoCanvas()` waits up to 90s for the Vite
+  // cold-compile of the workspace chunk (pixi + canvas-engine is a
+  // heavy import graph; 30-60s on a fresh dev-server spawn is
+  // typical). The outer test timeout must be larger than that wait
+  // or the test is killed before a legitimate cold boot completes.
+  timeout: 120_000,
   retries: 1,
   outputDir: isCI ? "test-results" : path.join(cacheRoot, "test-results"),
   reporter: [
