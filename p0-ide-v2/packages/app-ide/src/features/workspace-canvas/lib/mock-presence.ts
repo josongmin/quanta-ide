@@ -78,28 +78,35 @@ export function startMockPresence(): () => void {
   const interval = window.setInterval(() => {
     const files = sceneStore.getState().graph?.files;
     if (!files || files.length === 0) return;
-    const agents = presenceStore.getState().agents;
-    if (agents.length === 0) return;
+    const activityMap = presenceStore.getActivity();
+    if (activityMap.size === 0) return;
 
     tick++;
     const now = Date.now();
-    const next: AgentPresence[] = agents.map((a, idx) => {
-      if ((tick + idx) % 2 !== 0) return a;
+    // Route each mutation through the dedicated slice API so cursor
+    // consumers don't wake on activity-mode flips and vice versa. (The
+    // current ticker touches both slices for every updated agent, but
+    // this future-proofs the path: a finer driver that only moves the
+    // focusFileId can call `updateAgentCursor` alone without emitting
+    // through the activity listener set.)
+    for (const [id] of activityMap) {
+      const idx = [...activityMap.keys()].indexOf(id);
+      if ((tick + idx) % 2 !== 0) continue;
       const file = pickRandom(files);
-      const cycle = ACTIVITY_CYCLE[a.agentId] ?? ["idle"];
-      const activity = cycle[(tick + idx) % cycle.length] ?? a.activity;
+      const cycle = ACTIVITY_CYCLE[id] ?? ["idle"];
+      const activity = cycle[(tick + idx) % cycle.length] ?? "idle";
       const trailPool = [pickRandom(files)?.id, pickRandom(files)?.id].filter(
         (x): x is string => typeof x === "string",
       );
-      return {
-        ...a,
-        focusFileId: file?.id ?? a.focusFileId,
+      presenceStore.updateAgentCursor(id, {
+        focusFileId: file?.id ?? null,
+      });
+      presenceStore.updateAgentActivity(id, {
         activity,
         trailFileIds: trailPool,
         updatedAt: now,
-      };
-    });
-    presenceStore.setAgents(next);
+      });
+    }
   }, TICK_MS);
 
   return () => {

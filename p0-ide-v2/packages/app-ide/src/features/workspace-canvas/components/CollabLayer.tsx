@@ -3,7 +3,7 @@ import type { WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import { useFeature } from "../store/feature-flags-store";
 import { commentsStore, useCommentsStore } from "../store/comments-store";
 import { useCursorsStore, cursorsStore, type CursorSnapshot } from "../store/cursors-store";
-import { usePresenceStore } from "../store/presence-store";
+import { usePresenceActivity } from "../store/presence-store";
 import { useReactionsStore } from "../store/reactions-store";
 import { viewportStore, useViewportStore } from "../store/viewport-store";
 import { startMockCursors } from "../lib/mock-cursors";
@@ -39,7 +39,9 @@ export function CollabLayer({ transform, scale, layout, graph }: Props) {
   // keep its cursor centered on every tick.
   const followTargetId = useFollowStore(s => s.targetUserId);
   const cursors = useCursorsStore(s => s.cursors);
-  const presence = usePresenceStore(s => s.agents);
+  // Activity slice only — we need label for the follow-banner caption,
+  // never cursor position. Sleeping through cursor-tick storms.
+  const presenceActivity = usePresenceActivity(m => m);
 
   useFollowIntegration(followOn, followTargetId);
 
@@ -180,7 +182,7 @@ export function CollabLayer({ transform, scale, layout, graph }: Props) {
       {followOn && followTargetId && (
         <FollowBanner
           targetId={followTargetId}
-          label={resolveFollowLabel(followTargetId, cursors, presence)}
+          label={resolveFollowLabel(followTargetId, cursors, presenceActivity)}
         />
       )}
     </>
@@ -217,11 +219,11 @@ function CollabSkeleton({ layout }: CollabSkeletonProps) {
 function resolveFollowLabel(
   id: string,
   cursors: readonly CursorSnapshot[],
-  presence: readonly { agentId: string; label: string }[],
+  activityById: ReadonlyMap<string, { label: string }>,
 ): string {
   const c = cursors.find(c => c.userId === id);
   if (c) return c.label;
-  const p = presence.find(p => p.agentId === id);
+  const p = activityById.get(id);
   if (p) return p.label;
   return id;
 }

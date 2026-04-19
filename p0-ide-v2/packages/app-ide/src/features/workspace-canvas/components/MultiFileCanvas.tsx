@@ -27,7 +27,11 @@ import {
 import { useSceneStore } from "../store/scene-store";
 import { useInteractionStore, interactionStore } from "../store/interaction-store";
 import { useRenderSettings, renderSettingsStore } from "../store/render-settings-store";
-import { usePresenceStore } from "../store/presence-store";
+import {
+  usePresenceActivity,
+  usePresenceCursors,
+  type AgentPresence,
+} from "../store/presence-store";
 import { StreetCard } from "./StreetCard";
 import { GroundCard } from "./GroundCard";
 import { FolderFrame } from "./FolderFrame";
@@ -121,7 +125,36 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   const showAgentPresence = useRenderSettings(s => s.showAgentPresence);
   const showEffectBadges  = useRenderSettings(s => s.showEffectBadges);
   const showLatencyOverlay = useRenderSettings(s => s.showLatencyOverlay);
-  const agentPresence     = usePresenceStore(s => s.agents);
+  // Presence: split the subscription so cursor-only churn (focusFileId /
+  // cursorWorld ticking at 60+ Hz in multi-agent sessions) does NOT wake
+  // the activity selector's memoized merge, and vice versa. The two
+  // `Map` references feed a single useMemo that rebuilds the
+  // PresenceRingRenderer-shaped array; the memo re-runs only when the
+  // map identity on the touched slice changes. This replaces the old
+  // `usePresenceStore(s => s.agents)` single subscription whose returned
+  // array flipped identity on every slice tick, cascading re-renders
+  // through the 20+ store selectors above.
+  const presenceActivityMap = usePresenceActivity(m => m);
+  const presenceCursorMap   = usePresenceCursors(m => m);
+  const agentPresence = useMemo<readonly AgentPresence[]>(() => {
+    const out: AgentPresence[] = [];
+    for (const [id, a] of presenceActivityMap) {
+      const c = presenceCursorMap.get(id);
+      if (!c) continue;
+      const rec: AgentPresence = {
+        agentId: id,
+        label: a.label,
+        color: a.color,
+        focusFileId: c.focusFileId,
+        activity: a.activity,
+        updatedAt: a.updatedAt,
+      };
+      if (a.trailFileIds) rec.trailFileIds = a.trailFileIds;
+      if (c.cursorWorld) rec.cursorWorld = c.cursorWorld;
+      out.push(rec);
+    }
+    return out;
+  }, [presenceActivityMap, presenceCursorMap]);
 
   const actionTerrainMode    = useActionTerrainStore(s => s.mode);
   const actionTerrainEnabled = useActionTerrainRender(s => s.enabled);

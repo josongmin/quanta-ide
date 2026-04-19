@@ -27,8 +27,16 @@ function bezierBBox(route: BezierRoute): { minX: number; minY: number; maxX: num
 export class EdgeFilter {
   private tree = new RBush<EdgeBBoxItem>();
 
-  load(edgeIds: string[], edgeRoutes: Map<string, BezierRoute>): void {
+  load(edgeIds: string[], edgeRoutes: Map<string, BezierRoute>, packed?: unknown): void {
     this.tree.clear();
+    // Fast path — see FileIndex.load for the rationale. On a 10k-edge
+    // graph the per-edge bezierBBox spread + rbush.load() together take
+    // ~10-20 ms; the worker-built packed blob lets us skip both and
+    // assign the tree state in O(1).
+    if (packed !== undefined && packed !== null) {
+      (this.tree as unknown as { fromJSON: (d: unknown) => unknown }).fromJSON(packed);
+      return;
+    }
     const items: MutableEdgeBBoxItem[] = [];
     for (const edgeId of edgeIds) {
       const route = edgeRoutes.get(edgeId);
@@ -37,6 +45,11 @@ export class EdgeFilter {
       items.push({ ...bbox, edgeId });
     }
     this.tree.load(items);
+  }
+
+  /** See FileIndex.toPacked — worker-side capture for main-thread rehydrate. */
+  toPacked(): unknown {
+    return (this.tree as unknown as { toJSON: () => unknown }).toJSON();
   }
 
   query(viewport: { x: number; y: number; w: number; h: number }): string[] {

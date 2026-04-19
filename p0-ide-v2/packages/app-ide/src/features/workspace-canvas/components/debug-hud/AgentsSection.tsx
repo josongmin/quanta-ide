@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
-import { usePresenceStore, type AgentActivity } from "../../store/presence-store";
+import { useEffect, useMemo, useState } from "react";
+import {
+  usePresenceActivity,
+  usePresenceCursors,
+  type AgentActivity,
+} from "../../store/presence-store";
 import { interactionStore } from "../../store/interaction-store";
 import { useSceneStore } from "../../store/scene-store";
 import { useRenderSettings, renderSettingsStore } from "../../store/render-settings-store";
@@ -30,7 +34,34 @@ const ACTIVITY_SHORT: Record<AgentActivity, string> = {
 };
 
 export function AgentsSection() {
-  const agents = usePresenceStore(s => s.agents);
+  // Split subscription so a pure cursorWorld tick (no focusFileId change)
+  // never rebuilds the debug HUD row list. Activity churn (label,
+  // activity-mode, updatedAt) triggers the merge; the cursor map only
+  // contributes focusFileId lookups.
+  const activityMap = usePresenceActivity(m => m);
+  const cursorMap = usePresenceCursors(m => m);
+  const agents = useMemo(() => {
+    const out: {
+      agentId: string;
+      label: string;
+      color: number;
+      activity: AgentActivity;
+      focusFileId: string | null;
+      updatedAt: number;
+    }[] = [];
+    for (const [id, a] of activityMap) {
+      const c = cursorMap.get(id);
+      out.push({
+        agentId: id,
+        label: a.label,
+        color: a.color,
+        activity: a.activity,
+        focusFileId: c?.focusFileId ?? null,
+        updatedAt: a.updatedAt,
+      });
+    }
+    return out;
+  }, [activityMap, cursorMap]);
   const graph = useSceneStore(s => s.graph);
   const showAgentPresence = useRenderSettings(s => s.showAgentPresence);
   const [now, setNow] = useState(() => Date.now());

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useCursorsStore } from "../../store/cursors-store";
-import { usePresenceStore } from "../../store/presence-store";
+import { usePresenceActivity } from "../../store/presence-store";
 import { followStore, useFollowStore } from "../../store/follow-store";
 import { useFeature } from "../../store/feature-flags-store";
 
@@ -17,7 +17,10 @@ function cssColor(n: number): string {
 export function FollowSection() {
   const enabled = useFeature("collab.follow");
   const cursors = useCursorsStore(s => s.cursors);
-  const agents = usePresenceStore(s => s.agents);
+  // Activity slice only — the follow candidate list uses label + color,
+  // which never live on the cursor slice. This keeps the panel quiet
+  // through cursor-tick storms.
+  const activityMap = usePresenceActivity(m => m);
   const targetId = useFollowStore(s => s.targetUserId);
 
   const candidates = useMemo<readonly FollowCandidate[]>(() => {
@@ -25,12 +28,12 @@ export function FollowSection() {
     for (const c of cursors) {
       out.push({ id: c.userId, label: c.label, color: c.color });
     }
-    for (const a of agents) {
-      if (out.some(o => o.id === a.agentId)) continue;
-      out.push({ id: a.agentId, label: a.label, color: cssColor(a.color) });
+    for (const [id, a] of activityMap) {
+      if (out.some(o => o.id === id)) continue;
+      out.push({ id, label: a.label, color: cssColor(a.color) });
     }
     return out;
-  }, [cursors, agents]);
+  }, [cursors, activityMap]);
 
   if (!enabled) {
     return (

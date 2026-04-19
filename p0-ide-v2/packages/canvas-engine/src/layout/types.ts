@@ -159,6 +159,24 @@ export interface WorkspaceLayout {
    * where grouping would be visual noise).
    */
   folderRects?: readonly FolderFrameMeta[];
+  /**
+   * Pre-built rbush spatial indices from the layout worker. When present,
+   * `FileIndex` / `EdgeFilter` on the main thread skip the O(N log N)
+   * `load()` call and restore the tree in O(1) via `rbush.fromJSON()` —
+   * the heavy packing work was already paid off-main-thread during layout
+   * compute. Only present on worker-produced layouts; test fixtures and
+   * ad-hoc in-memory layouts omit it, triggering the main-thread build
+   * path as before.
+   *
+   * The `unknown` type is deliberate — the inner shape is rbush's opaque
+   * node structure (root node + recursive children). Consumers hand the
+   * blob straight to `rbush.fromJSON(...)` without introspecting it, so
+   * the opaqueness keeps the type surface small.
+   */
+  packedSpatialIndex?: {
+    files?: unknown;
+    edges?: unknown;
+  };
 }
 
 // Canonical file-card dimensions. Cards are sized to fit a header stripe

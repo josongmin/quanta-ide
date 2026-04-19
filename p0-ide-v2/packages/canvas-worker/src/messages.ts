@@ -112,6 +112,23 @@ export interface SerializedLayout {
     edgeIds: readonly string[];
     byPair: Readonly<Record<string, number>>;
   };
+  /**
+   * Pre-packed rbush spatial-index nodes, built in the worker during
+   * layout compute. When present, `FileIndex` / `EdgeFilter` on the
+   * main thread skip their O(N log N) `tree.load(items)` pass and hand
+   * the blob straight to `rbush.fromJSON()` — an O(1) assign. For a
+   * 6k-file / 10k-edge graph that saves ~15-30ms of main-thread boot
+   * time per layout arrival.
+   *
+   * The inner values are rbush's opaque node structure (plain
+   * recursive `{ minX, minY, maxX, maxY, children, leaf, height }`
+   * objects) — structured-clone safe without any Transferable, and
+   * never introspected by consumers.
+   */
+  packedSpatialIndex?: {
+    files?: unknown;
+    edges?: unknown;
+  };
 }
 
 export interface SerializedMetrics {
@@ -161,6 +178,9 @@ export function serializeLayout(layout: WorkspaceLayout): SerializedLayout {
   if (layout.archViolations) {
     base.archViolations = layout.archViolations;
   }
+  if (layout.packedSpatialIndex) {
+    base.packedSpatialIndex = layout.packedSpatialIndex;
+  }
   return base;
 }
 
@@ -178,6 +198,7 @@ export function deserializeLayout(s: SerializedLayout): WorkspaceLayout {
     sccs: s.sccs,
     startHere: s.startHere,
     archViolations: s.archViolations,
+    packedSpatialIndex: s.packedSpatialIndex,
   };
 }
 
