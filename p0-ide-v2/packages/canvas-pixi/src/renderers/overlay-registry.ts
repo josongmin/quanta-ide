@@ -365,7 +365,19 @@ export class RendererStack {
   }
 
   update(ctx: OverlayRenderCtx): void {
-    for (const h of this.handles.values()) h.update(ctx);
+    for (const [id, h] of this.handles) {
+      const t0 = performance.now();
+      try {
+        h.update(ctx);
+      } catch (e) {
+        console.error(`[overlay-stack] "${id}" update threw:`, e);
+        throw e;
+      }
+      const dt = performance.now() - t0;
+      if (dt > 10) {
+        console.warn(`[overlay-stack] "${id}" update took ${dt.toFixed(1)}ms`);
+      }
+    }
   }
 
   clear(): void {
