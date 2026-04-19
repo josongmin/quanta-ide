@@ -103,9 +103,10 @@ export function AnnotationToolbar() {
         className={`ws-anno-toolbar__btn${activeTool === "none" ? " is-on" : ""}`}
         onClick={() => onPick(NONE_TOOL.kind)}
         title={`${NONE_TOOL.label} (Esc)`}
+        aria-label={`${NONE_TOOL.label} (Esc)`}
         aria-pressed={activeTool === "none"}
       >
-        {NONE_TOOL.glyph}
+        <span aria-hidden="true">{NONE_TOOL.glyph}</span>
       </button>
       {TOOLS.filter(t => flagMap[t.flag]).map(t => (
         <button
@@ -114,10 +115,11 @@ export function AnnotationToolbar() {
           className={`ws-anno-toolbar__btn${activeTool === t.kind ? " is-on" : ""}`}
           onClick={() => onPick(t.kind)}
           title={t.label}
+          aria-label={t.label}
           aria-pressed={activeTool === t.kind}
           data-tool={t.kind}
         >
-          {t.glyph}
+          <span aria-hidden="true">{t.glyph}</span>
         </button>
       ))}
 

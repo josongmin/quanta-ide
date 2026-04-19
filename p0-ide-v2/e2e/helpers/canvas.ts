@@ -4,8 +4,7 @@ const APP_PATH = "/ide/";
 
 // Shell boots with: t0=order-service (ide), t1=payment-service (ide),
 // t2=docs/ide, t3=Code Universe (workspace). The canvas only mounts
-// while its tab is active. Keep the index here in sync with
-// `action-terrain.spec.ts` — if the default loadout changes, update both.
+// while its tab is active.
 const WORKSPACE_TAB_INDEX = 3;
 
 /**

@@ -31,9 +31,6 @@ import { installCityFonts } from "../renderers/shared/BitmapFontAtlas";
 import { ensureMsdfFont } from "../renderers/shared/msdf-text";
 import type { AgentPresenceInput } from "../renderers/PresenceRingRenderer";
 import { RendererStack, type OverlayRenderCtx } from "../renderers/overlay-registry";
-import type { IsoTerrainBar } from "../renderers/iso/IsoTerrainRenderer";
-import type { IsoConeInput } from "../renderers/iso/IsoConeRenderer";
-import type { IsoConfig } from "../renderers/iso/iso-projection";
 
 // PixiStage
 // -------------------------------------------------------------------
@@ -121,13 +118,6 @@ export interface PresenceProps {
   showAgentPresence?: boolean;
 }
 
-export interface ActionTerrainProps {
-  enabled?: boolean;
-  bars?: readonly IsoTerrainBar[];
-  cone?: IsoConeInput | null;
-  isoConfig?: IsoConfig;
-}
-
 export interface SceneProps {
   visible: WorkspaceView;
   /** Populated only at supergalaxy LOD. One box per cluster. */
@@ -148,7 +138,6 @@ export interface PixiStageProps {
   temporal: TemporalProps;
   trace: TraceProps;
   presence: PresenceProps;
-  actionTerrain?: ActionTerrainProps;
 
   /** Master toggle for multi-graph gold cross-overlay. */
   highlightCrossGraph?: boolean;
@@ -302,7 +291,6 @@ export function PixiStage({
   temporal,
   trace,
   presence,
-  actionTerrain,
   highlightCrossGraph,
   effects,
   latency,
@@ -321,10 +309,6 @@ export function PixiStage({
   const { temporalEdgeSet, diffAdded, diffRemoved } = temporal;
   const { activeTrace, traceEdgeSet } = trace;
   const { agentPresence, showAgentPresence = true } = presence;
-  const actionTerrainEnabled = actionTerrain?.enabled ?? false;
-  const actionTerrainBars = actionTerrain?.bars;
-  const actionTerrainCone = actionTerrain?.cone ?? null;
-  const actionTerrainIsoConfig = actionTerrain?.isoConfig;
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const appRef = useRef<Application | null>(null);
@@ -788,10 +772,6 @@ export function PixiStage({
       showAgentPresence,
       effects,
       showEffectBadges,
-      actionTerrainEnabled,
-      actionTerrainBars,
-      actionTerrainCone,
-      actionTerrainIsoConfig,
     };
   }, [
     visible, layout, viewport, viewState, effectiveLod, edgeCache, fileLookup,
@@ -802,7 +782,6 @@ export function PixiStage({
     clusterEdgesToRender, sccBubblesAllowed, startHereAllowed, startHereTopN,
     activeTrace, agentPresence, showAgentPresence, anyLayerOn,
     effects, showEffectBadges,
-    actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoConfig,
   ]);
 
   // Build the node-tier ctx similarly.
@@ -891,7 +870,6 @@ export function PixiStage({
     clusterEdgesToRender, sccBubblesAllowed, startHereAllowed, startHereTopN,
     activeTrace, agentPresence, showAgentPresence,
     effects, showEffectBadges,
-    actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoConfig,
   ]);
 
   // ── Ticker path: mark-dirty effects + single ticker subscriber ───
@@ -936,7 +914,6 @@ export function PixiStage({
     sccBubblesAllowed, startHereAllowed, startHereTopN,
     activeTrace, agentPresence, showAgentPresence,
     effects, crossGraphFlash,
-    actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoConfig,
   ]);
 
   // Single ticker subscription. Runs once per animation frame, checks

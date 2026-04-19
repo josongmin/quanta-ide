@@ -16,7 +16,6 @@ import { embedsFeatures } from "./embeds";
 import { aiFeatures } from "./ai";
 import { temporalT1T2Features, temporalT4Features } from "./temporal";
 import { archaeologyFeatures } from "./archaeology";
-import { actionTerrainFeatures } from "./action-terrain";
 
 // Canonical feature list. Ordered by category then introduction.
 // Keep ids stable forever — they serialize into URL share state and user
@@ -34,7 +33,6 @@ export const FEATURE_REGISTRY: readonly FeatureDescriptor[] = [
   ...temporalT1T2Features,
   ...archaeologyFeatures,
   ...temporalT4Features,
-  ...actionTerrainFeatures,
 ];
 
 /** Fast id → descriptor lookup. */

@@ -15,9 +15,7 @@ import { gotoCanvas } from "./helpers/canvas";
  * `app-demo/seed.ts`). Pressing `⌘⇧D` both closes the HUD *and* opens
  * a new "Try demo" tab, which ALSO switches focus off the workspace.
  * So this spec exercises the HUD toggle via the UI (close button +
- * launcher button) rather than the chord. The chord itself is still
- * tested end-to-end by `action-terrain.spec.ts`-style flows indirectly
- * through the feature flag surface.
+ * launcher button) rather than the chord.
  */
 
 test.describe("Debug HUD", () => {

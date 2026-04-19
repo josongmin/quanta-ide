@@ -28,7 +28,6 @@ const CATEGORY_LABEL: Record<FeatureCategory, string> = {
   ai: "AI",
   temporal: "시간 흐름",
   archaeology: "아키올로지",
-  actionTerrain: "액션 지형",
 };
 
 const CATEGORY_ORDER: readonly FeatureCategory[] = [
@@ -42,7 +41,6 @@ const CATEGORY_ORDER: readonly FeatureCategory[] = [
   "ai",
   "temporal",
   "archaeology",
-  "actionTerrain",
 ];
 
 const MATURITY_COLOR = {

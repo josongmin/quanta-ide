@@ -3,7 +3,6 @@ import { pagesStore, usePagesStore, type CanvasPage } from "../store/pages-store
 import { bookmarksStore } from "../store/bookmarks-store";
 import { viewportStore } from "../store/viewport-store";
 import { interactionStore } from "../store/interaction-store";
-import { actionTerrainStore } from "../store/action-terrain-store";
 import { useFeature } from "../store/feature-flags-store";
 import { TemplatesMenu } from "./TemplatesMenu";
 
@@ -256,9 +255,5 @@ export function switchToPage(targetId: string): void {
       scale: incoming.viewport.scale,
     });
     interactionStore.selectFile(incoming.selectedFileId);
-    // Action-terrain selection is per-canvas — clear it on page switch so
-    // stale cones don't linger. Mode + heightScale persist (user prefs).
-    actionTerrainStore.selectFile(null);
-    actionTerrainStore.selectPlan(null);
   }
 }

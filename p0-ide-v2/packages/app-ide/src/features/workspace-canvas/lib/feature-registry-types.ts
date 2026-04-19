@@ -13,8 +13,7 @@ export type FeatureCategory =
   | "embeds"
   | "ai"
   | "temporal"
-  | "archaeology"
-  | "actionTerrain";
+  | "archaeology";
 
 export type FeatureMaturity = "stable" | "beta" | "experimental";
 

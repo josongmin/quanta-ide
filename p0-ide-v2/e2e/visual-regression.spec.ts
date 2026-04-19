@@ -1,5 +1,4 @@
 import { test, expect, type Page } from "@playwright/test";
-import { seedFeatureFlags } from "./helpers/feature-flags";
 import { gotoCanvas } from "./helpers/canvas";
 
 /**
@@ -58,63 +57,6 @@ test.describe("Visual regression", () => {
     await closeDebugHud(page);
 
     await expect(page).toHaveScreenshot("canvas-default.png", {
-      maxDiffPixelRatio: 0.02,
-      animations: "disabled",
-    });
-  });
-
-  test("canvas with Action Terrain mode ON", async ({ page }) => {
-    await seedFeatureFlags(page, { "action-terrain.mode": true });
-    await gotoCanvas(page);
-
-    // Wait for the stickies overlay (a DOM layer that mounts once the
-    // canvas layout is ready) — file cards themselves are drawn via
-    // PixiJS onto a <canvas>, so there's no per-card DOM node we could
-    // wait on. Stickies-layer serves as a stable proxy for "canvas is
-    // laid out."
-    await page.locator(".workspace-canvas__stickies-layer").waitFor({ state: "attached", timeout: 15_000 });
-    // Brief settle for worker-scheduled layout + fonts.
-    await page.waitForTimeout(500);
-    await closeDebugHud(page);
-
-    // Enter Action Terrain.
-    await page.keyboard.press("Meta+Shift+A");
-    await expect(page.locator(".workspace-canvas")).toHaveAttribute(
-      "data-action-terrain",
-      "on",
-      { timeout: 5_000 },
-    );
-    await page.locator(".ws-roi-panel").waitFor({ state: "visible", timeout: 5_000 });
-    await page.locator(".ws-roi-row").first().waitFor({ state: "visible", timeout: 5_000 });
-
-    await expect(page).toHaveScreenshot("canvas-action-terrain-on.png", {
-      maxDiffPixelRatio: 0.02,
-      animations: "disabled",
-    });
-  });
-
-  test("canvas with Action Terrain + first ROI row selected", async ({ page }) => {
-    await seedFeatureFlags(page, { "action-terrain.mode": true });
-    await gotoCanvas(page);
-
-    // Wait for the stickies overlay (a DOM layer that mounts once the
-    // canvas layout is ready) — file cards themselves are drawn via
-    // PixiJS onto a <canvas>, so there's no per-card DOM node we could
-    // wait on. Stickies-layer serves as a stable proxy for "canvas is
-    // laid out."
-    await page.locator(".workspace-canvas__stickies-layer").waitFor({ state: "attached", timeout: 15_000 });
-    // Brief settle for worker-scheduled layout + fonts.
-    await page.waitForTimeout(500);
-    await closeDebugHud(page);
-    await page.keyboard.press("Meta+Shift+A");
-    const rows = page.locator(".ws-roi-row");
-    await rows.first().waitFor({ state: "visible", timeout: 5_000 });
-
-    // Click the first ROI row to highlight it.
-    await rows.first().locator(".ws-roi-row__main").click();
-    await expect(rows.first()).toHaveClass(/ws-roi-row--selected/);
-
-    await expect(page).toHaveScreenshot("canvas-action-terrain-selected.png", {
       maxDiffPixelRatio: 0.02,
       animations: "disabled",
     });

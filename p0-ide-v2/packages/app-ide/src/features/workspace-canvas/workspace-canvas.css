@@ -34,12 +34,6 @@
   --ws-user-a: #7dd3fc;
   --ws-user-b: #fb7185;
 
-  /* Refactor ROI — terrain color ramp (cold → warm → hot). */
-  --ws-roi-cold: #22c55e;
-  --ws-roi-warm: #facc15;
-  --ws-roi-hot:  #ef4444;
-  --ws-roi-panel-bg: color-mix(in srgb, var(--ws-hud-bg) 94%, transparent);
-
   /* ── Design tokens ────────────────────────────────────────────────
      Consolidated elevation/radius/motion/surface scales. Prefer these
      over ad-hoc values so future polish stays consistent. Keep scales
@@ -774,25 +768,6 @@
   font-variant-numeric: tabular-nums;
 }
 .ws-debug__row-chips { gap: 2px; flex: 1; }
-.ws-debug__roi-list { display: flex; flex-direction: column; gap: 1px; margin-top: 2px; }
-.ws-debug__roi-bar {
-  flex: 0 0 58px;
-  height: 6px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-  display: inline-block;
-}
-.ws-debug__roi-bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--ws-roi-hot);
-}
-.ws-debug__roi-num {
-  flex: 0 0 30px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
 .ws-debug__lod {
   display: flex;
   gap: 3px;
@@ -1475,6 +1450,8 @@
   background: var(--bg-subtle);
   color: var(--fg);
 }
+.ws-anno-toolbar__btn:active { transform: translateY(1px); }
+.ws-anno-toolbar__btn:focus-visible { outline: none; box-shadow: var(--ws-focus-ring); }
 .ws-anno-toolbar__btn.is-on {
   background: color-mix(in srgb, var(--accent, #6366f1) 18%, transparent);
   color: var(--accent, #6366f1);
@@ -3111,16 +3088,26 @@
   text-align: left;
   font: inherit;
 }
-.ws-palette__item:hover { background: rgba(148, 163, 184, 0.1); }
-.ws-palette__item.is-active { background: rgba(125, 211, 252, 0.18); color: var(--ws-hud-fg); }
+.ws-palette__item:hover { background: var(--ws-hud-surface-weak); }
+.ws-palette__item:focus-visible {
+  outline: none;
+  background: var(--ws-hud-surface-weak);
+  box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.55);
+}
+.ws-palette__item.is-active { background: var(--ws-hud-accent-weak); color: var(--ws-hud-fg); }
 .ws-palette__label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.ws-palette__hint { color: var(--ws-hud-fg-muted); font-size: 10px; }
+.ws-palette__hint { color: var(--ws-hud-fg-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
 .ws-palette__empty {
-  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 14px;
   text-align: center;
   color: var(--ws-hud-fg-muted);
   font-size: 12px;
 }
+.ws-palette__empty-title { font-weight: 600; color: var(--ws-hud-fg-soft); }
+.ws-palette__empty-hint { color: var(--ws-hud-fg-muted); font-size: 11px; }
 
 /* ── Lasso + bulk actions ────────────────────────────────────────── */
 .ws-lasso {
@@ -3220,10 +3207,6 @@
   --ws-hud-fg-subtle: #64748b;
   --ws-hud-fg-soft: #1e293b;
   --ws-hud-surface: #ffffff;
-  --ws-roi-cold: #15803d;
-  --ws-roi-warm: #b45309;
-  --ws-roi-hot:  #b91c1c;
-  --ws-roi-panel-bg: rgba(255, 255, 255, 0.95);
   /* Surface tints on a light background read lighter — bump alpha so
      hover/press states stay perceptible against the near-white HUD bg. */
   --ws-hud-surface-weak: rgba(15, 23, 42, 0.05);
@@ -3248,10 +3231,6 @@
   --ws-hud-surface: #000000;
   --ws-hud-accent: #fde047;
   --ws-hud-accent-strong: #facc15;
-  --ws-roi-cold: #4ade80;
-  --ws-roi-warm: #fde047;
-  --ws-roi-hot:  #fb7185;
-  --ws-roi-panel-bg: #000000;
   /* The accent flips to yellow in HC — pull the accent-tinted tokens
      along so hover/focus stays on-theme instead of falling back to sky. */
   --ws-hud-accent-weak:  rgba(253, 224, 71, 0.18);
@@ -3543,6 +3522,15 @@
 .ws-templates__item-desc {
   font-size: 10px;
   color: var(--ws-hud-fg-muted);
+}
+.ws-templates__empty {
+  padding: 12px 10px;
+  font-size: 11px;
+  color: var(--ws-hud-fg-muted);
+  text-align: center;
+  border: 1px dashed var(--ws-hud-surface-strong);
+  border-radius: var(--ws-radius-sm);
+  background: var(--ws-hud-surface-weak);
 }
 
 /* Bookmarks drawer — lives inside `.ws-nav-stack` (bottom-right). The
@@ -4178,344 +4166,6 @@
 .ws-slack__author { font-weight: 600; color: #1f2937; }
 .ws-slack__foot { font-size: 10px; color: #94a3b8; }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Action Terrain — isometric refactor-ROI mode
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* Floating toggle — sits above the minimap (which occupies bottom 12-122)
-   so there's no overlap. Also clears storyboard, which is bottom-centre. */
-.ws-action-terrain-toggle-wrap {
-  position: absolute;
-  left: 12px;
-  bottom: 140px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  z-index: 8;
-  pointer-events: auto;
-}
-.ws-action-terrain-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: var(--ws-hud-bg);
-  color: var(--ws-hud-fg);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
-}
-.ws-action-terrain-toggle:hover {
-  border-color: rgba(255, 255, 255, 0.24);
-}
-.ws-action-terrain-toggle[aria-pressed="true"] {
-  background: var(--ws-selection-accent);
-  border-color: var(--ws-selection-accent);
-  color: #fff;
-}
-.ws-action-terrain-toggle__icon {
-  font-size: 10px;
-  opacity: 0.85;
-}
-.ws-action-terrain-toggle__slider {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: var(--ws-hud-bg);
-  color: var(--ws-hud-fg-muted);
-  font-size: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-.ws-action-terrain-toggle__slider input[type="range"] {
-  width: 80px;
-}
-.ws-action-terrain-toggle__value {
-  font-variant-numeric: tabular-nums;
-  color: var(--ws-hud-fg);
-  font-weight: 600;
-  min-width: 34px;
-  text-align: right;
-}
-
-/* Left-side panel — right column is owned by Inspector / Regression-hunt
-   (both z 20+). Left column is free between pages tab bar (top 10) and
-   the toggle/minimap (bottom 140 + 122 = 262 reserved). */
-.ws-roi-panel {
-  position: absolute;
-  left: 12px;
-  top: 60px;
-  width: 320px;
-  max-height: calc(100vh - 280px);
-  padding: 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: var(--ws-roi-panel-bg, var(--ws-hud-bg));
-  color: var(--ws-hud-fg);
-  font-size: 12px;
-  overflow-y: auto;
-  z-index: 8;
-  pointer-events: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  backdrop-filter: blur(6px);
-}
-.ws-roi-panel__empty {
-  padding: 12px 10px;
-  color: var(--ws-hud-fg-muted);
-  font-size: 11px;
-  text-align: center;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-}
-.ws-roi-panel__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-.ws-roi-panel__title {
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.02em;
-}
-.ws-roi-panel__count {
-  color: var(--ws-hud-fg-muted);
-  font-variant-numeric: tabular-nums;
-  font-size: 11px;
-}
-.ws-roi-panel__sim-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
-  font-size: 11px;
-}
-.ws-roi-panel__sim-nums {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-.ws-roi-panel__cone-dir {
-  display: inline-flex;
-  gap: 4px;
-}
-.ws-roi-panel__chip {
-  height: 22px;
-  padding: 0 10px;
-  border-radius: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent;
-  color: var(--ws-hud-fg-muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-}
-.ws-roi-panel__chip.is-on {
-  background: var(--ws-selection-accent);
-  border-color: var(--ws-selection-accent);
-  color: #fff;
-}
-
-.ws-roi-panel__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.ws-roi-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-rows: auto auto auto;
-  gap: 4px 6px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  align-items: center;
-}
-.ws-roi-row--selected {
-  background: rgba(var(--ws-selection-accent-rgb), 0.18);
-  outline: 1px solid rgba(var(--ws-selection-accent-rgb), 0.5);
-}
-.ws-roi-row__main {
-  all: unset;
-  cursor: pointer;
-  display: grid;
-  grid-template-columns: 26px 1fr 28px 60px;
-  align-items: center;
-  gap: 6px;
-  grid-column: 1 / 2;
-}
-.ws-roi-row__rank {
-  color: var(--ws-hud-fg-subtle);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 11px;
-}
-.ws-roi-row__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 500;
-}
-.ws-roi-row__score {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  /* Color is set inline per-row from the gradient — the default picks up
-     the warm mid-tone as a safe fallback when JS hasn't overridden it. */
-  color: var(--ws-roi-warm);
-}
-.ws-roi-bar {
-  position: relative;
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
-  overflow: hidden;
-}
-.ws-roi-bar__fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(90deg, var(--ws-roi-cold), var(--ws-roi-warm), var(--ws-roi-hot));
-}
-.ws-roi-component-mini {
-  display: inline-flex;
-  gap: 2px;
-  align-items: flex-end;
-  height: 14px;
-  grid-column: 1 / 2;
-}
-.ws-roi-component-mini__bar {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  cursor: help;
-}
-.ws-roi-component-mini__track {
-  position: relative;
-  display: block;
-  width: 8px;
-  height: 14px;
-  border-radius: 1px;
-  background: rgba(255, 255, 255, 0.06);
-  overflow: hidden;
-}
-.ws-roi-component-mini__fill {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--ws-hud-accent);
-}
-.ws-roi-component-mini__glyph {
-  font-size: 8px;
-  line-height: 1;
-  color: var(--ws-hud-fg-subtle);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-.ws-roi-row__expand {
-  all: unset;
-  cursor: pointer;
-  color: var(--ws-hud-accent);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  grid-column: 2 / 3;
-  grid-row: 1 / 2;
-  justify-self: end;
-}
-.ws-roi-row__plans {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  grid-column: 1 / 3;
-}
-.ws-roi-plan-card {
-  border-radius: 6px;
-  padding: 6px 8px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.ws-roi-plan-card--active {
-  background: rgba(var(--ws-selection-accent-rgb), 0.14);
-  border-color: rgba(var(--ws-selection-accent-rgb), 0.5);
-}
-.ws-roi-plan-card__head {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.ws-roi-plan-kind-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: var(--ws-hud-accent);
-  color: var(--ws-hud-surface);
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.ws-roi-plan-card__title {
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ws-roi-plan-card__rationale {
-  margin: 0;
-  color: var(--ws-hud-fg-muted);
-  line-height: 1.4;
-  font-size: 11px;
-}
-.ws-roi-plan-card__foot {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--ws-hud-fg-soft);
-  font-variant-numeric: tabular-nums;
-}
-.ws-roi-plan-card__sim {
-  all: unset;
-  cursor: pointer;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent;
-  color: var(--ws-hud-fg);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.ws-roi-plan-card__sim.is-on {
-  background: var(--ws-selection-accent);
-  border-color: var(--ws-selection-accent);
-  color: #fff;
-}
-
-.ws-roi-sim-delta--improved { color: var(--ws-roi-cold); font-weight: 600; }
-.ws-roi-sim-delta--worse    { color: var(--ws-roi-hot);  font-weight: 600; }
 
 /* ─── Keyboard hints overlay ─────────────────────────────────────── */
 .ws-keyboard-hints {

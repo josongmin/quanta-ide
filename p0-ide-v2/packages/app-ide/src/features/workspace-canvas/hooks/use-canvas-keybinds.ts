@@ -2,13 +2,11 @@ import { useMemo } from "react";
 import {
   isCmdK,
   isCmdShiftT,
-  isCmdShiftA,
   isCmdE,
   type GlobalKeybind,
 } from "./use-keyboard-shortcuts";
 import { featureFlagsStore } from "../store/feature-flags-store";
 import { themeStore } from "../store/theme-store";
-import { actionTerrainStore } from "../store/action-terrain-store";
 import { interactionStore } from "../store/interaction-store";
 import { sceneStore } from "../store/scene-store";
 import { inlineEditorStore } from "../store/inline-editor-store";
@@ -56,14 +54,6 @@ export function useCanvasKeybinds(
       handler: () => {
         if (!featureFlagsStore.isEnabled("power.themeSwitcher")) return;
         themeStore.cycle();
-      },
-    },
-    {
-      label: "Toggle Action Terrain",
-      match: isCmdShiftA,
-      handler: () => {
-        if (!featureFlagsStore.isEnabled("action-terrain.mode")) return;
-        actionTerrainStore.toggleMode();
       },
     },
     {

@@ -3,7 +3,6 @@ import { renderHook } from "@testing-library/react";
 import {
   isCmdE,
   isCmdK,
-  isCmdShiftA,
   isCmdShiftT,
   useGlobalKeybinds,
   type GlobalKeybind,
@@ -29,12 +28,6 @@ describe("keyboard shortcut predicates", () => {
     expect(isCmdShiftT(ev({ key: "T", ctrlKey: true, shiftKey: true }))).toBe(true);
     expect(isCmdShiftT(ev({ key: "t", metaKey: true }))).toBe(false);
     expect(isCmdShiftT(ev({ key: "t", shiftKey: true }))).toBe(false);
-  });
-
-  it("isCmdShiftA requires both modifiers", () => {
-    expect(isCmdShiftA(ev({ key: "a", metaKey: true, shiftKey: true }))).toBe(true);
-    expect(isCmdShiftA(ev({ key: "A", ctrlKey: true, shiftKey: true }))).toBe(true);
-    expect(isCmdShiftA(ev({ key: "a", metaKey: true }))).toBe(false);
   });
 
   it("isCmdE matches only plain meta/ctrl+E", () => {

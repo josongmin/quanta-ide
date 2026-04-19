@@ -31,9 +31,6 @@ import { RefactorPreviewOverlay } from "./RefactorPreviewOverlay";
 import { PrReplayLauncher } from "./PrReplayLauncher";
 import { BisectGame } from "./BisectGame";
 import { AuthorFootprintLegend } from "./AuthorFootprintOverlay";
-import { ActionTerrainLayer } from "./action-terrain/ActionTerrainLayer";
-import { RefactorBacklogPanel } from "./action-terrain/RefactorBacklogPanel";
-import { ActionTerrainToggle } from "./action-terrain/ActionTerrainToggle";
 import { EditModeHint } from "./inline-editor/EditModeHint";
 import { CommitFlash } from "./inline-editor/CommitFlash";
 import { useFeature } from "../store/feature-flags-store";
@@ -186,9 +183,6 @@ export function CanvasLayers(props: CanvasLayersProps) {
       <PrReplayLauncher />
       <BisectGame />
       <AuthorFootprintLegend history={graph.history} />
-      <ActionTerrainLayer />
-      <ActionTerrainToggle />
-      <RefactorBacklogPanel />
       <EditModeHint />
       <CommitFlash />
     </>

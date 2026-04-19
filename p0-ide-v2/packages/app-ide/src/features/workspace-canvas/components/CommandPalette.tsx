@@ -166,7 +166,10 @@ function CommandPaletteInner({ open, onClose, zoomToFile, fitToGraph, resetViewp
         />
         <div ref={listRef} className="ws-palette__results">
           {flat.length === 0 ? (
-            <div className="ws-palette__empty">No commands match "{query}"</div>
+            <div className="ws-palette__empty" role="status">
+              <span className="ws-palette__empty-title">No matches for "{query}"</span>
+              <span className="ws-palette__empty-hint">Try a file name, action, or feature flag.</span>
+            </div>
           ) : (
             buckets.map(b => (
               <div key={b.category}>

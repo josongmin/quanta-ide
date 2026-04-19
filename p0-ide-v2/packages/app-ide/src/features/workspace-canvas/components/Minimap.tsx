@@ -200,13 +200,14 @@ export function Minimap({ layout, viewport }: Props) {
   return (
     <>
     <TemporalMinimapStrip history={graph?.history} width={MINIMAP_W} />
-    <div className="ws-minimap">
+    <div className="ws-minimap" role="img" aria-label="Repository minimap — rectangles show file positions; the framed box is the current viewport">
       {showHeatmap && <HeatmapLayer cells={heatCells} tb={tb} />}
       <svg
         width={MINIMAP_W}
         height={MINIMAP_H}
         viewBox={`${tb.x} ${tb.y} ${tb.w} ${tb.h}`}
         preserveAspectRatio="xMidYMid meet"
+        aria-hidden="true"
       >
         {useSuperclusterRects
           ? <SuperclusterRects layout={layout} />
@@ -224,6 +225,8 @@ export function Minimap({ layout, viewport }: Props) {
         type="button"
         className={`ws-minimap__chip${showHeatmap ? " is-on" : ""}`}
         onClick={() => uxSettingsStore.setShowHeatmap(!showHeatmap)}
+        aria-label={`${showHeatmap ? "Hide" : "Show"} risk heatmap`}
+        aria-pressed={showHeatmap}
         title="toggle risk heatmap"
       >
         heat

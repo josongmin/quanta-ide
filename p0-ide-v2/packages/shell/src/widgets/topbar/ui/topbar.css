@@ -2,7 +2,7 @@
 .topbar {
   /* Tab flex shrink/expand duration — JS (`use-workspace-tab-strip`) reads this for settle timing */
   --topbar-tab-flex-ms: 200;
-  --topbar-tab-max: 200px;
+  --topbar-tab-max: 350px;
   display: flex;
   align-items: stretch;
   gap: 0;
@@ -42,40 +42,27 @@
   gap: 0;
 }
 
-/* ── Home (icon only) ─────────────────────────────────────────────── */
+/* ── Home (icon only) — floating square by default ────────────────── */
 .topbar__home {
   position: relative;
   z-index: 2;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center;
   box-sizing: border-box;
-  width: 42px;
-  margin: var(--space-1h) 0;
-  padding: 0 0 0 11px;
-  align-self: stretch;
+  width: 32px;
+  height: 28px;
+  margin: 0 var(--space-1);
+  padding: 0;
+  align-self: center;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, margin 0.18s ease, border-radius 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
-.topbar__home::before,
-.topbar__home::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--topbar-divider);
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  pointer-events: none;
-}
-.topbar__home::before { left: 0; }
-.topbar__home::after { right: 0; }
 .topbar__home:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--fg);
@@ -83,17 +70,10 @@
 .topbar__home.is-active {
   color: var(--fg);
   background: var(--bg);
-  border-radius: 0;
-  margin: 0;
+  box-shadow: 0 0 0 1px var(--topbar-border), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .topbar__home.is-active:hover {
   background: var(--bg);
-}
-.topbar__home.is-active::before {
-  opacity: 1;
-}
-.topbar__home.is-active::after {
-  opacity: 0;
 }
 .topbar__logo {
   font-family: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
@@ -104,50 +84,54 @@
   color: var(--topbar-logo-fg);
 }
 
-/* ── Tab bar (Chrome-style: tabs start at max width, shrink when crowded) ── */
+/* ── Tab bar (Linear-style: floating pills with gaps, content-sized) ── */
 .topbar__tabs {
   display: flex;
-  align-items: stretch;
-  gap: 0;
+  align-items: center;
+  gap: var(--space-1h);
   /* Size to content (tabs × max-width), shrink when space is tight — keeps [+] hugging the last tab */
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   height: 100%;
+  padding: 0 var(--space-1h);
 }
 
 .topbar__tab {
-  /* Critical: default flex min-width:auto uses content intrinsic width and blocks shrinking → overflow */
-  min-width: 0;
   appearance: none;
   cursor: pointer;
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
+  height: 28px;
   padding: 0;
   overflow: hidden;
   border: none;
-  border-radius: 0;
+  border-radius: var(--radius-md);
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
   font-family: var(--font-sans);
   font-size: var(--fs-md);
   font-weight: var(--fw-medium);
   white-space: nowrap;
   position: relative;
   /* Do NOT transition flex/min/max on normal tabs — any re-render or subpixel
-     flex reflow animates and reads as “shrink then grow” on hover-out. */
-  transition: color 0.12s ease, background 0.12s ease;
+     flex reflow animates and reads as "shrink then grow" on hover-out. */
+  transition: color 0.12s ease, background 0.12s ease, box-shadow 0.18s ease;
+  /* Content-sized; cap at max; shrink when the strip overflows */
+  flex: 0 1 auto;
+  max-width: var(--topbar-tab-max, 200px);
 }
 
-/* Chrome-style: fixed width, shrink only when the strip overflows */
 .topbar__tab:not(.is-active) {
-  width: var(--topbar-tab-max, 200px);
-  flex: 0 1 auto;
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.topbar__tab:not(.is-active):hover {
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  color: var(--fg-muted);
 }
 
 .topbar__tab.is-active {
-  width: var(--topbar-tab-max, 200px);
-  flex: 0 1 auto;
   background: var(--bg);
   color: var(--fg);
 }
@@ -168,7 +152,7 @@
     max-width calc(var(--topbar-tab-flex-ms) * 1ms) ease;
 }
 
-/* Avoid flex “catch-up” transitions while widths are held for close / strip leave */
+/* Avoid flex "catch-up" transitions while widths are held for close / strip leave */
 .topbar__tab.is-width-frozen {
   transition: color 0.12s ease, background 0.12s ease;
 }
@@ -176,20 +160,20 @@
 /* Kill ghost hover after tab close — browser :hover sticks until real mouse movement */
 .is-close-settling .topbar__tab,
 .is-close-settling .topbar__tab:hover {
-  color: var(--fg-muted);
-  background: transparent;
+  color: var(--fg-subtle);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
 }
 .is-close-settling .topbar__tab-close {
   opacity: 0;
 }
 
-.topbar__tab:hover { color: var(--fg); }
 .topbar__tab-inner {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1h);
-  /* a touch more space before the icon (divider → glyph) */
-  padding: 0 8px 0 11px;
+  /* Right padding reserves room for the absolute-positioned close-X
+     (~19px) plus breathing space after the last label glyph. */
+  padding: 0 var(--space-6) 0 var(--space-2h);
   width: 100%;
   height: 100%;
   position: relative;
@@ -197,52 +181,35 @@
   transition: opacity 0.18s ease;
 }
 
-/* separator between tabs */
-.topbar__tab::before,
-.topbar__tab::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--topbar-divider);
-}
-.topbar__tab::before { right: 0; }
-.topbar__tab::after { left: 0; display: none; }
-.topbar__tab:first-of-type::after { display: block; }
-
 .topbar__tab-icon {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.7;
+  transition: opacity 0.18s ease;
 }
-.topbar__tab.is-active .topbar__tab-icon { opacity: 0.9; }
+.topbar__tab.is-active .topbar__tab-icon { opacity: 1; }
 
 .topbar__tab-label {
   overflow: hidden;
   text-align: left;
   flex: 1;
+  /* `min-width: 0` is required for `text-overflow: ellipsis` to activate
+     inside a flex item. */
   min-width: 0;
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
-          mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent 100%);
-}
-.topbar__tab:hover .topbar__tab-label,
-.topbar__tab.is-active .topbar__tab-label {
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
-          mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+  text-overflow: ellipsis;
 }
 
 .topbar__tab-close {
   position: absolute;
-  right: 4px;
+  right: 3px;
   top: 50%;
   transform: translateY(-50%);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-sm);
   color: var(--fg-subtle);
   opacity: 0;
@@ -262,30 +229,22 @@
 .topbar__tab-add {
   position: relative;
   flex-shrink: 0;
-  align-self: stretch;
+  align-self: center;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
   width: 28px;
+  height: 28px;
   min-width: 28px;
-  margin: 0 var(--space-2) 0 0;
+  margin: 0 var(--space-2) 0 var(--space-1);
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--fg-subtle);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
-}
-.topbar__tab-add::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--topbar-divider);
 }
 .topbar__tab-add:hover {
   background: rgba(0, 0, 0, 0.05);
@@ -355,25 +314,11 @@
   padding: 0;
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease, width 0.18s ease, border-radius 0.18s ease;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
-.topbar__icon-btn::before,
-.topbar__icon-btn::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--topbar-divider);
-  opacity: 0;
-  transition: opacity 0.18s ease;
-  pointer-events: none;
-}
-.topbar__icon-btn::before { left: 0; }
-.topbar__icon-btn::after { right: 0; }
 .topbar__icon-btn:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--fg);
@@ -381,18 +326,10 @@
 .topbar__icon-btn.is-active {
   color: var(--fg);
   background: var(--bg);
-  border-radius: 0;
-  margin: 0;
-  width: 40px;
-  height: auto;
-  align-self: stretch;
+  box-shadow: 0 0 0 1px var(--topbar-border), 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 .topbar__icon-btn.is-active:hover {
   background: var(--bg);
-}
-.topbar__icon-btn.is-active::before,
-.topbar__icon-btn.is-active::after {
-  opacity: 1;
 }
 
 .topbar__sep {
@@ -402,12 +339,6 @@
   margin: 0 var(--space-1);
   align-self: center;
   flex-shrink: 0;
-  transition: opacity 0.18s ease, width 0.18s ease, margin 0.18s ease;
-}
-.topbar__utilities:has(.topbar__icon-btn.is-active) + .topbar__sep {
-  opacity: 0;
-  width: 0;
-  margin: 0;
 }
 
 .topbar__badge {
@@ -459,4 +390,127 @@
 
 .topbar__profile-name {
   white-space: nowrap;
+}
+
+/* ═══ Chrome-style variant (classic connected tabs) ═══════════════════
+   Opt-in via <html data-tab-style="chrome">. Reverts the floating-pill
+   defaults above to the previous Chrome-browser-style look: edge-to-edge
+   active tab, vertical dividers between tabs, no gaps. */
+[data-tab-style="chrome"] .topbar__tabs {
+  gap: 0;
+  padding: 0;
+}
+[data-tab-style="chrome"] .topbar__tab {
+  align-items: stretch;
+  height: auto;
+  border-radius: 0;
+  align-self: stretch;
+}
+[data-tab-style="chrome"] .topbar__tab:not(.is-active) {
+  background: transparent;
+}
+[data-tab-style="chrome"] .topbar__tab:not(.is-active):hover {
+  background: transparent;
+  color: var(--fg);
+}
+[data-tab-style="chrome"] .topbar__tab.is-active {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: none;
+}
+[data-tab-style="chrome"] .topbar__tab::before,
+[data-tab-style="chrome"] .topbar__tab::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--topbar-divider);
+}
+[data-tab-style="chrome"] .topbar__tab::before { right: 0; }
+[data-tab-style="chrome"] .topbar__tab::after { left: 0; display: none; }
+[data-tab-style="chrome"] .topbar__tab:first-of-type::after { display: block; }
+/* Match the default variant's right breathing room for the close-X. */
+[data-tab-style="chrome"] .topbar__tab-inner {
+  padding: 0 var(--space-6) 0 11px;
+}
+
+[data-tab-style="chrome"] .topbar__home {
+  width: 42px;
+  height: auto;
+  margin: var(--space-1h) 0;
+  padding: 0 0 0 11px;
+  align-self: stretch;
+  justify-content: flex-start;
+  border-radius: var(--radius-sm);
+}
+[data-tab-style="chrome"] .topbar__home::before,
+[data-tab-style="chrome"] .topbar__home::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--topbar-divider);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+[data-tab-style="chrome"] .topbar__home::before { left: 0; }
+[data-tab-style="chrome"] .topbar__home::after { right: 0; }
+[data-tab-style="chrome"] .topbar__home.is-active {
+  background: var(--bg);
+  border-radius: 0;
+  margin: 0;
+  box-shadow: none;
+}
+[data-tab-style="chrome"] .topbar__home.is-active::before { opacity: 1; }
+
+[data-tab-style="chrome"] .topbar__tab-add {
+  align-self: stretch;
+  height: auto;
+  margin: 0 var(--space-2) 0 0;
+  border-radius: var(--radius-sm);
+}
+[data-tab-style="chrome"] .topbar__tab-add::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--topbar-divider);
+}
+
+[data-tab-style="chrome"] .topbar__icon-btn::before,
+[data-tab-style="chrome"] .topbar__icon-btn::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--topbar-divider);
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+[data-tab-style="chrome"] .topbar__icon-btn::before { left: 0; }
+[data-tab-style="chrome"] .topbar__icon-btn::after { right: 0; }
+[data-tab-style="chrome"] .topbar__icon-btn.is-active {
+  background: var(--bg);
+  border-radius: 0;
+  margin: 0;
+  width: 40px;
+  height: auto;
+  align-self: stretch;
+  box-shadow: none;
+}
+[data-tab-style="chrome"] .topbar__icon-btn.is-active::before,
+[data-tab-style="chrome"] .topbar__icon-btn.is-active::after {
+  opacity: 1;
+}
+[data-tab-style="chrome"] .topbar__utilities:has(.topbar__icon-btn.is-active) + .topbar__sep {
+  opacity: 0;
+  width: 0;
+  margin: 0;
 }

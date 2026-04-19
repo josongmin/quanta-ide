@@ -48,11 +48,6 @@ import { featureFlagsStore } from "../store/feature-flags-store";
 import { useAnomalyDetectionRun } from "../hooks/use-anomaly-detection";
 import { useFeature } from "../store/feature-flags-store";
 import { computeAuthorTints } from "./AuthorFootprintOverlay";
-import {
-  actionTerrainStore,
-  useActionTerrainRender,
-  useActionTerrainStore,
-} from "../store/action-terrain-store";
 
 const EMPTY_TINT_MAP: ReadonlyMap<string, string> = new Map();
 const EMPTY_AGENT_PRESENCE: readonly AgentPresence[] = Object.freeze([]);
@@ -163,22 +158,7 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
     return out;
   }, [presenceFlag, presenceActivityMap, presenceCursorMap]);
 
-  const actionTerrainMode    = useActionTerrainStore(s => s.mode);
-  const actionTerrainEnabled = useActionTerrainRender(s => s.enabled);
-  const actionTerrainBars    = useActionTerrainRender(s => s.bars);
-  const actionTerrainCone    = useActionTerrainRender(s => s.coneForRenderer);
-  const actionTerrainIsoCfg  = useActionTerrainRender(s => s.isoConfig);
-  const actionTerrainProps = useMemo(() => ({
-    enabled: actionTerrainEnabled,
-    bars: actionTerrainBars,
-    cone: actionTerrainCone,
-    isoConfig: actionTerrainIsoCfg,
-  }), [actionTerrainEnabled, actionTerrainBars, actionTerrainCone, actionTerrainIsoCfg]);
-
-  // Iso bars are the primary signal in action-terrain mode; suppress flat
-  // graph edges so they don't compete. The user-facing `showEdges` toggle
-  // still reflects preference — flipping the mode off restores it.
-  const effectiveShowEdges = showEdges && !actionTerrainMode;
+  const effectiveShowEdges = showEdges;
 
   const { edgeFocus, edgePredicate, edgeViolations } =
     useEdgeFocusLogic(graph, layout, viewState);
@@ -289,11 +269,6 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   const selectFile = useCallback((fileId: string) => {
     if (devModeApiRef.current?.tryCaptureSelection(fileId)) return;
     rawSelectFile(fileId);
-    // Mirror canvas selection into the Action Terrain store when mode is
-    // active so the blast/fix cone tracks canvas clicks, not just panel rows.
-    if (actionTerrainStore.getState().mode) {
-      actionTerrainStore.selectFile(fileId);
-    }
   }, [rawSelectFile]);
 
   // Pan/zoom transform — written imperatively to bypass React reconciliation
@@ -511,7 +486,6 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
     <div
       ref={containerRef}
       className="workspace-canvas"
-      data-action-terrain={actionTerrainMode ? "on" : "off"}
       onMouseDown={onMouseDown}
       onMouseMove={onMouseMove}
       onMouseUp={onMouseUp}
@@ -559,7 +533,6 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
           temporal={{ temporalEdgeSet, diffAdded, diffRemoved }}
           trace={{ activeTrace, traceEdgeSet }}
           presence={{ agentPresence, showAgentPresence }}
-          actionTerrain={actionTerrainProps}
           highlightCrossGraph={highlightCrossGraph}
           effects={graph.effects}
           latency={graph.latency}

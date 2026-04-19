@@ -45,6 +45,17 @@ function captureThumbnail(): string | undefined {
   }
 }
 
+function resolveThumbnailBg(): string {
+  // Prefer the live --ws-hud-surface token so thumbnails inherit the
+  // active theme (dark / light / high-contrast). Fallback to the dark
+  // slate that was hardcoded before, for non-browser test envs.
+  if (typeof document === "undefined") return "#0f172a";
+  const raw = getComputedStyle(document.documentElement)
+    .getPropertyValue("--ws-hud-surface")
+    .trim();
+  return raw || "#0f172a";
+}
+
 function scaledThumbnail(src: HTMLCanvasElement, w: number, h: number): string | undefined {
   try {
     const off = document.createElement("canvas");
@@ -52,7 +63,7 @@ function scaledThumbnail(src: HTMLCanvasElement, w: number, h: number): string |
     off.height = h;
     const ctx = off.getContext("2d");
     if (!ctx) return undefined;
-    ctx.fillStyle = "#0f172a";
+    ctx.fillStyle = resolveThumbnailBg();
     ctx.fillRect(0, 0, w, h);
     // Fit the source while preserving aspect ratio.
     const sA = src.width / src.height;
@@ -133,9 +144,10 @@ export function BookmarksDrawer() {
           className="ws-bookmarks__toggle"
           onClick={() => setOpen(v => !v)}
           aria-expanded={open}
-          title={open ? "Collapse bookmarks" : "Expand bookmarks"}
+          aria-label={`${open ? "Collapse" : "Expand"} views drawer (${forPage.length} saved)`}
+          title={open ? "Collapse views" : "Expand views"}
         >
-          {open ? "▾" : "▸"} Views ({forPage.length})
+          <span aria-hidden="true">{open ? "▾" : "▸"}</span> Views ({forPage.length})
         </button>
         <div className="ws-bookmarks__actions">
           <button

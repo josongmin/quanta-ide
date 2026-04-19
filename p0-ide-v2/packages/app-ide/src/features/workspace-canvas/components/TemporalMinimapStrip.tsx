@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { MouseEvent as ReactMouseEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { GraphHistory } from "@quanta/canvas-engine";
 import { interactionStore, useInteractionStore } from "../store/interaction-store";
 import { featureFlagsStore } from "../store/feature-flags-store";
@@ -135,6 +135,25 @@ function TemporalMinimapStripImpl({ history, width }: Props) {
 
   const onMouseLeave = useCallback(() => setTooltip(null), []);
 
+  // Keyboard scrub — ←/→ step by one commit, Shift+←/→ jump 10, Home/End
+  // go to the ends. Mirrors click semantics so keyboard users can walk
+  // the history without a pointing device.
+  const onKeyDown = useCallback((e: ReactKeyboardEvent<HTMLCanvasElement>) => {
+    if (!history || history.snapshots.length === 0) return;
+    const N = history.snapshots.length;
+    const idx = snapshotIndex < 0 ? 0 : snapshotIndex;
+    let next: number;
+    switch (e.key) {
+      case "ArrowLeft":  next = Math.max(0, idx - (e.shiftKey ? 10 : 1)); break;
+      case "ArrowRight": next = Math.min(N - 1, idx + (e.shiftKey ? 10 : 1)); break;
+      case "Home":       next = 0; break;
+      case "End":        next = N - 1; break;
+      default: return;
+    }
+    e.preventDefault();
+    if (next !== idx) interactionStore.setSnapshotIndex(next);
+  }, [history, snapshotIndex]);
+
   if (!enabled) return null;
   if (!history || history.snapshots.length === 0) return null;
 
@@ -143,9 +162,16 @@ function TemporalMinimapStripImpl({ history, width }: Props) {
       <canvas
         ref={canvasRef}
         className="ws-tminimap__canvas"
+        role="slider"
+        aria-label="Commit history timeline"
+        aria-valuemin={0}
+        aria-valuemax={Math.max(0, history.snapshots.length - 1)}
+        aria-valuenow={Math.max(0, snapshotIndex)}
+        tabIndex={0}
         onClick={onClick}
         onMouseMove={onMouseMove}
         onMouseLeave={onMouseLeave}
+        onKeyDown={onKeyDown}
       />
       {tooltip && (
         <span className="ws-tminimap__tooltip" style={{ left: tooltip.x }}>

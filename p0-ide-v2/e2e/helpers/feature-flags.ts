@@ -5,8 +5,8 @@ import type { Page } from "@playwright/test";
  * *before* the app boots, so any keyboard handler / component that gates
  * on a flag is live on the very first render.
  *
- * Extracted from `action-terrain.spec.ts`. The real storage schema is a
- * flat `Record<string, boolean>` keyed by feature id (not a wrapped
+ * The real storage schema is a flat `Record<string, boolean>` keyed by
+ * feature id (not a wrapped
  * `{ flags: {...} }` envelope — see `feature-flags-store.ts` for the
  * authoritative shape). Using the wrong shape silently resets all flags
  * to `defaultEnabled`, which breaks specs that seed an off-by-default

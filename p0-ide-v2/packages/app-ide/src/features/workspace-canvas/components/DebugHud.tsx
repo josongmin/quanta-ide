@@ -12,13 +12,12 @@ import { AgentsSection } from "./debug-hud/AgentsSection";
 import { FeaturesSection } from "./debug-hud/FeaturesSection";
 import { FollowSection } from "./debug-hud/FollowSection";
 import { ReviewSection } from "./debug-hud/ReviewSection";
-import { ActionTerrainSection } from "./debug-hud/ActionTerrainSection";
 import { ArchaeologyPanel } from "./debug-hud/ArchaeologyPanel";
 
 // Panel is grouped into 4 top-level categories, each with a handful of sub-tabs.
 // Two-level nav beats a flat 9-tab strip for scanability and lets us drop
 // related sections into a single tab body without inventing more tabs.
-type Tab = "fps" | "lod" | "scene" | "graph" | "archaeology" | "perf" | "agents" | "review" | "features" | "terrain";
+type Tab = "fps" | "lod" | "scene" | "graph" | "archaeology" | "perf" | "agents" | "review" | "features";
 type GroupId = "status" | "perf" | "collab" | "features";
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -31,14 +30,13 @@ const TAB_LABELS: Record<Tab, string> = {
   agents: "에이전트",
   review: "리뷰",
   features: "기능 플래그",
-  terrain: "액션 지형",
 };
 
 const GROUPS: readonly { id: GroupId; label: string; tabs: readonly Tab[] }[] = [
   { id: "status", label: "상태", tabs: ["scene", "fps", "lod", "graph", "archaeology"] },
   { id: "perf", label: "성능", tabs: ["perf"] },
   { id: "collab", label: "협업", tabs: ["agents", "review"] },
-  { id: "features", label: "기능", tabs: ["features", "terrain"] },
+  { id: "features", label: "기능", tabs: ["features"] },
 ] as const;
 
 // Floating, draggable, resizable debug panel. Collapses to its titlebar
@@ -144,7 +142,6 @@ export function DebugHud() {
         )}
         {tab === "review" && <ReviewSection />}
         {tab === "features" && <FeaturesSection />}
-        {tab === "terrain" && <ActionTerrainSection />}
       </div>
     </FloatingPanel>
   );

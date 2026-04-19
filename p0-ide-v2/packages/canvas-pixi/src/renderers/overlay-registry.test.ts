@@ -48,8 +48,6 @@ const EXPECTED_OVERLAY_IDS: readonly OverlayId[] = [
   "presenceRing",
   "traceEdge",
   "effectBadge",
-  "isoTerrain",
-  "isoCone",
 ];
 
 function makeStubCtx(): OverlayRenderCtx {

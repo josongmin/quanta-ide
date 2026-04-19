@@ -111,13 +111,6 @@ export function isCmdShiftT(e: KeyboardEvent): boolean {
   return e.key === "t" || e.key === "T";
 }
 
-/** Pre-made predicate for Cmd+Shift+A (toggle Action Terrain iso mode). */
-export function isCmdShiftA(e: KeyboardEvent): boolean {
-  if (!(e.metaKey || e.ctrlKey)) return false;
-  if (!e.shiftKey) return false;
-  return e.key === "a" || e.key === "A";
-}
-
 /** Pre-made predicate for Cmd+E (enter inline edit on selected card). */
 export function isCmdE(e: KeyboardEvent): boolean {
   if (!(e.metaKey || e.ctrlKey)) return false;
