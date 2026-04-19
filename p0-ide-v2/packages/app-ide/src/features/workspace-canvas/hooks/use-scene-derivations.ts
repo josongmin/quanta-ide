@@ -72,22 +72,32 @@ export function useActiveTrace(graph: WorkspaceGraph): {
 
 export function useCrossGraphFlash(graph: WorkspaceGraph): ReadonlySet<string> | undefined {
   const graphFlash = useInteractionStore(s => s.graphFlash);
+
+  // Pre-index files → graphId once per `graph.files` identity change,
+  // NOT once per `graphFlash` change. The old code rebuilt this Map
+  // inside the final memo whose dep set included `graphFlash` — so
+  // every click on a cross-graph flash chip rebuilt the file index even
+  // though the file list was identical. For a 5k-file graph that was
+  // ~5k Map.set calls on a control-surface click (cheap individually,
+  // but stacked on the 10k-edge scan below it added measurable jank).
+  const fileGraphIdById = useMemo<Map<string, string | undefined>>(() => {
+    const m = new Map<string, string | undefined>();
+    for (const f of graph.files) m.set(f.id, f.graphId);
+    return m;
+  }, [graph.files]);
+
   return useMemo<ReadonlySet<string> | undefined>(() => {
     if (!graphFlash) return undefined;
-    // Pre-index files by id so the per-edge lookup is O(1); otherwise this
-    // was O(E × F) = 50M ops at 10k edges / 5k files.
-    const fileById = new Map<string, string | undefined>();
-    for (const f of graph.files) fileById.set(f.id, f.graphId);
     const out = new Set<string>();
     for (const e of graph.fileEdges) {
       if (!e.crossGraph) continue;
       if (e.graphId === graphFlash.graphId) { out.add(e.id); continue; }
-      const fromGraphId = fileById.get(e.from);
-      const toGraphId = fileById.get(e.to);
+      const fromGraphId = fileGraphIdById.get(e.from);
+      const toGraphId = fileGraphIdById.get(e.to);
       if (fromGraphId === graphFlash.graphId || toGraphId === graphFlash.graphId) {
         out.add(e.id);
       }
     }
     return out;
-  }, [graphFlash, graph.fileEdges, graph.files]);
+  }, [graphFlash, graph.fileEdges, fileGraphIdById]);
 }

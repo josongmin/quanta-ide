@@ -793,6 +793,17 @@ export function PixiStage({
   latestNodeCtxRef.current = nodeCtx;
   latestTierRef.current = tier;
 
+  // Last-known active renderer kind, used to avoid calling `.clear()` on
+  // inactive renderers every dispatch tick. The old body iterated ALL
+  // handles on every pan frame and called `.clear()` on every non-active
+  // one — for 5-6 registered renderers (ground, street, city, galaxy,
+  // cluster, supercluster) that was 5 redundant no-op clears per pan.
+  // Individually cheap (setInstanceCount(0) + Graphics.clear()) but they
+  // compound on continuous pan, and at LOD transitions they add real
+  // allocator churn on the newly-deactivated renderer. We now clear
+  // ONLY the prior-active renderer when the tier actually flipped.
+  const prevActiveKindRef = useRef<typeof tier.rendererKind | null>(null);
+
   // ── Legacy path: large useEffects, run only when flag is OFF ─────
   // These are identical to the pre-refactor effects. Under the flag
   // they are no-ops; under the ticker path the render loop below
@@ -804,11 +815,19 @@ export function PixiStage({
     if (!handles) return;
     const ctx = latestNodeCtxRef.current;
     const t = latestTierRef.current;
-    const activeHandle = handles.get(t.rendererKind);
+    const activeKind = t.rendererKind;
+    const activeHandle = handles.get(activeKind);
     if (activeHandle && ctx) activeHandle.update(ctx);
-    for (const [kind, handle] of handles) {
-      if (kind !== t.rendererKind) handle.clear();
+    // Dirty-flag clear — only the previously-active renderer needs a
+    // clear call on tier transition. Other renderers are already idle
+    // (never dispatched, instance-count still 0) so clearing them
+    // would be a no-op with overhead.
+    const prevKind = prevActiveKindRef.current;
+    if (prevKind !== null && prevKind !== activeKind) {
+      const prevHandle = handles.get(prevKind);
+      if (prevHandle) prevHandle.clear();
     }
+    prevActiveKindRef.current = activeKind;
   }, [pixiReady, visible.files, clusters, superclusters, layout, effectiveLod, scaleBucket, viewState.selectedFileId, viewState.hoveredFileId, latency, showLatencyOverlay]);
 
   useEffect(() => {

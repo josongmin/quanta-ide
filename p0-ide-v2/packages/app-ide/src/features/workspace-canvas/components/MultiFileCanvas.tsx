@@ -31,8 +31,10 @@ import { usePresenceStore } from "../store/presence-store";
 import { StreetCard } from "./StreetCard";
 import { GroundCard } from "./GroundCard";
 import { FolderFrame } from "./FolderFrame";
+import { FileStickyLabel } from "./FileStickyLabel";
 import { DebugKillSwitchBanner } from "./DebugKillSwitchBanner";
 import { computeFolderRects } from "../lib/compute-folder-rects";
+import { computeFolderLabels } from "../lib/compute-folder-labels";
 import { LoadingOverlay } from "./LoadingOverlay";
 import { CanvasLayers } from "./CanvasLayers";
 import { useKeyboardHints } from "./KeyboardHints";
@@ -147,14 +149,27 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   // Author footprint tints — only computed when the feature is on AND
   // temporal live mode is active. Pure function of (graph, snapshot
   // index); memoized so card renders don't re-derive it per pan tick.
+  //
+  // Subscribe to the two fields we actually use (`mode` + `snapshotIndex`)
+  // separately rather than the whole `temporal` object. Earlier code
+  // did `useInteractionStore(s => s.temporal)` which returned a new
+  // object identity on every unrelated temporal mutation (diffFrom,
+  // diffTo, playing, …), re-running the O(snapshots × edges)
+  // `computeAuthorTints` body on every timeline scrub tick even when
+  // the feature was off (the body bails early on
+  // `authorFootprintOn === false`, but the useMemo still re-evaluates,
+  // and the same bail shows up in a few other places that read
+  // `temporal`). Narrowing the deps to the two fields we consume
+  // collapses the memo to "fire only when they actually change".
   const authorFootprintOn = useFeature("temporal.authorFootprint");
-  const temporalState = useInteractionStore(s => s.temporal);
+  const temporalMode = useInteractionStore(s => s.temporal.mode);
+  const temporalSnapshotIndex = useInteractionStore(s => s.temporal.snapshotIndex);
   const authorTintByFile = useMemo<ReadonlyMap<string, string>>(() => {
     if (!authorFootprintOn) return EMPTY_TINT_MAP;
-    if (temporalState.mode !== "live") return EMPTY_TINT_MAP;
-    const ctx = computeAuthorTints(graph.history, temporalState.snapshotIndex, graph.fileEdges);
+    if (temporalMode !== "live") return EMPTY_TINT_MAP;
+    const ctx = computeAuthorTints(graph.history, temporalSnapshotIndex, graph.fileEdges);
     return ctx.tintByFile;
-  }, [authorFootprintOn, temporalState.mode, temporalState.snapshotIndex, graph.history, graph.fileEdges]);
+  }, [authorFootprintOn, temporalMode, temporalSnapshotIndex, graph.history, graph.fileEdges]);
 
   // Post-process the layout into per-folder wrapper rects. Purely visual
   // overlay — does not feed back into layout placement. Rebuilt only when
@@ -162,6 +177,14 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
   const folderRects = useMemo(
     () => (layout ? computeFolderRects(graph.files, layout) : []),
     [graph.files, layout],
+  );
+
+  // Folder breadcrumb label state depends on viewport (clamping) and on
+  // sibling folders (overlap resolution), so it has to recompute per
+  // pan/zoom. Cheap — folderRects is usually < 30 entries.
+  const folderLabels = useMemo(
+    () => computeFolderLabels(folderRects, viewport),
+    [folderRects, viewport],
   );
 
   const {
@@ -514,15 +537,24 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
           {/* Folder frames render first (and carry z-index: 1 via CSS) so
               they sit visually behind the cards. pointer-events: none on
               the frame ensures card interactions are never blocked. */}
-          {folderRects.map(fr => (
-            <FolderFrame
-              key={fr.path}
-              path={fr.path}
-              rect={fr.rect}
-              depth={fr.depth}
-              rdepth={fr.rdepth}
-            />
-          ))}
+          {folderRects.map((fr, i) => {
+            const lbl = folderLabels[i];
+            if (!lbl || lbl.offscreen) return null;
+            return (
+              <FolderFrame
+                key={fr.path}
+                path={fr.path}
+                rect={fr.rect}
+                depth={fr.depth}
+                rdepth={fr.rdepth}
+                label={lbl.text}
+                labelX={lbl.worldX}
+                labelY={lbl.worldY}
+                clamped={lbl.clamped}
+                labelHidden={lbl.hidden}
+              />
+            );
+          })}
           {visibleScene.files.map(file => {
             const rect = layout?.fileRects.get(file.id);
             if (!rect) return null;
@@ -551,6 +583,21 @@ export function MultiFileCanvas({ graph, isActive = true }: Props) {
                 isSelected={isSelected}
                 authorTint={authorTint}
                 onSelect={selectFile}
+              />
+            );
+          })}
+          {/* Sticky per-file breadcrumb pills. Rendered last so they paint
+              above the cards; each only appears when its card's own header
+              has scrolled above the viewport. Shows the full project-
+              relative path so a buried file is still identifiable. */}
+          {visibleScene.files.map(file => {
+            const rect = layout?.fileRects.get(file.id);
+            if (!rect) return null;
+            return (
+              <FileStickyLabel
+                key={`sticky-${file.id}`}
+                filePath={file.id}
+                rect={rect}
               />
             );
           })}

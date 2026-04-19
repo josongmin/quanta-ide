@@ -19,11 +19,35 @@ import {
 // Grid layout is sufficient for the stress test. Re-enable by moving ELK to
 // the main thread or using elk-api.js with an explicit worker factory.
 
+// ── Post-compute supersession guard ────────────────────────────────
+// The worker runs one message at a time (`onmessage` is serialized).
+// A heavy compute (BUILD_HEB on a 6k-edge graph ≈ 200ms) blocks the
+// next incoming request until the current one finishes, so we can't
+// TRULY abort a running job mid-compute without chunked yielding —
+// that's a future refactor for computeHEBPaths et al.
+//
+// What we CAN do cheaply: drop the result on the floor when a newer
+// request of the same task-type has already landed. That saves the
+// structured-clone + postMessage + main-thread handler cost (roughly
+// 5-15ms per superseded HEB batch on a 6k-edge graph). The
+// `currentLayoutRequestId` / `currentAggregatesRequestId` guards on
+// the main-thread side already drop stale messages; this puts the
+// check at the source so we never pay the clone cost either.
+//
+// Each task-type tracks its OWN latest id so that e.g. a new HEB
+// request doesn't supersede an in-flight LAYOUT result. CANCEL sets
+// every id to a sentinel so any in-flight result is treated as stale.
+let latestLayoutRequestId: string | null = null;
+let latestAggregatesRequestId: string | null = null;
+let latestGeometryRequestId: string | null = null;
+let latestHebRequestId: string | null = null;
+
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const req = event.data;
   try {
     switch (req.type) {
       case "BUILD_LAYOUT": {
+        latestLayoutRequestId = req.id;
         const t0 = Date.now();
         const { graph } = req.payload;
 
@@ -31,6 +55,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
         // TREEMAP_THRESHOLD (file count). ELK is still gated off (see note
         // below), so this resolves synchronously-ish with no ELK attempt.
         const layout = await runLayoutTask(graph, "grid");
+        if (latestLayoutRequestId !== req.id) break; // superseded
         self.postMessage({
           type: "LAYOUT_READY",
           id: req.id,
@@ -55,10 +80,12 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
 
       case "PARTIAL_RELAYOUT": {
+        latestLayoutRequestId = req.id;
         // Simple full relayout for now; partial/incremental ELK relayout
         // deferred to later phase. The incoming layout is intentionally
         // not read — we recompute from scratch.
         const layout = await runLayoutTask(req.payload.graph, "grid");
+        if (latestLayoutRequestId !== req.id) break; // superseded
         const resp: WorkerResponse = {
           type: "LAYOUT_READY",
           id: req.id,
@@ -70,7 +97,9 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
 
       case "BUILD_AGGREGATES": {
+        latestAggregatesRequestId = req.id;
         const aggregates = runAggregateTask(req.payload.graph);
+        if (latestAggregatesRequestId !== req.id) break; // superseded
         const resp: WorkerResponse = {
           type: "AGGREGATES_READY",
           id: req.id,
@@ -81,8 +110,10 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
 
       case "BUILD_EDGE_GEOMETRY": {
+        latestGeometryRequestId = req.id;
         const layout = deserializeLayout(req.payload.layout);
         const batch = runGeometryTask(req.payload.graph, layout);
+        if (latestGeometryRequestId !== req.id) break; // superseded
         const resp: WorkerResponse = {
           type: "GEOMETRY_READY",
           id: req.id,
@@ -94,6 +125,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
 
       case "BUILD_HEB": {
+        latestHebRequestId = req.id;
         const t0 = Date.now();
         const { graph, tension, samples } = req.payload;
         const layout = deserializeLayout(req.payload.layout);
@@ -136,6 +168,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
           lengths,
           computeMs: Date.now() - t0,
         };
+        if (latestHebRequestId !== req.id) break; // superseded
         const resp: WorkerResponse = {
           type: "HEB_READY",
           id: req.id,
@@ -148,7 +181,16 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       }
 
       case "CANCEL": {
-        // No-op: cancellation deferred to a later phase
+        // Reset every task's "latest id" so any in-flight compute whose
+        // result is still pending postMessage is treated as superseded.
+        // Does NOT interrupt the running compute (see the module-level
+        // comment) — just short-circuits the result dispatch so the main
+        // thread doesn't waste structured-clone cycles on data it was
+        // about to drop anyway.
+        latestLayoutRequestId = null;
+        latestAggregatesRequestId = null;
+        latestGeometryRequestId = null;
+        latestHebRequestId = null;
         break;
       }
     }
