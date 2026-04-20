@@ -4,6 +4,7 @@ import { Application, Container, Graphics, Text, TextStyle } from "pixi.js";
 // re-exports them), so we take the lib import directly.
 import type {
   Entity,
+  EntityKind,
   HierarchicalLayout,
   Rect,
   TierEdge,
@@ -31,21 +32,49 @@ const MIN_LABEL_PX_H = 22;
 const PRIMARY_MIN_PX_W = 54;
 /** Card screen size above which the concrete-kind chip ("Directory",
  *  "File", "Module") is drawn above the name. Answers "what is this
- *  card?" directly — the dot colour alone is an indirect encoding. */
-const KIND_CHIP_MIN_PX_W = 96;
-const KIND_CHIP_MIN_PX_H = 56;
+ *  card?" directly — the dot colour alone is an indirect encoding.
+ *  Exported because the chip-drawing path is landing in a follow-up
+ *  commit; these thresholds stay the tuning surface. */
+export const KIND_CHIP_MIN_PX_W = 96;
+export const KIND_CHIP_MIN_PX_H = 56;
 /** Card screen size above which the secondary metric line appears. */
 const SECONDARY_MIN_PX_W = 148;
 const SECONDARY_MIN_PX_H = 72;
 /** Card screen size above which the bottom-anchored path line is
  *  drawn. "필요한정보" for the user — locates this entity inside the
- *  workspace without relying on a hover tooltip. */
-const PATH_MIN_PX_W = 160;
-const PATH_MIN_PX_H = 104;
-/** Card screen size above which the kind dot (top-left marker) is
- *  drawn — smaller than this and the dot becomes noise. */
-const DOT_MIN_PX_W = 44;
-const DOT_MIN_PX_H = 26;
+ *  workspace without relying on a hover tooltip. Exported for the
+ *  same reason as the kind-chip thresholds above. */
+export const PATH_MIN_PX_W = 160;
+export const PATH_MIN_PX_H = 104;
+/** Card screen size above which the kind-letter icon box is painted.
+ *  Sized so the box sits flush in the top-left without eating the
+ *  whole card at small scales. */
+const ICON_BOX_MIN_PX_W = 60;
+const ICON_BOX_MIN_PX_H = 36;
+// Vector icon lives inside the 24 px left-pad — a 12 px icon with an
+// 8 px top-left inset lands cleanly in the title gutter without
+// crowding the primary name (which starts at leftPad = 24 px).
+const ICON_BOX_SIZE_PX = 12;
+const ICON_BOX_INSET_PX = 8;
+// Per-kind icons are vector shapes drawn into the card's Graphics
+// layer (see `drawKindIcon`) — not Text glyphs. Letters like "P" or
+// "F" read as debug placeholders, not icons. The vector shapes mirror
+// the mental model: package-box for galaxy, folder for street, file
+// sheet for building, etc.
+/** Right-side padding (screen px) reserved inside every card when
+ *  fitting a label. Keeps the text from kissing the right border and
+ *  leaves room for the "…" ellipsis glyph. */
+const LABEL_RIGHT_PAD_PX = 8;
+/** Fade level applied to non-ego rects / non-focused edges / non-ego
+ *  labels when a spotlight set is active. Low enough that the dep
+ *  network pops forward, high enough that the user still reads the
+ *  dimmed structure as context (not as dead space). */
+const SPOTLIGHT_DIM_ALPHA = 0.18;
+// Labels dim one step less than rects under spotlight — users still
+// need to READ the context even when its visual weight drops.
+// Exported so the tuning surface stays discoverable even though the
+// label-dim path is still landing.
+export const SPOTLIGHT_LABEL_DIM_ALPHA = 0.22;
 /** Dot-grid bounds — below 12 px spacing it looks like a texture,
  *  above 400 px it looks broken. Outside this range we just paint
  *  the neutral base fill. */
@@ -70,13 +99,14 @@ const WHEEL_ZOOM_K_COARSE = 0.002;
 const WHEEL_ZOOM_K_FINE = 0.01;
 const WHEEL_COARSE_THRESHOLD = 50;
 
-// Tier-change reveal: new-tier content appears scaled down + transparent
-// and eases toward identity. Pivots at the world-space viewport center so
-// the scale-up reads as "content pushing forward from behind" instead of
-// sliding in from a corner.
-const TIER_TRANSITION_MS = 240;
-const TIER_TRANSITION_FROM_SCALE = 0.92;
-const TIER_TRANSITION_FROM_ALPHA = 0;
+// Tier-change reveal: a short alpha cross-fade and nothing else. The
+// earlier iteration also scaled `content` from 0.92 → 1.0 around the
+// viewport center, which read as an involuntary zoom-in every time a
+// tier flipped — the scope filter now decides what's visible on
+// change, so any auto-camera motion fights that intent. Alpha-only
+// keeps the "something swapped" cue without moving pixels.
+const TIER_TRANSITION_MS = 180;
+const TIER_TRANSITION_FROM_ALPHA = 0.25;
 
 // Card visual tokens.
 // ----------------------------------------------------------------
@@ -88,9 +118,16 @@ const TIER_TRANSITION_FROM_ALPHA = 0;
 // style, rather than a grid of floating islands.
 const CARD_BORDER_DEFAULT = pixiColor.border;
 const CARD_BORDER_HOVER = pixiColor.borderStrong;
-const CARD_BORDER_SELECTED = pixiColor.accent;
-const CARD_FILL_DEFAULT = 0xffffff;   // neutral rest fill
-const CARD_FILL_SELECTED = 0xfef3c7;  // warm tint so selection reads before border even at dense zoom
+// Selection reads as a near-black hairline — previous accent-blue + warm
+// yellow fill combo felt decorative and clashed with the flat aesthetic.
+// Black-on-white is Linear/Notion-style: clear without shouting.
+const CARD_BORDER_SELECTED = pixiColor.text;
+const CARD_FILL_DEFAULT = 0xffffff;
+const CARD_FILL_SELECTED = 0xffffff;
+// Header-band hairline only paints on cards that render tall enough to
+// give the divider somewhere to breathe. Below this the line crowds the
+// text rows and reads as noise (v1 CityNodeRenderer used the same gate).
+const CARD_HEADER_MIN_PX_H = 72;
 
 // Heat scale — 5-stop sequential palette from neutral gray through
 // cool blue, warm amber, into saturated red. Designed to work on a
@@ -138,6 +175,32 @@ export interface SceneFrame {
    *  corner. Each badge stands in for one signal family — taint / dead
    *  code / arch violation / blast critical / high complexity. */
   badges?: ReadonlyMap<string, readonly SceneBadge[]> | null;
+  /** Optional spotlight set — when provided and non-empty, entities
+   *  whose id is in the set render at full opacity while everyone
+   *  else fades to a dimmed base. Drives the "selection → dependency
+   *  map" view: selecting a file lights it and its 1-hop neighbours,
+   *  the rest of the workspace recedes so the dep graph pops out. */
+  spotlightIds?: ReadonlySet<string> | null;
+  /** The scope anchor id. Drives the directional-edge styling:
+   *  edges whose `fromId === anchorId` render as outbound (accent
+   *  blue + arrowhead pointing away from the anchor), `toId === anchorId`
+   *  as inbound (green + arrowhead pointing into the anchor). */
+  anchorId?: string | null;
+  /** Ancestor chain of the anchor/selection, each with its own
+   *  layout rect. Painted as thin colored frames on top of the
+   *  canvas so users see "this file is inside THIS package / dir"
+   *  without leaving the tier view. Ordered leaf→root. */
+  ancestorFrames?: readonly SceneAncestorFrame[] | null;
+}
+
+export interface SceneAncestorFrame {
+  id: string;
+  name: string;
+  kind: EntityKind;
+  rect: Rect;
+  /** 0 = direct parent, 1 = grandparent, … The draw code uses this
+   *  to fade outer ancestors and emphasise the closest one. */
+  depth: number;
 }
 
 export type SceneBadgeKind = "taint" | "dead" | "arch" | "blast" | "cpx";
@@ -153,6 +216,11 @@ export interface SceneCallbacks {
   onDragStart(): void;
   onDragPan(dx: number, dy: number): void;
   onEntityClick(id: string): void;
+  /** Fired on a native `dblclick` whose target entity hit-tests under
+   *  the cursor. Distinct from `onEntityClick` so the React side can
+   *  keep single-click as pure selection and reserve double-click for
+   *  explicit drill-in — the Figma convention. */
+  onEntityDoubleClick(id: string): void;
   onEntityHover(id: string | null): void;
 }
 
@@ -216,6 +284,29 @@ export class PixiScene {
   private world: Container | null = null;
   private content: Container | null = null;
   private rectGfx: Graphics | null = null;
+  /** Hero metric labels — the big faint number (LoC / child count)
+   *  that anchors the right side of each card. Gives every rect a
+   *  visual centre of gravity instead of a blank interior. */
+  private heroLabels = new Map<string, Text>();
+  private heroLabelPool: Text[] = [];
+  /** LoC readout at the card's top-right. Mirrors v1's
+   *  CityNodeRenderer header layout: filename on the left, size on
+   *  the right — the "how big is this" answer without hunting for
+   *  the secondary metric line. */
+  private locBadgeLabels = new Map<string, Text>();
+  private locBadgeLabelPool: Text[] = [];
+  /** Ancestor containment frames — thin coloured outlines drawn
+   *  UNDER edges so they read as background context rather than
+   *  competing with the edge graph. */
+  private ancestorGfx: Graphics | null = null;
+  /** Soft drop-shadows under every entity card, plus the accent glow
+   *  that wraps the selected card. Separate Graphics so we can keep
+   *  the rect layer clean (one fill + stroke per card) while still
+   *  delivering the Linear/Figma elevation the flat version lacked. */
+  private shadowGfx: Graphics | null = null;
+  /** Labels for ancestor frames, anchored at their top-left corner. */
+  private ancestorLabels = new Map<string, Text>();
+  private ancestorLabelPool: Text[] = [];
   private edgeGfx: Graphics | null = null;
   private labelLayer: Container | null = null;
   private readonly labels = new Map<string, Text>();
@@ -307,13 +398,22 @@ export class PixiScene {
     // `world`. Pivot/position are recomputed each frame (see flushFrame).
     const content = new Container();
     world.addChild(content);
+    const ancestorGfx = new Graphics();
+    const shadowGfx = new Graphics();
     const edgeGfx = new Graphics();
     const rectGfx = new Graphics();
     const labelLayer = new Container();
-    // Order matters: edges paint under rects, labels paint on top.
+    // Order matters: ancestor frames (background context) → card
+    // shadows (elevation under the cards) → edges → rects → labels.
+    // Shadow sits under edges so the edge lines draw cleanly without
+    // cutting through the shadow halo.
+    content.addChild(ancestorGfx);
+    content.addChild(shadowGfx);
     content.addChild(edgeGfx);
     content.addChild(rectGfx);
     content.addChild(labelLayer);
+    this.ancestorGfx = ancestorGfx;
+    this.shadowGfx = shadowGfx;
     this.bgGfx = bgGfx;
     this.world = world;
     this.content = content;
@@ -466,9 +566,129 @@ export class PixiScene {
     this.lastTierName = tierName;
     this.applyTierTransition(frame);
     this.drawBackground(frame);
+    this.drawAncestorFrames(frame);
+    // Drop shadows / hover lift / selected glow deliberately OFF —
+    // the product reads as a flat modern dashboard (Linear / Notion
+    // / Vercel), not a Material-style card deck. A clean rect on a
+    // clean surface is the whole aesthetic. Keep `drawShadows` in
+    // the class for a potential "elevation mode" toggle later.
+    this.shadowGfx?.clear();
     this.drawEdges(frame);
     this.drawRects(frame);
     this.drawLabels(frame);
+  }
+
+  // Shadow / glow layer removed — flat design stays flat. The
+  // `shadowGfx` Graphics stays on the stage (cleared every frame in
+  // flushFrame) so reintroducing an elevated card variant doesn't
+  // need a re-add to the display list.
+
+  private drawAncestorFrames(frame: SceneFrame): void {
+    const g = this.ancestorGfx;
+    const layer = this.labelLayer;
+    if (!g || !layer) return;
+    g.clear();
+    const frames = frame.ancestorFrames ?? null;
+    const used = new Set<string>();
+    if (frames && frames.length > 0) {
+      const { camera, width, height } = frame;
+      const invS = 1 / camera.scale;
+      // Two passes so chip backgrounds sit ABOVE the rect's own
+      // outline but still inside `ancestorGfx` (one Graphics, one
+      // draw-call). Pass 1: outlines. Pass 2: chip backgrounds.
+      // Labels live in labelLayer (drawn over everything) so they
+      // always read on top of their chip. Radius + stroke + fill
+      // tuning below was eyeballed to get a "Figma frame" vibe:
+      // hairline rim, pill tab, no cruft.
+      for (const af of frames) {
+        if (!isRectOnScreen(af.rect, camera, width, height)) continue;
+        const color = pixiKindColor[af.kind];
+        // Outer ancestors fade — direct parent at 0.45, one step out
+        // at 0.28, etc. Readable but clearly subordinate to the
+        // entity cards themselves.
+        const alpha = Math.max(0.14, 0.45 - af.depth * 0.17);
+        const strokeW = 1 * invS;
+        const r = af.rect;
+        const rad = Math.min(14 * invS, Math.min(r.w, r.h) * 0.025);
+        g.roundRect(r.x, r.y, r.w, r.h, rad);
+        g.stroke({ color, width: strokeW, alpha });
+      }
+      // Pass 2 — tabs + labels. Done after all outlines so chip fills
+      // paint on top of border strokes where they visually overlap.
+      // Viewport-left-edge in world coords: labels clamp there so a
+      // parent frame larger than the screen keeps its name visible
+      // as a sticky "you are inside X" tag instead of scrolling off.
+      const viewportLeftWorld = -camera.tx / camera.scale;
+      const viewportTopWorld = -camera.ty / camera.scale;
+      const STICKY_MARGIN = 14 * invS;
+      const STICKY_STEP = 22 * invS; // stacked tags per depth level
+      for (const af of frames) {
+        if (!isRectOnScreen(af.rect, camera, width, height)) continue;
+        const color = pixiKindColor[af.kind];
+        const alpha = Math.max(0.14, 0.45 - af.depth * 0.17);
+        const r = af.rect;
+
+        const labelText = af.name;
+        let t = this.ancestorLabels.get(af.id);
+        if (!t) {
+          const pooled = this.ancestorLabelPool.pop();
+          if (pooled) {
+            if (pooled.text !== labelText) pooled.text = labelText;
+            t = pooled;
+          } else {
+            t = new Text({
+              text: labelText,
+              style: new TextStyle({
+                fontFamily: "'Inter Tight', system-ui, sans-serif",
+                fontSize: 11,
+                fontWeight: "600",
+                fill: color,
+                letterSpacing: 0.1,
+              }),
+            });
+          }
+          layer.addChild(t);
+          this.ancestorLabels.set(af.id, t);
+        } else if (t.text !== labelText) {
+          t.text = labelText;
+        }
+        const style = t.style as TextStyle;
+        if (style.fill !== color) style.fill = color;
+        t.alpha = 1;
+        t.scale.set(invS);
+
+        const tw = t.width;
+        const th = 16 * invS;
+        const padX = 8 * invS;
+        const natX = r.x + 10 * invS;
+        const natY = r.y + 10 * invS;
+        const stickyX = viewportLeftWorld + STICKY_MARGIN;
+        const stickyY = viewportTopWorld + STICKY_MARGIN + af.depth * STICKY_STEP;
+        // Clamp INTO the viewport: if the rect's top-left fell
+        // off-screen (user panned inside a huge parent) the chip
+        // slides to the viewport edge so the "inside: PALETTE"
+        // affordance never disappears. natX wins when the rect's
+        // corner is already on-screen — chip sits on the frame rim.
+        const chipX = Math.max(natX, stickyX);
+        const chipY = Math.max(natY, stickyY);
+        const chipW = tw + padX * 2;
+        const chipR = 4 * invS;
+        g.roundRect(chipX, chipY, chipW, th, chipR);
+        g.fill({ color: pixiColor.bg, alpha: 0.96 });
+        g.stroke({ color, width: 1 * invS, alpha: Math.min(0.6, alpha + 0.25) });
+        t.position.set(chipX + padX, chipY + 2 * invS);
+        used.add(af.id);
+      }
+    }
+    // Recycle labels whose ancestor left the frame list (e.g. anchor
+    // changed, tier flipped).
+    for (const [id, t] of this.ancestorLabels) {
+      if (used.has(id)) continue;
+      layer.removeChild(t);
+      this.ancestorLabels.delete(id);
+      if (this.ancestorLabelPool.length < LABEL_POOL_CAP) this.ancestorLabelPool.push(t);
+      else { try { t.destroy(); } catch { /* ignore */ } }
+    }
   }
 
   private drawBackground(frame: SceneFrame): void {
@@ -497,15 +717,19 @@ export class PixiScene {
     g.fill({ color: pixiColor.grid, alpha: 0.055 });
   }
 
-  private applyTierTransition(frame: SceneFrame): void {
+  private applyTierTransition(_frame: SceneFrame): void {
     const content = this.content;
     if (!content) return;
+    // Keep scale/pivot at identity so `camera` is the scene's only
+    // source of zoom/position. Without this clamp the old
+    // scale-0.92→1 animation would leak into every frame and read
+    // as an automatic zoom-in on every tier flip.
+    if (content.scale.x !== 1) content.scale.set(1);
+    if (content.pivot.x !== 0 || content.pivot.y !== 0) content.pivot.set(0, 0);
+    if (content.position.x !== 0 || content.position.y !== 0) content.position.set(0, 0);
     const startedAt = this.tierTransitionStart;
     if (startedAt === 0) {
-      content.alpha = 1;
-      content.scale.set(1);
-      content.pivot.set(0, 0);
-      content.position.set(0, 0);
+      if (content.alpha !== 1) content.alpha = 1;
       return;
     }
     const elapsed = performance.now() - startedAt;
@@ -514,23 +738,9 @@ export class PixiScene {
     if (t >= 1) {
       this.tierTransitionStart = 0;
       content.alpha = 1;
-      content.scale.set(1);
-      content.pivot.set(0, 0);
-      content.position.set(0, 0);
       return;
     }
-    // Pivot on the viewport center in world coordinates so the scale
-    // tween grows content in-place visually. Position mirrors pivot to
-    // keep the on-screen center locked while scaling.
-    const { camera, width, height } = frame;
-    const worldCenterX = (width / 2 - camera.tx) / camera.scale;
-    const worldCenterY = (height / 2 - camera.ty) / camera.scale;
-    const scaleVal = TIER_TRANSITION_FROM_SCALE + (1 - TIER_TRANSITION_FROM_SCALE) * e;
-    const alphaVal = TIER_TRANSITION_FROM_ALPHA + (1 - TIER_TRANSITION_FROM_ALPHA) * e;
-    content.pivot.set(worldCenterX, worldCenterY);
-    content.position.set(worldCenterX, worldCenterY);
-    content.scale.set(scaleVal);
-    content.alpha = alphaVal;
+    content.alpha = TIER_TRANSITION_FROM_ALPHA + (1 - TIER_TRANSITION_FROM_ALPHA) * e;
   }
 
   private ensureTierTransitionLoop(): void {
@@ -567,6 +777,22 @@ export class PixiScene {
       try { t.destroy(); } catch { /* ignore */ }
     }
     this.subLabels.clear();
+    for (const t of this.kindLabels.values()) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.kindLabels.clear();
+    for (const t of this.pathLabels.values()) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.pathLabels.clear();
+    for (const t of this.kindLabelPool) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.kindLabelPool.length = 0;
+    for (const t of this.pathLabelPool) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.pathLabelPool.length = 0;
     for (const t of this.labelPool) {
       try { t.destroy(); } catch { /* ignore */ }
     }
@@ -575,12 +801,53 @@ export class PixiScene {
       try { t.destroy(); } catch { /* ignore */ }
     }
     this.subLabelPool.length = 0;
+    for (const t of this.kindLabels.values()) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.kindLabels.clear();
+    for (const t of this.pathLabels.values()) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.pathLabels.clear();
+    for (const t of this.kindLabelPool) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.kindLabelPool.length = 0;
+    for (const t of this.pathLabelPool) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.pathLabelPool.length = 0;
+    for (const t of this.ancestorLabels.values()) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.ancestorLabels.clear();
+    for (const t of this.ancestorLabelPool) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.ancestorLabelPool.length = 0;
+    for (const t of this.heroLabels.values()) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.heroLabels.clear();
+    for (const t of this.heroLabelPool) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.heroLabelPool.length = 0;
+    for (const t of this.locBadgeLabels.values()) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.locBadgeLabels.clear();
+    for (const t of this.locBadgeLabelPool) {
+      try { t.destroy(); } catch { /* ignore */ }
+    }
+    this.locBadgeLabelPool.length = 0;
     const app = this.app;
     this.app = null;
     this.bgGfx = null;
     this.world = null;
     this.content = null;
     this.rectGfx = null;
+    this.ancestorGfx = null;
     this.edgeGfx = null;
     this.labelLayer = null;
     if (app) {
@@ -597,12 +864,17 @@ export class PixiScene {
     const invS = 1 / s;
     // All card measurements are in world units, derived from the
     // desired screen-px so they stay hairline at any zoom.
-    const radius = 6 * invS;
+    const radius = 8 * invS;
     const strokeDefault = 1 * invS;
     const strokeHover = 1.25 * invS;
-    const strokeSelected = 2 * invS;
-    const dotR = 3.25 * invS;
-    const dotInset = 10 * invS;
+    // Selection stroke matches hover weight — the border colour (near-
+    // black vs neutral grey) carries the state, not the thickness.
+    const strokeSelected = 1.25 * invS;
+    const strokeEgo = 1.5 * invS;
+    const iconBoxSize = ICON_BOX_SIZE_PX * invS;
+    const iconBoxInset = ICON_BOX_INSET_PX * invS;
+    const iconBoxStrokeW = 1 * invS;
+    const headerH = 30 * invS;
     // Pass 1: paint unselected cards. Pass 2: paint hovered.
     // Pass 3: paint selected ON TOP so their accent border and subtle
     // tint always win the z-order even if rects overlap.
@@ -620,6 +892,17 @@ export class PixiScene {
       }
       return fallback;
     };
+    // Spotlight: selection + its 1-hop neighbours. Non-members fade to
+    // SPOTLIGHT_DIM_ALPHA so the dep network visually isolates from the
+    // rest of the workspace. Ego members (not the selection itself) get
+    // an accent-tinted border so they read as "connected to the pick".
+    const spotlight = frame.spotlightIds ?? null;
+    const isSpot = spotlight !== null && spotlight.size > 0;
+    const memberOf = (id: string): boolean => !isSpot || spotlight!.has(id);
+    const headerDividerFor = (r: Rect, alpha: number): { h: number; strokeW: number; alpha: number } | null =>
+      r.h * s >= CARD_HEADER_MIN_PX_H
+        ? { h: headerH, strokeW: strokeDefault, alpha }
+        : null;
     for (const entity of entities) {
       const r = layout.rects.get(entity.id);
       if (!r) continue;
@@ -628,12 +911,31 @@ export class PixiScene {
       const isHov = entity.id === hoveredId;
       if (isSel) { selected.push(entity); continue; }
       if (isHov) { hovered.push(entity); continue; }
+      const inSpot = memberOf(entity.id);
+      if (isSpot && inSpot) {
+        // Ego neighbour — accent-tint border + full opacity.
+        this.paintCard(g, entity, r, {
+          fill: fillFor(entity, CARD_FILL_DEFAULT),
+          border: CARD_BORDER_SELECTED,
+          strokeW: strokeEgo,
+          strokeAlpha: 0.55,
+          radius,
+          kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
+          headerDivider: headerDividerFor(r, 1),
+        });
+        continue;
+      }
+      const dim = isSpot && !inSpot;
       this.paintCard(g, entity, r, {
         fill: fillFor(entity, CARD_FILL_DEFAULT),
+        fillAlpha: dim ? SPOTLIGHT_DIM_ALPHA : 1,
         border: CARD_BORDER_DEFAULT,
         strokeW: strokeDefault,
+        strokeAlpha: dim ? SPOTLIGHT_DIM_ALPHA : 1,
         radius,
-        dot: this.shouldPaintDot(r, s) ? { color: pixiKindColor[entity.kind], inset: dotInset, r: dotR } : null,
+        kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
+        iconAlpha: dim ? SPOTLIGHT_DIM_ALPHA : 1,
+        headerDivider: headerDividerFor(r, dim ? SPOTLIGHT_DIM_ALPHA : 1),
       });
     }
     for (const entity of hovered) {
@@ -643,7 +945,8 @@ export class PixiScene {
         border: CARD_BORDER_HOVER,
         strokeW: strokeHover,
         radius,
-        dot: this.shouldPaintDot(r, s) ? { color: pixiKindColor[entity.kind], inset: dotInset, r: dotR } : null,
+        kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
+        headerDivider: headerDividerFor(r, 1),
       });
     }
     for (const entity of selected) {
@@ -653,7 +956,8 @@ export class PixiScene {
         border: CARD_BORDER_SELECTED,
         strokeW: strokeSelected,
         radius,
-        dot: this.shouldPaintDot(r, s) ? { color: pixiKindColor[entity.kind], inset: dotInset, r: dotR } : null,
+        kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
+        headerDivider: headerDividerFor(r, 1),
       });
     }
     // Badge overlay — drawn after all rects so glyphs sit on top and
@@ -692,65 +996,219 @@ export class PixiScene {
     }
   }
 
-  private shouldPaintDot(r: Rect, scale: number): boolean {
-    return r.w * scale >= DOT_MIN_PX_W && r.h * scale >= DOT_MIN_PX_H;
+  private shouldPaintKindIcon(r: Rect, scale: number): boolean {
+    return r.w * scale >= ICON_BOX_MIN_PX_W && r.h * scale >= ICON_BOX_MIN_PX_H;
   }
 
   private paintCard(
     g: Graphics,
-    _entity: Entity,
+    entity: Entity,
     r: Rect,
     opts: {
       fill: number;
+      /** Fill alpha override — omit for 1. */
+      fillAlpha?: number;
       border: number;
+      /** Stroke alpha override — omit for 1. */
+      strokeAlpha?: number;
       strokeW: number;
       radius: number;
-      dot: { color: number; inset: number; r: number } | null;
+      /** Rounded-square kind icon at top-left. Paints the bg tint +
+       *  ring. The letter inside is a separate Text handled by
+       *  `drawLabels` so pooling / measurement stays in one place. */
+      kindIcon: { color: number; inset: number; size: number; strokeW: number } | null;
+      iconAlpha?: number;
+      /** Header-band hairline — paint a thin horizontal divider `h`
+       *  world-units down from the card top. The label layer draws the
+       *  name + LoC badge above the line; the body breathes below. */
+      headerDivider?: { h: number; strokeW: number; alpha: number } | null;
     },
   ): void {
     g.roundRect(r.x, r.y, r.w, r.h, opts.radius);
-    g.fill(opts.fill);
-    g.stroke({ color: opts.border, width: opts.strokeW, alpha: 1 });
-    if (opts.dot) {
-      g.circle(r.x + opts.dot.inset, r.y + opts.dot.inset, opts.dot.r);
-      g.fill({ color: opts.dot.color, alpha: 1 });
+    g.fill({ color: opts.fill, alpha: opts.fillAlpha ?? 1 });
+    g.stroke({ color: opts.border, width: opts.strokeW, alpha: opts.strokeAlpha ?? 1 });
+    if (opts.headerDivider) {
+      const y = r.y + opts.headerDivider.h;
+      g.moveTo(r.x, y);
+      g.lineTo(r.x + r.w, y);
+      g.stroke({
+        color: pixiColor.border,
+        width: opts.headerDivider.strokeW,
+        alpha: opts.headerDivider.alpha,
+      });
+    }
+    if (opts.kindIcon) {
+      const ki = opts.kindIcon;
+      this.drawKindIcon(
+        g,
+        entity.kind,
+        r.x + ki.inset,
+        r.y + ki.inset,
+        ki.size,
+        ki.strokeW,
+        ki.color,
+        opts.iconAlpha ?? 1,
+      );
+    }
+  }
+
+  /** Vector icon per entity kind, painted into the card's Graphics
+   *  layer. Shapes mirror the mental model directly — package box for
+   *  galaxy, folder tab for street, file sheet for building, stacked
+   *  lines for floor (module), ringed dot for universe, plain ring for
+   *  room (function). Stroke-only; fills would darken the card. */
+  private drawKindIcon(
+    g: Graphics,
+    kind: EntityKind,
+    x: number,
+    y: number,
+    size: number,
+    strokeW: number,
+    color: number,
+    alpha: number,
+  ): void {
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    switch (kind) {
+      case "universe": {
+        g.circle(cx, cy, size * 0.45);
+        g.stroke({ color, width: strokeW, alpha });
+        g.circle(cx, cy, size * 0.14);
+        g.fill({ color, alpha });
+        return;
+      }
+      case "galaxy": {
+        const padX = size * 0.06;
+        const top = y + size * 0.14;
+        const bot = y + size * 0.88;
+        g.roundRect(
+          x + padX,
+          top,
+          size - padX * 2,
+          bot - top,
+          size * 0.08,
+        );
+        g.stroke({ color, width: strokeW, alpha });
+        const lidY = y + size * 0.4;
+        g.moveTo(x + padX, lidY);
+        g.lineTo(x + size - padX, lidY);
+        g.stroke({ color, width: strokeW, alpha });
+        return;
+      }
+      case "street": {
+        const tabW = size * 0.45;
+        const tabSlope = size * 0.12;
+        const topLeft = y + size * 0.22;
+        const topRight = y + size * 0.08;
+        const bottom = y + size * 0.9;
+        g.moveTo(x + size * 0.08, topLeft);
+        g.lineTo(x + tabW, topLeft);
+        g.lineTo(x + tabW + tabSlope, topRight);
+        g.lineTo(x + size * 0.92, topRight);
+        g.lineTo(x + size * 0.92, bottom);
+        g.lineTo(x + size * 0.08, bottom);
+        g.closePath();
+        g.stroke({ color, width: strokeW, alpha });
+        return;
+      }
+      case "building": {
+        const fold = size * 0.28;
+        const left = x + size * 0.14;
+        const right = x + size * 0.86;
+        const top = y + size * 0.08;
+        const bot = y + size * 0.92;
+        g.moveTo(left, top);
+        g.lineTo(right - fold, top);
+        g.lineTo(right, top + fold);
+        g.lineTo(right, bot);
+        g.lineTo(left, bot);
+        g.closePath();
+        g.stroke({ color, width: strokeW, alpha });
+        g.moveTo(right - fold, top);
+        g.lineTo(right - fold, top + fold);
+        g.lineTo(right, top + fold);
+        g.stroke({ color, width: strokeW, alpha });
+        return;
+      }
+      case "floor": {
+        for (let i = 0; i < 3; i++) {
+          const ly = y + size * (0.28 + i * 0.22);
+          g.moveTo(x + size * 0.16, ly);
+          g.lineTo(x + size * 0.84, ly);
+        }
+        g.stroke({ color, width: strokeW, alpha });
+        return;
+      }
+      case "room": {
+        g.circle(cx, cy, size * 0.36);
+        g.stroke({ color, width: strokeW, alpha });
+        g.circle(cx, cy, size * 0.12);
+        g.fill({ color, alpha });
+        return;
+      }
     }
   }
 
   private drawEdges(frame: SceneFrame): void {
     const g = this.edgeGfx;
     if (!g) return;
-    const { edges, layout, camera, width, height, selectedId, hoveredId } = frame;
+    const { edges, layout, camera, width, height, selectedId, hoveredId, anchorId } = frame;
     g.clear();
     const invScale = 1 / camera.scale;
-    // Curvature — fraction of the segment length used as the
-    // perpendicular control-point offset. 0.12 reads as a gentle arc
-    // without crashing into adjacent rects; all edges curve the same
-    // side so parallel edges visually bundle instead of overlapping.
     const CURVE_K = 0.12;
-    // Paint non-highlighted edges first, focus-touching edges after,
-    // so the emphasis strokes always land on top.
-    const focused: TierEdge[] = [];
+    // Paint non-anchor edges first, anchor-touching edges last so the
+    // directional strokes land on top. With the scope filter already
+    // hiding non-reachable entities every remaining edge is "between
+    // things the user wants to see", so background edges render at a
+    // healthy alpha — no more ghost-faint lines.
+    const focused: { edge: TierEdge; direction: "in" | "out" | "side" }[] = [];
     for (const edge of edges) {
       const a = layout.rects.get(edge.fromId);
       const b = layout.rects.get(edge.toId);
       if (!a || !b) continue;
       if (!isSegmentOnScreen(a, b, camera, width, height)) continue;
-      const touchesFocus =
-        edge.fromId === selectedId ||
-        edge.toId === selectedId ||
-        edge.fromId === hoveredId ||
-        edge.toId === hoveredId;
-      if (touchesFocus) {
-        focused.push(edge);
+      const touchesAnchor =
+        anchorId != null && (edge.fromId === anchorId || edge.toId === anchorId);
+      const touchesSel =
+        selectedId != null && !touchesAnchor &&
+        (edge.fromId === selectedId || edge.toId === selectedId);
+      const touchesHov =
+        hoveredId != null && !touchesAnchor && !touchesSel &&
+        (edge.fromId === hoveredId || edge.toId === hoveredId);
+      if (touchesAnchor) {
+        focused.push({
+          edge,
+          direction: edge.fromId === anchorId ? "out" : "in",
+        });
         continue;
       }
-      this.paintEdge(g, a, b, edge, invScale, CURVE_K, pixiColor.edge, 0.22 + Math.min(0.22, edge.count * 0.03));
+      if (touchesSel || touchesHov) {
+        focused.push({
+          edge,
+          direction:
+            touchesSel
+              ? edge.fromId === selectedId ? "out" : "in"
+              : "side",
+        });
+        continue;
+      }
+      // Indirect edge — between two reachable neighbours but NOT
+      // incident on the anchor. Kept visible (no ghost alpha) so the
+      // user reads the full dep chain, just a touch below the primary
+      // edges so the anchor's direct connections pop.
+      const alpha = 0.5 + Math.min(0.3, edge.count * 0.04);
+      this.paintEdge(g, a, b, edge, invScale, CURVE_K, pixiColor.edge, alpha, false);
     }
-    for (const edge of focused) {
+    for (const { edge, direction } of focused) {
       const a = layout.rects.get(edge.fromId)!;
       const b = layout.rects.get(edge.toId)!;
-      this.paintEdge(g, a, b, edge, invScale, CURVE_K, pixiColor.edgeHighlight, 0.85);
+      const color =
+        direction === "out"
+          ? pixiColor.edgeOut
+          : direction === "in"
+            ? pixiColor.edgeIn
+            : pixiColor.edgeHighlight;
+      this.paintEdge(g, a, b, edge, invScale, CURVE_K, color, 0.92, true);
     }
   }
 
@@ -763,9 +1221,8 @@ export class PixiScene {
     CURVE_K: number,
     color: number,
     alpha: number,
+    arrow: boolean,
   ): void {
-    // Thickness — log-scaled weight so a 100× edge doesn't dwarf the
-    // card. Cap at 2.5 screen-px.
     const w = Math.min(2.5, 0.6 + Math.log1p(edge.weight) * 0.45) * invScale;
     const ax = a.x + a.w / 2;
     const ay = a.y + a.h / 2;
@@ -781,18 +1238,67 @@ export class PixiScene {
     g.moveTo(ax, ay);
     g.quadraticCurveTo(cx, cy, bx, by);
     g.stroke({ color, width: w, alpha });
+    if (arrow) {
+      // Midpoint of the quadratic Bezier (t=0.5): 0.25A + 0.5C + 0.25B.
+      // Tangent at t=0.5 ≈ direction A→B, which is what we want so the
+      // arrow reads as "flow goes this way".
+      const mx = 0.25 * ax + 0.5 * cx + 0.25 * bx;
+      const my = 0.25 * ay + 0.5 * cy + 0.25 * by;
+      this.paintArrowHead(g, mx, my, dx, dy, 10 * invScale, color, Math.min(1, alpha + 0.05));
+    }
+  }
+
+  private paintArrowHead(
+    g: Graphics,
+    x: number,
+    y: number,
+    dx: number,
+    dy: number,
+    size: number,
+    color: number,
+    alpha: number,
+  ): void {
+    const len = Math.hypot(dx, dy);
+    if (len < 0.0001) return;
+    const ux = dx / len;
+    const uy = dy / len;
+    // Perpendicular for the base width.
+    const px = -uy;
+    const py = ux;
+    const tipX = x + ux * size * 0.5;
+    const tipY = y + uy * size * 0.5;
+    const baseX = x - ux * size * 0.5;
+    const baseY = y - uy * size * 0.5;
+    const half = size * 0.38;
+    g.moveTo(tipX, tipY);
+    g.lineTo(baseX + px * half, baseY + py * half);
+    g.lineTo(baseX - px * half, baseY - py * half);
+    g.closePath();
+    g.fill({ color, alpha });
   }
 
   private drawLabels(frame: SceneFrame): void {
     const layer = this.labelLayer;
     if (!layer) return;
-    const { entities, layout, camera, width, height, selectedId } = frame;
+    const { entities, layout, camera, width, height } = frame;
     const usedPrimary = new Set<string>();
     const usedSecondary = new Set<string>();
+    const usedHero = new Set<string>();
+    const usedLocBadge = new Set<string>();
+    // Dedupe: iterate each entity.id at most once per frame. Without
+    // this guard, any upstream path that accidentally produces a
+    // duplicate entity (filter combos, future focus-mode overlaps)
+    // would stack two Texts at the same position — the root cause of
+    // the "문자 겹침" bug.
+    const seen = new Set<string>();
     const s = camera.scale;
     const invS = 1 / s;
     let budget = LABEL_BUDGET;
+    const spotlight = frame.spotlightIds ?? null;
+    const isSpot = spotlight !== null && spotlight.size > 0;
     for (const entity of entities) {
+      if (seen.has(entity.id)) continue;
+      seen.add(entity.id);
       if (budget <= 0) break;
       const r = layout.rects.get(entity.id);
       if (!r) continue;
@@ -801,18 +1307,36 @@ export class PixiScene {
       if (screenW < PRIMARY_MIN_PX_W || screenH < MIN_LABEL_PX_H) continue;
       if (!isRectOnScreen(r, camera, width, height)) continue;
 
-      const hasDot = screenW >= DOT_MIN_PX_W && screenH >= DOT_MIN_PX_H;
-      const leftPad = (hasDot ? 22 : 10) * invS;
-      const topPad = 6 * invS;
-      const isSel = entity.id === selectedId;
-      const primaryColor = isSel ? pixiColor.accent : pixiColor.text;
+      const hasKindIcon =
+        screenW >= ICON_BOX_MIN_PX_W && screenH >= ICON_BOX_MIN_PX_H;
+      // Reserve a single glyph's worth of runway + a clean 8-px gap
+      // before the primary name. 24 is generous enough for W / P / D
+      // / F / M / ƒ at 12 px bold without collisions.
+      const leftPadPx = hasKindIcon ? 24 : 12;
+      const leftPad = leftPadPx * invS;
+      // Title colour is always near-black — selection is carried by the
+      // card border, not by tinting the label. Accent-blue titles on
+      // selection read as two things competing for attention.
+      const primaryColor = pixiColor.text;
+
+      // Kind icon is a vector shape painted by `drawKindIcon` on the
+      // rect graphics layer during drawRects. Nothing to render here —
+      // drawLabels is Text-only. `leftPadPx` reserved above already
+      // makes room for it to the left of the primary name.
+      // Primary name sits at the top padding; secondary drops below.
+      const nameTopPx = 6;
+      // Screen-pixel width available for the label inside the card —
+      // bounds truncation. The earlier bug ("onBlur / typingSpeed /
+      // start" stacked on one card) came from labels spilling past
+      // their own rect into neighbour rects at medium zoom, because
+      // the render path set `.text = entity.name` with no width gate.
+      const availLabelPx = screenW - leftPadPx - LABEL_RIGHT_PAD_PX;
 
       // Primary: entity name — 13 screen-px, semibold, near-black.
       let t = this.labels.get(entity.id);
       if (!t) {
         const pooled = this.labelPool.pop();
         if (pooled) {
-          if (pooled.text !== entity.name) pooled.text = entity.name;
           t = pooled;
         } else {
           t = new Text({
@@ -828,49 +1352,103 @@ export class PixiScene {
         }
         layer.addChild(t);
         this.labels.set(entity.id, t);
-      } else if (t.text !== entity.name) {
-        t.text = entity.name;
       }
       const primaryStyle = t.style as TextStyle;
       if (primaryStyle.fill !== primaryColor) primaryStyle.fill = primaryColor;
+      t.visible = true;
+      // Dim non-ego labels under spotlight so the selection + its
+      // 1-hop neighbours stay legible while the rest fades into
+      // context. Reset every frame because labels are pool-reused.
+      t.alpha = isSpot && !spotlight!.has(entity.id) ? SPOTLIGHT_LABEL_DIM_ALPHA : 1;
+      if (!fitLabelToWidth(t, entity.name, availLabelPx)) {
+        t.visible = false;
+        continue;
+      }
       t.scale.set(invS);
-      t.position.set(r.x + leftPad, r.y + topPad);
+      t.position.set(r.x + leftPad, r.y + nameTopPx * invS);
       usedPrimary.add(entity.id);
       budget--;
 
-      // Secondary metric line — only when the card has room.
-      if (screenW < SECONDARY_MIN_PX_W || screenH < SECONDARY_MIN_PX_H) continue;
-      if (budget <= 0) break;
-      const secondary = formatSecondary(entity);
-      if (!secondary) continue;
-
-      let s2 = this.subLabels.get(entity.id);
-      if (!s2) {
-        const pooled = this.subLabelPool.pop();
-        if (pooled) {
-          if (pooled.text !== secondary) pooled.text = secondary;
-          s2 = pooled;
-        } else {
-          s2 = new Text({
-            text: secondary,
-            style: new TextStyle({
-              fontFamily: "'Inter Tight', system-ui, sans-serif",
-              fontSize: 11,
-              fontWeight: "500",
-              fill: pixiColor.textSubtle,
-              letterSpacing: -0.05,
-            }),
-          });
+      // LoC badge at the card's top-right. Matches v1
+      // CityNodeRenderer's header layout — a small, muted count on
+      // the opposite side of the filename. Medium-weight, not bold,
+      // so it's readable without competing with the name.
+      const locN = entity.metrics?.loc;
+      if (locN !== undefined && locN > 0 && screenW >= 120 && budget > 0) {
+        const locText = compactNum(locN);
+        let lt = this.locBadgeLabels.get(entity.id);
+        if (!lt) {
+          const pooled = this.locBadgeLabelPool.pop();
+          if (pooled) {
+            if (pooled.text !== locText) pooled.text = locText;
+            lt = pooled;
+          } else {
+            lt = new Text({
+              text: locText,
+              style: new TextStyle({
+                fontFamily: "'Inter Tight', system-ui, sans-serif",
+                fontSize: 11,
+                fontWeight: "500",
+                fill: pixiColor.textSubtle,
+                letterSpacing: 0,
+              }),
+            });
+          }
+          layer.addChild(lt);
+          this.locBadgeLabels.set(entity.id, lt);
+        } else if (lt.text !== locText) {
+          lt.text = locText;
         }
-        layer.addChild(s2);
-        this.subLabels.set(entity.id, s2);
-      } else if (s2.text !== secondary) {
-        s2.text = secondary;
+        lt.alpha = 1;
+        lt.scale.set(invS);
+        const lw = lt.width;
+        lt.position.set(r.x + r.w - lw - 12 * invS, r.y + 7 * invS);
+        usedLocBadge.add(entity.id);
+        budget--;
       }
-      s2.scale.set(invS);
-      s2.position.set(r.x + leftPad, r.y + 24 * invS);
-      usedSecondary.add(entity.id);
-      budget--;
+
+      // Secondary metric line — only when the card has room.
+      if (screenW >= SECONDARY_MIN_PX_W && screenH >= SECONDARY_MIN_PX_H) {
+        if (budget <= 0) break;
+        const secondary = formatSecondary(entity);
+        if (secondary) {
+          let s2 = this.subLabels.get(entity.id);
+          if (!s2) {
+            const pooled = this.subLabelPool.pop();
+            if (pooled) {
+              s2 = pooled;
+            } else {
+              s2 = new Text({
+                text: secondary,
+                style: new TextStyle({
+                  fontFamily: "'Inter Tight', system-ui, sans-serif",
+                  fontSize: 11,
+                  fontWeight: "500",
+                  fill: pixiColor.textSubtle,
+                  letterSpacing: -0.05,
+                }),
+              });
+            }
+            layer.addChild(s2);
+            this.subLabels.set(entity.id, s2);
+          }
+          s2.visible = true;
+          s2.alpha = isSpot && !spotlight!.has(entity.id) ? SPOTLIGHT_LABEL_DIM_ALPHA : 1;
+          if (fitLabelToWidth(s2, secondary, availLabelPx)) {
+            s2.scale.set(invS);
+            // When the card is tall enough for the header band (30px),
+            // anchor the secondary line below the divider so it reads
+            // as metadata under the title, not a stacked label.
+            const secondaryTopPx = screenH >= CARD_HEADER_MIN_PX_H ? 40 : nameTopPx + 18;
+            s2.position.set(r.x + leftPad, r.y + secondaryTopPx * invS);
+            usedSecondary.add(entity.id);
+            budget--;
+          } else {
+            s2.visible = false;
+          }
+        }
+      }
+
     }
     // Recycle primary labels that didn't show up this frame.
     for (const [id, t] of this.labels) {
@@ -890,6 +1468,35 @@ export class PixiScene {
       if (this.subLabelPool.length < LABEL_POOL_CAP) this.subLabelPool.push(t);
       else { try { t.destroy(); } catch { /* ignore */ } }
     }
+    // Drain any kind/path labels that lingered from the retired
+    // experiment. Unconditional drain — we never set `usedKind` /
+    // `usedPath` any more, so every entry is "not used this frame".
+    for (const [id, t] of this.kindLabels) {
+      layer.removeChild(t);
+      this.kindLabels.delete(id);
+      if (this.kindLabelPool.length < LABEL_POOL_CAP) this.kindLabelPool.push(t);
+      else { try { t.destroy(); } catch { /* ignore */ } }
+    }
+    for (const [id, t] of this.pathLabels) {
+      layer.removeChild(t);
+      this.pathLabels.delete(id);
+      if (this.pathLabelPool.length < LABEL_POOL_CAP) this.pathLabelPool.push(t);
+      else { try { t.destroy(); } catch { /* ignore */ } }
+    }
+    for (const [id, t] of this.heroLabels) {
+      if (usedHero.has(id)) continue;
+      layer.removeChild(t);
+      this.heroLabels.delete(id);
+      if (this.heroLabelPool.length < LABEL_POOL_CAP) this.heroLabelPool.push(t);
+      else { try { t.destroy(); } catch { /* ignore */ } }
+    }
+    for (const [id, t] of this.locBadgeLabels) {
+      if (usedLocBadge.has(id)) continue;
+      layer.removeChild(t);
+      this.locBadgeLabels.delete(id);
+      if (this.locBadgeLabelPool.length < LABEL_POOL_CAP) this.locBadgeLabelPool.push(t);
+      else { try { t.destroy(); } catch { /* ignore */ } }
+    }
   }
 
   private attachInput(): void {
@@ -900,6 +1507,12 @@ export class PixiScene {
     el.addEventListener("pointerup", this.onPointerUp);
     el.addEventListener("pointercancel", this.onPointerUp);
     el.addEventListener("pointerleave", this.onPointerLeave);
+    // Native `dblclick` rather than a timer-based synth in pointerdown:
+    // the browser already does the double-click threshold (time + pixel
+    // tolerance) per OS convention, so the UX matches the rest of the
+    // desktop. `onPointerDown` still fires for each click — selection
+    // lands on the first one, drill-in fires on the pair.
+    el.addEventListener("dblclick", this.onDoubleClick);
   }
 
   private detachInput(): void {
@@ -910,7 +1523,19 @@ export class PixiScene {
     el.removeEventListener("pointerup", this.onPointerUp);
     el.removeEventListener("pointercancel", this.onPointerUp);
     el.removeEventListener("pointerleave", this.onPointerLeave);
+    el.removeEventListener("dblclick", this.onDoubleClick);
   }
+
+  private readonly onDoubleClick = (e: MouseEvent): void => {
+    // Respect the same force-pan escape hatches as single-click so a
+    // Space-held double-click doesn't surprise-drill-in mid-pan.
+    if (this.spaceHeld) return;
+    const id = this.hitTestClient(e.clientX, e.clientY);
+    if (id === null) return;
+    e.preventDefault();
+    this.stopInertia();
+    this.callbacksRef.current.onEntityDoubleClick(id);
+  };
 
   private readonly onWheel = (e: WheelEvent): void => {
     e.preventDefault();
@@ -1143,6 +1768,35 @@ function compactNum(n: number): string {
   return `${Math.round(n / 1_000_000)}M`;
 }
 
+/** Truncate a Pixi Text to fit within `availPx` screen pixels.
+ *  Measures at natural scale (scale=1) because our rendered labels
+ *  cancel the camera scale via `invS` — so text.width at scale 1
+ *  equals the actual screen-pixel footprint. Returns true if the
+ *  string fit (with or without an ellipsis), false when even a
+ *  single char + "…" overflows the rect. Callers hide the Text and
+ *  skip rendering on false rather than let it spill into a neighbour
+ *  card (the "label-spill" regression fix).
+ *
+ *  After this call the Text's scale is left at 1 — the caller must
+ *  re-apply `.scale.set(invS)` before positioning.
+ */
+function fitLabelToWidth(t: Text, full: string, availPx: number): boolean {
+  if (availPx <= 0) return false;
+  if (t.text !== full) t.text = full;
+  t.scale.set(1);
+  if (t.width <= availPx) return true;
+  // Proportional initial guess from the overflow ratio, then shrink
+  // linearly. Names are short (≤ a few dozen chars) so the worst-case
+  // loop stays cheap per frame even at the 320-entity budget.
+  let n = Math.max(1, Math.floor((full.length * availPx) / t.width) - 1);
+  t.text = full.slice(0, n) + "…";
+  while (t.width > availPx && n > 1) {
+    n--;
+    t.text = full.slice(0, n) + "…";
+  }
+  return t.width <= availPx;
+}
+
 /** Build the secondary metric line shown below the entity name on
  *  mid-to-large cards. Order (LoC → children → risk) is fixed so the
  *  eye doesn't have to re-learn the layout between kinds; any of the
@@ -1156,3 +1810,15 @@ function formatSecondary(entity: Entity): string | null {
   if (m?.riskScore !== undefined) parts.push(`risk ${m.riskScore.toFixed(1)}`);
   return parts.length > 0 ? parts.join("  ·  ") : null;
 }
+
+/** Concrete-noun label per kind. Exported because Inspector and
+ *  HoverTooltip read it — cards themselves stay minimal (primary
+ *  name + one metric line) to avoid the label-stacking regression. */
+export const KIND_NOUN: Readonly<Record<EntityKind, string>> = {
+  universe: "WORKSPACE",
+  galaxy: "PACKAGE",
+  street: "DIRECTORY",
+  building: "FILE",
+  floor: "MODULE",
+  room: "FUNCTION",
+};

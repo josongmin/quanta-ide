@@ -16,12 +16,21 @@ import type { EntityTree } from "./types";
 export interface EntityInteraction {
   selectedId: string | null;
   hoveredId: string | null;
-  /** Canvas focus mode — 'neighborhood' filters rendering down to the
-   *  selected entity and its 1-hop counterparts (the Block-level "ego
-   *  graph" from the spec). Auto-exits when selection clears; no
-   *  separate anchor id is stored, so "show neighborhood of X" and
-   *  "show neighborhood of Y" stay tied to the current selection. */
+  /** Canvas focus mode.
+   *  - 'none': overview — show every entity at the active tier.
+   *  - 'neighborhood': scope the canvas to the `anchorId` entity.
+   *    The adaptive filter in CanvasViewport picks the right shape
+   *    (ego-graph when anchor is at the current tier, subtree when
+   *    anchor lives above it) so drill-ins through tiers preserve
+   *    the user's interest. */
   focusMode: "none" | "neighborhood";
+  /** Scope entity. Distinct from `selectedId` so the user can click
+   *  around WITHIN a scope without losing it — selection shifts to
+   *  inspect a neighbour, anchor stays put so the visible set doesn't
+   *  collapse beneath their cursor. Set by Explorer clicks, canvas
+   *  drill-in (double-click / Inspector button), and the first
+   *  selection out of an empty state. Cleared when focus ends. */
+  anchorId: string | null;
 }
 
 export interface EntityState {
@@ -31,7 +40,7 @@ export interface EntityState {
 
 const initial: EntityState = {
   tree: null,
-  interaction: { selectedId: null, hoveredId: null, focusMode: "none" },
+  interaction: { selectedId: null, hoveredId: null, focusMode: "none", anchorId: null },
 };
 
 let state: EntityState = initial;
@@ -58,12 +67,29 @@ export const entityStore = {
   },
   selectEntity(id: string | null): void {
     if (state.interaction.selectedId === id) return;
-    // Clearing selection exits neighborhood-focus automatically — the
-    // canvas would otherwise show an "empty ego" and look broken.
-    const nextFocus = id === null ? "none" : state.interaction.focusMode;
+    let { focusMode, anchorId } = state.interaction;
+    if (id === null) {
+      // Clearing selection ends focus — an empty canvas with no
+      // anchor would look broken; roll back to overview cleanly.
+      focusMode = "none";
+      anchorId = null;
+    } else if (state.interaction.selectedId === null && focusMode === "none") {
+      // Auto-focus on the FIRST selection out of an overview — turns
+      // "I clicked a file" into "show me this file and what it
+      // touches" without a second gesture. If the user explicitly
+      // exited focus earlier (Esc clears + Show overview), selecting
+      // another entity keeps them in overview; the focus flag only
+      // flips on this clean empty→selection transition.
+      focusMode = "neighborhood";
+      anchorId = id;
+    }
+    // Otherwise preserve the anchor + mode — canvas clicks that move
+    // the selection inside an active focus scope must NOT reshape
+    // the visible set, or the user would see the canvas collapse
+    // under their cursor every time they inspected a neighbour.
     state = {
       ...state,
-      interaction: { ...state.interaction, selectedId: id, focusMode: nextFocus },
+      interaction: { ...state.interaction, selectedId: id, focusMode, anchorId },
     };
     emit();
   },
@@ -74,7 +100,31 @@ export const entityStore = {
   },
   setFocusMode(mode: "none" | "neighborhood"): void {
     if (state.interaction.focusMode === mode) return;
-    state = { ...state, interaction: { ...state.interaction, focusMode: mode } };
+    let { anchorId } = state.interaction;
+    if (mode === "none") anchorId = null;
+    else if (anchorId === null) anchorId = state.interaction.selectedId;
+    state = { ...state, interaction: { ...state.interaction, focusMode: mode, anchorId } };
+    emit();
+  },
+  /** Commit a new scope anchor — called by Explorer clicks, canvas
+   *  drill-in, and Inspector's drill button. Implicitly enters
+   *  `neighborhood` mode and moves the selection to the anchor so
+   *  Inspector opens on the same entity. Pass `null` to return to
+   *  overview. */
+  setAnchor(id: string | null): void {
+    const cur = state.interaction;
+    const nextFocus: "none" | "neighborhood" = id === null ? "none" : "neighborhood";
+    const nextSel = id === null ? cur.selectedId : id;
+    if (cur.anchorId === id && cur.focusMode === nextFocus && cur.selectedId === nextSel) return;
+    state = {
+      ...state,
+      interaction: {
+        ...cur,
+        anchorId: id,
+        focusMode: nextFocus,
+        selectedId: nextSel,
+      },
+    };
     emit();
   },
   reset(): void {

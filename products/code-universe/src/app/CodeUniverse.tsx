@@ -15,6 +15,13 @@ import {
 } from "../features/command-palette";
 import { useTierShortcuts } from "../features/tier-switch";
 import { useNavHistoryBindings } from "../features/nav-history";
+import {
+  KeyboardHints,
+  useKeyboardHintsShortcut,
+} from "../features/keyboard-hints";
+import { ToastHost } from "../features/toast";
+import { useStickyShortcut } from "../features/stickies";
+import { ensureA11yStyles } from "../shared/ui/a11y-styles";
 
 // CodeUniverse
 // --------------------------------------------------------------------
@@ -93,11 +100,23 @@ export function CodeUniverse(props: CodeUniverseProps): ReactElement {
   useCommandPaletteShortcut(props.isActive !== false);
   useTierShortcuts(props.isActive !== false);
   useNavHistoryBindings(props.isActive !== false);
+  useKeyboardHintsShortcut(props.isActive !== false);
+  useStickyShortcut(props.isActive !== false);
+
+  // Inject the a11y stylesheet once — idempotent, scoped under
+  // `[data-product="code-universe"]` so it doesn't leak into the
+  // host shell. Adds focus-visible rings on every button/input and
+  // respects `prefers-reduced-motion`.
+  useEffect(() => {
+    ensureA11yStyles();
+  }, []);
 
   return (
     <>
       <CanvasShell tabId={props.tabId} />
       <CommandPalette />
+      <KeyboardHints />
+      <ToastHost />
     </>
   );
 }

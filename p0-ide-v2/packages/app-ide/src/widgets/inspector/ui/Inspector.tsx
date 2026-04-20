@@ -1,7 +1,6 @@
 import { type ComponentType, useState, useCallback } from "react";
 import "./inspector.css";
 import "./views/inspector-chrome.css";
-import { IconClock, IconPlay } from "@quanta/ui-kit/ui/icons";
 import { ResizeHandle } from "@quanta/ui-kit/ui/resize-handle";
 import { AgentPane } from "@quanta/app-ide/features/inspector-agent";
 import { PopoutPortal } from "@quanta/app-ide/features/inspector-agent/ui/PopoutPortal";
@@ -70,14 +69,6 @@ export function Inspector({ selection }: InspectorProps) {
           {agentPane}
         </PopoutPortal>
       )}
-
-      <footer className="insp__foot">
-        <span className="insp__foot-item"><IconPlay size={11} /> .status.engine</span>
-        <span className="insp__foot-item insp__foot-mid"><IconClock size={11} /> session 46m 53s</span>
-        <span className="insp__foot-item">
-          <span className="insp__foot-dot" /> connected
-        </span>
-      </footer>
     </aside>
   );
 }

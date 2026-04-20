@@ -7,7 +7,7 @@ export interface LayoutPrefs {
 }
 
 const STORAGE_KEY = "shell.layout-prefs";
-const DEFAULT: LayoutPrefs = { tabStyle: "linear" };
+const DEFAULT: LayoutPrefs = { tabStyle: "chrome" };
 
 function load(): LayoutPrefs {
   try {
@@ -15,7 +15,7 @@ function load(): LayoutPrefs {
     if (!raw) return DEFAULT;
     const parsed = JSON.parse(raw) as Partial<LayoutPrefs>;
     return {
-      tabStyle: parsed.tabStyle === "chrome" ? "chrome" : "linear",
+      tabStyle: parsed.tabStyle === "linear" ? "linear" : "chrome",
     };
   } catch {
     return DEFAULT;

@@ -73,32 +73,6 @@
 }
 .insp__section-body { padding: var(--space-1) var(--space-3h) var(--space-3); }
 
-/* ── Footer ── */
-.insp__foot {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3h);
-  background: var(--bg);
-  border-top: 1px solid var(--border);
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  flex-shrink: 0;
-}
-.insp__foot-item {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-.insp__foot-mid { margin-right: auto; }
-.insp__foot-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--success);
-  display: inline-block;
-}
-
 /* ── Mode tabs ── */
 .insp__modes {
   display: flex;

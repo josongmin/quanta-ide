@@ -29,7 +29,15 @@ export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
   const hasChildren = entity.childIds.length > 0;
 
   const onClickRow = useCallback(() => {
-    entityStore.selectEntity(entity.id);
+    // Explorer click is a deliberate navigation — treat it like a
+    // drill-in. `setAnchor` commits the scope, moves selection, and
+    // flips focus on so the canvas narrows to this entity's
+    // dependencies (same-tier) or its subtree (higher-tier anchor).
+    // Packages / folders work as overview slots: clicking a galaxy
+    // puts the anchor there and the canvas shows "everything under
+    // this package", replacing the old fixed-tier overview without
+    // losing the bird's-eye mode.
+    entityStore.setAnchor(entity.id);
     const spec = DEFAULT_TIER_LADDER.find(t => t.visibleKind === entity.kind);
     if (spec) tierStore.jumpToTier(spec.name);
   }, [entity.id, entity.kind]);

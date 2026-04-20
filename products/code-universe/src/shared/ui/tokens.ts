@@ -157,6 +157,13 @@ export const pixiColor = {
    *  selected cards. */
   edge: 0xa0a0a5,
   edgeHighlight: 0x0d99ff,
+  /** Dependency-direction colouring under spotlight. Outbound uses the
+   *  accent blue (where the selection reaches TO), inbound uses the
+   *  success green (what reaches INTO the selection). Same hues are
+   *  mirrored on the HTML Inspector so the mental model is one-to-one
+   *  between canvas and panel. */
+  edgeOut: 0x0d99ff,
+  edgeIn: 0x22a06b,
 
   /** Dot-grid background. */
   grid: 0x0a0a0a,

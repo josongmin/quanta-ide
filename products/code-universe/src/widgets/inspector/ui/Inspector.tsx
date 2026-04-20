@@ -58,11 +58,24 @@ function LoadedInspector({ entity, tree }: { entity: Entity; tree: EntityTree })
     let topN = 0;
     for (const [k, n] of counts) if (n > topN) { topKind = k; topN = n; }
     const spec = DEFAULT_TIER_LADDER.find(t => t.visibleKind === topKind);
-    if (spec) tierStore.jumpToTier(spec.name);
-  }, [children]);
+    if (!spec) return;
+    // Commit THIS entity as the new scope anchor — the subtree filter
+    // then narrows the drilled-into tier to this entity's descendants
+    // only. Matches the spec's "줌 레벨 변경 = 관심 범위 유지" rule.
+    entityStore.setAnchor(entity.id);
+    tierStore.jumpToTier(spec.name);
+  }, [children, entity.id]);
   const onToggleFocus = useCallback(() => {
-    entityStore.setFocusMode(focusMode === "neighborhood" ? "none" : "neighborhood");
-  }, [focusMode]);
+    // "Exit focus" drops to overview — clears anchor too so the next
+    // click can freshly decide the new scope. "Focus" (turning it on
+    // from overview) anchors on the current selection so the canvas
+    // narrows to whatever the user was just inspecting.
+    if (focusMode === "neighborhood") {
+      entityStore.setAnchor(null);
+    } else {
+      entityStore.setAnchor(entity.id);
+    }
+  }, [focusMode, entity.id]);
 
   const hasRelations = relations.inbound.length + relations.outbound.length > 0;
   const dot = kindColor[entity.kind];
@@ -96,7 +109,7 @@ function LoadedInspector({ entity, tree }: { entity: Entity; tree: EntityTree })
         </div>
 
         <Metrics entity={entity} />
-        <Relations tree={tree} inbound={relations.inbound} outbound={relations.outbound} />
+        <Dependencies tree={tree} inbound={relations.inbound} outbound={relations.outbound} />
         <ChildrenList entity={entity} tree={tree} />
       </div>
 
@@ -238,7 +251,25 @@ function Metrics({ entity }: { entity: Entity }): ReactElement | null {
   );
 }
 
-function Relations({
+// Dependencies
+// --------------------------------------------------------------------
+// Shows every 1-hop dependency of the selected entity. Three layers:
+//   1. Summary tiles — Inbound / Outbound counts with ref totals.
+//   2. Radial mini-map — center dot = the selection, left hemisphere
+//      = inbound, right = outbound, spokes coloured by direction so
+//      the dep structure is visible at a glance before the lists.
+//   3. Grouped lists — inbound (green) + outbound (blue) rows with
+//      gradient weight bars. Hover propagates to the canvas hover
+//      store so the corresponding rect pulses on the viewport. Click
+//      jumps the selection there.
+//
+// The colour palette here (success-green for inbound, accent-blue for
+// outbound) mirrors the pixi `edgeIn` / `edgeOut` tokens so the
+// mental model is one-to-one between panel and canvas.
+const DEP_LIST_MAX = 8;
+const DEP_RADIAL_MAX_POINTS = 24;
+
+function Dependencies({
   tree,
   inbound,
   outbound,
@@ -248,28 +279,33 @@ function Relations({
   outbound: readonly TierEdge[];
 }): ReactElement | null {
   if (inbound.length === 0 && outbound.length === 0) return null;
-  const MAX = 8;
+  const inRefs = inbound.reduce((n, e) => n + e.count, 0);
+  const outRefs = outbound.reduce((n, e) => n + e.count, 0);
+  const total = inbound.length + outbound.length;
   return (
-    <Section title="Relations">
+    <Section title={`Dependencies · ${total}`}>
       <div style={{ display: "flex", flexDirection: "column", gap: space[3] }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space[2] }}>
+          <DepStat direction="in" count={inbound.length} refs={inRefs} />
+          <DepStat direction="out" count={outbound.length} refs={outRefs} />
+        </div>
+        {total > 0 && total <= 96 ? (
+          <DepRadial inbound={inbound} outbound={outbound} tree={tree} />
+        ) : null}
         {inbound.length > 0 ? (
-          <RelationGroup
-            icon={<IconArrowIn size={11} />}
-            label="Inbound"
-            edges={inbound.slice(0, MAX)}
+          <DepGroup
+            direction="in"
+            edges={inbound.slice(0, DEP_LIST_MAX)}
             total={inbound.length}
             tree={tree}
-            counterpart="fromId"
           />
         ) : null}
         {outbound.length > 0 ? (
-          <RelationGroup
-            icon={<IconArrowOut size={11} />}
-            label="Outbound"
-            edges={outbound.slice(0, MAX)}
+          <DepGroup
+            direction="out"
+            edges={outbound.slice(0, DEP_LIST_MAX)}
             total={outbound.length}
             tree={tree}
-            counterpart="toId"
           />
         ) : null}
       </div>
@@ -277,22 +313,209 @@ function Relations({
   );
 }
 
-function RelationGroup({
-  icon,
-  label,
+function DepStat({
+  direction,
+  count,
+  refs,
+}: {
+  direction: "in" | "out";
+  count: number;
+  refs: number;
+}): ReactElement {
+  const dirColor = direction === "in" ? color.success : color.accent;
+  const Icon = direction === "in" ? IconArrowIn : IconArrowOut;
+  const label = direction === "in" ? "Inbound" : "Outbound";
+  return (
+    <div
+      style={{
+        position: "relative",
+        padding: `${space[3]}px ${space[3]}px ${space[2]}px`,
+        borderRadius: radius.md,
+        background: color.bg2,
+        border: `1px solid ${color.borderSoft}`,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: "0 0 auto 0",
+          height: 2,
+          background: dirColor,
+        }}
+      />
+      <div
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          color: dirColor,
+          fontSize: font.size.xxs,
+          fontWeight: font.weight.semibold,
+          letterSpacing: font.letter.ultra,
+          textTransform: "uppercase",
+        }}
+      >
+        <Icon size={10} />
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: 4,
+          fontSize: font.size.display,
+          fontWeight: font.weight.semibold,
+          color: color.text0,
+          fontVariantNumeric: "tabular-nums",
+          letterSpacing: font.letter.tight,
+          lineHeight: 1,
+        }}
+      >
+        {count}
+      </div>
+      <div
+        style={{
+          marginTop: 2,
+          fontSize: font.size.xs,
+          color: color.text2,
+          fontVariantNumeric: "tabular-nums",
+        }}
+      >
+        {refs} {refs === 1 ? "ref" : "refs"}
+      </div>
+    </div>
+  );
+}
+
+function DepRadial({
+  inbound,
+  outbound,
+  tree,
+}: {
+  inbound: readonly TierEdge[];
+  outbound: readonly TierEdge[];
+  tree: EntityTree;
+}): ReactElement {
+  const W = 280;
+  const H = 148;
+  const cx = W / 2;
+  const cy = H / 2;
+  // Inbound on the LEFT hemisphere (flows into the center), outbound
+  // on the RIGHT (flows out). Separate radii so labels don't collide
+  // when both sides are crowded.
+  const rIn = 54;
+  const rOut = 60;
+  const maxIn = Math.min(inbound.length, DEP_RADIAL_MAX_POINTS);
+  const maxOut = Math.min(outbound.length, DEP_RADIAL_MAX_POINTS);
+  const inPts = inbound.slice(0, DEP_RADIAL_MAX_POINTS).map((edge, i) => {
+    // Spread 110°→250° clockwise (left half of the circle).
+    const t = maxIn === 1 ? 0.5 : i / (maxIn - 1);
+    const theta = Math.PI * ((110 + t * 140) / 180);
+    return {
+      edge,
+      x: cx + rIn * Math.cos(theta),
+      y: cy + rIn * Math.sin(theta),
+      other: tree.byId.get(edge.fromId),
+    };
+  });
+  const outPts = outbound.slice(0, DEP_RADIAL_MAX_POINTS).map((edge, i) => {
+    // Spread 290°→70° (right half) — equivalent to -70° → +70°.
+    const t = maxOut === 1 ? 0.5 : i / (maxOut - 1);
+    const theta = Math.PI * ((-70 + t * 140) / 180);
+    return {
+      edge,
+      x: cx + rOut * Math.cos(theta),
+      y: cy + rOut * Math.sin(theta),
+      other: tree.byId.get(edge.toId),
+    };
+  });
+  return (
+    <div
+      style={{
+        padding: space[2],
+        borderRadius: radius.md,
+        background: color.bg2,
+        border: `1px solid ${color.borderSoft}`,
+        display: "flex",
+        justifyContent: "center",
+      }}
+    >
+      <svg width={W} height={H} style={{ display: "block" }} role="img" aria-label="Dependency radial map">
+        <defs>
+          <radialGradient id="depCore" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor={color.accent} stopOpacity="0.95" />
+            <stop offset="100%" stopColor={color.accent} stopOpacity="0.35" />
+          </radialGradient>
+        </defs>
+        {/* Soft ring behind the core to anchor the composition. */}
+        <circle cx={cx} cy={cy} r={24} fill="none" stroke={color.border} strokeDasharray="2 3" strokeOpacity="0.6" />
+        {inPts.map((p, i) => (
+          <line
+            key={`il${i}`}
+            x1={p.x}
+            y1={p.y}
+            x2={cx}
+            y2={cy}
+            stroke={color.success}
+            strokeOpacity={0.55}
+            strokeWidth={1}
+            strokeLinecap="round"
+          />
+        ))}
+        {outPts.map((p, i) => (
+          <line
+            key={`ol${i}`}
+            x1={cx}
+            y1={cy}
+            x2={p.x}
+            y2={p.y}
+            stroke={color.accent}
+            strokeOpacity={0.55}
+            strokeWidth={1}
+            strokeLinecap="round"
+          />
+        ))}
+        {inPts.map((p, i) => {
+          const hue = p.other ? kindColor[p.other.kind] : color.success;
+          return (
+            <g key={`in${i}`}>
+              <circle cx={p.x} cy={p.y} r={5} fill={color.bg1} />
+              <circle cx={p.x} cy={p.y} r={3.25} fill={hue} />
+            </g>
+          );
+        })}
+        {outPts.map((p, i) => {
+          const hue = p.other ? kindColor[p.other.kind] : color.accent;
+          return (
+            <g key={`on${i}`}>
+              <circle cx={p.x} cy={p.y} r={5} fill={color.bg1} />
+              <circle cx={p.x} cy={p.y} r={3.25} fill={hue} />
+            </g>
+          );
+        })}
+        <circle cx={cx} cy={cy} r={11} fill="url(#depCore)" />
+        <circle cx={cx} cy={cy} r={5.5} fill={color.accent} />
+        <circle cx={cx} cy={cy} r={2} fill={color.bg1} />
+      </svg>
+    </div>
+  );
+}
+
+function DepGroup({
+  direction,
   edges,
   total,
   tree,
-  counterpart,
 }: {
-  icon: ReactNode;
-  label: string;
+  direction: "in" | "out";
   edges: readonly TierEdge[];
   total: number;
   tree: EntityTree;
-  counterpart: "fromId" | "toId";
 }): ReactElement {
   const maxWeight = edges.reduce((m, e) => Math.max(m, e.weight), 0) || 1;
+  const counterpart: "fromId" | "toId" = direction === "in" ? "fromId" : "toId";
+  const dirColor = direction === "in" ? color.success : color.accent;
+  const Icon = direction === "in" ? IconArrowIn : IconArrowOut;
+  const label = direction === "in" ? "Inbound" : "Outbound";
   return (
     <div>
       <div
@@ -301,14 +524,25 @@ function RelationGroup({
           alignItems: "center",
           gap: 6,
           marginBottom: space[1],
-          fontSize: font.size.xs,
-          color: color.text1,
-          fontWeight: font.weight.medium,
+          fontSize: font.size.xxs,
+          color: dirColor,
+          fontWeight: font.weight.semibold,
+          letterSpacing: font.letter.ultra,
+          textTransform: "uppercase",
         }}
       >
-        <span style={{ color: color.text2 }}>{icon}</span>
+        <Icon size={11} />
         <span>{label}</span>
-        <span style={{ color: color.text3, fontVariantNumeric: "tabular-nums" }}>
+        <span
+          style={{
+            color: color.text3,
+            fontVariantNumeric: "tabular-nums",
+            marginLeft: "auto",
+            textTransform: "none",
+            letterSpacing: font.letter.tight,
+            fontWeight: font.weight.medium,
+          }}
+        >
           {total > edges.length ? `${edges.length} of ${total}` : total}
         </span>
       </div>
@@ -334,15 +568,61 @@ function RelationGroup({
               }}
               style={relationRow()}
             >
-              <span style={{ width: 6, height: 6, borderRadius: radius.pill, background: kindColor[other.kind], flexShrink: 0 }} />
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: font.size.md, color: color.text0, letterSpacing: font.letter.tight }}>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: radius.pill,
+                  background: kindColor[other.kind],
+                  flexShrink: 0,
+                }}
+              />
+              <span
+                style={{
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontSize: font.size.md,
+                  color: color.text0,
+                  letterSpacing: font.letter.tight,
+                }}
+              >
                 {other.name}
               </span>
-              <span style={{ fontSize: font.size.xs, color: color.text2, fontVariantNumeric: "tabular-nums", fontWeight: font.weight.medium }}>
+              <span
+                style={{
+                  fontSize: font.size.xs,
+                  color: color.text2,
+                  fontVariantNumeric: "tabular-nums",
+                  fontWeight: font.weight.medium,
+                  minWidth: 18,
+                  textAlign: "right",
+                }}
+              >
                 {edge.count}
               </span>
-              <span style={{ width: 40, height: 3, borderRadius: radius.pill, background: color.bg2, overflow: "hidden", flexShrink: 0 }}>
-                <span style={{ display: "block", height: "100%", width: `${barW}%`, background: color.accent, opacity: 0.75 }} />
+              <span
+                style={{
+                  width: 52,
+                  height: 4,
+                  borderRadius: radius.pill,
+                  background: color.bg2,
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  position: "relative",
+                }}
+              >
+                <span
+                  style={{
+                    display: "block",
+                    height: "100%",
+                    width: `${barW}%`,
+                    background: `linear-gradient(90deg, ${dirColor}33, ${dirColor})`,
+                    borderRadius: radius.pill,
+                    transition: `width ${transition.base}`,
+                  }}
+                />
               </span>
             </button>
           );

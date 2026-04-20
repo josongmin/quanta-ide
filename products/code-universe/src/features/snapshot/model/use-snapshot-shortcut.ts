@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { tierStore } from "../../../entities/tier";
+import { toast } from "../../toast";
 import { exportSnapshot } from "./export-snapshot";
 
 // ⌘/Ctrl + Shift + S → export the current canvas as a PNG.
@@ -30,13 +31,17 @@ export function useSnapshotShortcut(
       const el = canvasRef.current;
       if (!el) return;
       e.preventDefault();
-      // Fire-and-forget — errors end up in `exportSnapshot`'s
-      // console warn. We don't surface a toast because the OS
-      // downloads UI already provides user feedback.
-      void exportSnapshot({
-        canvas: el,
-        tier: tierStore.getState().activeTier.name,
-      });
+      const tierName = tierStore.getState().activeTier.name;
+      // Fire a toast as passive confirmation (the OS downloads bar
+      // shows WHAT was saved, but we want to confirm the shortcut
+      // *fired* — otherwise user has to watch for the file popup).
+      void exportSnapshot({ canvas: el, tier: tierName })
+        .then(() => {
+          toast.success(`Snapshot saved · ${tierName}`);
+        })
+        .catch(err => {
+          toast.error(`Snapshot failed — ${err instanceof Error ? err.message : "unknown error"}`);
+        });
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);

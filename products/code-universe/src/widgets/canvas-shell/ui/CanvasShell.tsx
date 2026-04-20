@@ -29,6 +29,7 @@ import {
 } from "../../../features/layout-weight";
 import { NavHistoryButtons } from "../../../features/nav-history";
 import { ColorModePicker } from "../../../features/color-mode";
+import { FocusModeChip } from "../../../features/focus-mode";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { IconSidebarLeft, IconSidebarRight } from "../../../shared/ui/icons";
 
@@ -116,10 +117,14 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
       tree
         ? buildHierarchicalLayout(tree, {
             weight: makeWeightFn(tree, weightMode),
-            // World-unit gutter between siblings — reads as ~1–2 screen-
-            // px at the universe zoom, ~12 screen-px at file-level. Makes
-            // each card a discrete unit rather than a cell in a sheet.
-            gap: 12,
+            // Sibling gutter, world units. Matched to the default 24-unit
+            // outer padding so a card's gap to its neighbour reads the
+            // same as its gap to the parent's edge — otherwise inner
+            // rows look cramped relative to the rim. Worth more at deep
+            // tiers: rooms inside a small file get breathing room that
+            // survives max zoom without collapsing into a sheet.
+            gap: 32,
+            padding: 32,
           })
         : null,
     [tree, weightMode],
@@ -195,6 +200,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
             before the right cluster gives up space. */}
         <div style={HEADER_MIDDLE}>
           <DrillPath />
+          <FocusModeChip />
         </div>
 
         {/* Right cluster: current-context readouts + Inspector

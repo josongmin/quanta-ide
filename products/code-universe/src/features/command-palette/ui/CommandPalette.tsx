@@ -133,6 +133,35 @@ export function CommandPalette(): ReactElement | null {
     if (activeIdx >= results.length) setActiveIdx(0);
   }, [results, activeIdx]);
 
+  // Peek preview — as the user arrows through results, mirror the
+  // active row into the entity store's `hoveredId`. Pixi paints that
+  // id with the hover accent, so the canvas flashes a visual preview
+  // of each candidate before the user commits. On palette close (any
+  // path — Esc / backdrop / commit), we clear the hover so the
+  // preview doesn't leak into the normal canvas interaction flow.
+  const prevHoverRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    // Snapshot the pre-palette hover once when the palette opens so
+    // we can restore it on close. Only captured on the open→mount
+    // transition; subsequent arrow presses don't overwrite.
+    if (prevHoverRef.current === null) {
+      prevHoverRef.current = entityStore.getState().interaction.hoveredId;
+    }
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const picked = results[activeIdx];
+    if (picked) entityStore.hoverEntity(picked.entity.id);
+  }, [open, results, activeIdx]);
+  useEffect(() => {
+    if (open) return;
+    // Palette just closed — restore the previous hover state (usually
+    // null) so the canvas doesn't stay stuck on a preview glow.
+    entityStore.hoverEntity(prevHoverRef.current);
+    prevHoverRef.current = null;
+  }, [open]);
+
   // Autofocus + select-all when the modal opens so ⌘K → typing lands
   // in the input without a mouse hop. Returning a cleanup lets the
   // caller close without a stale-focus artifact.

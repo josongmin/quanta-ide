@@ -40,19 +40,27 @@ export function squarifyInto(
 ): Map<string, Rect> {
   const out = new Map<string, Rect>();
   if (items.length === 0) return out;
-  if (bounds.w <= padding * 2 || bounds.h <= padding * 2) {
-    // Not enough room to pad — give each item the full bounds and
-    // let the caller decide whether to render them overlapped.
-    for (const it of items) out.set(it.id, bounds);
-    return out;
-  }
+  // Adaptive padding. When the parent rect is smaller than the
+  // nominal padding can eat, shrink padding to fit. Previously we
+  // assigned every child the full `bounds` in that branch, which
+  // collapsed siblings onto the same rect and stacked their labels
+  // on top of each other at deep zoom. If even zero padding would
+  // produce a non-positive inner rect, return empty so the caller
+  // skips these leaves (they'd be sub-pixel anyway — invisible is
+  // better than overlapping).
+  const effPadding = Math.max(
+    0,
+    Math.min(padding, bounds.w / 2 - 0.5, bounds.h / 2 - 0.5),
+  );
+  const innerW = bounds.w - effPadding * 2;
+  const innerH = bounds.h - effPadding * 2;
+  if (innerW <= 0 || innerH <= 0) return out;
 
-  // Inner rect after padding.
   const inner: Rect = {
-    x: bounds.x + padding,
-    y: bounds.y + padding,
-    w: bounds.w - padding * 2,
-    h: bounds.h - padding * 2,
+    x: bounds.x + effPadding,
+    y: bounds.y + effPadding,
+    w: innerW,
+    h: innerH,
   };
 
   const totalW = items.reduce((s, it) => s + it.weight, 0);

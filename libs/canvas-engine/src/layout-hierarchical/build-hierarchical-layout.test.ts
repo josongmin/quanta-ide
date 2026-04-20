@@ -80,4 +80,35 @@ describe("buildHierarchicalLayout", () => {
     expect(layout.totalBounds.w).toBeGreaterThan(0);
     expect(layout.totalBounds.h).toBeGreaterThan(0);
   });
+
+  // Regression: sibling rects used to collapse onto the parent bounds
+  // when the parent was smaller than padding*2, which stacked every
+  // child's card + label on the same position. The fix makes padding
+  // adaptive so siblings always get disjoint rects (or no rect at all
+  // when they'd be sub-pixel).
+  it("siblings never share the same rect under a cramped parent", () => {
+    const files: FileNode[] = [];
+    for (let i = 0; i < 30; i++) files.push(makeFile(`deep/pkg/dir/sub/f${i}.ts`));
+    const tree = buildEntityTree(makeGraph(...files));
+    const layout = buildHierarchicalLayout(tree, {
+      rootWidth: 120,
+      rootHeight: 80,
+      padding: 24,
+    });
+    // Group by parentId — siblings with the SAME parent must not
+    // share a rect. (A single-child entity equals its parent rect,
+    // which is fine; the label stacking bug was between siblings.)
+    const byParent = new Map<string, Map<string, string>>();
+    for (const [id, entity] of tree.byId) {
+      const parentId = entity.parentId ?? "__root__";
+      const r = layout.rects.get(id);
+      if (!r) continue;
+      let seen = byParent.get(parentId);
+      if (!seen) { seen = new Map(); byParent.set(parentId, seen); }
+      const key = `${r.x.toFixed(2)}_${r.y.toFixed(2)}_${r.w.toFixed(2)}_${r.h.toFixed(2)}`;
+      const prior = seen.get(key);
+      expect(prior, `sibling ${id} collides with ${prior ?? ""} under ${parentId}`).toBeUndefined();
+      seen.set(key, id);
+    }
+  });
 });

@@ -37,20 +37,25 @@ export const tierStore = {
       listeners.delete(fn);
     };
   },
-  /** Drive the scale from the viewport. Re-resolves the tier with
-   *  hysteresis: only flip when the new scale has crossed the
-   *  current tier's BOUNDING threshold, not just any threshold. */
+  /** Drive the scale from the viewport for the HUD readout only —
+   *  the active tier does NOT auto-flip on scale changes any more.
+   *
+   *  Historical reason: this store used to resolve tier from scale
+   *  (threshold hysteresis) so pinching the canvas would cross tiers
+   *  for you. In practice users pinched slightly to zoom, stumbled
+   *  across a threshold, tier flipped, the scope filter reset, and
+   *  the canvas "went crazy" mid-gesture (see the 2026-04-21 bug
+   *  report). Tier is now always an explicit navigation — Explorer
+   *  click, drill-in, breadcrumb. Pinch is pure camera zoom. */
   setScale(nextScale: number): void {
     if (nextScale === state.scale) return;
-    const cur = state.activeTier;
-    const within = nextScale >= cur.downThreshold && nextScale < cur.upThreshold;
-    const nextTier = within ? cur : resolveTierByScale(state.ladder, nextScale);
-    if (nextTier === cur && nextScale === state.scale) return;
-    state = { ...state, scale: nextScale, activeTier: nextTier };
+    state = { ...state, scale: nextScale };
     emit();
   },
-  /** Force-jump to a named tier (breadcrumb click, keyboard shortcut).
-   *  Uses the tier's midpoint scale so hysteresis doesn't snap back. */
+  /** Force-jump to a named tier (breadcrumb click, keyboard shortcut,
+   *  Explorer selection, drill-in). Sets the active tier explicitly;
+   *  scale goes to the tier's midpoint so the HUD scale readout
+   *  tracks something sensible even though no hysteresis applies. */
   jumpToTier(name: TierSpec["name"]): void {
     const spec = state.ladder.find(t => t.name === name);
     if (!spec) return;
