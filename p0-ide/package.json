@@ -32,7 +32,7 @@
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/language": "^6.12.3",
     "@codemirror/state": "^6.6.0",
-    "@codemirror/view": "^6.41.0",
+    "@codemirror/view": "^6.41.1",
     "@lezer/highlight": "^1.2.3",
     "@radix-ui/react-avatar": "^1.1.11",
     "@tauri-apps/api": "^2.10.1",
