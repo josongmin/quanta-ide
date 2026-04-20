@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import type { EntityTree } from "./types";
 
 // Entity store
@@ -16,6 +16,12 @@ import type { EntityTree } from "./types";
 export interface EntityInteraction {
   selectedId: string | null;
   hoveredId: string | null;
+  /** Canvas focus mode — 'neighborhood' filters rendering down to the
+   *  selected entity and its 1-hop counterparts (the Block-level "ego
+   *  graph" from the spec). Auto-exits when selection clears; no
+   *  separate anchor id is stored, so "show neighborhood of X" and
+   *  "show neighborhood of Y" stay tied to the current selection. */
+  focusMode: "none" | "neighborhood";
 }
 
 export interface EntityState {
@@ -25,7 +31,7 @@ export interface EntityState {
 
 const initial: EntityState = {
   tree: null,
-  interaction: { selectedId: null, hoveredId: null },
+  interaction: { selectedId: null, hoveredId: null, focusMode: "none" },
 };
 
 let state: EntityState = initial;
@@ -52,12 +58,23 @@ export const entityStore = {
   },
   selectEntity(id: string | null): void {
     if (state.interaction.selectedId === id) return;
-    state = { ...state, interaction: { ...state.interaction, selectedId: id } };
+    // Clearing selection exits neighborhood-focus automatically — the
+    // canvas would otherwise show an "empty ego" and look broken.
+    const nextFocus = id === null ? "none" : state.interaction.focusMode;
+    state = {
+      ...state,
+      interaction: { ...state.interaction, selectedId: id, focusMode: nextFocus },
+    };
     emit();
   },
   hoverEntity(id: string | null): void {
     if (state.interaction.hoveredId === id) return;
     state = { ...state, interaction: { ...state.interaction, hoveredId: id } };
+    emit();
+  },
+  setFocusMode(mode: "none" | "neighborhood"): void {
+    if (state.interaction.focusMode === mode) return;
+    state = { ...state, interaction: { ...state.interaction, focusMode: mode } };
     emit();
   },
   reset(): void {
@@ -67,9 +84,17 @@ export const entityStore = {
 };
 
 export function useEntityState<T>(selector: (s: EntityState) => T): T {
-  return useSyncExternalStore(
-    entityStore.subscribe,
-    () => selector(entityStore.getState()),
-    () => selector(entityStore.getState()),
-  );
+  // See the matching comment in tier/model/store.ts. Cache the selector
+  // output per state identity so object-returning selectors cannot
+  // trigger the useSyncExternalStore "getSnapshot should be cached"
+  // infinite-loop trap.
+  const cache = useRef<{ state: EntityState; value: T } | null>(null);
+  return useSyncExternalStore(entityStore.subscribe, () => {
+    const s = entityStore.getState();
+    const c = cache.current;
+    if (c && c.state === s) return c.value;
+    const value = selector(s);
+    cache.current = { state: s, value };
+    return value;
+  });
 }

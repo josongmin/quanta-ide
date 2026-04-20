@@ -1,5 +1,6 @@
 import type { EntityKind, EntityTree } from "../entity/types";
-import type { FileEdge } from "../graph/types";
+import type { EdgeSeverity, FileEdge } from "../graph/types";
+import type { TierEdgePolicy } from "./types";
 
 // Edge rollup
 // --------------------------------------------------------------------
@@ -30,16 +31,27 @@ export interface TierEdge {
  * Self-loops (an edge between two files in the same target ancestor)
  * are dropped — they aren't meaningful at a coarser grain and would
  * clutter the render.
+ *
+ * When `policy` is provided, edges that fail the policy are filtered
+ * OUT before aggregation — a high-tier view (e.g. `universe` with
+ * `minSeverity: "critical"`) thus aggregates only the handful of
+ * edges severe enough to matter at that zoom, keeping the picture
+ * legible instead of an unreadable hairball.
  */
 export function rollupEdges(
   tree: EntityTree,
   edges: readonly FileEdge[],
   targetKind: EntityKind,
+  policy?: TierEdgePolicy,
 ): TierEdge[] {
   const ancestorOf = makeAncestorResolver(tree, targetKind);
   const agg = new Map<string, TierEdge>();
+  const minSeverity = policy?.minSeverity;
+  const layerPolicy = policy?.layers;
 
   for (const edge of edges) {
+    if (layerPolicy && layerPolicy[edge.layer] === false) continue;
+    if (minSeverity && !passesSeverity(edge.severity, minSeverity)) continue;
     const fromId = ancestorOf(edge.from);
     const toId = ancestorOf(edge.to);
     if (!fromId || !toId || fromId === toId) continue;
@@ -63,6 +75,25 @@ export function rollupEdges(
   }
 
   return [...agg.values()];
+}
+
+// EdgeSeverity ordering — higher rank = more severe. Edges without
+// an explicit severity are treated as `"low"` so undecorated mock
+// data still flows through filters set to the lowest bar.
+const SEVERITY_RANK: Record<EdgeSeverity, number> = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  critical: 3,
+};
+
+function passesSeverity(
+  actual: EdgeSeverity | undefined,
+  floor: EdgeSeverity,
+): boolean {
+  const a = actual ? SEVERITY_RANK[actual] : 0;
+  const f = SEVERITY_RANK[floor];
+  return a >= f;
 }
 
 // Build a memoised walker: file id → ancestor entity id of `targetKind`.

@@ -16,7 +16,8 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@quanta/canvas-engine": "workspace:*"
+    "@quanta/canvas-engine": "workspace:*",
+    "pixi.js": "^8.6.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",

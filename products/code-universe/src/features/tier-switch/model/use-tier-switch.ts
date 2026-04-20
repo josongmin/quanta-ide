@@ -22,10 +22,15 @@ export interface TierSwitchApi {
 }
 
 export function useTierSwitch(): TierSwitchApi {
-  const { activeTier, scale } = useTierState(s => ({
-    activeTier: s.activeTier,
-    scale: s.scale,
-  }));
+  // Two primitive subscriptions, not one object selector. An object
+  // selector `s => ({ activeTier, scale })` returns a fresh reference
+  // on every call; `useSyncExternalStore` compares snapshots with
+  // Object.is, so each render looks like a state change and schedules
+  // another render → infinite loop + "getSnapshot should be cached".
+  // Primitive selectors return the same reference between real store
+  // updates, so the equality check terminates the update cycle.
+  const activeTier = useTierState(s => s.activeTier);
+  const scale = useTierState(s => s.scale);
 
   const zoomBy = useCallback((factor: number) => {
     if (factor <= 0 || !Number.isFinite(factor)) return;

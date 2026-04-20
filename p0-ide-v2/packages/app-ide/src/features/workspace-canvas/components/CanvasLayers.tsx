@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import type { LodLevel, Viewport, WorkspaceGraph, WorkspaceLayout } from "@quanta/canvas-engine";
 import { StickiesLayer } from "./StickiesLayer";
@@ -43,6 +44,7 @@ import { AuthorFootprintLegend } from "./AuthorFootprintOverlay";
 import { EditModeHint } from "./inline-editor/EditModeHint";
 import { CommitFlash } from "./inline-editor/CommitFlash";
 import { useFeature } from "../store/feature-flags-store";
+import { figmaModeStore, useFigmaMode } from "../store/figma-mode-store";
 
 // ------------------------------------------------------------------
 // CanvasLayers — pure compositor for MultiFileCanvas overlay layers.
@@ -199,13 +201,39 @@ export function CanvasLayers(props: CanvasLayersProps) {
       <CommitFlash />
       {/* Figma-style shell (P0). Gated by power.figmaShell so the chrome
           can be disabled without losing any functionality — every action
-          it exposes is also available in the existing HUD / overlays. */}
+          it exposes is also available in the existing HUD / overlays.
+          `\` toggles the whole shell (escape-hatch for "my edges went
+          behind a panel, just give me the canvas"). */}
+      <FigmaShellBundle />
+    </>
+  );
+}
+
+function FigmaShellBundle() {
+  const enabled = useFeature("power.figmaShell");
+  const shellVisible = useFigmaMode(s => s.shellVisible);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "\\") return;
+      // Don't hijack the key while the user is typing in an input —
+      // DSL textarea + pin note field both accept backslash.
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+      e.preventDefault();
+      figmaModeStore.toggleShell();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [enabled]);
+
+  if (!enabled || !shellVisible) return null;
+  return (
+    <>
       <FigmaTopBar />
       <FigmaLeftRail />
       <FigmaRightInspector />
-      {/* P1 semantic-zoom overlays. Each self-gates on mode/LOD +
-          figmaShell flag, so this fan-out just mounts the React roots;
-          they add zero DOM when inactive. */}
       <ConstellationView />
       <UniverseDomainPane />
       <RoomFlowPanel />

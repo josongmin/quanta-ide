@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useRef, useSyncExternalStore } from "react";
 import type { TierLadder, TierSpec } from "./types";
 import { DEFAULT_TIER_LADDER, resolveTierByScale } from "./types";
 
@@ -67,9 +67,21 @@ export const tierStore = {
 };
 
 export function useTierState<T>(selector: (s: TierState) => T): T {
-  return useSyncExternalStore(
-    tierStore.subscribe,
-    () => selector(tierStore.getState()),
-    () => selector(tierStore.getState()),
-  );
+  // Cache the selector output keyed on state identity. Without this a
+  // selector that allocates (e.g. `s => ({ a: s.a, b: s.b })`) returns
+  // a fresh reference every call; React's useSyncExternalStore compares
+  // snapshots with Object.is, sees "changed" each render, and schedules
+  // another render → infinite loop + "getSnapshot should be cached".
+  // Caching by state identity keeps the snapshot reference stable
+  // between real store emissions no matter what shape the selector
+  // returns, so every consumer site is safe by construction.
+  const cache = useRef<{ state: TierState; value: T } | null>(null);
+  return useSyncExternalStore(tierStore.subscribe, () => {
+    const s = tierStore.getState();
+    const c = cache.current;
+    if (c && c.state === s) return c.value;
+    const value = selector(s);
+    cache.current = { state: s, value };
+    return value;
+  });
 }

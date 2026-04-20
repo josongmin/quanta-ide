@@ -36,6 +36,7 @@ export function squarifyInto(
   items: readonly Item[],
   bounds: Rect,
   padding: number,
+  gap: number = 0,
 ): Map<string, Rect> {
   const out = new Map<string, Rect>();
   if (items.length === 0) return out;
@@ -147,6 +148,22 @@ export function squarifyInto(
     }
   }
   flushRow();
+
+  if (gap > 0) {
+    // Shrink each child symmetrically — on edges shared with a sibling
+    // this carves out a `gap`-wide gutter between the two; on edges
+    // flush with `inner` we just trade a bit more breathing room
+    // against the parent's padding, which is fine visually. Skip
+    // entries that would collapse to zero (happens when `gap` exceeds
+    // the smallest rect's short side on a crowded parent).
+    const half = gap / 2;
+    for (const [id, r] of out) {
+      const w = r.w - gap;
+      const h = r.h - gap;
+      if (w <= 1 || h <= 1) continue;
+      out.set(id, { x: r.x + half, y: r.y + half, w, h });
+    }
+  }
 
   return out;
 }

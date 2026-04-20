@@ -21,7 +21,7 @@
 //                            null if no preset matches. Used for the HUD
 //                            "active preset" highlight and URL compaction.
 
-import { FEATURE_REGISTRY, type FeatureDescriptor } from "./feature-registry";
+import { FEATURE_REGISTRY, FEATURE_BY_ID, type FeatureDescriptor } from "./feature-registry";
 import { featureFlagsStore } from "../store/feature-flags-store";
 
 export interface FeaturePreset {
@@ -202,6 +202,22 @@ export function resolvePresetFeatureSet(preset: FeaturePreset): Set<string> {
     // Literal id — verify it exists before adding.
     if (FEATURE_REGISTRY.some(f => f.id === token)) out.add(token);
   }
+  // Close the set under `dependsOn` so a preset that forgets to list a
+  // dep still produces a valid flag configuration. Without this, the
+  // preset could turn a feature on while its dep stays off — same
+  // "silent no-op toggle" failure mode we guard against in setFlag.
+  const pending = [...out];
+  while (pending.length > 0) {
+    const id = pending.pop()!;
+    const desc = FEATURE_BY_ID.get(id);
+    if (!desc?.dependsOn) continue;
+    for (const dep of desc.dependsOn) {
+      if (!out.has(dep)) {
+        out.add(dep);
+        pending.push(dep);
+      }
+    }
+  }
   return out;
 }
 
@@ -214,9 +230,9 @@ export function applyPreset(presetId: string): void {
   const preset = PRESET_BY_ID.get(presetId);
   if (!preset) return;
   const enabled = resolvePresetFeatureSet(preset);
-  for (const f of FEATURE_REGISTRY) {
-    featureFlagsStore.setFlag(f.id, enabled.has(f.id));
-  }
+  const next: Record<string, boolean> = {};
+  for (const f of FEATURE_REGISTRY) next[f.id] = enabled.has(f.id);
+  featureFlagsStore.replaceFlags(next);
 }
 
 /**

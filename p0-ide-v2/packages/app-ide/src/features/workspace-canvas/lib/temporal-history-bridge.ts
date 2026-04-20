@@ -34,9 +34,15 @@ import { historyStore } from "../store/history-store";
 // this with AST-aware structural diff.
 
 interface BridgeState {
-  /** Graph we last saw from sceneStore. Identity check catches swaps. */
-  lastGraph: { fileEdges: readonly FileEdge[] } | null;
-  /** Original baked-in history for `lastGraph`, stashed on install. */
+  /** `graph.fileEdges` ref from the last graph we saw. Changes only on
+   *  `setGraph` (structural swap), NOT on `setGraphHistory` (which
+   *  spreads `{...g, history}` and leaves `fileEdges` identity intact).
+   *  Using this instead of the whole-graph ref prevents our own history
+   *  patches from being mistaken for external swaps — that mistake used
+   *  to overwrite `originalHistory` with the just-patched projected
+   *  history, so a later mock-fallback had nothing real to restore to. */
+  lastEdgesRef: readonly FileEdge[] | null;
+  /** Original baked-in history for the current graph, stashed on swap. */
   originalHistory: GraphHistory | undefined;
   /** True once we've started loading git commits; prevents spam. */
   gitLoadFired: boolean;
@@ -45,11 +51,27 @@ interface BridgeState {
 }
 
 const bridge: BridgeState = {
-  lastGraph: null,
+  lastEdgesRef: null,
   originalHistory: undefined,
   gitLoadFired: false,
   disposers: [],
 };
+
+// Structural compare for GraphHistory. `projectCommitsToGraphHistory`
+// is deterministic given the same commits + edges, but returns a fresh
+// object every call. Without this compare, the scene-store subscription
+// would re-enter `applyCurrentHistory` forever: each write spreads a
+// new graph object, which emits, which re-projects, which writes again.
+function sameHistory(a: GraphHistory, b: GraphHistory | undefined): boolean {
+  if (!b) return false;
+  if (a === b) return true;
+  if (a.baseIndex !== b.baseIndex) return false;
+  if (a.snapshots.length !== b.snapshots.length) return false;
+  for (let i = 0; i < a.snapshots.length; i++) {
+    if (a.snapshots[i].commitSha !== b.snapshots[i].commitSha) return false;
+  }
+  return true;
+}
 
 /**
  * Project CommitMeta[] (newest-first) into a GraphHistory that the
@@ -93,15 +115,10 @@ function applyCurrentHistory(): void {
   const graph = scene.graph;
   if (!graph) return;
 
-  // Detect graph identity change → refresh cached original history.
-  if (graph !== bridge.lastGraph) {
-    bridge.lastGraph = graph;
-    // Only stash history that we didn't write ourselves. If the current
-    // graph.history was already patched by a previous bridge cycle, the
-    // original would be whatever the bridge last stashed. In practice
-    // setGraph always feeds fresh untouched graphs, so the identity
-    // check is enough to distinguish external swaps from our own
-    // setGraphHistory calls.
+  // Detect REAL graph swaps (`setGraph`) vs our own history patches
+  // (`setGraphHistory` preserves the `fileEdges` array identity).
+  if (graph.fileEdges !== bridge.lastEdgesRef) {
+    bridge.lastEdgesRef = graph.fileEdges;
     bridge.originalHistory = graph.history;
     bridge.gitLoadFired = false;
   }
@@ -117,13 +134,19 @@ function applyCurrentHistory(): void {
     }
     if (hist.commits.length > 0) {
       const projected = projectCommitsToGraphHistory(hist.commits, graph.fileEdges);
-      sceneStore.setGraphHistory(projected);
-    } else {
+      // Short-circuit when the projected result matches what's already
+      // installed. Without this, the scene-store subscription would
+      // re-trigger us on our own emit and recurse until the main thread
+      // hangs. (Reproduced by toggling `temporal.gitSource` ON.)
+      if (!sameHistory(projected, graph.history)) {
+        sceneStore.setGraphHistory(projected);
+      }
+    } else if (graph.history !== bridge.originalHistory) {
       // Still loading (or git endpoint returned nothing). Fall back to
       // the baked-in history so the temporal UI keeps working.
       sceneStore.setGraphHistory(bridge.originalHistory);
     }
-  } else {
+  } else if (graph.history !== bridge.originalHistory) {
     // Mock mode — restore the graph's original baked-in history.
     sceneStore.setGraphHistory(bridge.originalHistory);
   }
@@ -152,7 +175,7 @@ export function installTemporalHistoryBridge(): () => void {
   return () => {
     for (const d of bridge.disposers) d();
     bridge.disposers = [];
-    bridge.lastGraph = null;
+    bridge.lastEdgesRef = null;
     bridge.originalHistory = undefined;
     bridge.gitLoadFired = false;
   };

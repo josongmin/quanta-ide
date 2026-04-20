@@ -26,6 +26,7 @@ import { squarifyInto } from "./squarified";
 const DEFAULT_ROOT_W = 2000;
 const DEFAULT_ROOT_H = 1400;
 const DEFAULT_PADDING = 24;
+const DEFAULT_GAP = 0;
 
 export function buildHierarchicalLayout(
   tree: EntityTree,
@@ -34,6 +35,7 @@ export function buildHierarchicalLayout(
   const rootWidth = opts.rootWidth ?? DEFAULT_ROOT_W;
   const rootHeight = opts.rootHeight ?? DEFAULT_ROOT_H;
   const padding = opts.padding ?? DEFAULT_PADDING;
+  const gap = opts.gap ?? DEFAULT_GAP;
   const weightFn = opts.weight ?? defaultWeight(tree);
 
   const rects = new Map<string, Rect>();
@@ -58,7 +60,7 @@ export function buildHierarchicalLayout(
     }
     if (children.length === 0) continue;
     const items = children.map(c => ({ id: c.id, weight: Math.max(1, weightFn(c.id)) }));
-    const childRects = squarifyInto(items, parentRect, padding);
+    const childRects = squarifyInto(items, parentRect, padding, gap);
     for (const c of children) {
       const r = childRects.get(c.id);
       if (r) {

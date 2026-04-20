@@ -50,6 +50,28 @@ describe("feature-flags-store", () => {
     expect(featureFlagsStore.isEnabled("annotation.pen")).toBe(true);
   });
 
+  it("enabling a feature auto-enables its hard deps transitively", () => {
+    // `collab.follow` → dependsOn `collab.cursors` → dependsOn `collab.presence`.
+    // All three default OFF. Toggling `collab.follow` on must flip the whole
+    // chain on, otherwise `isEnabled("collab.follow")` silently returns false
+    // and the UI toggle looks like a no-op.
+    expect(featureFlagsStore.isEnabled("collab.presence")).toBe(false);
+    expect(featureFlagsStore.isEnabled("collab.cursors")).toBe(false);
+    expect(featureFlagsStore.isEnabled("collab.follow")).toBe(false);
+    featureFlagsStore.setFlag("collab.follow", true);
+    expect(featureFlagsStore.isEnabled("collab.presence")).toBe(true);
+    expect(featureFlagsStore.isEnabled("collab.cursors")).toBe(true);
+    expect(featureFlagsStore.isEnabled("collab.follow")).toBe(true);
+  });
+
+  it("disabling a feature leaves shared deps alone", () => {
+    featureFlagsStore.setFlag("collab.cursors", true); // pulls presence on
+    expect(featureFlagsStore.isEnabled("collab.presence")).toBe(true);
+    featureFlagsStore.setFlag("collab.cursors", false);
+    // presence must stay on — another feature (collab.follow) could depend on it.
+    expect(featureFlagsStore.getState().flags["collab.presence"]).toBe(true);
+  });
+
   it("isEnabled terminates on deep dependency chains (cycle-guard smoke)", () => {
     // The real registry is acyclic, so this is really a smoke test for the
     // `seen` visited-set — it just has to return a boolean without blowing

@@ -27,14 +27,25 @@ export interface FigmaModeState {
   rightOpen: boolean;
   /** Active right-inspector tab. */
   rightTab: "summary" | "relations" | "activity" | "ai" | "evidence";
+  /** Whole-shell chrome visibility. When false every shell panel
+   *  (top bar + rails + overlays) is hidden so the canvas gets its
+   *  full viewport back. Toggled by the `\` keybind. */
+  shellVisible: boolean;
 }
 
+// Default rails CLOSED — the shell mounts as thin 44px icon columns so
+// the canvas edges/files stay fully visible. Users open a rail by
+// clicking its tab; a second click on the active tab collapses it
+// again. This mirrors Figma's collapsed-assets default and avoids the
+// "where did my edges go" regression when the shell first lands on top
+// of a populated canvas.
 let state: FigmaModeState = {
   mode: "explore",
-  leftOpen: true,
+  leftOpen: false,
   leftTab: "layers",
-  rightOpen: true,
+  rightOpen: false,
   rightTab: "summary",
+  shellVisible: true,
 };
 
 const listeners = new Set<() => void>();
@@ -80,6 +91,11 @@ function setRightTab(tab: FigmaModeState["rightTab"]): void {
   emit();
 }
 
+function toggleShell(): void {
+  state = { ...state, shellVisible: !state.shellVisible };
+  emit();
+}
+
 export const figmaModeStore = {
   getState,
   subscribe,
@@ -88,6 +104,7 @@ export const figmaModeStore = {
   setLeftTab,
   setRightOpen,
   setRightTab,
+  toggleShell,
 };
 
 export function useFigmaMode<T>(selector: (s: FigmaModeState) => T): T {

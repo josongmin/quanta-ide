@@ -15,6 +15,7 @@ export type {
   Rect,
   FunctionBlock,
   FileNode,
+  SignalSummary,
   FileEdge,
   EdgeKind,
   EdgeLayer,

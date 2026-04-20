@@ -115,8 +115,52 @@ function isEnabled(id: string, seen?: Set<string>): boolean {
 const actions = {
   setFlag(id: string, enabled: boolean): void {
     if (!FEATURE_BY_ID.has(id)) return;
-    if (state.flags[id] === enabled) return;
-    const next = { ...state.flags, [id]: enabled };
+    const next = { ...state.flags };
+    let changed = false;
+    if (next[id] !== enabled) {
+      next[id] = enabled;
+      changed = true;
+    }
+    // Turning a feature ON implies its hard deps should also be ON —
+    // otherwise `isEnabled(id)` silently returns false and the toggle
+    // looks like a no-op. Walk the `dependsOn` chain transitively and
+    // flip any unset deps to true. We do not propagate on disable —
+    // turning one feature off shouldn't silently turn off shared deps
+    // still used by other features.
+    if (enabled) {
+      const pending: string[] = [id];
+      const visited = new Set<string>();
+      while (pending.length > 0) {
+        const cur = pending.pop()!;
+        if (visited.has(cur)) continue;
+        visited.add(cur);
+        const desc = FEATURE_BY_ID.get(cur);
+        if (!desc?.dependsOn) continue;
+        for (const dep of desc.dependsOn) {
+          if (next[dep] !== true) {
+            next[dep] = true;
+            changed = true;
+          }
+          pending.push(dep);
+        }
+      }
+    }
+    if (!changed) return;
+    state = { flags: next };
+    writePersisted(next);
+    emit();
+  },
+
+  /**
+   * Atomic replace — one write, one emit. Used by preset application so
+   * the intermediate per-flag flips from setFlag's auto-dep expansion
+   * don't flicker the scene mid-apply.
+   */
+  replaceFlags(flags: FlagsShape): void {
+    const next: FlagsShape = {};
+    for (const f of FEATURE_REGISTRY) {
+      next[f.id] = typeof flags[f.id] === "boolean" ? flags[f.id] : f.defaultEnabled;
+    }
     state = { flags: next };
     writePersisted(next);
     emit();

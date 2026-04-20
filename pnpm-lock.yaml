@@ -278,6 +278,9 @@ importers:
       '@quanta/canvas-engine':
         specifier: workspace:*
         version: link:../../libs/canvas-engine
+      pixi.js:
+        specifier: ^8.6.0
+        version: 8.18.1
       react:
         specifier: ^19.0.0
         version: 19.2.5

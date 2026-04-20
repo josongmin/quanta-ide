@@ -8,7 +8,13 @@ import {
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Entity, EntityTree, HierarchicalLayout, Rect, WorkspaceGraph } from "@quanta/canvas-engine";
+import type {
+  Entity,
+  EntityTree,
+  HierarchicalLayout,
+  Rect,
+  WorkspaceGraph,
+} from "@quanta/canvas-engine";
 import {
   DEFAULT_TIER_LADDER,
   rollupEdges,
@@ -16,30 +22,48 @@ import {
   type TierEdge,
   type TierSpec,
 } from "../../../entities/tier";
-import { ENTITY_DEPTH } from "../../../entities/entity";
-import { entityStore, useEntityState } from "../../../entities/entity";
+import { ENTITY_DEPTH, entityStore, useEntityState } from "../../../entities/entity";
 import { startCameraTween, type CameraState } from "../../../shared/lib/camera-animation";
+import { debounce, saveViewport } from "../../../shared/api/viewport-persistence";
+import { MiniMap } from "./MiniMap";
+import { useKindFilter } from "../../../features/kind-filter";
+import { useSnapshotShortcut } from "../../../features/snapshot";
+import { rollupEntitySignals, type EntitySignals } from "@quanta/canvas-engine";
+import {
+  computeColorOverrides,
+  useColorMode,
+} from "../../../features/color-mode";
+import type { SceneBadge } from "../../../shared/lib/pixi-scene";
+import {
+  acquirePixiScene,
+  releasePixiScene,
+  type PixiScene,
+  type SceneCallbacks,
+  type SceneFrame,
+} from "../../../shared/lib/pixi-scene";
 
-// CanvasViewport
-// --------------------------------------------------------------------
-// SVG viewport with drag-to-pan + arrow-key pan + click-to-drill +
-// Esc-to-zoom-out + animated camera transitions.
+// CanvasViewport — WebGL viewport for the Code Universe product.
+// Owns the camera + the Pixi scene, drives drill-in/out tweens, and
+// wires store-backed selection/hover through to the renderer.
 //
 // Interaction model:
 //   - Click on a non-leaf entity → drill IN (camera animates to the
 //     entity's rect, tier switches to the next inner kind).
-//   - Esc → drill OUT (tier switches to the next outer kind, camera
-//     fits all entities at that tier).
-//   - Arrow keys → pan in camera space.
-//   - Ctrl/Cmd + wheel → zoom (handled by CanvasShell, drives the
-//     tierStore; this viewport reacts to tier changes).
+//   - Esc → clear selection, else drill OUT.
+//   - Ctrl/Cmd + wheel (or trackpad pinch) → zoom at cursor.
+//   - Plain two-finger wheel / scroll → pan.
+//   - Arrow keys → pan.
+//   - Cmd/Ctrl + 0 → fit to current tier.
 //
-// Camera transitions animate via a single RAF tween (see
-// `shared/lib/camera-animation`). Prior tween cancels on supersede —
-// rapid clicks never chain animations.
+// All rendering is imperative (see pixi-scene.ts). React is only
+// responsible for camera state, tier transitions, and selection; the
+// scene consumes a single frame object per camera change.
 
 const KEY_PAN_PX = 40;
 const DRILL_FIT_PAD = 72;
+const MIN_SCALE = 0.005;
+const MAX_SCALE = 80;
+const KEY_ZOOM_FACTOR = 1.2;
 
 interface Props {
   tree: EntityTree;
@@ -48,35 +72,126 @@ interface Props {
   graph: WorkspaceGraph;
   width: number;
   height: number;
+  /** Optional — persists camera pose under `cu:viewport:v1:<tabId>`. */
+  tabId?: string;
+  /** Camera pose to seed on mount (from localStorage). If provided,
+   *  suppresses the initial fit-to-content so the user lands back
+   *  where they were. */
+  initialCamera?: { tx: number; ty: number; scale: number };
 }
 
-const SVG_STYLE: CSSProperties = {
+const ROOT_STYLE: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  position: "relative",
+  outline: "none",
+  background:
+    "radial-gradient(circle at 20% 10%, rgba(99,102,241,0.05), transparent 60%), #f8fafc",
+};
+
+const CANVAS_STYLE: CSSProperties = {
   width: "100%",
   height: "100%",
   display: "block",
-  background:
-    "radial-gradient(circle at 20% 10%, rgba(99,102,241,0.05), transparent 60%), #f8fafc",
   cursor: "grab",
-  outline: "none",
+  touchAction: "none",
 };
 
-export function CanvasViewport({ tree, layout, tier, graph, width, height }: Props): ReactElement {
-  const [camera, setCameraState] = useState<CameraState>({ tx: 0, ty: 0, scale: 1 });
+export function CanvasViewport({
+  tree,
+  layout,
+  tier,
+  graph,
+  width,
+  height,
+  tabId,
+  initialCamera,
+}: Props): ReactElement {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // ⌘/Ctrl+Shift+S → PNG snapshot of the current frame. The hook
+  // owns the keyboard binding; we just give it the canvas ref so
+  // CanvasViewport keeps the DOM element inside its slice.
+  useSnapshotShortcut(canvasRef);
+  const sceneRef = useRef<PixiScene | null>(null);
+
+  const [camera, setCameraState] = useState<CameraState>(
+    () => initialCamera ?? { tx: 0, ty: 0, scale: 1 },
+  );
   const cameraRef = useRef(camera);
   cameraRef.current = camera;
   const tweenRef = useRef<{ cancel(): void } | null>(null);
+  // Wheel-driven tier crossings set this so the fit-on-tier-change
+  // layoutEffect leaves the user's pointer-anchored zoom alone.
+  // Seeded `initialCamera` also sets this on first mount so we don't
+  // immediately fit-to-content over the restored pose.
+  const skipNextFit = useRef(initialCamera != null);
 
-  const visibleEntities = useMemo<readonly Entity[]>(
+  const baseVisibleEntities = useMemo<readonly Entity[]>(
     () => tree.byKind(tier.visibleKind),
     [tree, tier.visibleKind],
   );
-  const tierEdges = useMemo<readonly TierEdge[]>(
-    () => rollupEdges(tree, graph.fileEdges, tier.visibleKind),
-    [tree, graph.fileEdges, tier.visibleKind],
+  const baseTierEdges = useMemo<readonly TierEdge[]>(
+    // Apply the tier's own edge policy — high-level tiers (universe,
+    // galaxy) filter to severe-only so the picture stays legible;
+    // low-level tiers (floor, room) let everything through. Memo keyed
+    // on the edge policy *reference* from the spec, which is stable
+    // per DEFAULT_TIER_LADDER entry.
+    () => rollupEdges(tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy),
+    [tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy],
   );
+  const { hoveredId, selectedId, focusMode } = useEntityState(s => s.interaction);
 
-  // Fit utility — computes the camera that frames a given world rect
-  // inside the current viewport with `pad` screen-px margin.
+  // Neighborhood focus — when the user asks to isolate the selected
+  // entity, narrow the visible set to its ego graph (self + 1-hop
+  // counterparts) and keep only edges that touch the anchor. We
+  // preserve the underlying treemap positions so the spatial layout
+  // doesn't reshuffle; the culling happens at render time. Fall
+  // through to the base (unfocused) sets whenever focus is "none" or
+  // the selected entity isn't at the current tier — users zooming
+  // out above their focused tier should see the full structure again.
+  const focusedVisibleEntities = useMemo<readonly Entity[] | null>(() => {
+    if (focusMode !== "neighborhood" || !selectedId) return null;
+    const anchor = tree.byId.get(selectedId);
+    if (!anchor || anchor.kind !== tier.visibleKind) return null;
+    const egoIds = new Set<string>([selectedId]);
+    for (const edge of baseTierEdges) {
+      if (edge.fromId === selectedId) egoIds.add(edge.toId);
+      else if (edge.toId === selectedId) egoIds.add(edge.fromId);
+    }
+    return baseVisibleEntities.filter(e => egoIds.has(e.id));
+  }, [focusMode, selectedId, tree, tier.visibleKind, baseTierEdges, baseVisibleEntities]);
+  const focusedTierEdges = useMemo<readonly TierEdge[] | null>(() => {
+    if (focusMode !== "neighborhood" || !selectedId) return null;
+    const anchor = tree.byId.get(selectedId);
+    if (!anchor || anchor.kind !== tier.visibleKind) return null;
+    return baseTierEdges.filter(e => e.fromId === selectedId || e.toId === selectedId);
+  }, [focusMode, selectedId, tree, tier.visibleKind, baseTierEdges]);
+  // Apply kind-visibility toggles. The filter sits AFTER focus mode
+  // so ego-net computation still sees the unfiltered neighbourhood —
+  // users can hide a kind without shrinking focus-mode's reachable
+  // set to whatever's left.
+  const kindVisibility = useKindFilter(s => s.visibility);
+  const allKindsOn =
+    kindVisibility.universe &&
+    kindVisibility.galaxy &&
+    kindVisibility.street &&
+    kindVisibility.building &&
+    kindVisibility.floor &&
+    kindVisibility.room;
+  const preKindEntities = focusedVisibleEntities ?? baseVisibleEntities;
+  const preKindEdges = focusedTierEdges ?? baseTierEdges;
+  const visibleEntities = useMemo<readonly Entity[]>(
+    () => (allKindsOn ? preKindEntities : preKindEntities.filter(e => kindVisibility[e.kind])),
+    [preKindEntities, allKindsOn, kindVisibility],
+  );
+  // Drop edges whose endpoints fall under a hidden kind so we don't
+  // render phantom lines between invisible rects.
+  const tierEdges = useMemo<readonly TierEdge[]>(() => {
+    if (allKindsOn) return preKindEdges;
+    const visibleIds = new Set(visibleEntities.map(e => e.id));
+    return preKindEdges.filter(e => visibleIds.has(e.fromId) && visibleIds.has(e.toId));
+  }, [preKindEdges, allKindsOn, visibleEntities]);
+
   const cameraForRect = useCallback(
     (bounds: Rect | null, pad = DRILL_FIT_PAD): CameraState => {
       if (!bounds || bounds.w <= 0 || bounds.h <= 0) {
@@ -91,7 +206,6 @@ export function CanvasViewport({ tree, layout, tier, graph, width, height }: Pro
     [width, height],
   );
 
-  // Cancel any in-flight tween. Safe to call repeatedly.
   const cancelTween = useCallback(() => {
     tweenRef.current?.cancel();
     tweenRef.current = null;
@@ -104,11 +218,14 @@ export function CanvasViewport({ tree, layout, tier, graph, width, height }: Pro
     [cancelTween],
   );
 
-  // ── Fit on tier change ──────────────────────────────────────────
-  // Use layoutEffect so the fit happens in the same frame the tier
-  // flips — users see a direct transition, not a one-frame flash of
-  // stale camera pose.
+  // Fit on tier change. Skipped when the tier flip was driven by the
+  // wheel handler below — otherwise a mid-gesture fit yanks the view
+  // away from the user's pointer.
   useLayoutEffect(() => {
+    if (skipNextFit.current) {
+      skipNextFit.current = false;
+      return;
+    }
     if (visibleEntities.length === 0) {
       setCameraState({ tx: 0, ty: 0, scale: 1 });
       return;
@@ -120,36 +237,57 @@ export function CanvasViewport({ tree, layout, tier, graph, width, height }: Pro
 
   useEffect(() => () => cancelTween(), [cancelTween]);
 
-  // ── Drag to pan ─────────────────────────────────────────────────
-  const dragRef = useRef<{ id: number; x: number; y: number; tx: number; ty: number } | null>(null);
-  const onPointerDown = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return;
-    // Pan only on background hit; entity rects get pointer events
-    // and want to stay clickable.
-    const tag = (e.target as SVGElement).tagName;
-    if (tag !== "svg" && tag !== "g") return;
-    cancelTween();
-    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-    dragRef.current = {
-      id: e.pointerId,
-      x: e.clientX,
-      y: e.clientY,
-      tx: cameraRef.current.tx,
-      ty: cameraRef.current.ty,
+  // Persist camera pose. A debounced writer batches rapid pan/zoom
+  // into one localStorage write; the flush on unmount captures the
+  // last pose (tab close, navigation) since React won't run the
+  // debounced timer after teardown.
+  const persistRef = useRef<(c: CameraState) => void>(() => {});
+  useEffect(() => {
+    const write = debounce((c: CameraState) => {
+      saveViewport(tabId, {
+        tx: c.tx,
+        ty: c.ty,
+        scale: c.scale,
+        tier: tier.name,
+        selectedId: entityStore.getState().interaction.selectedId,
+      });
+    }, 200);
+    persistRef.current = write;
+    return () => {
+      write.flush();
+      persistRef.current = () => {};
     };
-  }, [cancelTween]);
-  const onPointerMove = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    const d = dragRef.current;
-    if (!d || d.id !== e.pointerId) return;
-    const dx = e.clientX - d.x;
-    const dy = e.clientY - d.y;
-    setCameraState(c => ({ ...c, tx: d.tx + dx, ty: d.ty + dy }));
-  }, []);
-  const onPointerUp = useCallback((e: React.PointerEvent<SVGSVGElement>) => {
-    if (dragRef.current?.id === e.pointerId) dragRef.current = null;
-  }, []);
+  }, [tabId, tier.name]);
+  useEffect(() => {
+    persistRef.current(camera);
+  }, [camera]);
 
-  // ── Keyboard: arrow-pan + Esc drill-out ─────────────────────────
+  const drillInto = useCallback(
+    (entity: Entity) => {
+      const rect = layout.rects.get(entity.id);
+      if (!rect) return;
+      tweenTo(cameraForRect(rect, 24), 240);
+      const idx = DEFAULT_TIER_LADDER.findIndex(t => t.name === tier.name);
+      const innerSpec = DEFAULT_TIER_LADDER[idx + 1];
+      if (
+        innerSpec &&
+        entity.childIds.length > 0 &&
+        ENTITY_DEPTH[entity.kind] < ENTITY_DEPTH[innerSpec.visibleKind]
+      ) {
+        // Defer tier flip by a microtask so the pointer-anchored tween
+        // above gets to start before the tier-change fit kicks in.
+        queueMicrotask(() => tierStore.jumpToTier(innerSpec.name));
+      }
+    },
+    [tier.name, layout, cameraForRect, tweenTo],
+  );
+  // Not currently bound to canvas click (click = select-only per the
+  // Figma convention). Kept exported via props/shared so the
+  // Inspector "Drill in" button, keyboard shortcut, and future
+  // double-click handler can trigger the zoom-in flow without
+  // duplicating the tween + tier-flip logic.
+  void drillInto;
+
   const drillOut = useCallback(() => {
     const idx = DEFAULT_TIER_LADDER.findIndex(t => t.name === tier.name);
     if (idx <= 0) return;
@@ -159,26 +297,219 @@ export function CanvasViewport({ tree, layout, tier, graph, width, height }: Pro
     tierStore.jumpToTier(outer.name);
   }, [tier.name]);
 
+  // Scene input callbacks — mutating camera synchronously so pan/zoom
+  // feel immediate. tierStore.setScale fires on zoom so the breadcrumb
+  // tracks the actual viewport scale, with `skipNextFit` blocking the
+  // tier-change fit. Factor is precomputed in the scene so keyboard +/-
+  // and mouse/trackpad wheel share one zoom-at-anchor path.
+  const zoomAt = useCallback(
+    (cx: number, cy: number, factor: number) => {
+      cancelTween();
+      const cur = cameraRef.current;
+      const worldX = (cx - cur.tx) / cur.scale;
+      const worldY = (cy - cur.ty) / cur.scale;
+      const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, cur.scale * factor));
+      if (nextScale === cur.scale) return;
+      setCameraState({
+        tx: cx - worldX * nextScale,
+        ty: cy - worldY * nextScale,
+        scale: nextScale,
+      });
+      skipNextFit.current = true;
+      tierStore.setScale(nextScale);
+    },
+    [cancelTween],
+  );
+  const onZoomAt = zoomAt;
+  const onWheelPan = useCallback(
+    (dx: number, dy: number) => {
+      cancelTween();
+      setCameraState(c => ({ ...c, tx: c.tx + dx, ty: c.ty + dy }));
+    },
+    [cancelTween],
+  );
+  const onDragStart = useCallback(() => cancelTween(), [cancelTween]);
+  const onDragPan = useCallback((dx: number, dy: number) => {
+    setCameraState(c => ({ ...c, tx: c.tx + dx, ty: c.ty + dy }));
+  }, []);
+  const onEntityClick = useCallback(
+    (id: string) => {
+      const entity = tree.byId.get(id);
+      if (!entity) return;
+      entityStore.selectEntity(id);
+      drillInto(entity);
+    },
+    [tree, drillInto],
+  );
+  const onEntityHover = useCallback((id: string | null) => {
+    entityStore.hoverEntity(id);
+  }, []);
+
+  // The scene binds handlers once at construction and reads the ref on
+  // every dispatch, so React callback identity can change freely
+  // without re-initialising Pixi or re-attaching listeners.
+  const callbacksRef = useRef<SceneCallbacks>({
+    onZoomAt,
+    onWheelPan,
+    onDragStart,
+    onDragPan,
+    onEntityClick,
+    onEntityHover,
+  });
+  callbacksRef.current = {
+    onZoomAt,
+    onWheelPan,
+    onDragStart,
+    onDragPan,
+    onEntityClick,
+    onEntityHover,
+  };
+
+  // Pixi lifecycle — the canvas-keyed cache in pixi-scene.ts guarantees
+  // StrictMode's mount → unmount → mount double-effect reuses one
+  // Application (cancelling the pending destroy inside the grace
+  // window). Without that, two concurrent `app.init()` calls race on
+  // the same <canvas>, leak GL contexts, and freeze the tab.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const scene = acquirePixiScene(canvas, callbacksRef);
+    sceneRef.current = scene;
+    return () => {
+      sceneRef.current = null;
+      releasePixiScene(canvas, scene);
+    };
+  }, []);
+
+  // Static-analysis rollup: per-entity aggregated signals (riskMax,
+  // taintCount, archViolations, …). Memoised on (tree, graph) — the
+  // combination is stable per graph load, so colour-mode flips and
+  // zoom pans reuse the same rollup without rescanning the tree.
+  const entitySignals = useMemo<Map<string, EntitySignals>>(
+    () => rollupEntitySignals(tree, graph),
+    [tree, graph],
+  );
+
+  // Colour override — drives Risk / Heat / Layer palettes. Null for
+  // the default "Kind" mode; pixi-scene falls back to its per-kind
+  // palette for any entity missing from the map.
+  const colorMode = useColorMode(s => s.mode);
+  const colorOverride = useMemo(
+    () => computeColorOverrides(colorMode, tree, graph, entitySignals),
+    [colorMode, tree, graph, entitySignals],
+  );
+
+  // Alert badges — one glyph per active signal family, rendered as
+  // small dots on the top-right corner of the rect. Pre-built here
+  // (not in pixi-scene) so React's memoisation keeps the Map stable
+  // between renders and the scene's rAF-dedup doesn't pay allocation.
+  const badges = useMemo<ReadonlyMap<string, readonly SceneBadge[]>>(() => {
+    const out = new Map<string, SceneBadge[]>();
+    for (const [id, s] of entitySignals) {
+      const list: SceneBadge[] = [];
+      if (s.archViolations > 0) list.push({ kind: "arch", count: s.archViolations });
+      if (s.taintCount > 0) list.push({ kind: "taint", count: s.taintCount });
+      if (s.blastCritical > 0) list.push({ kind: "blast", count: s.blastCritical });
+      if (s.cpxMax >= 8) list.push({ kind: "cpx", count: s.cpxMax });
+      if (s.deadCount > 0) list.push({ kind: "dead", count: s.deadCount });
+      if (list.length > 0) out.set(id, list);
+    }
+    return out;
+  }, [entitySignals]);
+
+  // Push a fresh frame to the scene on any visible change. The scene
+  // holds no React state; every mutation flows through here.
+  useEffect(() => {
+    const frame: SceneFrame = {
+      entities: visibleEntities,
+      layout,
+      edges: tierEdges,
+      camera,
+      width,
+      height,
+      tier,
+      selectedId,
+      hoveredId,
+      heatMode: "none",
+      colorOverride,
+      badges,
+    };
+    sceneRef.current?.setFrame(frame);
+  }, [
+    visibleEntities,
+    layout,
+    tierEdges,
+    camera,
+    width,
+    height,
+    tier,
+    selectedId,
+    hoveredId,
+    colorOverride,
+    badges,
+  ]);
+
+  // Persist camera pose + tier + selection, debounced so a pan gesture
+  // doesn't hammer localStorage. Flush on unmount so a tab switch
+  // snapshots the latest pose (debounce would otherwise drop a
+  // pending write if it fired mid-delay). Keyed on `tabId`, so tabs
+  // with no id share the `"default"` slot — good enough for dev.
+  const saveDebounced = useMemo(
+    () => debounce((payload: { tx: number; ty: number; scale: number; tier: string; selectedId: string | null }) => {
+      saveViewport(tabId, payload);
+    }, 400),
+    [tabId],
+  );
+  useEffect(() => {
+    saveDebounced({
+      tx: camera.tx,
+      ty: camera.ty,
+      scale: camera.scale,
+      tier: tier.name,
+      selectedId,
+    });
+  }, [camera, tier.name, selectedId, saveDebounced]);
+  useEffect(() => {
+    return () => {
+      saveDebounced.flush();
+    };
+  }, [saveDebounced]);
+
   const onKeyDown = useCallback(
-    (e: React.KeyboardEvent<SVGSVGElement>) => {
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        // Hierarchical Esc: selection first, then drill-out.
-        // Matches macOS/Figma conventions (Esc = "undo one step").
-        const { selectedId } = entityStore.getState().interaction;
-        if (selectedId) {
-          entityStore.selectEntity(null);
-        } else {
-          drillOut();
-        }
+        const sel = entityStore.getState().interaction.selectedId;
+        if (sel) entityStore.selectEntity(null);
+        else drillOut();
         return;
       }
-      // Cmd/Ctrl + 0 → fit all visible entities at the current tier.
-      if ((e.metaKey || e.ctrlKey) && (e.key === "0" || e.code === "Digit0")) {
-        e.preventDefault();
-        const bounds = unionRects(visibleEntities, layout);
-        tweenTo(cameraForRect(bounds));
-        return;
+      // Cmd/Ctrl + 0 → fit current tier. Cmd/Ctrl + 1 → 100% zoom.
+      if (e.metaKey || e.ctrlKey) {
+        if (e.key === "0" || e.code === "Digit0") {
+          e.preventDefault();
+          const bounds = unionRects(visibleEntities, layout);
+          tweenTo(cameraForRect(bounds));
+          return;
+        }
+        if (e.key === "1" || e.code === "Digit1") {
+          e.preventDefault();
+          cancelTween();
+          // Anchor 100% zoom on viewport center so the reset doesn't
+          // pull the focus off what the user was looking at.
+          zoomAt(width / 2, height / 2, 1 / cameraRef.current.scale);
+          return;
+        }
+        if (e.key === "=" || e.key === "+") {
+          e.preventDefault();
+          zoomAt(width / 2, height / 2, KEY_ZOOM_FACTOR);
+          return;
+        }
+        if (e.key === "-" || e.key === "_") {
+          e.preventDefault();
+          zoomAt(width / 2, height / 2, 1 / KEY_ZOOM_FACTOR);
+          return;
+        }
       }
       let dx = 0;
       let dy = 0;
@@ -191,202 +522,46 @@ export function CanvasViewport({ tree, layout, tier, graph, width, height }: Pro
       cancelTween();
       setCameraState(c => ({ ...c, tx: c.tx + dx, ty: c.ty + dy }));
     },
-    [drillOut, cancelTween, cameraForRect, tweenTo, visibleEntities, layout],
+    [drillOut, cancelTween, cameraForRect, tweenTo, visibleEntities, layout, zoomAt, width, height],
   );
-
-  // ── Rect interactions: drill-in on click ────────────────────────
-  const { hoveredId, selectedId } = useEntityState(s => s.interaction);
-
-  const drillInto = useCallback(
-    (entity: Entity) => {
-      const rect = layout.rects.get(entity.id);
-      if (!rect) return;
-      // Animate to the entity's rect BEFORE flipping the tier — the
-      // tier change triggers its own fit-to-content on the new tier,
-      // but this in-flight tween gives the user an immediate visual
-      // response so the flip doesn't feel teleport-y.
-      tweenTo(cameraForRect(rect, 24), 240);
-
-      // Flip tier to the next inner kind IF this entity has children
-      // at that inner kind. Leaves (building/floor/room depending on
-      // data depth) just stay selected without drilling.
-      const idx = DEFAULT_TIER_LADDER.findIndex(t => t.name === tier.name);
-      const innerSpec = DEFAULT_TIER_LADDER[idx + 1];
-      if (
-        innerSpec &&
-        entity.childIds.length > 0 &&
-        ENTITY_DEPTH[entity.kind] < ENTITY_DEPTH[innerSpec.visibleKind]
-      ) {
-        // Defer by one microtask so the tween state settles before
-        // the tier-change effect kicks off its own fit.
-        queueMicrotask(() => tierStore.jumpToTier(innerSpec.name));
-      }
-    },
-    [tier.name, layout, cameraForRect, tweenTo],
-  );
-
-  const onRectClick = useCallback(
-    (entity: Entity) => {
-      entityStore.selectEntity(entity.id);
-      drillInto(entity);
-    },
-    [drillInto],
-  );
-  const onRectEnter = useCallback((id: string) => {
-    entityStore.hoverEntity(id);
-  }, []);
-  const onRectLeave = useCallback(() => {
-    entityStore.hoverEntity(null);
-  }, []);
-
-  // Clear hover when tier changes — the prior hover target may no
-  // longer be visible.
-  useEffect(() => {
-    entityStore.hoverEntity(null);
-  }, [tier.visibleKind]);
-
-  const transform = `translate(${camera.tx} ${camera.ty}) scale(${camera.scale})`;
 
   return (
-    <svg
-      style={SVG_STYLE}
-      tabIndex={0}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerUp}
-      onKeyDown={onKeyDown}
-    >
-      <g transform={transform}>
-        {tierEdges.map(edge => {
-          const from = layout.rects.get(edge.fromId);
-          const to = layout.rects.get(edge.toId);
-          if (!from || !to) return null;
-          const x1 = from.x + from.w / 2;
-          const y1 = from.y + from.h / 2;
-          const x2 = to.x + to.w / 2;
-          const y2 = to.y + to.h / 2;
-          return (
-            <line
-              key={edge.id}
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-              stroke="#818cf8"
-              strokeOpacity={Math.min(0.65, 0.25 + edge.count * 0.1)}
-              strokeWidth={Math.max(1, Math.log1p(edge.weight)) / camera.scale}
-              strokeLinecap="round"
-            />
+    <div tabIndex={0} onKeyDown={onKeyDown} style={ROOT_STYLE}>
+      <canvas ref={canvasRef} style={CANVAS_STYLE} />
+      <MiniMap
+        layout={layout}
+        visibleEntities={visibleEntities}
+        camera={camera}
+        viewportWidth={width}
+        viewportHeight={height}
+        onJump={(worldX, worldY) => {
+          // Single click — tween onto the target so the jump reads as
+          // a move, not a teleport. Drag uses onDragPan (snap).
+          const cur = cameraRef.current;
+          tweenTo(
+            {
+              tx: width / 2 - worldX * cur.scale,
+              ty: height / 2 - worldY * cur.scale,
+              scale: cur.scale,
+            },
+            240,
           );
-        })}
-
-        {visibleEntities.map(entity => {
-          const rect = layout.rects.get(entity.id);
-          if (!rect) return null;
-          return (
-            <EntityRect
-              key={entity.id}
-              entity={entity}
-              rect={rect}
-              scale={camera.scale}
-              isSelected={entity.id === selectedId}
-              isHovered={entity.id === hoveredId}
-              onClick={onRectClick}
-              onEnter={onRectEnter}
-              onLeave={onRectLeave}
-            />
-          );
-        })}
-      </g>
-    </svg>
-  );
-}
-
-function EntityRect({
-  entity,
-  rect,
-  scale,
-  isSelected,
-  isHovered,
-  onClick,
-  onEnter,
-  onLeave,
-}: {
-  entity: Entity;
-  rect: Rect;
-  scale: number;
-  isSelected: boolean;
-  isHovered: boolean;
-  onClick: (e: Entity) => void;
-  onEnter: (id: string) => void;
-  onLeave: () => void;
-}): ReactElement {
-  const palette = paletteFor(entity);
-  const stroke = isSelected ? "#4f46e5" : isHovered ? "#6366f1" : palette.stroke;
-  const fill = isSelected ? palette.fillSelected : palette.fill;
-  const strokeWidth = (isSelected ? 2.5 : isHovered ? 2 : 1.5) / scale;
-  const labelSize = Math.max(10 / scale, 7);
-  const labelVisible = rect.w * scale > 60 && rect.h * scale > 22;
-
-  return (
-    <g
-      onClick={e => {
-        e.stopPropagation();
-        onClick(entity);
-      }}
-      onPointerEnter={() => onEnter(entity.id)}
-      onPointerLeave={onLeave}
-      style={{ cursor: "pointer" }}
-    >
-      <rect
-        x={rect.x}
-        y={rect.y}
-        width={rect.w}
-        height={rect.h}
-        rx={Math.min(8, rect.w * 0.02)}
-        ry={Math.min(8, rect.h * 0.02)}
-        fill={fill}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
+        }}
+        onDragPan={(worldX, worldY) => {
+          // Drag — snap camera 1:1 with cursor so MiniMap interaction
+          // stays "feel-locked". Cancel any in-flight tween so it
+          // doesn't fight the user's current gesture.
+          cancelTween();
+          const cur = cameraRef.current;
+          setCameraState({
+            tx: width / 2 - worldX * cur.scale,
+            ty: height / 2 - worldY * cur.scale,
+            scale: cur.scale,
+          });
+        }}
       />
-      {labelVisible && (
-        <text
-          x={rect.x + 10}
-          y={rect.y + labelSize + 6}
-          fontSize={labelSize}
-          fontFamily="system-ui, sans-serif"
-          fontWeight={600}
-          fill={palette.label}
-          style={{ pointerEvents: "none", userSelect: "none" }}
-        >
-          {entity.name}
-        </text>
-      )}
-    </g>
+    </div>
   );
-}
-
-function paletteFor(entity: Entity): {
-  fill: string;
-  fillSelected: string;
-  stroke: string;
-  label: string;
-} {
-  switch (entity.kind) {
-    case "universe":
-      return { fill: "#f5f3ff", fillSelected: "#ede9fe", stroke: "#a78bfa", label: "#5b21b6" };
-    case "galaxy":
-      return { fill: "#eef2ff", fillSelected: "#e0e7ff", stroke: "#818cf8", label: "#4338ca" };
-    case "street":
-      return { fill: "#ecfeff", fillSelected: "#cffafe", stroke: "#22d3ee", label: "#0e7490" };
-    case "building":
-      return { fill: "#ffffff", fillSelected: "#fff7ed", stroke: "#94a3b8", label: "#334155" };
-    case "floor":
-      return { fill: "#fef9c3", fillSelected: "#fef08a", stroke: "#ca8a04", label: "#854d0e" };
-    case "room":
-      return { fill: "#f0fdf4", fillSelected: "#bbf7d0", stroke: "#22c55e", label: "#15803d" };
-  }
 }
 
 function unionRects(entities: readonly Entity[], layout: HierarchicalLayout): Rect | null {

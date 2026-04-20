@@ -39,6 +39,11 @@ export interface BuildHierarchicalLayoutOpts {
   /** Horizontal/vertical padding from a rect's edge to its child
    *  rects. Visual breathing room so labels don't collide. */
   padding?: number;
+  /** Gutter between adjacent sibling rects, in world units. Default 0
+   *  (siblings share edges, classic squarified). A non-zero gap shrinks
+   *  each sibling inward so the packed set reads as a grid of discrete
+   *  cards rather than a solid sheet. */
+  gap?: number;
   /** Computes the weight used for squarified packing. */
   weight?: EntityWeightFn;
 }

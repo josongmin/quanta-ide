@@ -2,14 +2,10 @@ import { sceneStore } from "../store/scene-store";
 import { getPresenceTransport } from "./presence-transport-ref";
 import { MockPresenceTransport, type PresenceMessage } from "./presence-transport";
 
-// NOTE: currently disabled from CollabLayer — TICK_MS tuned for when re-enabled.
-// The implementation below is intentionally left intact so flipping the switch
-// in CollabLayer re-animates cursors without touching this file.
-//
 // Mock cursor driver — spawns two fake viewers ("viewer-a" / "viewer-b") that
 // random-walk across the world and occasionally snap onto a real file's rect.
 // Tick rate is throttled to keep the main thread cheap; the cursor DOM layer
-// should rely on CSS transitions to smooth the larger steps between ticks.
+// smooths steps via CSS + the per-frame LERP in CursorsLayer.
 //
 // Drivers emit PresenceMessages via the active PresenceTransport. When the
 // transport is a MockPresenceTransport the events loop back to the in-process

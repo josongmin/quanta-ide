@@ -1,13 +1,20 @@
 import { useEffect, type ReactElement, type ReactNode } from "react";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import { buildEntityTree, entityStore } from "../entities/entity";
-import { tierStore } from "../entities/tier";
+import { DEFAULT_TIER_LADDER, tierStore } from "../entities/tier";
 import {
   setWorkspaceGraph,
   useWorkspaceGraph,
 } from "../shared/api/graph-source";
 import { MOCK_GRAPH } from "../shared/config/mock-graph";
 import { CanvasShell } from "../widgets/canvas-shell";
+import { loadViewport } from "../shared/api/viewport-persistence";
+import {
+  CommandPalette,
+  useCommandPaletteShortcut,
+} from "../features/command-palette";
+import { useTierShortcuts } from "../features/tier-switch";
+import { useNavHistoryBindings } from "../features/nav-history";
 
 // CodeUniverse
 // --------------------------------------------------------------------
@@ -36,25 +43,41 @@ export interface CodeUniverseProps {
 }
 
 export function CodeUniverse(props: CodeUniverseProps): ReactElement {
-  // Prop path — set the module-level graph so the rest of the
-  // product (and any future pinned inspector panels) see the same
-  // source. Passing `undefined` leaves whatever the host already
-  // pushed; only an explicit prop overrides.
-  useEffect(() => {
-    if (props.graph !== undefined) {
-      setWorkspaceGraph(props.graph);
-    }
-  }, [props.graph]);
-
   const moduleGraph = useWorkspaceGraph();
   // Prop wins if present, else module singleton, else mock.
   const effective = props.graph ?? moduleGraph ?? MOCK_GRAPH;
 
+  // Publish the resolved graph into the module singleton so every
+  // downstream consumer (CanvasShell, inspectors, future pinned panels)
+  // sees the same source as the entity-tree builder below. Without
+  // this, a MOCK_GRAPH fallback would power the tree but leave
+  // `useWorkspaceGraph()` at null, stranding CanvasShell on its
+  // "waiting for workspace graph…" gate. `setWorkspaceGraph` is
+  // ref-equality guarded, so the feedback loop through our own
+  // `moduleGraph` subscription is a no-op after the first publish.
+  useEffect(() => {
+    setWorkspaceGraph(effective);
+  }, [effective]);
+
   // Rebuild the entity tree whenever the effective graph changes.
+  // Restore any previously-persisted selection on first build for
+  // this tabId so returning to the tab lands the user on their
+  // last pinned entity (if it still exists in the new tree).
   useEffect(() => {
     const tree = buildEntityTree(effective);
     entityStore.setTree(tree);
-  }, [effective]);
+    const saved = loadViewport(props.tabId);
+    if (saved) {
+      // Tier: restore only if the saved name still maps to a spec.
+      const tierSpec = DEFAULT_TIER_LADDER.find(t => t.name === saved.tier);
+      if (tierSpec) tierStore.jumpToTier(tierSpec.name);
+      // Selection: restore only if the entity is still in the tree
+      // (graph swaps may have pruned it).
+      if (saved.selectedId && tree.byId.has(saved.selectedId)) {
+        entityStore.selectEntity(saved.selectedId);
+      }
+    }
+  }, [effective, props.tabId]);
 
   useEffect(() => {
     return () => {
@@ -63,5 +86,18 @@ export function CodeUniverse(props: CodeUniverseProps): ReactElement {
     };
   }, []);
 
-  return <CanvasShell />;
+  // ⌘K / Ctrl+K opens the command palette. Bound at the orchestrator
+  // level so the shortcut works regardless of which sub-widget has
+  // focus. Disable automatically if the tab is inactive so Cmd+K in
+  // another tab doesn't flash our palette behind theirs.
+  useCommandPaletteShortcut(props.isActive !== false);
+  useTierShortcuts(props.isActive !== false);
+  useNavHistoryBindings(props.isActive !== false);
+
+  return (
+    <>
+      <CanvasShell tabId={props.tabId} />
+      <CommandPalette />
+    </>
+  );
 }

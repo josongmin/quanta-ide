@@ -4,8 +4,12 @@
 /* sits on top of the existing canvas without a palette clash.     */
 
 :root {
-  --figma-bg: rgba(18, 22, 30, 0.96);
-  --figma-bg-elev: rgba(26, 32, 44, 0.98);
+  /* Panels are deliberately NOT fully opaque so the canvas edges
+     behind them stay visible even when the user opens a rail. The
+     icon columns (tabs) keep their denser background so the clickable
+     surface stays obvious. */
+  --figma-bg: rgba(18, 22, 30, 0.86);
+  --figma-bg-elev: rgba(26, 32, 44, 0.82);
   --figma-border: rgba(148, 163, 184, 0.15);
   --figma-border-strong: rgba(148, 163, 184, 0.28);
   --figma-text: #e2e8f0;
