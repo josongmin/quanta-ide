@@ -602,16 +602,16 @@ export class PixiScene {
       // hairline rim, pill tab, no cruft.
       for (const af of frames) {
         if (!isRectOnScreen(af.rect, camera, width, height)) continue;
-        const color = pixiKindColor[af.kind];
-        // Outer ancestors fade — direct parent at 0.45, one step out
-        // at 0.28, etc. Readable but clearly subordinate to the
-        // entity cards themselves.
-        const alpha = Math.max(0.14, 0.45 - af.depth * 0.17);
+        // Neutral hairline for the frame rim — kind colour leaks in
+        // through the chip dot, not the outline. Heavy kind-tinted
+        // borders stacked across 3+ ancestor rings read as a rainbow
+        // and bury the cards they're supposed to contain.
+        const alpha = Math.max(0.22, 0.55 - af.depth * 0.15);
         const strokeW = 1 * invS;
         const r = af.rect;
         const rad = Math.min(14 * invS, Math.min(r.w, r.h) * 0.025);
         g.roundRect(r.x, r.y, r.w, r.h, rad);
-        g.stroke({ color, width: strokeW, alpha });
+        g.stroke({ color: pixiColor.border, width: strokeW, alpha });
       }
       // Pass 2 — tabs + labels. Done after all outlines so chip fills
       // paint on top of border strokes where they visually overlap.
@@ -624,8 +624,7 @@ export class PixiScene {
       const STICKY_STEP = 22 * invS; // stacked tags per depth level
       for (const af of frames) {
         if (!isRectOnScreen(af.rect, camera, width, height)) continue;
-        const color = pixiKindColor[af.kind];
-        const alpha = Math.max(0.14, 0.45 - af.depth * 0.17);
+        const kindCol = pixiKindColor[af.kind];
         const r = af.rect;
 
         const labelText = af.name;
@@ -642,8 +641,8 @@ export class PixiScene {
                 fontFamily: "'Inter Tight', system-ui, sans-serif",
                 fontSize: 11,
                 fontWeight: "600",
-                fill: color,
-                letterSpacing: 0.1,
+                fill: pixiColor.text,
+                letterSpacing: -0.05,
               }),
             });
           }
@@ -653,13 +652,15 @@ export class PixiScene {
           t.text = labelText;
         }
         const style = t.style as TextStyle;
-        if (style.fill !== color) style.fill = color;
+        if (style.fill !== pixiColor.text) style.fill = pixiColor.text;
         t.alpha = 1;
         t.scale.set(invS);
 
         const tw = t.width;
-        const th = 16 * invS;
-        const padX = 8 * invS;
+        const th = 18 * invS;
+        const padX = 9 * invS;
+        const dotR = 3 * invS;
+        const dotGap = 7 * invS;
         const natX = r.x + 10 * invS;
         const natY = r.y + 10 * invS;
         const stickyX = viewportLeftWorld + STICKY_MARGIN;
@@ -671,12 +672,24 @@ export class PixiScene {
         // corner is already on-screen — chip sits on the frame rim.
         const chipX = Math.max(natX, stickyX);
         const chipY = Math.max(natY, stickyY);
-        const chipW = tw + padX * 2;
-        const chipR = 4 * invS;
+        const chipW = tw + padX * 2 + dotR * 2 + dotGap;
+        const chipR = 999 * invS; // pill
+        // Soft shadow pad under the chip so it lifts off the frame rim.
+        g.roundRect(
+          chipX - 1 * invS,
+          chipY + 1 * invS,
+          chipW + 2 * invS,
+          th,
+          chipR,
+        );
+        g.fill({ color: pixiColor.text, alpha: 0.05 });
         g.roundRect(chipX, chipY, chipW, th, chipR);
-        g.fill({ color: pixiColor.bg, alpha: 0.96 });
-        g.stroke({ color, width: 1 * invS, alpha: Math.min(0.6, alpha + 0.25) });
-        t.position.set(chipX + padX, chipY + 2 * invS);
+        g.fill({ color: pixiColor.bg, alpha: 1 });
+        g.stroke({ color: pixiColor.border, width: 1 * invS, alpha: 1 });
+        // Kind dot — the ONE spot of kind colour on the chip.
+        g.circle(chipX + padX + dotR, chipY + th / 2, dotR);
+        g.fill({ color: kindCol, alpha: 1 });
+        t.position.set(chipX + padX + dotR * 2 + dotGap, chipY + 3 * invS);
         used.add(af.id);
       }
     }
@@ -938,6 +951,7 @@ export class PixiScene {
         headerDivider: headerDividerFor(r, dim ? SPOTLIGHT_DIM_ALPHA : 1),
       });
     }
+    const haloPadPx = 3;
     for (const entity of hovered) {
       const r = layout.rects.get(entity.id)!;
       this.paintCard(g, entity, r, {
@@ -947,6 +961,12 @@ export class PixiScene {
         radius,
         kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
         headerDivider: headerDividerFor(r, 1),
+        halo: {
+          radius: radius + haloPadPx * invS,
+          strokeW: haloPadPx * 2 * invS,
+          color: pixiColor.text,
+          alpha: 0.045,
+        },
       });
     }
     for (const entity of selected) {
@@ -958,6 +978,12 @@ export class PixiScene {
         radius,
         kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
         headerDivider: headerDividerFor(r, 1),
+        halo: {
+          radius: radius + haloPadPx * invS,
+          strokeW: haloPadPx * 2 * invS,
+          color: pixiColor.text,
+          alpha: 0.11,
+        },
       });
     }
     // Badge overlay — drawn after all rects so glyphs sit on top and
@@ -1022,13 +1048,36 @@ export class PixiScene {
        *  world-units down from the card top. The label layer draws the
        *  name + LoC badge above the line; the body breathes below. */
       headerDivider?: { h: number; strokeW: number; alpha: number } | null;
+      /** Soft outer halo — painted BEFORE the main card so the rect
+       *  fill masks the inner portion. Used to communicate selection
+       *  and hover without stacking decorative borders. */
+      halo?: { radius: number; strokeW: number; color: number; alpha: number } | null;
     },
   ): void {
+    // Halo first so the main fill sits on top and the halo reads as an
+    // outer ring, not a double border.
+    if (opts.halo) {
+      const pad = opts.halo.strokeW * 0.5;
+      g.roundRect(
+        r.x - pad,
+        r.y - pad,
+        r.w + pad * 2,
+        r.h + pad * 2,
+        opts.halo.radius,
+      );
+      g.stroke({ color: opts.halo.color, width: opts.halo.strokeW, alpha: opts.halo.alpha });
+    }
     g.roundRect(r.x, r.y, r.w, r.h, opts.radius);
     g.fill({ color: opts.fill, alpha: opts.fillAlpha ?? 1 });
     g.stroke({ color: opts.border, width: opts.strokeW, alpha: opts.strokeAlpha ?? 1 });
     if (opts.headerDivider) {
-      const y = r.y + opts.headerDivider.h;
+      // Subtle tinted band in the header strip — gives the title row
+      // real "section" presence instead of just a floating divider.
+      // Painted AFTER the card fill so it darkens only the header area.
+      const h = opts.headerDivider.h;
+      g.rect(r.x + opts.strokeW, r.y + opts.strokeW, r.w - opts.strokeW * 2, h - opts.strokeW);
+      g.fill({ color: pixiColor.bgSubtle, alpha: opts.headerDivider.alpha * 0.85 });
+      const y = r.y + h;
       g.moveTo(r.x, y);
       g.lineTo(r.x + r.w, y);
       g.stroke({
@@ -1265,16 +1314,20 @@ export class PixiScene {
     // Perpendicular for the base width.
     const px = -uy;
     const py = ux;
-    const tipX = x + ux * size * 0.5;
-    const tipY = y + uy * size * 0.5;
-    const baseX = x - ux * size * 0.5;
-    const baseY = y - uy * size * 0.5;
-    const half = size * 0.38;
+    const tipX = x + ux * size * 0.55;
+    const tipY = y + uy * size * 0.55;
+    const baseX = x - ux * size * 0.45;
+    const baseY = y - uy * size * 0.45;
+    const half = size * 0.34;
     g.moveTo(tipX, tipY);
     g.lineTo(baseX + px * half, baseY + py * half);
     g.lineTo(baseX - px * half, baseY - py * half);
     g.closePath();
+    // Fill then a subtle white rim — the rim keeps the triangle crisp
+    // when it lands over an underlying edge or a tinted card, which
+    // would otherwise muddy the silhouette.
     g.fill({ color, alpha });
+    g.stroke({ color: 0xffffff, width: size * 0.08, alpha: alpha * 0.9 });
   }
 
   private drawLabels(frame: SceneFrame): void {

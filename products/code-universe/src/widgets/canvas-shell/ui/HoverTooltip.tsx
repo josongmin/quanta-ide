@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactElement } from "react";
 import { useEntityState } from "../../../entities/entity";
+import { color, font, kindColor, kindLabel, radius, shadow, space } from "../../../shared/ui/tokens";
 
 // HoverTooltip
 // --------------------------------------------------------------------
