@@ -56,11 +56,12 @@ const ICON_BOX_MIN_PX_H = 36;
 // crowding the primary name (which starts at leftPad = 24 px).
 const ICON_BOX_SIZE_PX = 12;
 const ICON_BOX_INSET_PX = 8;
-// Per-kind icons are vector shapes drawn into the card's Graphics
-// layer (see `drawKindIcon`) — not Text glyphs. Letters like "P" or
-// "F" read as debug placeholders, not icons. The vector shapes mirror
-// the mental model: package-box for galaxy, folder for street, file
-// sheet for building, etc.
+// Per-kind icons drawn into the card's Graphics layer via
+// `drawKindIcon`. Containers (galaxy/street/building) use shape
+// glyphs that mirror the mental model — package-box, folder, file
+// sheet. Code-level kinds (floor = class/module, room = function)
+// use letter glyphs C and f so the user reads the role instantly
+// instead of decoding abstract rings and bars at tile scale.
 /** Right-side padding (screen px) reserved inside every card when
  *  fitting a label. Keeps the text from kissing the right border and
  *  leaves room for the "…" ellipsis glyph. */
@@ -75,6 +76,18 @@ const SPOTLIGHT_DIM_ALPHA = 0.18;
 // Exported so the tuning surface stays discoverable even though the
 // label-dim path is still landing.
 export const SPOTLIGHT_LABEL_DIM_ALPHA = 0.22;
+/** Alpha applied to peer-folder rects that have degraded to thumbnails
+ *  under an inline-expand interaction. Sits one notch brighter than
+ *  SPOTLIGHT_DIM_ALPHA: spotlight fades context out of the way while a
+ *  dep graph pops forward, but thumbnails are still navigation targets
+ *  (the user might click a peer to switch expansion), so they need to
+ *  read as "pressable context" rather than "dead context". */
+export const THUMBNAIL_DIM_ALPHA = 0.35;
+/** Alpha applied to labels inside thumbnail rects. 0 = strip every
+ *  label (primary name, LoC badge, secondary metric, kind chip) so
+ *  the expanded folder's children own all text weight. The rect is
+ *  still visible and still pickable; only the text drops out. */
+export const THUMBNAIL_LABEL_ALPHA = 0.0;
 /** Dot-grid bounds — below 12 px spacing it looks like a texture,
  *  above 400 px it looks broken. Outside this range we just paint
  *  the neutral base fill. */
@@ -107,6 +120,19 @@ const WHEEL_COARSE_THRESHOLD = 50;
 // keeps the "something swapped" cue without moving pixels.
 const TIER_TRANSITION_MS = 180;
 const TIER_TRANSITION_FROM_ALPHA = 0.25;
+
+// Street-tier inline-expand tween. Peer folders fade between full and
+// thumbnail styling; newly injected children pop in with an alpha +
+// scale-up. Two separate durations because the peer fade reads as
+// "context receding" (needs to be slightly slower to feel graceful)
+// while the child enter is a focus event (snappier — you want to see
+// what you expanded immediately). Ease-out cubic on both; the first
+// 40% of time covers ~75% of the visual change so the animation feels
+// responsive rather than draggy.
+const THUMBNAIL_TRANSITION_MS = 240;
+const CHILD_ENTER_MS = 200;
+const CHILD_ENTER_START_SCALE = 0.94;
+const easeOutCubic = (t: number): number => 1 - Math.pow(1 - t, 3);
 
 // Card visual tokens.
 // ----------------------------------------------------------------
@@ -181,6 +207,13 @@ export interface SceneFrame {
    *  map" view: selecting a file lights it and its 1-hop neighbours,
    *  the rest of the workspace recedes so the dep graph pops out. */
   spotlightIds?: ReadonlySet<string> | null;
+  /** Thumbnail set — entities in this set render dimmed +
+   *  desaturated with no secondary labels. Used when a folder is
+   *  inline-expanded at Street tier: peer folders degrade so the
+   *  expanded folder's contents pop forward while context stays
+   *  visible. Disjoint from spotlightIds; when both are set, thumbnail
+   *  wins (explicit degrade beats focus fallthrough). */
+  thumbnailIds?: ReadonlySet<string> | null;
   /** The scope anchor id. Drives the directional-edge styling:
    *  edges whose `fromId === anchorId` render as outbound (accent
    *  blue + arrowhead pointing away from the anchor), `toId === anchorId`
@@ -196,6 +229,9 @@ export interface SceneFrame {
 export interface SceneAncestorFrame {
   id: string;
   name: string;
+  /** Workspace-relative full path. The chip label renders this instead
+   *  of `name` so the user can locate the ancestor without a tooltip. */
+  path: string;
   kind: EntityKind;
   rect: Rect;
   /** 0 = direct parent, 1 = grandparent, … The draw code uses this
@@ -222,6 +258,11 @@ export interface SceneCallbacks {
    *  explicit drill-in — the Figma convention. */
   onEntityDoubleClick(id: string): void;
   onEntityHover(id: string | null): void;
+  /** A sticky ancestor-breadcrumb chip was clicked. Chips render in
+   *  screen-space above the canvas so they pre-empt entity hit-test;
+   *  React wires this to the same drill-in flow as dblclick so the
+   *  breadcrumb behaves like a zoom-out navigator. */
+  onAncestorChipClick(id: string): void;
 }
 
 // StrictMode-safe scene lifecycle. Without the canvas-keyed WeakMap +
@@ -299,6 +340,11 @@ export class PixiScene {
    *  UNDER edges so they read as background context rather than
    *  competing with the edge graph. */
   private ancestorGfx: Graphics | null = null;
+  /** Sticky breadcrumb-chip backgrounds + kind icons. Sits ABOVE
+   *  `rectGfx` (and below `labelLayer` so the chip label lands on
+   *  top of the chip fill) so the chip row always wins z-order
+   *  against any card that happens to be at the viewport edge. */
+  private chipGfx: Graphics | null = null;
   /** Soft drop-shadows under every entity card, plus the accent glow
    *  that wraps the selected card. Separate Graphics so we can keep
    *  the rect layer clean (one fill + stroke per card) while still
@@ -307,6 +353,12 @@ export class PixiScene {
   /** Labels for ancestor frames, anchored at their top-left corner. */
   private ancestorLabels = new Map<string, Text>();
   private ancestorLabelPool: Text[] = [];
+  /** Screen-space hit rects for the sticky breadcrumb chips, rebuilt
+   *  every `drawAncestorFrames`. Pointer handlers scan this list
+   *  before the normal entity hit-test so a click on a breadcrumb
+   *  chip drills to that ancestor instead of falling through to the
+   *  card underneath. */
+  private ancestorChipRects: { id: string; x: number; y: number; w: number; h: number }[] = [];
   private edgeGfx: Graphics | null = null;
   private labelLayer: Container | null = null;
   private readonly labels = new Map<string, Text>();
@@ -321,6 +373,23 @@ export class PixiScene {
   private lastTierName: string | null = null;
   private tierTransitionStart = 0;
   private tierTransitionRafId = 0;
+  // Street-tier inline-expand tween state. Driven by `thumbnailIds` +
+  // entity-set diffs across successive frames. Three id sets so each
+  // tween flavour (peer→thumb fade, thumb→peer fade-back, child
+  // enter-pop) tracks cleanly without a shared elapsed clock — they
+  // all start at the same `startedAt` but the enter pop ends sooner
+  // (CHILD_ENTER_MS) than the fade (THUMBNAIL_TRANSITION_MS).
+  private prevThumbnailIds: ReadonlySet<string> | null = null;
+  private prevEntityIds: Set<string> = new Set();
+  private thumbnailTween:
+    | {
+        startedAt: number;
+        enteringIds: Set<string>;
+        leavingIds: Set<string>;
+        newlyVisibleIds: Set<string>;
+      }
+    | null = null;
+  private thumbnailTweenRafId = 0;
   private ready = false;
   private disposed = false;
   private initStarted = false;
@@ -402,17 +471,23 @@ export class PixiScene {
     const shadowGfx = new Graphics();
     const edgeGfx = new Graphics();
     const rectGfx = new Graphics();
+    const chipGfx = new Graphics();
     const labelLayer = new Container();
     // Order matters: ancestor frames (background context) → card
-    // shadows (elevation under the cards) → edges → rects → labels.
-    // Shadow sits under edges so the edge lines draw cleanly without
-    // cutting through the shadow halo.
+    // shadows (elevation under the cards) → edges → rects → chips →
+    // labels. Shadow sits under edges so edge lines draw cleanly
+    // without cutting through the shadow halo. Chips sit ABOVE rects
+    // so the sticky breadcrumb row always wins z-order over cards
+    // that happen to be at the viewport edge; labelLayer stays topmost
+    // so chip text lands on top of the chip fill.
     content.addChild(ancestorGfx);
     content.addChild(shadowGfx);
     content.addChild(edgeGfx);
     content.addChild(rectGfx);
+    content.addChild(chipGfx);
     content.addChild(labelLayer);
     this.ancestorGfx = ancestorGfx;
+    this.chipGfx = chipGfx;
     this.shadowGfx = shadowGfx;
     this.bgGfx = bgGfx;
     this.world = world;
@@ -565,6 +640,7 @@ export class PixiScene {
     }
     this.lastTierName = tierName;
     this.applyTierTransition(frame);
+    this.diffThumbnailFrame(frame);
     this.drawBackground(frame);
     this.drawAncestorFrames(frame);
     // Drop shadows / hover lift / selected glow deliberately OFF —
@@ -585,47 +661,59 @@ export class PixiScene {
 
   private drawAncestorFrames(frame: SceneFrame): void {
     const g = this.ancestorGfx;
+    const cg = this.chipGfx;
     const layer = this.labelLayer;
-    if (!g || !layer) return;
+    if (!g || !cg || !layer) return;
     g.clear();
+    cg.clear();
+    this.ancestorChipRects.length = 0;
     const frames = frame.ancestorFrames ?? null;
     const used = new Set<string>();
     if (frames && frames.length > 0) {
       const { camera, width, height } = frame;
       const invS = 1 / camera.scale;
-      // Two passes so chip backgrounds sit ABOVE the rect's own
-      // outline but still inside `ancestorGfx` (one Graphics, one
-      // draw-call). Pass 1: outlines. Pass 2: chip backgrounds.
-      // Labels live in labelLayer (drawn over everything) so they
-      // always read on top of their chip. Radius + stroke + fill
-      // tuning below was eyeballed to get a "Figma frame" vibe:
-      // hairline rim, pill tab, no cruft.
+      // Pass 1 — faint container tint + hairline outline on every
+      // ancestor rect so the user still reads "these cards are inside
+      // engine/graph" spatially. Kind colour leaks in through the chip
+      // icon (pass 2), not the outline — tinted rings stacked 3+ deep
+      // read as a rainbow and bury the cards.
       for (const af of frames) {
         if (!isRectOnScreen(af.rect, camera, width, height)) continue;
-        // Neutral hairline for the frame rim — kind colour leaks in
-        // through the chip dot, not the outline. Heavy kind-tinted
-        // borders stacked across 3+ ancestor rings read as a rainbow
-        // and bury the cards they're supposed to contain.
-        const alpha = Math.max(0.22, 0.55 - af.depth * 0.15);
+        const alpha = Math.max(0.38, 0.78 - af.depth * 0.16);
         const strokeW = 1 * invS;
         const r = af.rect;
-        const rad = Math.min(14 * invS, Math.min(r.w, r.h) * 0.025);
-        g.roundRect(r.x, r.y, r.w, r.h, rad);
+        g.rect(r.x, r.y, r.w, r.h);
+        g.fill({ color: pixiColor.text, alpha: 0.025 });
+        g.rect(r.x, r.y, r.w, r.h);
         g.stroke({ color: pixiColor.border, width: strokeW, alpha });
       }
-      // Pass 2 — tabs + labels. Done after all outlines so chip fills
-      // paint on top of border strokes where they visually overlap.
-      // Viewport-left-edge in world coords: labels clamp there so a
-      // parent frame larger than the screen keeps its name visible
-      // as a sticky "you are inside X" tag instead of scrolling off.
+      // Pass 2 — horizontal breadcrumb row clamped to the viewport
+      // top-left. Order is root → leaf so the row reads left-to-right
+      // like a filesystem path (e.g. [engine] [graph] [rollup.ts]).
+      // Each chip shows ONLY its own segment name — the parent chain
+      // is already in the chips to its left, so full paths just waste
+      // width. Chip click is intercepted by the pointer handler via
+      // `ancestorChipRects` and routed to the drill-in flow.
       const viewportLeftWorld = -camera.tx / camera.scale;
       const viewportTopWorld = -camera.ty / camera.scale;
-      const STICKY_MARGIN = 14 * invS;
-      const STICKY_STEP = 22 * invS; // stacked tags per depth level
-      for (const af of frames) {
-        if (!isRectOnScreen(af.rect, camera, width, height)) continue;
+      const MARGIN_PX = 14;
+      const CHIP_GAP_PX = 4;
+      const PAD_X_PX = 9;
+      const ICON_SIZE_PX = 11;
+      const ICON_GAP_PX = 6;
+      const CHIP_H_PX = 18;
+      const th = CHIP_H_PX * invS;
+      const iconSize = ICON_SIZE_PX * invS;
+      const iconGap = ICON_GAP_PX * invS;
+      const padX = PAD_X_PX * invS;
+      const iconStrokeW = 1 * invS;
+      const rowYWorld = viewportTopWorld + MARGIN_PX * invS;
+      let cursorXPx = MARGIN_PX;
+      // Source array is leaf → root; walk backwards for root → leaf.
+      for (let i = frames.length - 1; i >= 0; i--) {
+        const af = frames[i];
+        if (!af) continue;
         const kindCol = pixiKindColor[af.kind];
-        const r = af.rect;
 
         const labelText = af.name;
         let t = this.ancestorLabels.get(af.id);
@@ -656,41 +744,48 @@ export class PixiScene {
         t.alpha = 1;
         t.scale.set(invS);
 
-        const tw = t.width;
-        const th = 18 * invS;
-        const padX = 9 * invS;
-        const dotR = 3 * invS;
-        const dotGap = 7 * invS;
-        const natX = r.x + 10 * invS;
-        const natY = r.y + 10 * invS;
-        const stickyX = viewportLeftWorld + STICKY_MARGIN;
-        const stickyY = viewportTopWorld + STICKY_MARGIN + af.depth * STICKY_STEP;
-        // Clamp INTO the viewport: if the rect's top-left fell
-        // off-screen (user panned inside a huge parent) the chip
-        // slides to the viewport edge so the "inside: PALETTE"
-        // affordance never disappears. natX wins when the rect's
-        // corner is already on-screen — chip sits on the frame rim.
-        const chipX = Math.max(natX, stickyX);
-        const chipY = Math.max(natY, stickyY);
-        const chipW = tw + padX * 2 + dotR * 2 + dotGap;
-        const chipR = 999 * invS; // pill
-        // Soft shadow pad under the chip so it lifts off the frame rim.
-        g.roundRect(
-          chipX - 1 * invS,
-          chipY + 1 * invS,
-          chipW + 2 * invS,
-          th,
-          chipR,
+        // Text node is scaled by invS, so `t.width` is in world units.
+        // Breadcrumb cursor arithmetic lives in screen-px; convert
+        // once here and the rest of the loop stays pixel-native.
+        const twPx = t.width / invS;
+        const chipWPx = twPx + PAD_X_PX * 2 + ICON_SIZE_PX + ICON_GAP_PX;
+        const chipXWorld = viewportLeftWorld + cursorXPx * invS;
+        const chipYWorld = rowYWorld;
+        const chipW = chipWPx * invS;
+
+        cg.rect(chipXWorld - 1 * invS, chipYWorld + 1 * invS, chipW + 2 * invS, th);
+        cg.fill({ color: pixiColor.text, alpha: 0.05 });
+        cg.rect(chipXWorld, chipYWorld, chipW, th);
+        cg.fill({ color: pixiColor.bg, alpha: 1 });
+        cg.stroke({ color: pixiColor.border, width: 1 * invS, alpha: 1 });
+        this.drawKindIcon(
+          cg,
+          af.kind,
+          chipXWorld + padX,
+          chipYWorld + (th - iconSize) / 2,
+          iconSize,
+          iconStrokeW,
+          kindCol,
+          1,
         );
-        g.fill({ color: pixiColor.text, alpha: 0.05 });
-        g.roundRect(chipX, chipY, chipW, th, chipR);
-        g.fill({ color: pixiColor.bg, alpha: 1 });
-        g.stroke({ color: pixiColor.border, width: 1 * invS, alpha: 1 });
-        // Kind dot — the ONE spot of kind colour on the chip.
-        g.circle(chipX + padX + dotR, chipY + th / 2, dotR);
-        g.fill({ color: kindCol, alpha: 1 });
-        t.position.set(chipX + padX + dotR * 2 + dotGap, chipY + 3 * invS);
+        t.position.set(chipXWorld + padX + iconSize + iconGap, chipYWorld + 3 * invS);
+        // Force chip text to the top of the label layer on every
+        // frame — rect labels added later in `drawLabels` would
+        // otherwise win the z-order and cover the breadcrumb.
+        layer.setChildIndex(t, layer.children.length - 1);
         used.add(af.id);
+
+        // Screen-space hit rect. Sticky positioning means
+        // `chipXWorld * scale + tx` collapses back to `cursorXPx` so
+        // we can record screen coords directly.
+        this.ancestorChipRects.push({
+          id: af.id,
+          x: cursorXPx,
+          y: MARGIN_PX,
+          w: chipWPx,
+          h: CHIP_H_PX,
+        });
+        cursorXPx += chipWPx + CHIP_GAP_PX;
       }
     }
     // Recycle labels whose ancestor left the frame list (e.g. anchor
@@ -702,6 +797,21 @@ export class PixiScene {
       if (this.ancestorLabelPool.length < LABEL_POOL_CAP) this.ancestorLabelPool.push(t);
       else { try { t.destroy(); } catch { /* ignore */ } }
     }
+  }
+
+  /** Screen-space hit-test against the sticky breadcrumb chips.
+   *  Pointer-down calls this BEFORE the normal entity hit-test so a
+   *  click on a chip drills to the ancestor instead of falling through
+   *  to the rect behind the chip. */
+  private hitTestAncestorChip(clientX: number, clientY: number): string | null {
+    if (this.ancestorChipRects.length === 0) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    const sx = clientX - rect.left;
+    const sy = clientY - rect.top;
+    for (const c of this.ancestorChipRects) {
+      if (sx >= c.x && sx <= c.x + c.w && sy >= c.y && sy <= c.y + c.h) return c.id;
+    }
+    return null;
   }
 
   private drawBackground(frame: SceneFrame): void {
@@ -769,6 +879,115 @@ export class PixiScene {
     this.tierTransitionRafId = requestAnimationFrame(step);
   }
 
+  /** Diff the incoming frame's thumbnail + entity sets against the
+   *  previous frame. Any change kicks a tween that `drawRects` /
+   *  `drawLabels` / `drawEdges` consume to blend alpha + (for newly
+   *  visible children) scale. First frame populates state silently so
+   *  the initial mount never flashes. */
+  private diffThumbnailFrame(frame: SceneFrame): void {
+    const nextThumbs = frame.thumbnailIds ?? null;
+    // First frame: populate quietly. `prevEntityIds.size === 0` is the
+    // "no prev state" signal — the construction-time default.
+    if (this.prevEntityIds.size === 0) {
+      this.prevThumbnailIds = nextThumbs;
+      this.prevEntityIds = new Set(frame.entities.map((e) => e.id));
+      return;
+    }
+    const prevThumbs = this.prevThumbnailIds;
+    const enteringIds = new Set<string>();
+    const leavingIds = new Set<string>();
+    const newlyVisibleIds = new Set<string>();
+    if (nextThumbs) {
+      for (const id of nextThumbs) {
+        if (!prevThumbs || !prevThumbs.has(id)) enteringIds.add(id);
+      }
+    }
+    if (prevThumbs) {
+      for (const id of prevThumbs) {
+        if (!nextThumbs || !nextThumbs.has(id)) leavingIds.add(id);
+      }
+    }
+    for (const e of frame.entities) {
+      if (!this.prevEntityIds.has(e.id)) newlyVisibleIds.add(e.id);
+    }
+    const hasChange =
+      enteringIds.size > 0 || leavingIds.size > 0 || newlyVisibleIds.size > 0;
+    if (hasChange) {
+      // Merge with any in-flight tween so back-to-back expansions within
+      // the transition window don't truncate the first animation.
+      const prev = this.thumbnailTween;
+      if (prev) {
+        for (const id of prev.enteringIds) enteringIds.add(id);
+        for (const id of prev.leavingIds) leavingIds.add(id);
+        for (const id of prev.newlyVisibleIds) newlyVisibleIds.add(id);
+      }
+      this.thumbnailTween = {
+        startedAt: performance.now(),
+        enteringIds,
+        leavingIds,
+        newlyVisibleIds,
+      };
+      this.ensureThumbnailTweenLoop();
+    }
+    this.prevThumbnailIds = nextThumbs;
+    // Rebuild in place — a fresh Set every frame would churn GC.
+    this.prevEntityIds.clear();
+    for (const e of frame.entities) this.prevEntityIds.add(e.id);
+  }
+
+  private ensureThumbnailTweenLoop(): void {
+    if (this.thumbnailTweenRafId) return;
+    const step = (): void => {
+      this.thumbnailTweenRafId = 0;
+      if (this.disposed || !this.thumbnailTween) return;
+      // Drive the next repaint. `flushFrame` reads `thumbnailTween` and
+      // clears it when every id's progress has reached 1, so we keep
+      // ticking as long as it stays non-null.
+      this.flushFrame();
+      if (this.thumbnailTween) {
+        this.thumbnailTweenRafId = requestAnimationFrame(step);
+      }
+    };
+    this.thumbnailTweenRafId = requestAnimationFrame(step);
+  }
+
+  /** Sample the tween's progress for the three id flavours at the
+   *  current instant. Called once per `drawRects` / `drawLabels` /
+   *  `drawEdges` pass; the result is cached on the stack so the per-
+   *  entity loops don't recompute `performance.now()` hundreds of
+   *  times. Auto-clears `thumbnailTween` when every progress reaches 1
+   *  so the rAF loop self-terminates. */
+  private sampleThumbnailTween(): {
+    fade: number; // 0..1 — progress of peer fade (enter / leave)
+    child: number; // 0..1 — progress of child enter
+    enteringIds: ReadonlySet<string> | null;
+    leavingIds: ReadonlySet<string> | null;
+    newlyVisibleIds: ReadonlySet<string> | null;
+  } {
+    const t = this.thumbnailTween;
+    if (!t) {
+      return { fade: 1, child: 1, enteringIds: null, leavingIds: null, newlyVisibleIds: null };
+    }
+    const elapsed = performance.now() - t.startedAt;
+    const fadeRaw = Math.min(1, Math.max(0, elapsed / THUMBNAIL_TRANSITION_MS));
+    const childRaw = Math.min(1, Math.max(0, elapsed / CHILD_ENTER_MS));
+    const fade = easeOutCubic(fadeRaw);
+    const child = easeOutCubic(childRaw);
+    if (fadeRaw >= 1 && childRaw >= 1) {
+      // Tween done — drop state so the loop exits and drawRects stops
+      // paying the per-id Set lookup cost next frame.
+      this.thumbnailTween = null;
+      return { fade: 1, child: 1, enteringIds: null, leavingIds: null, newlyVisibleIds: null };
+    }
+    return {
+      fade,
+      child,
+      enteringIds: t.enteringIds.size > 0 ? t.enteringIds : null,
+      leavingIds: t.leavingIds.size > 0 ? t.leavingIds : null,
+      newlyVisibleIds: t.newlyVisibleIds.size > 0 ? t.newlyVisibleIds : null,
+    };
+  }
+
   destroy(): void {
     if (this.disposed) return;
     this.disposed = true;
@@ -777,6 +996,11 @@ export class PixiScene {
     if (this.tierTransitionRafId) cancelAnimationFrame(this.tierTransitionRafId);
     this.tierTransitionRafId = 0;
     this.tierTransitionStart = 0;
+    if (this.thumbnailTweenRafId) cancelAnimationFrame(this.thumbnailTweenRafId);
+    this.thumbnailTweenRafId = 0;
+    this.thumbnailTween = null;
+    this.prevThumbnailIds = null;
+    this.prevEntityIds.clear();
     this.detachInput();
     this.detachContextGuards();
     this.detachVisibility();
@@ -861,6 +1085,7 @@ export class PixiScene {
     this.content = null;
     this.rectGfx = null;
     this.ancestorGfx = null;
+    this.chipGfx = null;
     this.edgeGfx = null;
     this.labelLayer = null;
     if (app) {
@@ -877,7 +1102,9 @@ export class PixiScene {
     const invS = 1 / s;
     // All card measurements are in world units, derived from the
     // desired screen-px so they stay hairline at any zoom.
-    const radius = 8 * invS;
+    // Sharp right angles — the treemap reads as architecture diagram,
+    // not as a stack of pills. User called this out explicitly.
+    const radius = 0;
     const strokeDefault = 1 * invS;
     const strokeHover = 1.25 * invS;
     // Selection stroke matches hover weight — the border colour (near-
@@ -912,6 +1139,52 @@ export class PixiScene {
     const spotlight = frame.spotlightIds ?? null;
     const isSpot = spotlight !== null && spotlight.size > 0;
     const memberOf = (id: string): boolean => !isSpot || spotlight!.has(id);
+    // Thumbnail set — peers of an inline-expanded folder. When an id
+    // appears here the card renders desaturated + dimmed + label-less,
+    // and this branch fully overrides spotlight dim for that id (pick
+    // one degrade reason; explicit thumbnail beats focus fallthrough).
+    const thumbnails = frame.thumbnailIds ?? null;
+    const hasThumbs = thumbnails !== null && thumbnails.size > 0;
+    const isThumb = (id: string): boolean => hasThumbs && thumbnails!.has(id);
+    // Sample the inline-expand tween once per pass — the per-entity
+    // loops below read `tween.fade` / `tween.child` out of a closure
+    // cell, so we don't pay a performance.now() call per entity.
+    const tween = this.sampleThumbnailTween();
+    const isEntering = (id: string): boolean =>
+      tween.enteringIds !== null && tween.enteringIds.has(id);
+    const isLeaving = (id: string): boolean =>
+      tween.leavingIds !== null && tween.leavingIds.has(id);
+    const isNewlyVisible = (id: string): boolean =>
+      tween.newlyVisibleIds !== null && tween.newlyVisibleIds.has(id);
+    // Interpolate thumbnail styling into/out of a card by `progress`.
+    // progress = 1 means "fully the target state"; progress = 0 means
+    // "fully the source state". `toThumb` picks direction: entering
+    // goes full→thumb, leaving goes thumb→full.
+    const blendThumbStyle = (
+      baseFill: number,
+      progress: number,
+      toThumb: boolean,
+    ): { fill: number; fillAlpha: number; strokeAlpha: number } => {
+      const p = toThumb ? progress : 1 - progress;
+      const desatStrength = THUMBNAIL_DESATURATE_STRENGTH * p;
+      const fill = desatStrength > 0 ? desaturateColor(baseFill, desatStrength) : baseFill;
+      const alpha = 1 + (THUMBNAIL_DIM_ALPHA - 1) * p;
+      return { fill, fillAlpha: alpha, strokeAlpha: alpha };
+    };
+    // Shrink a rect around its own center by `factor` (0..1). Used for
+    // the newly-injected-child enter-pop so each child grows out of its
+    // own slot rather than sliding from the parent's origin.
+    const shrinkRect = (r: Rect, factor: number): Rect => {
+      if (factor >= 1) return r;
+      const w = r.w * factor;
+      const h = r.h * factor;
+      return {
+        x: r.x + (r.w - w) / 2,
+        y: r.y + (r.h - h) / 2,
+        w,
+        h,
+      };
+    };
     const headerDividerFor = (r: Rect, alpha: number): { h: number; strokeW: number; alpha: number } | null =>
       r.h * s >= CARD_HEADER_MIN_PX_H
         ? { h: headerH, strokeW: strokeDefault, alpha }
@@ -924,66 +1197,159 @@ export class PixiScene {
       const isHov = entity.id === hoveredId;
       if (isSel) { selected.push(entity); continue; }
       if (isHov) { hovered.push(entity); continue; }
+      // Newly injected child — draw shrunk + alpha-scaled. Children
+      // never enter the thumbnail set in the same frame they become
+      // visible, so we don't need to compose with fade progress here.
+      const newly = isNewlyVisible(entity.id);
+      const enterFactor = newly
+        ? CHILD_ENTER_START_SCALE + (1 - CHILD_ENTER_START_SCALE) * tween.child
+        : 1;
+      const enterAlpha = newly ? tween.child : 1;
+      const drawRect = newly ? shrinkRect(r, enterFactor) : r;
+      // Thumbnail path wins over spotlight — the inline-expand gesture
+      // is explicit user intent; spotlight is an ambient focus hint.
+      // Skip the header divider entirely so the thumbnail reads as a
+      // flat chip rather than a card with internal structure.
+      const thumb = isThumb(entity.id);
+      const entering = isEntering(entity.id);
+      const leaving = isLeaving(entity.id);
+      if (thumb || entering || leaving) {
+        // Thumb + entering: fade from full → thumb. Thumb at rest:
+        // progress=1. Leaving: fade from thumb → full (still painted
+        // via this branch because the id no longer appears in thumbs;
+        // `isThumb(id) === false` there). We route leaving through the
+        // branch below explicitly since it's no longer a thumbnail.
+        if (thumb) {
+          const baseFill = fillFor(entity, CARD_FILL_DEFAULT);
+          const progress = entering ? tween.fade : 1;
+          const blended = blendThumbStyle(baseFill, progress, true);
+          this.paintCard(g, entity, drawRect, {
+            fill: blended.fill,
+            fillAlpha: blended.fillAlpha * enterAlpha,
+            border: CARD_BORDER_DEFAULT,
+            strokeW: strokeDefault,
+            strokeAlpha: blended.strokeAlpha * enterAlpha,
+            radius,
+            // Strip the kindIcon — at thumbnail alpha the glyph reads
+            // as a smudge rather than a label, and removing it keeps
+            // the peer rects visually quieter so the expanded folder
+            // pops.
+            kindIcon: null,
+            headerDivider: null,
+          });
+          continue;
+        }
+        // Leaving — was a thumbnail, now back to full. Blend thumb →
+        // full by `tween.fade`. Skip spotlight logic for the duration
+        // of the tween so the crossfade reads cleanly.
+        const baseFill = fillFor(entity, CARD_FILL_DEFAULT);
+        const blended = blendThumbStyle(baseFill, tween.fade, false);
+        this.paintCard(g, entity, drawRect, {
+          fill: blended.fill,
+          fillAlpha: blended.fillAlpha * enterAlpha,
+          border: CARD_BORDER_DEFAULT,
+          strokeW: strokeDefault,
+          strokeAlpha: blended.strokeAlpha * enterAlpha,
+          radius,
+          kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
+          iconAlpha: blended.fillAlpha * enterAlpha,
+          headerDivider: headerDividerFor(r, blended.fillAlpha * enterAlpha),
+        });
+        continue;
+      }
       const inSpot = memberOf(entity.id);
       if (isSpot && inSpot) {
         // Ego neighbour — accent-tint border + full opacity.
-        this.paintCard(g, entity, r, {
+        this.paintCard(g, entity, drawRect, {
           fill: fillFor(entity, CARD_FILL_DEFAULT),
+          fillAlpha: enterAlpha,
           border: CARD_BORDER_SELECTED,
           strokeW: strokeEgo,
-          strokeAlpha: 0.55,
+          strokeAlpha: 0.55 * enterAlpha,
           radius,
           kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
-          headerDivider: headerDividerFor(r, 1),
+          iconAlpha: enterAlpha,
+          headerDivider: headerDividerFor(r, enterAlpha),
         });
         continue;
       }
       const dim = isSpot && !inSpot;
-      this.paintCard(g, entity, r, {
+      this.paintCard(g, entity, drawRect, {
         fill: fillFor(entity, CARD_FILL_DEFAULT),
-        fillAlpha: dim ? SPOTLIGHT_DIM_ALPHA : 1,
+        fillAlpha: (dim ? SPOTLIGHT_DIM_ALPHA : 1) * enterAlpha,
         border: CARD_BORDER_DEFAULT,
         strokeW: strokeDefault,
-        strokeAlpha: dim ? SPOTLIGHT_DIM_ALPHA : 1,
+        strokeAlpha: (dim ? SPOTLIGHT_DIM_ALPHA : 1) * enterAlpha,
         radius,
         kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
-        iconAlpha: dim ? SPOTLIGHT_DIM_ALPHA : 1,
-        headerDivider: headerDividerFor(r, dim ? SPOTLIGHT_DIM_ALPHA : 1),
+        iconAlpha: (dim ? SPOTLIGHT_DIM_ALPHA : 1) * enterAlpha,
+        headerDivider: headerDividerFor(r, (dim ? SPOTLIGHT_DIM_ALPHA : 1) * enterAlpha),
       });
     }
     const haloPadPx = 3;
     for (const entity of hovered) {
       const r = layout.rects.get(entity.id)!;
-      this.paintCard(g, entity, r, {
-        fill: fillFor(entity, CARD_FILL_DEFAULT),
+      // Hover on a thumbnail: keep the thumbnail body treatment but
+      // draw the hover stroke at full strength — the user is actively
+      // pointing at it so the affordance must read as "pressable".
+      const thumb = isThumb(entity.id);
+      const entering = isEntering(entity.id);
+      const leaving = isLeaving(entity.id);
+      const baseFill = fillFor(entity, CARD_FILL_DEFAULT);
+      const newly = isNewlyVisible(entity.id);
+      const enterFactor = newly
+        ? CHILD_ENTER_START_SCALE + (1 - CHILD_ENTER_START_SCALE) * tween.child
+        : 1;
+      const enterAlpha = newly ? tween.child : 1;
+      const drawRect = newly ? shrinkRect(r, enterFactor) : r;
+      // If the hovered id is tweening in either direction, blend the
+      // body treatment so hover styling doesn't fight the fade.
+      const thumbProgress = thumb ? (entering ? tween.fade : 1) : leaving ? 1 - tween.fade : 0;
+      const blended = blendThumbStyle(baseFill, thumbProgress, true);
+      this.paintCard(g, entity, drawRect, {
+        fill: blended.fill,
+        fillAlpha: blended.fillAlpha * enterAlpha,
         border: CARD_BORDER_HOVER,
         strokeW: strokeHover,
         radius,
-        kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
-        headerDivider: headerDividerFor(r, 1),
+        kindIcon: thumb ? null : (this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null),
+        headerDivider: thumb ? null : headerDividerFor(r, enterAlpha),
         halo: {
-          radius: radius + haloPadPx * invS,
+          radius: 0,
           strokeW: haloPadPx * 2 * invS,
           color: pixiColor.text,
-          alpha: 0.045,
+          alpha: 0.045 * enterAlpha,
         },
       });
     }
     for (const entity of selected) {
       const r = layout.rects.get(entity.id)!;
-      this.paintCard(g, entity, r, {
-        fill: fillFor(entity, CARD_FILL_SELECTED),
+      // Selected thumbnail — the user picked a peer to switch which
+      // folder is expanded. Keep the selection border at full weight so
+      // the pick is unambiguous, but keep the body desaturated so the
+      // rect still reads as "peer under degrade" until the layout
+      // actually re-expands around the new selection next frame.
+      const thumb = isThumb(entity.id);
+      const entering = isEntering(entity.id);
+      const leaving = isLeaving(entity.id);
+      const newly = isNewlyVisible(entity.id);
+      const enterFactor = newly
+        ? CHILD_ENTER_START_SCALE + (1 - CHILD_ENTER_START_SCALE) * tween.child
+        : 1;
+      const enterAlpha = newly ? tween.child : 1;
+      const drawRect = newly ? shrinkRect(r, enterFactor) : r;
+      const thumbProgress = thumb ? (entering ? tween.fade : 1) : leaving ? 1 - tween.fade : 0;
+      const baseFill = fillFor(entity, CARD_FILL_SELECTED);
+      const blended = blendThumbStyle(baseFill, thumbProgress, true);
+      this.paintCard(g, entity, drawRect, {
+        fill: blended.fill,
+        fillAlpha: blended.fillAlpha * enterAlpha,
         border: CARD_BORDER_SELECTED,
         strokeW: strokeSelected,
         radius,
-        kindIcon: this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null,
-        headerDivider: headerDividerFor(r, 1),
-        halo: {
-          radius: radius + haloPadPx * invS,
-          strokeW: haloPadPx * 2 * invS,
-          color: pixiColor.text,
-          alpha: 0.11,
-        },
+        kindIcon: thumb ? null : (this.shouldPaintKindIcon(r, s) ? { color: pixiKindColor[entity.kind], inset: iconBoxInset, size: iconBoxSize, strokeW: iconBoxStrokeW } : null),
+        iconAlpha: enterAlpha,
+        headerDivider: thumb ? null : headerDividerFor(r, enterAlpha),
       });
     }
     // Badge overlay — drawn after all rects so glyphs sit on top and
@@ -1058,16 +1424,18 @@ export class PixiScene {
     // outer ring, not a double border.
     if (opts.halo) {
       const pad = opts.halo.strokeW * 0.5;
-      g.roundRect(
-        r.x - pad,
-        r.y - pad,
-        r.w + pad * 2,
-        r.h + pad * 2,
-        opts.halo.radius,
-      );
+      if (opts.halo.radius > 0) {
+        g.roundRect(r.x - pad, r.y - pad, r.w + pad * 2, r.h + pad * 2, opts.halo.radius);
+      } else {
+        g.rect(r.x - pad, r.y - pad, r.w + pad * 2, r.h + pad * 2);
+      }
       g.stroke({ color: opts.halo.color, width: opts.halo.strokeW, alpha: opts.halo.alpha });
     }
-    g.roundRect(r.x, r.y, r.w, r.h, opts.radius);
+    if (opts.radius > 0) {
+      g.roundRect(r.x, r.y, r.w, r.h, opts.radius);
+    } else {
+      g.rect(r.x, r.y, r.w, r.h);
+    }
     g.fill({ color: opts.fill, alpha: opts.fillAlpha ?? 1 });
     g.stroke({ color: opts.border, width: opts.strokeW, alpha: opts.strokeAlpha ?? 1 });
     if (opts.headerDivider) {
@@ -1102,10 +1470,11 @@ export class PixiScene {
   }
 
   /** Vector icon per entity kind, painted into the card's Graphics
-   *  layer. Shapes mirror the mental model directly — package box for
-   *  galaxy, folder tab for street, file sheet for building, stacked
-   *  lines for floor (module), ringed dot for universe, plain ring for
-   *  room (function). Stroke-only; fills would darken the card. */
+   *  layer. Containers use shape glyphs (ringed dot, package box,
+   *  folder tab, file sheet); code symbols use letter glyphs
+   *  ("C" for class/module, "f" for function) so the role reads at
+   *  a glance without decoding abstract rings. Stroke-only; fills
+   *  would darken the card. */
   private drawKindIcon(
     g: Graphics,
     kind: EntityKind,
@@ -1130,13 +1499,7 @@ export class PixiScene {
         const padX = size * 0.06;
         const top = y + size * 0.14;
         const bot = y + size * 0.88;
-        g.roundRect(
-          x + padX,
-          top,
-          size - padX * 2,
-          bot - top,
-          size * 0.08,
-        );
+        g.rect(x + padX, top, size - padX * 2, bot - top);
         g.stroke({ color, width: strokeW, alpha });
         const lidY = y + size * 0.4;
         g.moveTo(x + padX, lidY);
@@ -1180,19 +1543,39 @@ export class PixiScene {
         return;
       }
       case "floor": {
-        for (let i = 0; i < 3; i++) {
-          const ly = y + size * (0.28 + i * 0.22);
-          g.moveTo(x + size * 0.16, ly);
-          g.lineTo(x + size * 0.84, ly);
+        // Letter "C" — open arc facing right. Sampled polyline so we
+        // don't depend on Graphics.arc being available in this Pixi
+        // build; 24 steps is visually smooth at the 12 px icon size.
+        const radius = size * 0.4;
+        const startA = Math.PI * 0.3;
+        const endA = Math.PI * 1.7;
+        const steps = 24;
+        for (let i = 0; i <= steps; i++) {
+          const t = startA + (endA - startA) * (i / steps);
+          const px = cx + Math.cos(t) * radius;
+          const py = cy + Math.sin(t) * radius;
+          if (i === 0) g.moveTo(px, py);
+          else g.lineTo(px, py);
         }
-        g.stroke({ color, width: strokeW, alpha });
+        g.stroke({ color, width: strokeW * 1.25, alpha });
         return;
       }
       case "room": {
-        g.circle(cx, cy, size * 0.36);
-        g.stroke({ color, width: strokeW, alpha });
-        g.circle(cx, cy, size * 0.12);
-        g.fill({ color, alpha });
+        // Letter "f" — vertical stem, top hook, crossbar. Geometry
+        // tuned so the glyph reads unambiguously at 12 px; crossbar
+        // sits slightly below center so it doesn't fuse with the hook.
+        const stemX = x + size * 0.44;
+        const top = y + size * 0.2;
+        const bot = y + size * 0.88;
+        const hookEnd = x + size * 0.72;
+        const crossY = y + size * 0.54;
+        g.moveTo(stemX, top);
+        g.lineTo(stemX, bot);
+        g.moveTo(stemX, top);
+        g.lineTo(hookEnd, top);
+        g.moveTo(x + size * 0.28, crossY);
+        g.lineTo(x + size * 0.64, crossY);
+        g.stroke({ color, width: strokeW * 1.25, alpha });
         return;
       }
     }
@@ -1205,6 +1588,32 @@ export class PixiScene {
     g.clear();
     const invScale = 1 / camera.scale;
     const CURVE_K = 0.12;
+    // Thumbnail endpoints — if either end is a thumbnail, the edge
+    // degrades to THUMBNAIL_DIM_ALPHA regardless of anchor/selection
+    // status. The peer folder is visually a context chip; edges into
+    // it shouldn't compete with the expanded folder's own dep lines.
+    const thumbnails = frame.thumbnailIds ?? null;
+    const hasThumbs = thumbnails !== null && thumbnails.size > 0;
+    const edgeTouchesThumb = (edge: TierEdge): boolean =>
+      hasThumbs && (thumbnails!.has(edge.fromId) || thumbnails!.has(edge.toId));
+    // Edge-endpoint alpha multiplier during the inline-expand tween —
+    // if an edge touches an entering id it should fade WITH the peer
+    // card's body; touching a leaving id fades back UP; touching a
+    // newly-visible child pops in along with the child.
+    const tween = this.sampleThumbnailTween();
+    const edgeTweenAlpha = (edge: TierEdge): number => {
+      let m = 1;
+      if (tween.newlyVisibleIds !== null) {
+        if (tween.newlyVisibleIds.has(edge.fromId) || tween.newlyVisibleIds.has(edge.toId)) {
+          m *= tween.child;
+        }
+      }
+      // Entering / leaving don't multiply alpha further — the edge
+      // colour already encodes the thumbnail state via `touchesThumb`.
+      // The crossfade of the underlying card carries the perceptual
+      // fade without the edge needing its own blend here.
+      return m;
+    };
     // Paint non-anchor edges first, anchor-touching edges last so the
     // directional strokes land on top. With the scope filter already
     // hiding non-reachable entities every remaining edge is "between
@@ -1216,6 +1625,7 @@ export class PixiScene {
       const b = layout.rects.get(edge.toId);
       if (!a || !b) continue;
       if (!isSegmentOnScreen(a, b, camera, width, height)) continue;
+      const touchesThumb = edgeTouchesThumb(edge);
       const touchesAnchor =
         anchorId != null && (edge.fromId === anchorId || edge.toId === anchorId);
       const touchesSel =
@@ -1224,6 +1634,13 @@ export class PixiScene {
       const touchesHov =
         hoveredId != null && !touchesAnchor && !touchesSel &&
         (edge.fromId === hoveredId || edge.toId === hoveredId);
+      const tweenMul = edgeTweenAlpha(edge);
+      // Thumbnail edges bypass the focused pass — they always render
+      // at dim alpha in the first pass and never compete for z-order.
+      if (touchesThumb) {
+        this.paintEdge(g, a, b, edge, invScale, CURVE_K, pixiColor.edge, THUMBNAIL_DIM_ALPHA * tweenMul, false);
+        continue;
+      }
       if (touchesAnchor) {
         focused.push({
           edge,
@@ -1246,7 +1663,7 @@ export class PixiScene {
       // user reads the full dep chain, just a touch below the primary
       // edges so the anchor's direct connections pop.
       const alpha = 0.5 + Math.min(0.3, edge.count * 0.04);
-      this.paintEdge(g, a, b, edge, invScale, CURVE_K, pixiColor.edge, alpha, false);
+      this.paintEdge(g, a, b, edge, invScale, CURVE_K, pixiColor.edge, alpha * tweenMul, false);
     }
     for (const { edge, direction } of focused) {
       const a = layout.rects.get(edge.fromId)!;
@@ -1257,7 +1674,8 @@ export class PixiScene {
           : direction === "in"
             ? pixiColor.edgeIn
             : pixiColor.edgeHighlight;
-      this.paintEdge(g, a, b, edge, invScale, CURVE_K, color, 0.92, true);
+      const tweenMul = edgeTweenAlpha(edge);
+      this.paintEdge(g, a, b, edge, invScale, CURVE_K, color, 0.92 * tweenMul, true);
     }
   }
 
@@ -1349,6 +1767,56 @@ export class PixiScene {
     let budget = LABEL_BUDGET;
     const spotlight = frame.spotlightIds ?? null;
     const isSpot = spotlight !== null && spotlight.size > 0;
+    const thumbnails = frame.thumbnailIds ?? null;
+    const hasThumbs = thumbnails !== null && thumbnails.size > 0;
+    // Sample the inline-expand tween — each label family (primary, LoC
+    // badge, secondary) multiplies its effective alpha by the tween
+    // factor so text fades along with the card body.
+    const tween = this.sampleThumbnailTween();
+    const isEntering = (id: string): boolean =>
+      tween.enteringIds !== null && tween.enteringIds.has(id);
+    const isLeaving = (id: string): boolean =>
+      tween.leavingIds !== null && tween.leavingIds.has(id);
+    const isNewlyVisible = (id: string): boolean =>
+      tween.newlyVisibleIds !== null && tween.newlyVisibleIds.has(id);
+    // Tier gate for thumbnail label handling. At universe/galaxy tier
+    // the hero/top-level names carry most of the navigation weight, so
+    // if a top-of-tree ancestor ever enters the thumbnail set we keep
+    // a faint label trace rather than blanking it — a fully text-less
+    // galaxy card reads as broken. For street/building/floor/room the
+    // cards are inline children of the expanded folder's context, and
+    // stripping labels entirely is the desired effect.
+    const tierKind = frame.tier.visibleKind;
+    const isTopTier = tierKind === "universe" || tierKind === "galaxy";
+    const thumbLabelAlpha = isTopTier ? 0.25 : THUMBNAIL_LABEL_ALPHA;
+    // Effective label alpha with tween blending. At rest (no tween) this
+    // collapses to the precedence rules: thumbnail > spotlight > full.
+    // During the tween:
+    //   • entering (peer→thumb) — crossfade 1 → thumbLabelAlpha by fade
+    //   • leaving  (thumb→peer) — crossfade thumbLabelAlpha → 1 by fade
+    //   • newly visible children — multiply final alpha by `child`
+    const labelAlphaFor = (id: string, isThumbEntity: boolean): number => {
+      const dimBase = isSpot && spotlight !== null && !spotlight.has(id)
+        ? SPOTLIGHT_LABEL_DIM_ALPHA
+        : 1;
+      let base: number;
+      const entering = isEntering(id);
+      const leaving = isLeaving(id);
+      if (isThumbEntity) {
+        // Card is in the thumbnail set. `entering` means mid-fade into
+        // thumbnail; at rest we want full thumb label alpha.
+        const p = entering ? tween.fade : 1;
+        base = dimBase * (1 + (thumbLabelAlpha - 1) * p);
+      } else if (leaving) {
+        // Card is leaving thumbnail — fade from thumbLabelAlpha → dim.
+        const p = tween.fade;
+        base = dimBase * (thumbLabelAlpha + (1 - thumbLabelAlpha) * p);
+      } else {
+        base = dimBase;
+      }
+      if (isNewlyVisible(id)) base *= tween.child;
+      return base;
+    };
     for (const entity of entities) {
       if (seen.has(entity.id)) continue;
       seen.add(entity.id);
@@ -1359,6 +1827,15 @@ export class PixiScene {
       const screenH = r.h * s;
       if (screenW < PRIMARY_MIN_PX_W || screenH < MIN_LABEL_PX_H) continue;
       if (!isRectOnScreen(r, camera, width, height)) continue;
+      const isThumbEntity = hasThumbs && thumbnails!.has(entity.id);
+      // When a thumbnail's label alpha is 0 (street+ tier), short-
+      // circuit the whole render+measure path — no point burning label
+      // budget or running fitLabelToWidth for text the user can't see.
+      // EXCEPT while the card is actively entering the thumbnail set:
+      // the label must crossfade out rather than snap. Skip only when
+      // the tween is done (progress at rest) AND target alpha is 0.
+      const entering = isEntering(entity.id);
+      if (isThumbEntity && thumbLabelAlpha === 0 && !entering) continue;
 
       const hasKindIcon =
         screenW >= ICON_BOX_MIN_PX_W && screenH >= ICON_BOX_MIN_PX_H;
@@ -1409,10 +1886,11 @@ export class PixiScene {
       const primaryStyle = t.style as TextStyle;
       if (primaryStyle.fill !== primaryColor) primaryStyle.fill = primaryColor;
       t.visible = true;
-      // Dim non-ego labels under spotlight so the selection + its
-      // 1-hop neighbours stay legible while the rest fades into
-      // context. Reset every frame because labels are pool-reused.
-      t.alpha = isSpot && !spotlight!.has(entity.id) ? SPOTLIGHT_LABEL_DIM_ALPHA : 1;
+      // Label alpha precedence: thumbnail > spotlight > full. Thumb
+      // beats spotlight for the same reason drawRects lets thumb win —
+      // inline-expand is explicit user intent, not ambient focus. Reset
+      // every frame because labels are pool-reused across entities.
+      t.alpha = labelAlphaFor(entity.id, isThumbEntity);
       if (!fitLabelToWidth(t, entity.name, availLabelPx)) {
         t.visible = false;
         continue;
@@ -1452,7 +1930,11 @@ export class PixiScene {
         } else if (lt.text !== locText) {
           lt.text = locText;
         }
-        lt.alpha = 1;
+        // LoC badge mirrors primary-label dim rules: thumbnail beats
+        // spotlight beats full. At street+ tier thumb alpha is 0, so
+        // the badge is effectively hidden (we still set the alpha
+        // rather than skip so the pooled Text stays wired up).
+        lt.alpha = labelAlphaFor(entity.id, isThumbEntity);
         lt.scale.set(invS);
         const lw = lt.width;
         lt.position.set(r.x + r.w - lw - 12 * invS, r.y + 7 * invS);
@@ -1486,7 +1968,7 @@ export class PixiScene {
             this.subLabels.set(entity.id, s2);
           }
           s2.visible = true;
-          s2.alpha = isSpot && !spotlight!.has(entity.id) ? SPOTLIGHT_LABEL_DIM_ALPHA : 1;
+          s2.alpha = labelAlphaFor(entity.id, isThumbEntity);
           if (fitLabelToWidth(s2, secondary, availLabelPx)) {
             s2.scale.set(invS);
             // When the card is tall enough for the header band (30px),
@@ -1621,6 +2103,14 @@ export class PixiScene {
     // grab surface regardless of what's under the cursor.
     const forcePan = this.spaceHeld || isPanButton;
     if (!forcePan) {
+      // Breadcrumb chips sit on top of the canvas in screen-space —
+      // test them first so a chip click drills into that ancestor
+      // instead of selecting the rect the chip visually covers.
+      const chipId = this.hitTestAncestorChip(e.clientX, e.clientY);
+      if (chipId !== null) {
+        this.callbacksRef.current.onAncestorChipClick(chipId);
+        return;
+      }
       const id = this.hitTestClient(e.clientX, e.clientY);
       if (id !== null) {
         this.callbacksRef.current.onEntityClick(id);
@@ -1655,12 +2145,16 @@ export class PixiScene {
       const at = this.pendingHover;
       this.pendingHover = null;
       if (!at || this.disposed) return;
-      const nextId = this.hitTestClient(at.x, at.y);
+      const chipId = this.hitTestAncestorChip(at.x, at.y);
+      const nextId = chipId !== null ? null : this.hitTestClient(at.x, at.y);
       if (nextId !== this.lastHoverId) {
         this.lastHoverId = nextId;
         this.callbacksRef.current.onEntityHover(nextId);
       }
-      const hovering = nextId !== null;
+      // Either a chip or a rect gives a clickable cursor; the chip
+      // shadows the card underneath it so chip-hover suppresses the
+      // entity-hover emission but still marks the cursor as active.
+      const hovering = nextId !== null || chipId !== null;
       if (hovering !== this.hoverUnderCursor) {
         this.hoverUnderCursor = hovering;
         this.updateCursor();
@@ -1782,6 +2276,23 @@ const BADGE_COLORS: Record<SceneBadgeKind, number> = {
 function badgeColor(kind: SceneBadgeKind): number {
   return BADGE_COLORS[kind];
 }
+
+/** Blend a 24-bit RGB colour toward neutral grey. Used to
+ *  desaturate thumbnail cards so the expanded folder's cards
+ *  carry the kind hue while peers read as inert context. */
+function desaturateColor(color: number, strength: number): number {
+  const r = (color >> 16) & 0xff;
+  const g = (color >> 8) & 0xff;
+  const b = color & 0xff;
+  // Rec. 709 luma — perceptually uniform grey.
+  const luma = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
+  const blend = (c: number) => Math.round(c + (luma - c) * strength);
+  return (blend(r) << 16) | (blend(g) << 8) | blend(b);
+}
+/** Blend strength used when applying `desaturateColor` to thumbnail
+ *  peer rects. 0 = no change, 1 = full grey. 0.75 leaves a faint hint
+ *  of kind hue while definitively reading as "dimmed / de-emphasised". */
+const THUMBNAIL_DESATURATE_STRENGTH = 0.75;
 
 function isRectOnScreen(r: Rect, c: SceneCamera, w: number, h: number): boolean {
   const sx = r.x * c.scale + c.tx;

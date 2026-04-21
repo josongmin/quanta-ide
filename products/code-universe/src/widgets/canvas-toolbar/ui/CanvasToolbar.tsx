@@ -2,7 +2,8 @@ import type { CSSProperties, ReactElement } from "react";
 import { TierBreadcrumb } from "../../../features/tier-switch";
 import { KindFilterPanel } from "../../../features/kind-filter";
 import { LayoutWeightPicker } from "../../../features/layout-weight";
-import { color, radius, shadow, space } from "../../../shared/ui/tokens";
+import { ViewModePicker } from "../../../features/view-mode";
+import { color, radius, space } from "../../../shared/ui/tokens";
 
 // CanvasToolbar — floating bottom-center tool cluster, Figma-style.
 //
@@ -29,12 +30,19 @@ const ROOT: CSSProperties = {
   alignItems: "center",
   gap: space[2],
   padding: `${space[1]}px ${space[2]}px`,
-  background: "rgba(255, 255, 255, 0.85)",
+  background: "rgba(255, 255, 255, 0.78)",
   border: `1px solid ${color.border}`,
-  borderRadius: radius.lg,
-  boxShadow: shadow.md,
-  backdropFilter: "blur(10px) saturate(160%)",
-  WebkitBackdropFilter: "blur(10px) saturate(160%)",
+  borderRadius: radius.pill,
+  // Layered shadow: a wide soft ambient + a tight contact shadow.
+  // Reads as "floating, not stuck" without looking like drop-shadow
+  // spray. Inner hairline highlights the top edge (glass effect).
+  boxShadow: [
+    "0 1px 2px rgba(0, 0, 0, 0.04)",
+    "0 12px 32px rgba(0, 0, 0, 0.10)",
+    "inset 0 1px 0 rgba(255, 255, 255, 0.7)",
+  ].join(", "),
+  backdropFilter: "blur(14px) saturate(180%)",
+  WebkitBackdropFilter: "blur(14px) saturate(180%)",
   zIndex: 10,
   // Keep the toolbar above canvas pointer events but not receptive to
   // drags when the cursor doesn't hit a control — the surrounding
@@ -45,8 +53,10 @@ const ROOT: CSSProperties = {
 
 const DIVIDER: CSSProperties = {
   width: 1,
-  alignSelf: "stretch",
+  height: 20,
+  alignSelf: "center",
   background: color.border,
+  opacity: 0.7,
 };
 
 const GROUP: CSSProperties = {
@@ -58,6 +68,10 @@ const GROUP: CSSProperties = {
 export function CanvasToolbar(): ReactElement {
   return (
     <div style={ROOT} role="toolbar" aria-label="Canvas toolbar">
+      <span style={GROUP}>
+        <ViewModePicker />
+      </span>
+      <span style={DIVIDER} aria-hidden />
       <span style={GROUP}>
         <TierBreadcrumb />
       </span>

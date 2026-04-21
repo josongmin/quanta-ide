@@ -10,3 +10,4 @@ export {
   setWorkspaceGraph,
   getWorkspaceGraph,
 } from "./shared/api/graph-source";
+export { setRepoRoot, getRepoRoot } from "./shared/api/repo-root";

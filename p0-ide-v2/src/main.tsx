@@ -1,6 +1,7 @@
 import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { Shell, appRegistry, registerFeatureManifests } from "@quanta/shell";
+import { attachPreferencesSync, bindFeatureRegistryToPreferences } from "@quanta/shell/stores/preferences";
 import type { AppKind } from "@quanta/shell-contract";
 import "@quanta/ui-kit/styles/tokens.css";
 import "@quanta/ui-kit/styles/reset.css";
@@ -9,6 +10,8 @@ import { installBrowserZoomBlock } from "./block-browser-zoom";
 import { installCodeUniverseBridge } from "./code-universe-bridge";
 
 installBrowserZoomBlock();
+// Mirror preferences to the OS app-config file under Tauri; no-op on web.
+void attachPreferencesSync();
 // Forwards the legacy scene-store's `graph` into `@quanta/code-universe`.
 // The bridge is safe to install before any tab is mounted — the first
 // call pushes whatever `graph` currently is (usually `null`), and the
@@ -156,6 +159,10 @@ registerFeatureManifests(RULES_FEATURES);
 registerFeatureManifests(SCENARIO_FEATURES);
 registerFeatureManifests(POLICY_FEATURES);
 registerFeatureManifests(DEMO_FEATURES);
+
+// Apply persisted feature enable/disable overrides onto the live registry.
+// Must run AFTER all manifests are registered.
+bindFeatureRegistryToPreferences();
 
 if ("__TAURI_INTERNALS__" in window) {
   document.documentElement.classList.add("is-tauri");

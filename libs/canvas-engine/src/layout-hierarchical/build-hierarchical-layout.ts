@@ -6,6 +6,7 @@ import type {
   HierarchicalLayout,
 } from "./types";
 import { squarifyInto } from "./squarified";
+import { clusterChildren } from "./cluster-children";
 
 // build-hierarchical-layout
 // --------------------------------------------------------------------
@@ -59,9 +60,14 @@ export function buildHierarchicalLayout(
       if (c) children.push(c);
     }
     if (children.length === 0) continue;
-    const items = children.map(c => ({ id: c.id, weight: Math.max(1, weightFn(c.id)) }));
+    // Pre-pack sibling reorder: group children sharing a name stem so
+    // the packer (which is stable for equal-weight ties) places cluster
+    // mates adjacent. No-op below CLUSTER_MIN_CHILDREN — small folders
+    // keep their alphabetical input order.
+    const ordered = clusterChildren(children);
+    const items = ordered.map(c => ({ id: c.id, weight: Math.max(1, weightFn(c.id)) }));
     const childRects = squarifyInto(items, parentRect, padding, gap);
-    for (const c of children) {
+    for (const c of ordered) {
       const r = childRects.get(c.id);
       if (r) {
         rects.set(c.id, r);

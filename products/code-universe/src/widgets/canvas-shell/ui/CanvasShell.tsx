@@ -14,11 +14,32 @@ import {
   type HierarchicalLayout,
 } from "@quanta/canvas-engine";
 import { useTierSwitch } from "../../../features/tier-switch";
-import { useEntityState } from "../../../entities/entity";
+import { useEntityState, entityStore } from "../../../entities/entity";
 import { useWorkspaceGraph } from "../../../shared/api/graph-source";
 import { CanvasViewport } from "./CanvasViewport";
 import { HoverTooltip } from "./HoverTooltip";
 import { DrillPath } from "./DrillPath";
+import { MindMapView, buildMindMap, mindMapStore, useMindMapState } from "../../../features/mind-map";
+import { ChordView, buildChordLayout } from "../../../features/chord-view";
+import { MatrixView, buildMatrixLayout } from "../../../features/matrix-view";
+import { QuadrantView, buildQuadrantLayout } from "../../../features/quadrant-view";
+import { ArcView, buildArcLayout } from "../../../features/arc-view";
+import { EmbeddingMapView, buildEmbeddingLayout } from "../../../features/embedding-map";
+import { BlastView, buildBlastLayout } from "../../../features/blast-view";
+import { ArchLayerView, buildArchLayerLayout } from "../../../features/arch-layer-view";
+import { DebtChartView, buildDebtChartLayout } from "../../../features/debt-chart";
+import { RefactorTerrainView, buildRefactorTerrainLayout } from "../../../features/refactor-terrain";
+import { CycleGenesisView } from "../../../features/cycle-genesis";
+import { SmellHistoryView } from "../../../features/smell-history";
+import { ArchDriftView } from "../../../features/arch-drift";
+import { CoChangeView } from "../../../features/cochange";
+import { RefactorSimView } from "../../../features/refactor-sim";
+import { StartHereView } from "../../../features/start-here";
+import { PathfinderView } from "../../../features/pathfinder";
+import { NeighborhoodView } from "../../../features/neighborhood";
+import { AuthorTerritoryView } from "../../../features/author-territory";
+import { ServiceTopoView } from "../../../features/service-topo";
+import { useViewMode, viewModeStore } from "../../../features/view-mode";
 import { loadViewport } from "../../../shared/api/viewport-persistence";
 import { LeftPanel } from "../../left-panel";
 import { Inspector } from "../../inspector";
@@ -29,7 +50,6 @@ import {
 } from "../../../features/layout-weight";
 import { NavHistoryButtons } from "../../../features/nav-history";
 import { ColorModePicker } from "../../../features/color-mode";
-import { FocusModeChip } from "../../../features/focus-mode";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { IconSidebarLeft, IconSidebarRight } from "../../../shared/ui/icons";
 
@@ -144,8 +164,68 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
     return () => ro.disconnect();
   }, []);
 
+  // Mind-map mode — radial egocentric view of the current selection's
+  // relationships. `M` toggles it; Esc closes it (entityStore Esc is
+  // handled elsewhere, we intercept BEFORE it propagates). When no
+  // entity is selected we fall back to the universe root so the mode
+  // always has *something* to show (repo-level package mind-map). Empty
+  // mind-maps read as a bug even when they're "correct" — better to
+  // show the zoom-out view than a blank overlay.
+  const mindMapEnabled = useMindMapState(s => s.enabled);
+  const mindMapCenterId = useMindMapState(s => s.centerId);
+  const viewMode = useViewMode(s => s.mode);
+  const selectedId = useEntityState(s => s.interaction.selectedId);
+  const [blastDirection, setBlastDirection] = useState<"blast" | "fix">("blast");
+
+  // Resolve the current mind-map focus: prefer the selection, fall back
+  // to the universe root. Read both from the respective stores at call
+  // time so we don't re-register the handler on every selection tick.
+  const resolveMindMapFocus = useCallback((): string | null => {
+    const sel = entityStore.getState().interaction.selectedId;
+    if (sel) return sel;
+    return tree?.rootId ?? null;
+  }, [tree]);
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
+      const target = e.target as HTMLElement | null;
+      const inField = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if ((e.key === "v" || e.key === "V") && !e.ctrlKey && !e.metaKey && !e.altKey && !inField) {
+        e.preventDefault();
+        viewModeStore.cycle();
+        const next = viewModeStore.getState().mode;
+        // Cycle landed on mindmap — raise the overlay on the current
+        // selection (or silently move past if there's nothing picked).
+        // Other modes close the overlay so the underlying canvas shows.
+        if (next === "mindmap") {
+          const focus = resolveMindMapFocus();
+          if (focus) mindMapStore.openOn(focus);
+        } else {
+          mindMapStore.close();
+        }
+        return;
+      }
+      if (e.key === "m" || e.key === "M") {
+        if (e.ctrlKey || e.metaKey || e.altKey) return; // leave OS shortcuts alone
+        if (inField) return;
+        e.preventDefault();
+        const focus = resolveMindMapFocus();
+        mindMapStore.toggle(focus);
+        // Keep the view-mode store in sync — if mindmap is now open,
+        // flip the segmented control to match so the user sees which
+        // mode is active.
+        const stillOpen = mindMapStore.getState().enabled;
+        viewModeStore.setMode(stillOpen ? "mindmap" : "treemap");
+        return;
+      }
+      if (e.key === "Escape") {
+        const current = viewModeStore.getState().mode;
+        if (current !== "treemap") {
+          e.preventDefault();
+          if (mindMapEnabled) mindMapStore.close();
+          viewModeStore.setMode("treemap");
+          return;
+        }
+      }
       if (!(e.ctrlKey || e.metaKey)) return;
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
@@ -155,11 +235,153 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
         zoomBy(1 / KEY_FACTOR);
       }
     },
-    [zoomBy],
+    [zoomBy, mindMapEnabled, resolveMindMapFocus],
   );
   const onSwallowReactWheel = useCallback((e: ReactWheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey) return;
   }, []);
+
+  // Build the mind-map graph lazily — only when the mode is active AND
+  // we have tree + graph + a viewport size. The builder is pure-data;
+  // `useMemo` keyed on (centre, tree, graph, viewport dims) keeps it
+  // stable across unrelated re-renders (pan, hover, etc.).
+  const mindMapGraph = useMemo(() => {
+    if (!mindMapEnabled || !mindMapCenterId) return null;
+    if (!tree || !graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildMindMap({
+        tree,
+        graph,
+        centerId: mindMapCenterId,
+        width: viewportSize.w,
+        height: viewportSize.h,
+      });
+    } catch {
+      // Centre id no longer in the tree (e.g. workspace reload) — close
+      // the view instead of hanging on an invalid graph. The user can
+      // re-open on a fresh selection.
+      mindMapStore.close();
+      return null;
+    }
+  }, [mindMapEnabled, mindMapCenterId, tree, graph, viewportSize.w, viewportSize.h]);
+
+  // Chord layout — only built when chord view is actually selected,
+  // to avoid paying the hierarchical-edge-bundling cost on every
+  // workspace load. Defaults to galaxy-level leaves = PACKAGE COUPLING
+  // view (10–30 packages arc'd on the ring with rolled-up file import
+  // ribbons between them). This is the useful starting point; file-
+  // level chord is only meaningful when scoped into one package and
+  // is accessed by a future "Chord inside this package" question.
+  const chordLayout = useMemo(() => {
+    if (viewMode !== "chord") return null;
+    if (!tree || !graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildChordLayout({
+        tree,
+        graph,
+        width: viewportSize.w,
+        height: viewportSize.h,
+        // Explicit for clarity — also the current builder default.
+        leafKind: "galaxy",
+      });
+    } catch {
+      return null;
+    }
+  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
+
+  // Matrix layout — lazy for the same reasons as chord. Default
+  // `rowKind: "building"` at workspace scope would dump ~1000 rows;
+  // cap with `maxRows: 120` and let the connectivity rank keep the
+  // most interesting files. Power users can scope into a package via
+  // the Analyze panel's future "Matrix inside this" action.
+  const matrixLayout = useMemo(() => {
+    if (viewMode !== "matrix") return null;
+    if (!tree || !graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildMatrixLayout({
+        tree,
+        graph,
+        width: viewportSize.w,
+        height: viewportSize.h,
+        // Package-level DSM at workspace scope — ~20-30 rows with
+        // clear block structure. File-level DSM (`rowKind: "building"`)
+        // is only meaningful when scoped into one package; a future
+        // "Matrix inside this package" Analyze question will flip into
+        // that mode with an explicit scopeId.
+        rowKind: "galaxy",
+        maxRows: 60,
+      });
+    } catch {
+      return null;
+    }
+  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
+
+  const quadrantLayout = useMemo(() => {
+    if (viewMode !== "quadrant") return null;
+    if (!tree || !graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildQuadrantLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h, pointKind: "galaxy" });
+    } catch { return null; }
+  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
+
+  const arcLayout = useMemo(() => {
+    if (viewMode !== "arc-cycles") return null;
+    if (!tree || !graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildArcLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h, nodeKind: "galaxy" });
+    } catch { return null; }
+  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
+
+  const embeddingLayout = useMemo(() => {
+    if (viewMode !== "embedding") return null;
+    if (!tree || !graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildEmbeddingLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h });
+    } catch { return null; }
+  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
+
+  const blastLayout = useMemo(() => {
+    if (viewMode !== "blast") return null;
+    if (!tree || !graph) return null;
+    if (!selectedId) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildBlastLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h, centerId: selectedId, direction: blastDirection });
+    } catch { return null; }
+  }, [viewMode, tree, graph, selectedId, blastDirection, viewportSize.w, viewportSize.h]);
+
+  const archLayerLayout = useMemo(() => {
+    if (viewMode !== "arch-layers") return null;
+    if (!graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildArchLayerLayout({ graph, width: viewportSize.w, height: viewportSize.h });
+    } catch { return null; }
+  }, [viewMode, graph, viewportSize.w, viewportSize.h]);
+
+  const debtChartLayout = useMemo(() => {
+    if (viewMode !== "debt-history") return null;
+    if (!graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildDebtChartLayout({ graph, width: viewportSize.w, height: viewportSize.h });
+    } catch { return null; }
+  }, [viewMode, graph, viewportSize.w, viewportSize.h]);
+
+  const refactorTerrainLayout = useMemo(() => {
+    if (viewMode !== "refactor-terrain") return null;
+    if (!tree || !graph) return null;
+    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
+    try {
+      return buildRefactorTerrainLayout({ tree, graph });
+    } catch { return null; }
+  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
 
   const onDragLeft = useDividerDrag(
     prefs.leftW,
@@ -200,7 +422,6 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
             before the right cluster gives up space. */}
         <div style={HEADER_MIDDLE}>
           <DrillPath />
-          <FocusModeChip />
         </div>
 
         {/* Right cluster: current-context readouts + Inspector
@@ -268,6 +489,236 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <span style={{ opacity: 0.5 }}>·</span>
             </div>
           )}
+          {mindMapEnabled && mindMapGraph ? (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                // Opaque-ish backdrop so the treemap underneath fades
+                // out without fully disappearing — gives a sense of
+                // "this is a focused layer, not a different page".
+                background: "rgba(248, 250, 252, 0.94)",
+                backdropFilter: "blur(6px)",
+                WebkitBackdropFilter: "blur(6px)",
+                zIndex: 5,
+                display: "flex",
+                alignItems: "stretch",
+                justifyContent: "stretch",
+              }}
+            >
+              <MindMapView
+                graph={mindMapGraph}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => {
+                  entityStore.selectEntity(id);
+                  mindMapStore.openOn(id);
+                }}
+                onDismiss={() => mindMapStore.close()}
+              />
+            </div>
+          ) : null}
+          {viewMode === "chord" && chordLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <ChordView
+                layout={chordLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => {
+                  entityStore.selectEntity(id);
+                  // Clicking a leaf in the chord view jumps to the
+                  // mind-map on that entity — lets the user pivot from
+                  // "overall coupling" into "who touches this one".
+                  mindMapStore.openOn(id);
+                  viewModeStore.setMode("mindmap");
+                }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "matrix" && matrixLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <MatrixView
+                layout={matrixLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => {
+                  entityStore.selectEntity(id);
+                  mindMapStore.openOn(id);
+                  viewModeStore.setMode("mindmap");
+                }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "quadrant" && quadrantLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <QuadrantView
+                layout={quadrantLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "arc-cycles" && arcLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <ArcView
+                layout={arcLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("mindmap"); mindMapStore.openOn(id); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "embedding" && embeddingLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <EmbeddingMapView
+                layout={embeddingLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "blast" && blastLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <BlastView
+                layout={blastLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onToggleDirection={() => setBlastDirection(d => d === "blast" ? "fix" : "blast")}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "arch-layers" && archLayerLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <ArchLayerView
+                layout={archLayerLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "debt-history" && debtChartLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <DebtChartView
+                layout={debtChartLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "refactor-terrain" && refactorTerrainLayout ? (
+            <div style={OVERLAY_STYLE}>
+              <RefactorTerrainView
+                layout={refactorTerrainLayout}
+                width={viewportSize.w}
+                height={viewportSize.h}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "cycle-genesis" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <CycleGenesisView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "smell-history" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <SmellHistoryView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "arch-drift" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <ArchDriftView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "cochange" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <CoChangeView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "refactor-sim" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <RefactorSimView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "start-here" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <StartHereView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "pathfinder" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <PathfinderView
+                graph={graph}
+                selectedId={selectedId ?? undefined}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "neighborhood" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <NeighborhoodView
+                graph={graph}
+                selectedId={selectedId ?? undefined}
+                onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("neighborhood"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "author-territory" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <AuthorTerritoryView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
+          {viewMode === "service-topo" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <ServiceTopoView
+                graph={graph}
+                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
+                onDismiss={() => viewModeStore.setMode("treemap")}
+              />
+            </div>
+          ) : null}
           <CanvasToolbar />
         </div>
 
@@ -314,12 +765,12 @@ function IconToggle({
       aria-label={ariaLabel}
       aria-pressed={active}
       style={{
-        width: 30,
-        height: 30,
+        width: 24,
+        height: 24,
         border: "1px solid transparent",
-        background: active ? color.accentSofter : "transparent",
-        color: active ? color.accent : color.text2,
-        borderRadius: radius.md,
+        background: active ? color.bg3 : "transparent",
+        color: active ? color.text0 : color.text2,
+        borderRadius: radius.sm,
         cursor: "pointer",
         display: "inline-flex",
         alignItems: "center",
@@ -410,14 +861,14 @@ const ROOT_STYLE: CSSProperties = {
 };
 
 const HEADER_STYLE: CSSProperties = {
-  padding: `${space[2]}px ${space[3]}px`,
+  padding: `0 ${space[3]}px`,
   borderBottom: `1px solid ${color.border}`,
   display: "flex",
   alignItems: "center",
-  gap: space[3],
+  gap: space[2],
   background: color.bg1,
   flexShrink: 0,
-  height: 48,
+  height: 34,
 };
 
 const HEADER_GROUP: CSSProperties = {
@@ -438,11 +889,11 @@ const HEADER_MIDDLE: CSSProperties = {
 };
 
 const PRODUCT_NAME: CSSProperties = {
-  fontSize: font.size.lg,
+  fontSize: font.size.md,
   fontWeight: font.weight.semibold,
   color: color.text0,
-  letterSpacing: font.letter.tight,
-  paddingLeft: space[2],
+  letterSpacing: -0.2,
+  paddingLeft: space[1],
   paddingRight: space[1],
   whiteSpace: "nowrap",
 };
@@ -450,11 +901,11 @@ const PRODUCT_NAME: CSSProperties = {
 const SCALE_CHIP: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
-  padding: `4px ${space[2]}px`,
+  gap: 4,
+  padding: `2px ${space[2]}px`,
   background: color.bg2,
   border: `1px solid ${color.border}`,
-  borderRadius: radius.md,
+  borderRadius: radius.sm,
   fontSize: font.size.sm,
   fontFamily: font.mono,
   fontVariantNumeric: "tabular-nums",
@@ -464,11 +915,11 @@ const SCALE_CHIP: CSSProperties = {
 const KIND_CHIP: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
-  padding: `4px ${space[2]}px`,
-  background: color.accentSoft,
-  color: color.accent,
-  border: `1px solid ${color.accentBorder}`,
-  borderRadius: radius.md,
+  padding: `2px ${space[2]}px`,
+  background: color.bg2,
+  color: color.text0,
+  border: `1px solid ${color.border}`,
+  borderRadius: radius.sm,
   fontSize: font.size.sm,
   fontWeight: font.weight.medium,
   fontFamily: font.mono,
@@ -492,6 +943,18 @@ const DIVIDER_LINE: CSSProperties = {
   height: "100%",
   background: color.border,
   transition: `background ${transition.fast}`,
+};
+
+const OVERLAY_STYLE: CSSProperties = {
+  position: "absolute",
+  inset: 0,
+  background: "rgba(248, 250, 252, 0.96)",
+  backdropFilter: "blur(6px)",
+  WebkitBackdropFilter: "blur(6px)",
+  zIndex: 4,
+  display: "flex",
+  alignItems: "stretch",
+  justifyContent: "stretch",
 };
 
 const LOADING_STYLE: CSSProperties = {

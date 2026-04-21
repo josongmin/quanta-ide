@@ -30,6 +30,7 @@ import { useKindFilter } from "../../../features/kind-filter";
 import { useSnapshotShortcut } from "../../../features/snapshot";
 import { ColorLegend } from "../../../features/color-legend";
 import { StickiesLayer } from "../../../features/stickies";
+import { SourceOverlay } from "../../../features/source-viewer";
 import { rollupEntitySignals, type EntitySignals } from "@quanta/canvas-engine";
 import {
   computeColorOverrides,
@@ -135,7 +136,7 @@ export function CanvasViewport({
     () => rollupEdges(tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy),
     [tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy],
   );
-  const { hoveredId, selectedId, focusMode, anchorId } = useEntityState(s => s.interaction);
+  const { hoveredId, selectedId, focusMode, anchorId, expandedFolderId } = useEntityState(s => s.interaction);
 
   // Adaptive focus filter — the rule the rest of the product hangs
   // off. Three regimes, picked by comparing anchor depth to the
@@ -221,6 +222,65 @@ export function CanvasViewport({
     if (!focusedSet) return null;
     return baseVisibleEntities.filter(e => focusedSet.has(e.id));
   }, [focusedSet, baseVisibleEntities]);
+
+  // Inline folder expansion — Street tier only. When a folder is
+  // expanded we collapse the visible set down to three groups:
+  //   - the expanded folder itself
+  //   - its descendants (injected so they paint inside the folder's
+  //     rect — the hierarchical layout already nests children inside
+  //     parents, so adding them to `visibleEntities` is all it takes)
+  //   - the expanded folder's IMMEDIATE SIBLINGS (same parentId),
+  //     which render as dim+desaturated thumbnails for context
+  // Every OTHER street in the workspace gets hidden. Without this,
+  // `tree.byKind("street")` drops every deeply-nested street onto the
+  // canvas — so expanding one package leaks the internal sub-folder
+  // structure of unrelated packages into view ("왜 다른 폴더에 있는
+  // 것들이 보이고"). Siblings stay because they're the peer scope
+  // the user is comparing against; ancestors are drawn separately
+  // as `ancestorFrames` and give the "you are inside X" breadcrumb.
+  //
+  // Gated on `tier.visibleKind === "street"`: expansion is a folder-
+  // level affordance, meaningless at universe/galaxy (too coarse) and
+  // redundant at building/floor/room (those already show their
+  // internals). If the user drills away, the store keeps the id but
+  // this memo ignores it — a natural reset without a store write.
+  const expansion = useMemo<{
+    injected: readonly Entity[];
+    thumbnailIds: ReadonlySet<string>;
+    hiddenIds: ReadonlySet<string>;
+  } | null>(() => {
+    if (!expandedFolderId) return null;
+    if (tier.visibleKind !== "street") return null;
+    const folder = tree.byId.get(expandedFolderId);
+    if (!folder || folder.kind !== "street") return null;
+    const injected: Entity[] = [];
+    const walk = (id: string): void => {
+      for (const cid of tree.byId.get(id)?.childIds ?? []) {
+        const child = tree.byId.get(cid);
+        if (!child) continue;
+        injected.push(child);
+        // Recurse through descendant streets so a deep folder with
+        // nested sub-dirs shows the whole sub-tree inside the expanded
+        // rect. Stop at buildings/floor/room — those are leaves for
+        // the expand gesture; drill-in handles deeper travel.
+        if (child.kind === "street") walk(cid);
+      }
+    };
+    walk(expandedFolderId);
+    const expandedIds = new Set<string>([expandedFolderId, ...injected.map(e => e.id)]);
+    const parentId = folder.parentId;
+    const thumbnailIds = new Set<string>();
+    const hiddenIds = new Set<string>();
+    for (const e of baseVisibleEntities) {
+      if (expandedIds.has(e.id)) continue;
+      if (e.parentId === parentId) {
+        thumbnailIds.add(e.id);
+      } else {
+        hiddenIds.add(e.id);
+      }
+    }
+    return { injected, thumbnailIds, hiddenIds };
+  }, [expandedFolderId, tier.visibleKind, tree, baseVisibleEntities]);
   const focusedTierEdges = useMemo<readonly TierEdge[] | null>(() => {
     if (!focusedSet) return null;
     return baseTierEdges.filter(e => focusedSet.has(e.fromId) && focusedSet.has(e.toId));
@@ -239,17 +299,41 @@ export function CanvasViewport({
     kindVisibility.room;
   const preKindEntities = focusedVisibleEntities ?? baseVisibleEntities;
   const preKindEdges = focusedTierEdges ?? baseTierEdges;
+  // Fold expansion-injected children into the pre-kind set so the
+  // kind-filter below still applies to them uniformly (a user toggling
+  // "hide files" should hide the expanded folder's files too).
+  // Hidden peers (not siblings of the expanded folder) are dropped
+  // here so unrelated packages' nested sub-streets don't leak into the
+  // focused view.
+  const withExpansion = useMemo<readonly Entity[]>(() => {
+    if (!expansion) return preKindEntities;
+    const seen = new Set<string>();
+    const out: Entity[] = [];
+    for (const e of preKindEntities) {
+      if (expansion.hiddenIds.has(e.id)) continue;
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      out.push(e);
+    }
+    for (const e of expansion.injected) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      out.push(e);
+    }
+    return out;
+  }, [preKindEntities, expansion]);
   const visibleEntities = useMemo<readonly Entity[]>(
-    () => (allKindsOn ? preKindEntities : preKindEntities.filter(e => kindVisibility[e.kind])),
-    [preKindEntities, allKindsOn, kindVisibility],
+    () => (allKindsOn ? withExpansion : withExpansion.filter(e => kindVisibility[e.kind])),
+    [withExpansion, allKindsOn, kindVisibility],
   );
-  // Drop edges whose endpoints fall under a hidden kind so we don't
-  // render phantom lines between invisible rects.
+  // Drop edges whose endpoints fall under a hidden kind or the
+  // expansion hide-set so we don't render phantom lines between
+  // invisible rects.
   const tierEdges = useMemo<readonly TierEdge[]>(() => {
-    if (allKindsOn) return preKindEdges;
+    if (allKindsOn && !expansion) return preKindEdges;
     const visibleIds = new Set(visibleEntities.map(e => e.id));
     return preKindEdges.filter(e => visibleIds.has(e.fromId) && visibleIds.has(e.toId));
-  }, [preKindEdges, allKindsOn, visibleEntities]);
+  }, [preKindEdges, allKindsOn, visibleEntities, expansion]);
 
   const cameraForRect = useCallback(
     (bounds: Rect | null, pad = DRILL_FIT_PAD): CameraState => {
@@ -317,6 +401,41 @@ export function CanvasViewport({
   }, [anchorId, visibleEntities, layout, cameraForRect, tweenTo]);
 
   useEffect(() => () => cancelTween(), [cancelTween]);
+
+  // Camera follow on inline expansion — glide to the expanded
+  // folder's rect so the user's eye doesn't have to hunt for where
+  // the children just materialised. Uses a slightly longer tween than
+  // drill-in (320 vs 260 ms) because the camera move is SMALLER
+  // (staying at the same tier, not crossing a ladder step) and a
+  // too-fast move reads as a jump cut. Collapse fits back to the peer
+  // set so the user regains overview.
+  //
+  // Gated on actual id transition (prevRef) so a re-render with the
+  // same expandedFolderId doesn't re-tween. Initial-fit owns the very
+  // first frame; this hook ignores that transition to avoid fighting
+  // the landing camera.
+  const prevExpandedRef = useRef<string | null>(expandedFolderId);
+  useEffect(() => {
+    const prev = prevExpandedRef.current;
+    prevExpandedRef.current = expandedFolderId;
+    if (prev === expandedFolderId) return;
+    if (!didInitialFit.current) return;
+    if (expandedFolderId) {
+      const rect = layout.rects.get(expandedFolderId);
+      if (!rect) return;
+      // Slightly smaller pad than drill-in — inline expansion wants
+      // the folder to dominate but keeps a slice of peers visible as
+      // thumbnail context.
+      tweenTo(cameraForRect(rect, 48), 320);
+    } else {
+      // Collapse — fit back to the base sibling set so the user sees
+      // where the folder lived in context.
+      if (visibleEntities.length === 0) return;
+      const bounds = unionRects(visibleEntities, layout);
+      if (!bounds) return;
+      tweenTo(cameraForRect(bounds), 260);
+    }
+  }, [expandedFolderId, layout, cameraForRect, tweenTo, visibleEntities]);
 
   // Persist camera pose. A debounced writer batches rapid pan/zoom
   // into one localStorage write; the flush on unmount captures the
@@ -421,10 +540,26 @@ export function CanvasViewport({
       // pick an entity, lose your mental map, have to pan back. Drill-
       // in is the `dblclick` handler below; Inspector "Drill in" and
       // Cmd/Ctrl + 0 also trigger the same flow.
-      if (!tree.byId.has(id)) return;
+      const entity = tree.byId.get(id);
+      if (!entity) return;
+      const isFolderExpand = tier.visibleKind === "street" && entity.kind === "street";
       entityStore.selectEntity(id);
+      if (isFolderExpand) {
+        // Toggle inline expansion. Two store mutations after this:
+        // `setExpandedFolder` publishes the new expansion target, and
+        // `setAnchor(null)` cancels the auto-focus that `selectEntity`
+        // triggers on the first click out of an empty state — without
+        // this, the `focusedSet` filter in CanvasViewport would prune
+        // every peer folder away (they're not graph-adjacent to the
+        // clicked folder), leaving just the expanded folder on screen
+        // and killing the thumbnail context effect. Selection itself
+        // survives (setAnchor preserves selectedId when passed null).
+        const cur = entityStore.getState().interaction.expandedFolderId;
+        entityStore.setExpandedFolder(cur === id ? null : id);
+        entityStore.setAnchor(null);
+      }
     },
-    [tree],
+    [tree, tier.visibleKind],
   );
   const onEntityDoubleClick = useCallback(
     (id: string) => {
@@ -438,6 +573,18 @@ export function CanvasViewport({
   const onEntityHover = useCallback((id: string | null) => {
     entityStore.hoverEntity(id);
   }, []);
+  const onAncestorChipClick = useCallback(
+    (id: string) => {
+      // Breadcrumb chip → same drill-in flow as dblclick on the rect:
+      // commit the entity as anchor and zoom/flip the tier so the user
+      // lands inside that ancestor's scope.
+      const entity = tree.byId.get(id);
+      if (!entity) return;
+      entityStore.selectEntity(id);
+      drillInto(entity);
+    },
+    [tree, drillInto],
+  );
 
   // The scene binds handlers once at construction and reads the ref on
   // every dispatch, so React callback identity can change freely
@@ -450,6 +597,7 @@ export function CanvasViewport({
     onEntityClick,
     onEntityDoubleClick,
     onEntityHover,
+    onAncestorChipClick,
   });
   callbacksRef.current = {
     onZoomAt,
@@ -459,6 +607,7 @@ export function CanvasViewport({
     onEntityClick,
     onEntityDoubleClick,
     onEntityHover,
+    onAncestorChipClick,
   };
 
   // Pixi lifecycle — the canvas-keyed cache in pixi-scene.ts guarantees
@@ -506,25 +655,31 @@ export function CanvasViewport({
   // Ancestor containment frames — when anything is anchored or
   // selected, hand the scene the chain of parent rects (leaf→root)
   // so the canvas can paint "this file is inside THIS package /
-  // directory" as faint outlined frames behind the edges. Leaf is
-  // skipped (it's the card itself) and the universe root is skipped
-  // (its frame covers the whole world, adds no value). Closest
-  // parent gets depth 0 and the strongest alpha in the renderer.
+  // directory" as faint outlined frames behind the edges. The
+  // universe root is skipped (its frame covers the whole world,
+  // adds no value). The anchor itself is included as depth-0 ONLY
+  // when it's a container at the current tier (i.e., its kind is
+  // above visibleKind) — otherwise the anchor IS one of the cards
+  // on screen and framing it would double-draw the selection.
+  // Closest parent gets the strongest alpha in the renderer.
   const ancestorFrames = useMemo(() => {
     const id = anchorId ?? selectedId;
     if (!id) return null;
-    const out: { id: string; name: string; kind: Entity["kind"]; rect: Rect; depth: number }[] = [];
+    const anchor = tree.byId.get(id);
+    if (!anchor) return null;
+    const out: { id: string; name: string; path: string; kind: Entity["kind"]; rect: Rect; depth: number }[] = [];
+    const anchorIsContainer = ENTITY_DEPTH[anchor.kind] < ENTITY_DEPTH[tier.visibleKind];
     let depth = 0;
     for (const a of tree.ancestorsOf(id)) {
-      if (a.id === id) continue;
+      if (a.id === id && !anchorIsContainer) continue;
       if (a.parentId === null) continue;
       const rect = layout.rects.get(a.id);
       if (!rect) continue;
-      out.push({ id: a.id, name: a.name, kind: a.kind, rect, depth });
+      out.push({ id: a.id, name: a.name, path: a.path, kind: a.kind, rect, depth });
       depth++;
     }
     return out.length > 0 ? out : null;
-  }, [anchorId, selectedId, tree, layout]);
+  }, [anchorId, selectedId, tree, layout, tier.visibleKind]);
 
   // Alert badges — one glyph per active signal family, rendered as
   // small dots on the top-right corner of the rect. Pre-built here
@@ -544,6 +699,8 @@ export function CanvasViewport({
     return out;
   }, [entitySignals]);
 
+  const thumbnailIds = expansion?.thumbnailIds ?? null;
+
   // Push a fresh frame to the scene on any visible change. The scene
   // holds no React state; every mutation flows through here.
   useEffect(() => {
@@ -561,6 +718,7 @@ export function CanvasViewport({
       colorOverride,
       badges,
       spotlightIds,
+      thumbnailIds,
       anchorId,
       ancestorFrames,
     };
@@ -578,6 +736,7 @@ export function CanvasViewport({
     colorOverride,
     badges,
     spotlightIds,
+    thumbnailIds,
     anchorId,
     ancestorFrames,
   ]);
@@ -612,9 +771,17 @@ export function CanvasViewport({
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === "Escape") {
         e.preventDefault();
-        const sel = entityStore.getState().interaction.selectedId;
-        if (sel) entityStore.selectEntity(null);
-        else drillOut();
+        const interaction = entityStore.getState().interaction;
+        // Priority: collapse expansion → clear selection → drill out.
+        // Each Esc peels one layer; mashing Esc eventually gets the
+        // user all the way to the overview without a risky reset.
+        if (interaction.expandedFolderId) {
+          entityStore.setExpandedFolder(null);
+        } else if (interaction.selectedId) {
+          entityStore.selectEntity(null);
+        } else {
+          drillOut();
+        }
         return;
       }
       // Cmd/Ctrl + 0 → fit current tier. Cmd/Ctrl + 1 → 100% zoom.
@@ -661,6 +828,16 @@ export function CanvasViewport({
   return (
     <div tabIndex={0} onKeyDown={onKeyDown} style={ROOT_STYLE}>
       <canvas ref={canvasRef} style={CANVAS_STYLE} />
+      <SourceOverlay
+        tree={tree}
+        layout={layout}
+        camera={camera}
+        tier={tier}
+        viewportWidth={width}
+        viewportHeight={height}
+        selectedId={selectedId}
+        onSelect={onEntityClick}
+      />
       <StickiesLayer
         layout={layout}
         visibleEntities={visibleEntities}

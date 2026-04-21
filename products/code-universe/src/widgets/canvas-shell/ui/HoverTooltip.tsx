@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactElement } from "react";
 import { useEntityState } from "../../../entities/entity";
+import { useTierState } from "../../../entities/tier";
 import { color, font, kindColor, kindLabel, radius, shadow, space } from "../../../shared/ui/tokens";
 
 // HoverTooltip
@@ -17,21 +18,29 @@ const STYLE_ROOT: CSSProperties = {
   position: "fixed",
   pointerEvents: "none",
   zIndex: 50,
-  background: "rgba(17, 24, 39, 0.92)",
-  color: "white",
-  padding: "6px 10px",
-  borderRadius: 6,
-  fontSize: 11,
-  fontFamily: "system-ui, sans-serif",
-  lineHeight: 1.4,
-  boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+  // Near-black surface with a faint inner highlight — reads as a
+  // "polished chip" rather than a gray box. Backdrop-blur softens
+  // whatever the canvas is showing underneath.
+  background: "rgba(10, 10, 10, 0.94)",
+  color: color.bg0,
+  padding: `${space[2]}px ${space[3]}px`,
+  borderRadius: radius.md,
+  fontSize: font.size.sm,
+  fontFamily: font.sans,
+  lineHeight: 1.35,
+  letterSpacing: -0.05,
+  boxShadow: `${shadow.lg}, inset 0 1px 0 rgba(255,255,255,0.06)`,
   whiteSpace: "nowrap",
   maxWidth: 360,
+  backdropFilter: "blur(8px) saturate(140%)",
+  WebkitBackdropFilter: "blur(8px) saturate(140%)",
 };
 
 export function HoverTooltip(): ReactElement | null {
   const hoveredId = useEntityState(s => s.interaction.hoveredId);
+  const expandedFolderId = useEntityState(s => s.interaction.expandedFolderId);
   const tree = useEntityState(s => s.tree);
+  const activeTierKind = useTierState(s => s.activeTier.visibleKind);
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
 
   // Track the cursor as long as something is hovered. Detaching the
@@ -73,15 +82,85 @@ export function HoverTooltip(): ReactElement | null {
 
   return (
     <div style={{ ...STYLE_ROOT, left, top }}>
-      <div style={{ fontWeight: 600, color: "white" }}>
-        {entity.name}
-        <span style={{ marginLeft: 6, opacity: 0.65, fontWeight: 400 }}>{entity.kind}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: space[2] }}>
+        <span
+          aria-hidden
+          style={{
+            width: 6,
+            height: 6,
+            borderRadius: radius.pill,
+            background: kindColor[entity.kind],
+            flexShrink: 0,
+            boxShadow: `0 0 0 2px rgba(${kindColor[entity.kind].replace("#", "")}, 0.0)`,
+          }}
+        />
+        <span style={{ fontWeight: font.weight.semibold, color: color.bg0 }}>
+          {entity.name}
+        </span>
+        <span
+          style={{
+            marginLeft: space[1],
+            opacity: 0.55,
+            fontSize: font.size.xs,
+            fontWeight: font.weight.medium,
+            textTransform: "uppercase",
+            letterSpacing: font.letter.ultra,
+          }}
+        >
+          {kindLabel[entity.kind]}
+        </span>
       </div>
       {entity.path && (
-        <div style={{ opacity: 0.65, fontSize: 10, marginTop: 2 }}>{entity.path}</div>
+        <div
+          style={{
+            opacity: 0.58,
+            fontSize: font.size.xs,
+            fontFamily: font.mono,
+            marginTop: space[1],
+            letterSpacing: 0,
+          }}
+        >
+          {entity.path}
+        </div>
       )}
       {rows.length > 0 && (
-        <div style={{ opacity: 0.85, fontSize: 10, marginTop: 4 }}>{rows.join(" · ")}</div>
+        <div
+          style={{
+            opacity: 0.82,
+            fontSize: font.size.xs,
+            marginTop: space[2],
+            paddingTop: space[1],
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {rows.join("   ·   ")}
+        </div>
+      )}
+      {activeTierKind === "street" && entity.kind === "street" && (
+        <div
+          style={{
+            opacity: 0.72,
+            fontSize: font.size.xs,
+            marginTop: space[2],
+            paddingTop: space[1],
+            borderTop: "1px solid rgba(255,255,255,0.08)",
+            letterSpacing: 0,
+            display: "flex",
+            gap: space[2],
+            alignItems: "center",
+          }}
+        >
+          <span style={{ fontFamily: font.mono, opacity: 0.82 }}>
+            {expandedFolderId === entity.id ? "Click" : "Click"}
+          </span>
+          <span>
+            {expandedFolderId === entity.id ? "collapse" : "expand inline"}
+          </span>
+          <span style={{ opacity: 0.32 }}>·</span>
+          <span style={{ fontFamily: font.mono, opacity: 0.82 }}>Dblclick</span>
+          <span>drill in</span>
+        </div>
       )}
     </div>
   );

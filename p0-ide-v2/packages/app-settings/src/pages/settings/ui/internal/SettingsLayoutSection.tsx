@@ -1,5 +1,5 @@
 import { cn } from "@quanta/ui-kit/lib";
-import { layoutPrefs, useLayoutPrefs, type TabStyle } from "@quanta/shell/stores/layout-prefs";
+import { preferences, usePreferences, type TabStyle } from "@quanta/shell/stores/preferences";
 
 interface TabStyleOption {
   id: TabStyle;
@@ -21,7 +21,7 @@ const OPTIONS: TabStyleOption[] = [
 ];
 
 export function SettingsLayoutSection() {
-  const tabStyle = useLayoutPrefs((s) => s.tabStyle);
+  const tabStyle = usePreferences((s) => s.layout.tabStyle);
 
   return (
     <section className="settings-layout">
@@ -44,7 +44,7 @@ export function SettingsLayoutSection() {
                 "settings-layout__option",
                 tabStyle === opt.id && "is-selected",
               )}
-              onClick={() => layoutPrefs.setTabStyle(opt.id)}
+              onClick={() => preferences.setTabStyle(opt.id)}
             >
               <TabStylePreview style={opt.id} />
               <div className="settings-layout__option-body">

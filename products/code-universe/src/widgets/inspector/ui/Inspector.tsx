@@ -21,6 +21,7 @@ import {
   IconClose,
   IconTarget,
 } from "../../../shared/ui/icons";
+import { AnalyzePanel } from "../../../features/analyze";
 
 // Inspector — right panel. Summary / Metrics / Relations / Children /
 // Actions stacked as cards on a slightly-inset surface. Buttons and
@@ -108,7 +109,10 @@ function LoadedInspector({ entity, tree }: { entity: Entity; tree: EntityTree })
           ) : null}
         </div>
 
+        <AnalyzePanel entity={entity} tree={tree} />
         <Metrics entity={entity} />
+        <EngineeringMetrics entity={entity} />
+        <ExternalDependencies entity={entity} />
         <Dependencies tree={tree} inbound={relations.inbound} outbound={relations.outbound} />
         <ChildrenList entity={entity} tree={tree} />
       </div>
@@ -662,6 +666,458 @@ function ChildrenList({ entity, tree }: { entity: Entity; tree: EntityTree }): R
         ) : null}
       </div>
     </Section>
+  );
+}
+
+// Engineering Metrics
+// --------------------------------------------------------------------
+// Grouped rollup of SE health signals. Five sub-groups per the IA
+// spec (Change / Quality / Delivery / Ownership / Dependency Health).
+// Each field is rendered with its canonical label + a muted "data
+// pending" placeholder so a future data pipeline can light the cells
+// up without touching the layout. A 4-badge strip at the top gives
+// the at-a-glance read (Health / Churn / Coverage / Bus Factor) that
+// the spec calls for — placeholders while no source is wired yet.
+//
+// Gated on folder-like kinds (street/galaxy): building/floor/room
+// will get their own file/symbol-scoped metrics view later; showing
+// aggregates on a single file would be misleading.
+
+type MetricFieldKey =
+  | "churn"
+  | "contributors"
+  | "prCount"
+  | "revertRate"
+  | "hotness"
+  | "coverage"
+  | "warnings"
+  | "todoDensity"
+  | "incidentLinked"
+  | "leadTime"
+  | "reviewTime"
+  | "changeFailureRate"
+  | "rollbackFreq"
+  | "primaryOwner"
+  | "busFactor"
+  | "reviewerConcentration"
+  | "pinnedPct"
+  | "outdatedCount"
+  | "advisories"
+  | "upgradeLag";
+
+interface MetricField {
+  key: MetricFieldKey;
+  label: string;
+}
+
+interface MetricGroup {
+  key: "change" | "quality" | "delivery" | "ownership" | "dep-health";
+  title: string;
+  source: string;
+  fields: readonly MetricField[];
+}
+
+const METRIC_GROUPS: readonly MetricGroup[] = [
+  {
+    key: "change",
+    title: "Change",
+    source: "git log",
+    fields: [
+      { key: "churn", label: "Churn" },
+      { key: "contributors", label: "Contributors" },
+      { key: "prCount", label: "PR count" },
+      { key: "revertRate", label: "Revert rate" },
+      { key: "hotness", label: "Hotness" },
+    ],
+  },
+  {
+    key: "quality",
+    title: "Quality",
+    source: "CI / static analysis",
+    fields: [
+      { key: "coverage", label: "Coverage" },
+      { key: "warnings", label: "Warnings" },
+      { key: "todoDensity", label: "TODO/FIXME density" },
+      { key: "incidentLinked", label: "Incident-linked changes" },
+    ],
+  },
+  {
+    key: "delivery",
+    title: "Delivery",
+    source: "git log / CI",
+    fields: [
+      { key: "leadTime", label: "Lead time" },
+      { key: "reviewTime", label: "Review time" },
+      { key: "changeFailureRate", label: "Change failure rate" },
+      { key: "rollbackFreq", label: "Rollback freq" },
+    ],
+  },
+  {
+    key: "ownership",
+    title: "Ownership",
+    source: "git log",
+    fields: [
+      { key: "primaryOwner", label: "Primary owner" },
+      { key: "busFactor", label: "Bus factor" },
+      { key: "reviewerConcentration", label: "Reviewer concentration" },
+    ],
+  },
+  {
+    key: "dep-health",
+    title: "Dependency Health",
+    source: "lockfile / advisories",
+    fields: [
+      { key: "pinnedPct", label: "Pinned %" },
+      { key: "outdatedCount", label: "Outdated count" },
+      { key: "advisories", label: "Advisories" },
+      { key: "upgradeLag", label: "Upgrade lag" },
+    ],
+  },
+];
+
+type TopBadgeKey = "health" | "churn" | "coverage" | "busFactor";
+
+const TOP_BADGES: readonly { key: TopBadgeKey; label: string }[] = [
+  { key: "health", label: "Health" },
+  { key: "churn", label: "Churn" },
+  { key: "coverage", label: "Coverage" },
+  { key: "busFactor", label: "Bus Factor" },
+];
+
+function isFolderKind(kind: Entity["kind"]): boolean {
+  return kind === "street" || kind === "galaxy";
+}
+
+function EngineeringMetrics({ entity }: { entity: Entity }): ReactElement | null {
+  if (!isFolderKind(entity.kind)) return null;
+  // Future: entity.metrics will carry engineering rollup fields
+  // surfaced by the git/CI/static-analysis pipeline. Until then
+  // each field renders a muted placeholder so the layout is stable
+  // when real values land.
+  return (
+    <Section title="Engineering Metrics">
+      <div
+        data-inspector-section="engineering-metrics"
+        data-inspector-state="pending"
+        style={{ display: "flex", flexDirection: "column", gap: space[3] }}
+      >
+        <TopBadgeStrip />
+        {METRIC_GROUPS.map(group => (
+          <MetricGroupBlock key={group.key} group={group} />
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+function TopBadgeStrip(): ReactElement {
+  return (
+    <div
+      data-inspector-badges="top"
+      style={{
+        display: "grid",
+        gridTemplateColumns: `repeat(${TOP_BADGES.length}, 1fr)`,
+        gap: space[2],
+      }}
+    >
+      {TOP_BADGES.map(b => (
+        <div
+          key={b.key}
+          data-badge-key={b.key}
+          data-badge-state="pending"
+          style={{
+            padding: `${space[2]}px ${space[2]}px`,
+            borderRadius: radius.md,
+            background: color.bg2,
+            border: `1px dashed ${color.border}`,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              fontSize: font.size.xxs,
+              fontWeight: font.weight.semibold,
+              letterSpacing: font.letter.ultra,
+              textTransform: "uppercase",
+              color: color.text2,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {b.label}
+          </div>
+          <div
+            aria-label="no data yet"
+            style={{
+              fontSize: font.size.xl,
+              fontWeight: font.weight.semibold,
+              color: color.text3,
+              fontVariantNumeric: "tabular-nums",
+              letterSpacing: font.letter.tight,
+              lineHeight: 1,
+            }}
+          >
+            —
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MetricGroupBlock({ group }: { group: MetricGroup }): ReactElement {
+  return (
+    <div data-metric-group={group.key}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: space[2],
+          marginBottom: space[1],
+        }}
+      >
+        <span
+          style={{
+            fontSize: font.size.xxs,
+            fontWeight: font.weight.semibold,
+            letterSpacing: font.letter.ultra,
+            textTransform: "uppercase",
+            color: color.text1,
+          }}
+        >
+          {group.title}
+        </span>
+        <span
+          style={{
+            fontSize: font.size.xxs,
+            color: color.text3,
+            fontStyle: "italic",
+            letterSpacing: font.letter.tight,
+            textTransform: "none",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          data source: {group.source}
+        </span>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          borderRadius: radius.md,
+          background: color.bg2,
+          border: `1px solid ${color.borderSoft}`,
+          overflow: "hidden",
+        }}
+      >
+        {group.fields.map((field, i) => (
+          <div
+            key={field.key}
+            data-metric-field={field.key}
+            data-metric-state="pending"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: space[2],
+              padding: `6px ${space[3]}px`,
+              borderTop: i === 0 ? "none" : `1px solid ${color.borderSoft}`,
+            }}
+          >
+            <span
+              style={{
+                fontSize: font.size.sm,
+                color: color.text1,
+                letterSpacing: font.letter.tight,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {field.label}
+            </span>
+            <span
+              aria-label="no data yet"
+              style={{
+                fontSize: font.size.sm,
+                color: color.text3,
+                fontVariantNumeric: "tabular-nums",
+                fontWeight: font.weight.medium,
+                flexShrink: 0,
+              }}
+            >
+              —
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// External Dependencies
+// --------------------------------------------------------------------
+// First-class section per the IA spec. Unlike the intra-workspace
+// `Dependencies` section above (which graphs edges between entities
+// in THIS repo), this surfaces external surface area: crates, npm
+// packages, infra/services, cross-repo links. Fields per dep row:
+// name, type, criticality, stability, version pinning, upgrade risk,
+// outage impact.
+//
+// No data extractor is wired yet, so this renders a visible stub:
+// the three expected category buckets (Crates/libs, Infra/services,
+// Cross-repo) each with an explicit empty state. The renderer will
+// also serve as the shell once rows arrive — no structural rework
+// needed, just swap the empty state for a `DepList` that consumes
+// `entity.metrics` / a future `entity.externalDeps` field.
+
+type ExternalDepCategoryKey = "lib" | "infra" | "cross-repo";
+
+interface ExternalDepCategory {
+  key: ExternalDepCategoryKey;
+  title: string;
+  /** Which `type` values this bucket will collect once data lands. */
+  types: readonly string[];
+  hint: string;
+}
+
+const EXTERNAL_DEP_CATEGORIES: readonly ExternalDepCategory[] = [
+  {
+    key: "lib",
+    title: "Crates / libs",
+    types: ["crate", "npm"],
+    hint: "Cargo.toml · package.json",
+  },
+  {
+    key: "infra",
+    title: "Infra / services",
+    types: ["infra", "service"],
+    hint: "config / IaC / service calls",
+  },
+  {
+    key: "cross-repo",
+    title: "Cross-repo",
+    types: ["cross-repo"],
+    hint: "workspace / submodule links",
+  },
+];
+
+const EXTERNAL_DEP_FIELDS: readonly string[] = [
+  "name",
+  "type",
+  "criticality",
+  "stability",
+  "version pinning",
+  "upgrade risk",
+  "outage impact",
+];
+
+function ExternalDependencies({ entity }: { entity: Entity }): ReactElement | null {
+  if (!isFolderKind(entity.kind)) return null;
+  return (
+    <Section title="External Dependencies">
+      <div
+        data-inspector-section="external-dependencies"
+        data-inspector-state="pending"
+        style={{ display: "flex", flexDirection: "column", gap: space[3] }}
+      >
+        <div
+          style={{
+            fontSize: font.size.sm,
+            color: color.text2,
+            lineHeight: 1.5,
+            letterSpacing: font.letter.tight,
+          }}
+        >
+          Dependency extraction pending. Each row will carry:{" "}
+          <span style={{ color: color.text1, fontFamily: font.mono, fontSize: font.size.xs }}>
+            {EXTERNAL_DEP_FIELDS.join(" · ")}
+          </span>
+          .
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: space[2] }}>
+          {EXTERNAL_DEP_CATEGORIES.map(cat => (
+            <ExternalDepBucket key={cat.key} category={cat} />
+          ))}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
+function ExternalDepBucket({ category }: { category: ExternalDepCategory }): ReactElement {
+  return (
+    <div
+      data-dep-bucket={category.key}
+      data-dep-bucket-state="empty"
+      style={{
+        padding: `${space[2]}px ${space[3]}px`,
+        borderRadius: radius.md,
+        background: color.bg2,
+        border: `1px dashed ${color.border}`,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: space[2],
+          marginBottom: 2,
+        }}
+      >
+        <span
+          style={{
+            fontSize: font.size.xxs,
+            fontWeight: font.weight.semibold,
+            letterSpacing: font.letter.ultra,
+            textTransform: "uppercase",
+            color: color.text1,
+          }}
+        >
+          {category.title}
+        </span>
+        <span
+          style={{
+            fontSize: font.size.xxs,
+            color: color.text3,
+            fontFamily: font.mono,
+            letterSpacing: font.letter.tight,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {category.hint}
+        </span>
+        <span
+          style={{
+            marginLeft: "auto",
+            fontSize: font.size.xxs,
+            color: color.text3,
+            fontVariantNumeric: "tabular-nums",
+            fontWeight: font.weight.medium,
+          }}
+        >
+          0
+        </span>
+      </div>
+      <div
+        style={{
+          fontSize: font.size.sm,
+          color: color.text3,
+          fontStyle: "italic",
+          letterSpacing: font.letter.tight,
+        }}
+      >
+        no entries yet
+      </div>
+    </div>
   );
 }
 

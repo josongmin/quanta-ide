@@ -145,6 +145,27 @@ export function WorkspaceApp(props: WorkspaceAppProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Sync local state with any graph the bridge has already loaded
+  // at boot (see code-universe-bridge). First tab-activation just
+  // picks up that graph instead of reloading SAMPLE_GRAPH.
+  useEffect(() => {
+    if (externalSource) return;
+    const existing = sceneStore.getState().graph;
+    if (existing && existing !== graph) {
+      setGraph(existing);
+      const root = sceneStore.getState().repoRoot;
+      if (root) {
+        setPathInput(root);
+        setStatus({
+          kind: "loaded",
+          result: { graph: existing, stats: { totalFiles: existing.files.length, skipped: 0, durationMs: 0 } },
+          path: root,
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="workspace-app">
       {!collapsed && (

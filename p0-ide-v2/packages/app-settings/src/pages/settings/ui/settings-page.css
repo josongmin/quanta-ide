@@ -523,7 +523,7 @@
 .settings-card__state--disabled { color: var(--fg-muted); background: var(--bg-muted); }
 .settings-card__state--error    { color: var(--danger);  background: var(--bg-danger-subtle); }
 
-/* Toggle (iOS-style pill) — card vs sub-field have different sizes */
+/* Toggle (AI-Studio-style pill) — solid fg ON, slate OFF, lifted knob */
 .settings-card__toggle,
 .settings-field__toggle {
   position: relative;
@@ -542,10 +542,10 @@
 .settings-field__toggle-track {
   position: absolute;
   inset: 0;
-  background: var(--border-strong);
-  border: 1px solid var(--border-rest);
+  background: color-mix(in srgb, var(--fg) 28%, var(--bg-muted));
+  border: none;
   border-radius: var(--radius-pill);
-  transition: background 0.16s ease, border-color 0.16s ease;
+  transition: background 0.18s ease;
 }
 .settings-card__toggle-track::before,
 .settings-field__toggle-track::before {
@@ -553,23 +553,29 @@
   position: absolute;
   border-radius: 50%;
   background: #fff;
-  transition: transform 0.16s ease;
-  box-shadow: none;
+  transition: transform 0.18s ease;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.18),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06);
 }
 .settings-card__toggle input:checked + .settings-card__toggle-track,
 .settings-field__toggle input:checked + .settings-field__toggle-track {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--fg);
+}
+.settings-card__toggle input:disabled + .settings-card__toggle-track,
+.settings-field__toggle input:disabled + .settings-field__toggle-track {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-/* Card-level (primary) — regular size */
+/* Card-level (primary) — AI-Studio proportions */
 .settings-card__toggle {
-  width: 32px;
-  height: 20px;
+  width: 30px;
+  height: 18px;
 }
 .settings-card__toggle-track::before {
-  left: 3px;
-  top: 3px;
+  left: 2px;
+  top: 2px;
   width: 14px;
   height: 14px;
 }
@@ -579,21 +585,17 @@
 
 /* Sub-field (secondary) — smaller */
 .settings-field__toggle {
-  width: 26px;
-  height: 16px;
+  width: 24px;
+  height: 14px;
 }
 .settings-field__toggle-track::before {
-  left: 3px;
-  top: 3px;
+  left: 2px;
+  top: 2px;
   width: 10px;
   height: 10px;
 }
 .settings-field__toggle input:checked + .settings-field__toggle-track::before {
   transform: translateX(10px);
-}
-.settings-field__toggle input:disabled + .settings-field__toggle-track {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* Fields — row-based, inspector-style cov/dead list rhythm */

@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { cn } from "@quanta/ui-kit/lib";
 import {
   featureRegistry,
   type FeatureRecord,
 } from "@quanta/shell/stores/feature-registry";
+import { preferences } from "@quanta/shell/stores/preferences";
 import { toast } from "@quanta/shell/stores/toast-store";
 import { SettingsField } from "./SettingsField";
 
@@ -17,11 +17,11 @@ export function SettingsFeatureCard({
   onChange: (key: string, value: unknown) => void;
 }) {
   const hasSettings = (feature.settings?.length ?? 0) > 0;
-  const [disabled, setDisabled] = useState(feature.state !== "active");
+  const disabled = feature.state !== "active";
 
   function toggleFeatureState() {
     const next = !disabled;
-    setDisabled(next);
+    preferences.setFeatureEnabled(feature.id, !next);
     featureRegistry.setState(feature.id, next ? "disabled" : "active");
     toast.info(
       `${feature.title} ${next ? "disabled" : "enabled"}`,
@@ -54,10 +54,12 @@ export function SettingsFeatureCard({
           )}
         </div>
         <div className="settings-card__aside">
-          <span className={`settings-card__state settings-card__state--${disabled ? "disabled" : feature.state}`}>
-            <span className="settings-card__state-dot" aria-hidden />
-            {disabled ? "disabled" : feature.state}
-          </span>
+          {feature.state === "error" && (
+            <span className="settings-card__state settings-card__state--error">
+              <span className="settings-card__state-dot" aria-hidden />
+              error
+            </span>
+          )}
           <label className="settings-card__toggle">
             <input
               type="checkbox"

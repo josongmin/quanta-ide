@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useFeatureRegistry } from "@quanta/shell/stores/feature-registry";
+import { preferences, usePreferences } from "@quanta/shell/stores/preferences";
 import { toast } from "@quanta/shell/stores/toast-store";
 import type { CategoryId } from "./settings-page.data";
 import { CATEGORY_LABEL, SECTION_DESC } from "./settings-page.data";
@@ -10,7 +11,12 @@ export function useSettingsPage() {
   const features = useMemo(() => [...featuresMap.values()], [featuresMap]);
   const [selected, setSelected] = useState<CategoryId>("all");
   const [query, setQuery] = useState("");
-  const [values, setValues] = useState<Record<string, unknown>>(() => seedValues(features));
+  const overrides = usePreferences((s) => s.features.values);
+  const defaults = useMemo(() => seedValues(features), [features]);
+  const values = useMemo(
+    () => ({ ...defaults, ...overrides }),
+    [defaults, overrides],
+  );
 
   const userFeatures = useMemo(
     () => features.filter((f) => f.visibility === "user"),
@@ -51,11 +57,11 @@ export function useSettingsPage() {
   }, [userFeatures, selected, q, searching]);
 
   function updateValue(key: string, value: unknown) {
-    setValues((prev) => ({ ...prev, [key]: value }));
+    preferences.setFeatureValue(key, value);
   }
 
   function resetAll() {
-    setValues(seedValues(features));
+    preferences.resetFeatures();
     toast.info("Settings reset", "all fields restored to defaults", "settings");
   }
 

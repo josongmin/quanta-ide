@@ -31,6 +31,8 @@ export interface EntityInteraction {
    *  drill-in (double-click / Inspector button), and the first
    *  selection out of an empty state. Cleared when focus ends. */
   anchorId: string | null;
+  /** Street-tier inline expansion — the folder whose children render inside its rect; peers dim to thumbnails. */
+  expandedFolderId: string | null;
 }
 
 export interface EntityState {
@@ -40,7 +42,13 @@ export interface EntityState {
 
 const initial: EntityState = {
   tree: null,
-  interaction: { selectedId: null, hoveredId: null, focusMode: "none", anchorId: null },
+  interaction: {
+    selectedId: null,
+    hoveredId: null,
+    focusMode: "none",
+    anchorId: null,
+    expandedFolderId: null,
+  },
 };
 
 let state: EntityState = initial;
@@ -62,7 +70,13 @@ export const entityStore = {
   },
   setTree(tree: EntityTree | null): void {
     if (state.tree === tree) return;
-    state = { ...state, tree };
+    // A new tree invalidates any Street-tier expansion — the old folder
+    // id may not exist in the new structure, so reset it defensively.
+    state = {
+      ...state,
+      tree,
+      interaction: { ...state.interaction, expandedFolderId: null },
+    };
     emit();
   },
   selectEntity(id: string | null): void {
@@ -125,6 +139,17 @@ export const entityStore = {
         selectedId: nextSel,
       },
     };
+    emit();
+  },
+  /** Street-tier inline folder expansion. Pass a folder id to expand
+   *  its children inside its own rect (peers dim to thumbnails), or
+   *  `null` to collapse. Deliberately independent of `selectedId` /
+   *  `anchorId` — expanding a folder does not move the selection, and
+   *  selecting a child inside the expanded folder must not collapse
+   *  it. */
+  setExpandedFolder(id: string | null): void {
+    if (state.interaction.expandedFolderId === id) return;
+    state = { ...state, interaction: { ...state.interaction, expandedFolderId: id } };
     emit();
   },
   reset(): void {

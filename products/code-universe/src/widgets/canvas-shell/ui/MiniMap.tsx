@@ -23,12 +23,18 @@ const ROOT_STYLE: CSSProperties = {
   bottom: 12,
   width: WIDTH,
   height: HEIGHT,
-  borderRadius: 8,
-  border: "1px solid rgba(0,0,0,0.08)",
-  background: "rgba(255,255,255,0.82)",
-  backdropFilter: "blur(6px)",
-  WebkitBackdropFilter: "blur(6px)",
-  boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+  borderRadius: 10,
+  border: "1px solid rgba(10, 10, 10, 0.08)",
+  background: "rgba(255, 255, 255, 0.78)",
+  backdropFilter: "blur(14px) saturate(180%)",
+  WebkitBackdropFilter: "blur(14px) saturate(180%)",
+  // Layered shadow for the "floating glass" feel, plus an inner top
+  // highlight so the minimap reads as physical, not taped-on.
+  boxShadow: [
+    "0 1px 2px rgba(0, 0, 0, 0.04)",
+    "0 12px 28px rgba(0, 0, 0, 0.10)",
+    "inset 0 1px 0 rgba(255, 255, 255, 0.7)",
+  ].join(", "),
   overflow: "hidden",
   // `pointerEvents: auto` — the SVG inside handles clicks; the wrapper
   // div stays interactive so the click-to-jump shortcut works.
@@ -190,8 +196,11 @@ export function MiniMap({
               y={toMiniY(r.y)}
               width={Math.max(1, toMiniW(r.w))}
               height={Math.max(1, toMiniH(r.h))}
-              fill="#c7d2fe"
-              opacity={0.6}
+              // Neutral greys so the viewport-rect accent is the only
+              // coloured thing on the minimap — camera location pops.
+              fill="#d4d4d8"
+              opacity={0.55}
+              rx={1}
             />
           );
         })}
@@ -201,10 +210,11 @@ export function MiniMap({
             y={camMini.y}
             width={camMini.w}
             height={camMini.h}
-            fill="rgba(239, 68, 68, 0.12)"
-            stroke="#ef4444"
-            strokeWidth={1.25}
-            shapeRendering="crispEdges"
+            fill="rgba(13, 153, 255, 0.12)"
+            stroke="#0d99ff"
+            strokeWidth={1.5}
+            rx={2}
+            shapeRendering="geometricPrecision"
           />
         )}
       </svg>

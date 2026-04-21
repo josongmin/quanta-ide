@@ -154,3 +154,47 @@ export function IconChevronLeft(p: IconProps): ReactElement {
     </Svg>
   );
 }
+
+export function IconFolder(p: IconProps): ReactElement {
+  return (
+    <Svg {...p}>
+      <path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />
+    </Svg>
+  );
+}
+
+export function IconFolderOpen(p: IconProps): ReactElement {
+  return (
+    <Svg {...p}>
+      <path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V7H2z" />
+      <path d="M2 7h12l-1.5 5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z" />
+    </Svg>
+  );
+}
+
+export function IconFile(p: IconProps): ReactElement {
+  return (
+    <Svg {...p}>
+      <path d="M4 2h5l3 3v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" />
+      <path d="M9 2v3h3" />
+    </Svg>
+  );
+}
+
+export function IconBraces(p: IconProps): ReactElement {
+  return (
+    <Svg {...p}>
+      <path d="M6 2.5H5a1.5 1.5 0 0 0-1.5 1.5v2.5a1.5 1.5 0 0 1-1.5 1.5 1.5 1.5 0 0 1 1.5 1.5V12A1.5 1.5 0 0 0 5 13.5h1" />
+      <path d="M10 2.5h1A1.5 1.5 0 0 1 12.5 4v2.5A1.5 1.5 0 0 0 14 8a1.5 1.5 0 0 0-1.5 1.5V12A1.5 1.5 0 0 1 11 13.5h-1" />
+    </Svg>
+  );
+}
+
+export function IconFunction(p: IconProps): ReactElement {
+  return (
+    <Svg {...p}>
+      <path d="M10.5 3.5h-1a1.5 1.5 0 0 0-1.5 1.5L6.5 12.5A1.5 1.5 0 0 1 5 14H4" />
+      <path d="M4 8h7" />
+    </Svg>
+  );
+}

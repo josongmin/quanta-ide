@@ -195,6 +195,16 @@ function walk(
 // Rust
 const RE_RUST_FN = /^\s*(?:pub(?:\s*\([^)]+\))?\s+)?(?:async\s+|const\s+|unsafe\s+|extern(?:\s+"[^"]+")?\s+)*fn\s+(\w+)/;
 const RE_RUST_USE = /^\s*use\s+([\w:{}*,\s]+?);/gm;
+// `mod X;` declaration — brings a sibling file into the module tree.
+// Matches `pub mod X;` / `pub(crate) mod X;` / `mod X;`. Deliberately
+// DOES NOT match `mod X { ... }` (inline module, no separate file) or
+// `mod X;` inside a doc comment. We ignore `#[path = "..."] mod X;`
+// attribute-declared modules for now — they're rare and the regex would
+// bloat. Without these edges, `lib.rs` would look like it has no
+// relationship to any of the modules it declares, because `mod X;`
+// isn't a `use` statement — fan-in on adapter / facade files would be
+// systematically under-counted.
+const RE_RUST_MOD_DECL = /^\s*(?:pub(?:\s*\([^)]+\))?\s+)?mod\s+(\w+)\s*;/gm;
 // TS / JS
 const RE_TS_FN_FUNCTION = /^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)\s*[<(]/;
 const RE_TS_FN_CONST    = /^\s*(?:export\s+)?const\s+(\w+)\s*(?::<[^>]+>)?\s*=\s*(?:async\s+)?\(/;
@@ -233,6 +243,9 @@ interface ParseResult {
   // longer resolve immediately because we want module-level granularity
   // (`use foo::bar::Baz;` → `crates/foo/src/bar.rs` not `lib.rs`).
   rustUses: string[];
+  // Rust `mod X;` declarations — child-module names. Resolved later
+  // against the filesystem conventions (see `resolveRustModDecl`).
+  rustModDecls: string[];
 }
 
 function parseSingle(
@@ -246,6 +259,7 @@ function parseSingle(
   const seenFn = new Set<string>();
   const tsImports: string[] = [];
   const rustUses: string[] = [];
+  const rustModDecls: string[] = [];
 
   // Function extraction — per-line scan
   if (lang === "rust") {
@@ -318,6 +332,13 @@ function parseSingle(
           head === "std" || head === "core" || head === "alloc") continue;
       rustUses.push(fullPath);
     }
+    // Module declarations — `mod X;` / `pub mod X;`.
+    RE_RUST_MOD_DECL.lastIndex = 0;
+    while ((m = RE_RUST_MOD_DECL.exec(src)) !== null) {
+      const name = m[1];
+      if (!name) continue;
+      rustModDecls.push(name);
+    }
   } else if (lang === "ts") {
     RE_TS_FROM.lastIndex = 0;
     let m: RegExpExecArray | null;
@@ -332,7 +353,7 @@ function parseSingle(
     }
   }
 
-  return { functions, lineCount, tsImports, rustUses };
+  return { functions, lineCount, tsImports, rustUses, rustModDecls };
 }
 
 function resolveRelative(fromId: string, rel: string): string {
@@ -390,6 +411,34 @@ function resolveTsImports(
     }
   }
   return edges;
+}
+
+// Resolve `mod X;` inside a Rust file to the child module file. The
+// rules mirror the Rust 2018+ module system:
+//   - A crate-root or mod-file (`lib.rs`, `main.rs`, `mod.rs`) declaring
+//     `mod X;` looks for a sibling `X.rs` or a nested `X/mod.rs`.
+//   - Any other file `foo.rs` declaring `mod X;` looks inside a sibling
+//     directory `foo/` for `foo/X.rs` or `foo/X/mod.rs`.
+// We don't handle `#[path = "..."] mod X;` — those are rare and the
+// attribute form is beyond the regex we run in parseSingle.
+function resolveRustModDecl(
+  parentId: string,
+  name: string,
+  known: Set<string>,
+): string | null {
+  const parts = parentId.split("/");
+  const parentFile = parts[parts.length - 1];
+  const parentDirParts = parts.slice(0, -1);
+  const rootFile =
+    parentFile === "mod.rs" || parentFile === "lib.rs" || parentFile === "main.rs";
+  const baseParts = rootFile
+    ? parentDirParts
+    : [...parentDirParts, parentFile.replace(/\.rs$/, "")];
+  const cand1 = [...baseParts, `${name}.rs`].join("/");
+  if (known.has(cand1)) return cand1;
+  const cand2 = [...baseParts, name, "mod.rs"].join("/");
+  if (known.has(cand2)) return cand2;
+  return null;
 }
 
 // Resolve a Rust `use foo::bar::Baz;` specifier against the precomputed
@@ -621,6 +670,7 @@ export async function scanRepo(
   skipped += walkSkip.symlinkEscapes;
   const tsImportsById = new Map<string, string[]>();
   const rustUsesByFile: Array<{ id: string; specs: string[] }> = [];
+  const rustModDeclsByFile: Array<{ id: string; names: string[] }> = [];
 
   const pushSkip = (rel: string, reason: keyof SkippedReason): void => {
     skipped++;
@@ -660,6 +710,9 @@ export async function scanRepo(
     if (r.lang === "rust" && r.fnResult.rustUses.length) {
       rustUsesByFile.push({ id, specs: r.fnResult.rustUses });
     }
+    if (r.lang === "rust" && r.fnResult.rustModDecls.length) {
+      rustModDeclsByFile.push({ id, names: r.fnResult.rustModDecls });
+    }
   }
   const parseMs = Date.now() - parseStart;
 
@@ -674,9 +727,18 @@ export async function scanRepo(
   const known = new Set(files.map(f => f.id));
   let droppedEdges = 0;
 
-  // Rust edges — resolve now that we have the full module index.
+  // Rust `use` edges — resolve now that we have the full module index.
+  // De-dup BOTH use-resolved and mod-declaration edges against a single
+  // per-file seen-set so a `mod X;` + `use crate::X::*;` combo in the
+  // same file doesn't emit two parallel edges to X.
+  const rustSeenByFile = new Map<string, Set<string>>();
+  const getRustSeen = (id: string): Set<string> => {
+    let s = rustSeenByFile.get(id);
+    if (!s) { s = new Set(); rustSeenByFile.set(id, s); }
+    return s;
+  };
   for (const { id, specs } of rustUsesByFile) {
-    const seen = new Set<string>();
+    const seen = getRustSeen(id);
     for (const spec of specs) {
       const target = resolveRustUse(spec, crateRoots, moduleIndex);
       if (!target || target === id || seen.has(target)) continue;
@@ -688,6 +750,24 @@ export async function scanRepo(
         droppedEdges++;
         continue;
       }
+      fileEdges.push({ id: `e:${id}→${target}`, from: id, to: target, kind: "import", layer: "structural", weight: 1 });
+    }
+  }
+
+  // Rust `mod X;` edges — parent file declares the child. Same shape as
+  // a `use` edge (kind: "import") because downstream views don't yet
+  // distinguish "owns" from "uses" and mod declarations are a strictly
+  // stronger form of dependency (you can't `use` what isn't `mod`-ed).
+  // Without these edges, files like `lib.rs` / `mod.rs` look like they
+  // have zero fan-out and their submodules look like they have zero
+  // callers — the exact "콜러 없음" gap the user flagged.
+  for (const { id, names } of rustModDeclsByFile) {
+    const seen = getRustSeen(id);
+    for (const name of names) {
+      const target = resolveRustModDecl(id, name, known);
+      if (!target || target === id || seen.has(target)) continue;
+      seen.add(target);
+      if (!known.has(target)) { droppedEdges++; continue; }
       fileEdges.push({ id: `e:${id}→${target}`, from: id, to: target, kind: "import", layer: "structural", weight: 1 });
     }
   }
