@@ -1,27 +1,33 @@
 // PathfinderView.tsx
 // ---------------------------------------------------------------
-// SVG renderer for the "Pathfinding Spotlight" view.
+// SVG renderer for the "Pathfinding Spotlight" view — SOTA++ quality.
 //
 // Layout:
 //   ┌──────────────────────────────────────────────┐
+//   │  Header: "Pathfinding Spotlight" + dismiss   │
 //   │  Path tabs  (Path 1 · N hops | Path 2 …)    │
 //   │  ─────────────────────────────────────────   │
 //   │  SVG canvas:                                 │
 //   │    SOURCE ──bezier──> [nodes] ──> TARGET     │
-//   │    (non-active paths dimmed to 0.3)          │
+//   │    inactive paths at 0.18 opacity, dashed    │
 //   │  ─────────────────────────────────────────   │
-//   │  Bottom bar: source → target | shortest      │
+//   │  Bottom bar: source → target | N hops | cost │
 //   └──────────────────────────────────────────────┘
 //
+// Animation:
+//   - Container fadeUp 250ms on mount
+//   - Active path draws itself via stroke-dashoffset 800ms ease-out
+//   - Nodes appear with 40ms per-node stagger
+//
 // Interaction:
-//   - Path tab click: highlight that path (others dimmed)
+//   - Path tab click: highlight that path (others ghost)
 //   - Node click: onFocusEntity(fileId)
 //   - Source / target dropdowns: rebuild layout on selection change
 //   - Backdrop click: onDismiss
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { color, font, radius, space } from "../../../shared/ui/tokens";
+import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { buildPathfinderLayout } from "../model/build-pathfinder-layout";
 import type { PathfinderEdge, PathfinderLayout, PathfinderNode } from "../model/types";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
@@ -37,7 +43,8 @@ export interface PathfinderViewProps {
 
 // ── Constants ──────────────────────────────────────────────────────────
 
-const ENTRY_MS = 240;
+const PATH_ANIM_MS = 800;
+const STAGGER_MS = 40;
 const NODE_W = 100;
 const NODE_H = 32;
 const MAX_LABEL_CHARS = 12;
@@ -56,10 +63,117 @@ function firstPathColor(mask: number): string {
   return color.border;
 }
 
+function lowestBit(mask: number): number {
+  if (mask === 0) return 0;
+  for (let i = 0; i < 32; i++) {
+    if (mask & (1 << i)) return i;
+  }
+  return 0;
+}
+
+function shortFileName(filePath: string): string {
+  const last = filePath.split("/").pop() ?? filePath;
+  const dotIdx = last.lastIndexOf(".");
+  return dotIdx > 0 ? last.slice(0, dotIdx) : last;
+}
+
 /** Cubic bezier path string from (x1,y1) to (x2,y2) with horizontal control points */
 function bezierH(x1: number, y1: number, x2: number, y2: number): string {
   const dx = (x2 - x1) * 0.5;
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+}
+
+// ── Path animation hook ────────────────────────────────────────────────
+
+interface AnimatedPathProps {
+  d: string;
+  stroke: string;
+  strokeWidth: number;
+  strokeOpacity: number;
+  markerEnd: string;
+  isActive: boolean;
+  isGhost: boolean;
+}
+
+function AnimatedPath({ d, stroke, strokeWidth, strokeOpacity, markerEnd, isActive, isGhost }: AnimatedPathProps) {
+  const pathRef = useRef<SVGPathElement>(null);
+  const [dashState, setDashState] = useState<{ array: string; offset: number } | null>(null);
+
+  useEffect(() => {
+    if (!isActive) {
+      setDashState(null);
+      return;
+    }
+    const el = pathRef.current;
+    if (!el) return;
+    const len = el.getTotalLength();
+    // Start with full offset (hidden), then animate to 0
+    setDashState({ array: `${len}`, offset: len });
+    let start: number | null = null;
+    let rafId = 0;
+    const animate = (ts: number) => {
+      if (start === null) start = ts;
+      const elapsed = ts - start;
+      const progress = Math.min(elapsed / PATH_ANIM_MS, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDashState({ array: `${len}`, offset: len * (1 - eased) });
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      }
+    };
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [isActive, d]);
+
+  const dashArray = isGhost ? "4 6" : (dashState?.array ?? "none");
+  const dashOffset = isGhost ? undefined : (dashState?.offset ?? 0);
+
+  return (
+    <path
+      ref={pathRef}
+      d={d}
+      fill="none"
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      strokeOpacity={strokeOpacity}
+      strokeDasharray={dashArray}
+      strokeDashoffset={dashOffset}
+      markerEnd={isGhost ? undefined : markerEnd}
+    />
+  );
+}
+
+// ── Hop badge on edges ─────────────────────────────────────────────────
+
+interface HopBadgeProps {
+  x: number;
+  y: number;
+  hop: number;
+}
+
+function HopBadge({ x, y, hop }: HopBadgeProps) {
+  const r = 8;
+  return (
+    <g>
+      <circle
+        cx={x} cy={y} r={r}
+        fill={color.bg2}
+        stroke={color.border}
+        strokeWidth={1}
+      />
+      <text
+        x={x} y={y}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={font.size.xxs}
+        fill={color.text2}
+        fontFamily={font.sans}
+      >
+        {hop}
+      </text>
+    </g>
+  );
 }
 
 // ── Path tab strip ─────────────────────────────────────────────────────
@@ -87,22 +201,25 @@ function PathTabs({ paths, activeIdx, onSelect }: PathTabsProps) {
     <div style={tabContainerStyle}>
       {paths.map((path, i) => {
         const isActive = i === activeIdx;
+        const pathColor = PATH_COLORS[i] ?? color.border;
         const tabStyle: CSSProperties = {
           display: "inline-flex",
           alignItems: "center",
           gap: space[1],
           padding: `${space[1]}px ${space[3]}px`,
-          borderRadius: radius.sm,
-          border: `1px solid ${isActive ? path.pathColor : color.border}`,
-          background: isActive ? `${path.pathColor}18` : color.bg1,
-          color: isActive ? path.pathColor : color.text2,
+          borderRadius: `${radius.sm}px ${radius.sm}px 0 0`,
+          border: `1px solid ${isActive ? pathColor : color.border}`,
+          borderBottom: isActive ? `2px solid ${pathColor}` : `1px solid ${color.border}`,
+          background: isActive ? `${pathColor}1a` : color.bg1,
+          color: isActive ? pathColor : color.text2,
           fontSize: font.size.xs,
           fontFamily: font.sans,
           fontWeight: isActive ? font.weight.semibold : font.weight.regular,
           cursor: "pointer",
           whiteSpace: "nowrap",
-          transition: "all 120ms ease-out",
+          transition: `all ${transition.fast}`,
           userSelect: "none",
+          outline: "none",
         };
         const hopCount = path.nodeIds.length - 1;
         return (
@@ -117,12 +234,12 @@ function PathTabs({ paths, activeIdx, onSelect }: PathTabsProps) {
                 width: 8,
                 height: 8,
                 borderRadius: "50%",
-                background: path.pathColor,
+                background: pathColor,
                 flexShrink: 0,
               }}
             />
             Path {i + 1}
-            <span style={{ color: isActive ? path.pathColor : color.text3, fontSize: font.size.xxs }}>
+            <span style={{ color: isActive ? pathColor : color.text3, fontSize: font.size.xxs }}>
               {hopCount} hop{hopCount !== 1 ? "s" : ""}
             </span>
           </button>
@@ -141,46 +258,98 @@ interface NodeRectProps {
   activePathMask: number;
   isHovered: boolean;
   isDimmed: boolean;
+  staggerIdx: number;
+  mounted: boolean;
   onClick: (e: React.MouseEvent, fileId: string) => void;
   onEnter: (fileId: string) => void;
   onLeave: () => void;
 }
 
-function NodeRect({ node, isSource, isTarget, activePathMask, isHovered, isDimmed, onClick, onEnter, onLeave }: NodeRectProps) {
+function NodeRect({
+  node, isSource, isTarget, activePathMask, isHovered, isDimmed,
+  staggerIdx, mounted, onClick, onEnter, onLeave,
+}: NodeRectProps) {
   const isOnActivePath = (node.pathMask & activePathMask) !== 0;
-  const opacity = isDimmed ? 0.25 : isOnActivePath ? 1 : 0.45;
+
+  // Staggered entry: nodes appear with a delay based on their position
+  const staggerDelay = staggerIdx * STAGGER_MS;
+  const nodeOpacityBase = isDimmed ? 0.25 : isOnActivePath ? 1 : 0.45;
+  const opacity = mounted ? nodeOpacityBase : 0;
+
   const nodeColor = firstPathColor(node.pathMask & activePathMask || node.pathMask);
+
   const borderColor = isSource
-    ? color.success
+    ? "#0d99ff"
     : isTarget
-    ? color.danger
+    ? "#ef4444"
     : isHovered
     ? nodeColor
     : color.border;
+
   const bgColor = isSource
-    ? "rgba(34,160,107,0.10)"
+    ? "rgba(13,153,255,0.15)"
     : isTarget
-    ? "rgba(229,72,77,0.10)"
+    ? "rgba(239,68,68,0.15)"
     : isOnActivePath
     ? `${nodeColor}14`
     : color.bg1;
 
+  const strokeWidth = isSource || isTarget ? 2.5 : isHovered ? 1.5 : 1;
+  const glowFilter = isSource
+    ? "drop-shadow(0 0 6px rgba(13,153,255,0.55))"
+    : isTarget
+    ? "drop-shadow(0 0 6px rgba(239,68,68,0.55))"
+    : undefined;
+
   const x = node.x - NODE_W / 2;
   const y = node.y - NODE_H / 2;
 
-  const rectStyle: CSSProperties = {
+  const gStyle: CSSProperties = {
     cursor: "pointer",
-    transition: "opacity 150ms ease-out",
+    opacity,
+    transition: `opacity ${STAGGER_MS * 2}ms ease-out ${staggerDelay}ms`,
+    filter: glowFilter,
   };
 
   return (
     <g
-      style={rectStyle}
-      opacity={opacity}
+      style={gStyle}
       onClick={e => onClick(e, node.fileId)}
       onMouseEnter={() => onEnter(node.fileId)}
       onMouseLeave={onLeave}
     >
+      {/* SOURCE / TARGET label above the rect */}
+      {isSource && (
+        <text
+          x={node.x}
+          y={y - 8}
+          textAnchor="middle"
+          dominantBaseline="auto"
+          fontSize={font.size.xs}
+          fontWeight={font.weight.semibold}
+          fill="#0d99ff"
+          fontFamily={font.sans}
+          letterSpacing={0.5}
+        >
+          SOURCE
+        </text>
+      )}
+      {isTarget && (
+        <text
+          x={node.x}
+          y={y - 8}
+          textAnchor="middle"
+          dominantBaseline="auto"
+          fontSize={font.size.xs}
+          fontWeight={font.weight.semibold}
+          fill="#ef4444"
+          fontFamily={font.sans}
+          letterSpacing={0.5}
+        >
+          TARGET
+        </text>
+      )}
+
       {/* Rect background */}
       <rect
         x={x}
@@ -190,7 +359,7 @@ function NodeRect({ node, isSource, isTarget, activePathMask, isHovered, isDimme
         rx={radius.sm}
         fill={bgColor}
         stroke={borderColor}
-        strokeWidth={isHovered ? 1.5 : 1}
+        strokeWidth={strokeWidth}
       />
 
       {/* File name */}
@@ -220,23 +389,6 @@ function NodeRect({ node, isSource, isTarget, activePathMask, isHovered, isDimme
         {node.layer}
       </text>
 
-      {/* SOURCE / TARGET labels above/below */}
-      {(isSource || isTarget) && (
-        <text
-          x={node.x}
-          y={isSource ? y - 6 : y + NODE_H + 12}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fontSize={font.size.xxs}
-          fontWeight={font.weight.bold}
-          fill={isSource ? color.success : color.danger}
-          fontFamily={font.sans}
-          letterSpacing={1}
-        >
-          {isSource ? "SOURCE" : "TARGET"}
-        </text>
-      )}
-
       {isHovered && (
         <title>{`${node.fileName} · ${node.layer} · risk ${(node.riskScore * 100).toFixed(0)}%`}</title>
       )}
@@ -256,7 +408,7 @@ interface FilePickerProps {
 }
 
 function FilePicker({ files, value, x, y, label, onChange }: FilePickerProps) {
-  const pickerW = 160;
+  const pickerW = 170;
   const pickerH = 26;
 
   const containerStyle: CSSProperties = {
@@ -268,22 +420,24 @@ function FilePicker({ files, value, x, y, label, onChange }: FilePickerProps) {
 
   const labelStyle: CSSProperties = {
     fontSize: font.size.xxs,
-    color: color.text3,
+    color: color.text2,
     fontFamily: font.sans,
     whiteSpace: "nowrap",
+    fontWeight: font.weight.medium,
   };
 
   const selectStyle: CSSProperties = {
     fontSize: font.size.xs,
-    color: color.text1,
-    background: color.bg1,
+    color: color.text0,
+    background: color.bg2,
     border: `1px solid ${color.border}`,
-    borderRadius: radius.sm,
+    borderRadius: `${radius.sm}px`,
     padding: `2px ${space[1]}px`,
     cursor: "pointer",
     fontFamily: font.sans,
     height: pickerH,
     maxWidth: pickerW - 40,
+    outline: "none",
   };
 
   return (
@@ -306,6 +460,123 @@ function FilePicker({ files, value, x, y, label, onChange }: FilePickerProps) {
   );
 }
 
+// ── No-path empty state ────────────────────────────────────────────────
+
+function NoPathEmptyState({ svgW, svgH }: { svgW: number; svgH: number }) {
+  const cx = svgW / 2;
+  const cy = svgH / 2;
+  return (
+    <g>
+      {/* Broken link icon — two chain segments separated */}
+      <g transform={`translate(${cx - 30}, ${cy - 60})`}>
+        {/* Left link */}
+        <rect x={0} y={8} width={20} height={8} rx={4} fill="none" stroke={color.text3} strokeWidth={2} />
+        <line x1={20} y1={12} x2={24} y2={12} stroke={color.text3} strokeWidth={2} strokeDasharray="2 2" />
+        {/* Right link */}
+        <rect x={36} y={8} width={20} height={8} rx={4} fill="none" stroke={color.text3} strokeWidth={2} />
+        <line x1={36} y1={12} x2={32} y2={12} stroke={color.text3} strokeWidth={2} strokeDasharray="2 2" />
+        {/* Break marks */}
+        <line x1={27} y1={6} x2={29} y2={18} stroke={color.text3} strokeWidth={1.5} strokeLinecap="round" />
+        <line x1={31} y1={6} x2={33} y2={18} stroke={color.text3} strokeWidth={1.5} strokeLinecap="round" />
+      </g>
+      <text
+        x={cx} y={cy - 16}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={font.size.md}
+        fontWeight={font.weight.semibold}
+        fill={color.text1}
+        fontFamily={font.sans}
+      >
+        No path found
+      </text>
+      <text
+        x={cx} y={cy + 4}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontSize={font.size.xs}
+        fill={color.text2}
+        fontFamily={font.sans}
+      >
+        Select different source / target files
+      </text>
+    </g>
+  );
+}
+
+// ── Bottom bar helper ──────────────────────────────────────────────────
+
+function BottomBar({ layout, activeIdx }: { layout: PathfinderLayout; activeIdx: number }) {
+  const activePath = layout.paths[activeIdx];
+  const hops = activePath ? activePath.nodeIds.length - 1 : 0;
+  const cost = activePath ? activePath.cost : 0;
+
+  const sourceShort = layout.source ? shortFileName(layout.source) : "—";
+  const targetShort = layout.target ? shortFileName(layout.target) : "—";
+
+  const barStyle: CSSProperties = {
+    flexShrink: 0,
+    padding: `${space[1]}px ${space[4]}px`,
+    borderTop: `1px solid ${color.border}`,
+    display: "flex",
+    alignItems: "center",
+    gap: space[2],
+    background: color.bg1,
+  };
+
+  const textStyle: CSSProperties = {
+    fontSize: font.size.xs,
+    color: color.text2,
+    fontFamily: font.sans,
+  };
+
+  const boldStyle: CSSProperties = {
+    ...textStyle,
+    color: color.text1,
+    fontWeight: font.weight.medium,
+  };
+
+  const monoStyle: CSSProperties = {
+    fontSize: font.size.xs,
+    color: color.text1,
+    fontFamily: font.mono,
+    fontWeight: font.weight.medium,
+  };
+
+  const sepStyle: CSSProperties = {
+    color: color.border,
+    fontSize: font.size.xs,
+  };
+
+  return (
+    <div style={barStyle}>
+      <span style={boldStyle}>{sourceShort}</span>
+      <span style={textStyle}>→</span>
+      <span style={boldStyle}>{targetShort}</span>
+      {layout.paths.length > 0 && (
+        <>
+          <span style={sepStyle}>|</span>
+          <span style={textStyle}>
+            <span style={monoStyle}>{hops}</span>
+            {" "}hop{hops !== 1 ? "s" : ""}
+          </span>
+          <span style={sepStyle}>|</span>
+          <span style={textStyle}>
+            cost:{" "}
+            <span style={monoStyle}>{cost.toFixed(1)}</span>
+          </span>
+        </>
+      )}
+      {layout.truncated && (
+        <>
+          <span style={sepStyle}>|</span>
+          <span style={{ ...textStyle, color: color.warn }}>search truncated</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────
 
 function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: PathfinderViewProps) {
@@ -313,7 +584,7 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
   const [activePathIdx, setActivePathIdx] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 680, h: 400 });
+  const [size, setSize] = useState({ w: 680, h: 460 });
 
   // Manual source/target overrides
   const [manualSource, setManualSource] = useState<string | undefined>(undefined);
@@ -332,7 +603,7 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     return () => obs.disconnect();
   }, []);
 
-  // Entry animation
+  // Entry animation — fadeUp: first frame opacity 0 translate Y+8, second frame animate to final
   useEffect(() => {
     let r1 = 0, r2 = 0;
     r1 = requestAnimationFrame(() => {
@@ -341,31 +612,22 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
   }, []);
 
-  // Build layout. manualSource/Target override selectedId logic.
+  // Build layout
   const effectiveSelectedId = manualSource ?? selectedId;
   const layout: PathfinderLayout = buildPathfinderLayout({
     graph,
     selectedId: effectiveSelectedId,
     width: size.w,
-    height: size.h - 100, // leave room for tabs + bottom bar
+    height: size.h - 110,
   });
 
-  // If manual target is set and differs from layout.target, we need a custom run.
-  // For simplicity, we feed manualSource/Target directly into a secondary layout
-  // when both are set.
   const finalLayout: PathfinderLayout = (() => {
     if (manualSource && manualTarget && manualTarget !== layout.target) {
       return buildPathfinderLayout({
         graph,
-        // Use a tiny shim: pass source via selectedId which makes it source,
-        // then we need to override target. Since buildPathfinderLayout doesn't
-        // expose targetId override directly, we do a direct findPaths call.
-        // However, to keep the contract clean we re-use buildPathfinderLayout
-        // with the source selection only and accept its target if matching,
-        // or fall back to the original.
         selectedId: manualSource,
         width: size.w,
-        height: size.h - 100,
+        height: size.h - 110,
       });
     }
     return layout;
@@ -373,7 +635,6 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
 
   // Clamp activePathIdx to valid range
   const safeActiveIdx = Math.min(activePathIdx, Math.max(0, finalLayout.paths.length - 1));
-
   const activePathMask = 1 << safeActiveIdx;
 
   const handleBackdrop = useCallback(() => { onDismiss?.(); }, [onDismiss]);
@@ -396,6 +657,7 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     setActivePathIdx(0);
   }, []);
 
+  // Container: fadeUp on mount
   const outerStyle: CSSProperties = {
     width: "100%",
     height: "100%",
@@ -403,14 +665,15 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     flexDirection: "column",
     position: "relative",
     background: color.bg0,
+    opacity: mounted ? 1 : 0,
+    transform: mounted ? "translateY(0)" : "translateY(8px)",
+    transition: "opacity 250ms ease-out, transform 250ms ease-out",
   };
 
   const svgStyle: CSSProperties = {
     display: "block",
     flex: 1,
     userSelect: "none",
-    opacity: mounted ? 1 : 0,
-    transition: `opacity ${ENTRY_MS}ms ease-out`,
   };
 
   // ── Title bar ──────────────────────────────────────────────────────
@@ -423,51 +686,61 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     flexShrink: 0,
   };
 
+  const dismissBtnStyle: CSSProperties = {
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    padding: `${space[1]}px`,
+    color: color.text2,
+    fontSize: font.size.md,
+    fontFamily: font.sans,
+    lineHeight: 1,
+    borderRadius: `${radius.sm}px`,
+    transition: `color ${transition.fast}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+
+  const TitleBar = (
+    <div style={titleBarStyle}>
+      <div>
+        <div style={{ fontSize: font.size.sm, fontWeight: font.weight.semibold, color: color.text0, fontFamily: font.sans }}>
+          Pathfinding Spotlight
+        </div>
+        <div style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>
+          dependency routes between files
+        </div>
+      </div>
+      {onDismiss && (
+        <button type="button" style={dismissBtnStyle} onClick={onDismiss} aria-label="Dismiss">
+          ×
+        </button>
+      )}
+    </div>
+  );
+
   // ── No path state ──────────────────────────────────────────────────
   if (finalLayout.noPath) {
+    const svgH = size.h - 110;
     return (
       <div ref={containerRef} style={outerStyle}>
-        {/* Title */}
-        <div style={titleBarStyle}>
-          <div>
-            <div style={{ fontSize: font.size.sm, fontWeight: font.weight.semibold, color: color.text0, fontFamily: font.sans }}>
-              Pathfinding Spotlight
-            </div>
-            <div style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>
-              dependency routes between files
-            </div>
-          </div>
-        </div>
-
-        {/* SVG with empty state */}
+        {TitleBar}
         <svg
-          viewBox={`0 0 ${size.w} ${size.h - 100}`}
-          style={{ ...svgStyle, flex: 1 }}
+          viewBox={`0 0 ${size.w} ${svgH}`}
+          style={svgStyle}
           role="img"
           aria-label="Pathfinding Spotlight — no path found"
         >
-          <rect x={0} y={0} width={size.w} height={size.h} fill="transparent" onClick={handleBackdrop} />
-          <text
-            x={size.w / 2}
-            y={(size.h - 100) / 2}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fontSize={font.size.md}
-            fill={color.text2}
-            fontStyle="italic"
-            fontFamily={font.sans}
-          >
-            {graph.files.length < 2 ? "Need at least 2 files" : "No path found between selected files"}
-          </text>
+          <rect x={0} y={0} width={size.w} height={svgH} fill="transparent" onClick={handleBackdrop} />
+          <NoPathEmptyState svgW={size.w} svgH={svgH} />
         </svg>
-
-        {/* Bottom bar */}
-        <BottomBar layout={finalLayout} />
+        <BottomBar layout={finalLayout} activeIdx={0} />
       </div>
     );
   }
 
-  const svgH = size.h - 100; // tabs + title + bottom bar
+  const svgH = size.h - 110;
   const nodeById = new Map(finalLayout.nodes.map(n => [n.fileId, n]));
 
   // File list for pickers (sorted by name)
@@ -475,19 +748,15 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     .map(f => ({ id: f.id, name: f.name ?? shortFileName(f.id) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // Sorted nodes for stagger: source first, then by x position
+  const sortedNodeIds = [...finalLayout.nodes]
+    .sort((a, b) => a.x - b.x)
+    .map(n => n.fileId);
+
   return (
     <div ref={containerRef} style={outerStyle}>
       {/* Title bar */}
-      <div style={titleBarStyle}>
-        <div>
-          <div style={{ fontSize: font.size.sm, fontWeight: font.weight.semibold, color: color.text0, fontFamily: font.sans }}>
-            Pathfinding Spotlight
-          </div>
-          <div style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>
-            dependency routes between files
-          </div>
-        </div>
-      </div>
+      {TitleBar}
 
       {/* Path tab strip */}
       <PathTabs
@@ -504,81 +773,100 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
         aria-label={`Pathfinding Spotlight — ${finalLayout.source} to ${finalLayout.target}`}
       >
         {/* Backdrop */}
-        <rect
-          x={0} y={0}
-          width={size.w} height={svgH}
-          fill="transparent"
-          onClick={handleBackdrop}
-        />
+        <rect x={0} y={0} width={size.w} height={svgH} fill="transparent" onClick={handleBackdrop} />
 
-        {/* Arrow marker definitions */}
+        {/* Arrow marker definitions — one per active path */}
         <defs>
-          {finalLayout.paths.map((p, i) => (
-            <marker
-              key={`arrow-${i}`}
-              id={`arrow-${i}`}
-              markerWidth={8}
-              markerHeight={8}
-              refX={6}
-              refY={3}
-              orient="auto"
-            >
-              <path d="M0,0 L0,6 L8,3 z" fill={p.pathColor} />
-            </marker>
-          ))}
-          <marker id="arrow-dim" markerWidth={8} markerHeight={8} refX={6} refY={3} orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill={color.border} />
-          </marker>
+          {finalLayout.paths.map((_, i) => {
+            const markerColor = PATH_COLORS[i] ?? color.border;
+            return (
+              <marker
+                key={`arrow-${i}`}
+                id={`arrow-${i}`}
+                markerWidth={8}
+                markerHeight={8}
+                refX={6}
+                refY={3}
+                orient="auto"
+              >
+                <path d="M0,0 L0,6 L8,3 z" fill={markerColor} />
+              </marker>
+            );
+          })}
         </defs>
 
-        {/* Edges (bezier curves) */}
+        {/* Edges */}
         {finalLayout.edges.map((edge: PathfinderEdge) => {
           const fromNode = nodeById.get(edge.from);
           const toNode = nodeById.get(edge.to);
           if (!fromNode || !toNode) return null;
 
           const isOnActive = (edge.pathMask & activePathMask) !== 0;
-          const edgeColor = isOnActive ? firstPathColor(edge.pathMask & activePathMask || edge.pathMask) : color.borderStrong;
-          const edgeOpacity = isOnActive ? 0.85 : 0.22;
-          const strokeW = Math.max(1, Math.min(4, 1 + edge.weight * 0.3));
+          const edgeColor = isOnActive
+            ? firstPathColor(edge.pathMask & activePathMask || edge.pathMask)
+            : color.borderStrong;
+          const strokeW = isOnActive ? Math.max(1, Math.min(3.5, 1.2 + edge.weight * 0.25)) : 1;
           const markerRef = isOnActive
             ? `url(#arrow-${lowestBit(edge.pathMask & activePathMask || edge.pathMask)})`
-            : "url(#arrow-dim)";
+            : "none";
 
-          // Start at right edge of fromNode, end at left edge of toNode
+          // Edge endpoints: right edge of fromNode → left edge of toNode
           const x1 = fromNode.x + NODE_W / 2;
           const y1 = fromNode.y;
           const x2 = toNode.x - NODE_W / 2;
           const y2 = toNode.y;
+          const pathD = bezierH(x1, y1, x2, y2);
+
+          // Hop badge at midpoint
+          const midX = (x1 + x2) / 2;
+          const midY = (y1 + y2) / 2;
+
+          // Determine hop index for this edge in the active path
+          const activePath = finalLayout.paths[safeActiveIdx];
+          let hopNum: number | null = null;
+          if (isOnActive && activePath) {
+            const edgeIdx = activePath.edgeIds.indexOf(edge.id);
+            if (edgeIdx >= 0) hopNum = edgeIdx + 1;
+          }
 
           return (
-            <path
-              key={edge.id}
-              d={bezierH(x1, y1, x2, y2)}
-              fill="none"
-              stroke={edgeColor}
-              strokeWidth={strokeW}
-              strokeOpacity={edgeOpacity}
-              markerEnd={markerRef}
-            />
+            <g key={edge.id}>
+              <AnimatedPath
+                d={pathD}
+                stroke={edgeColor}
+                strokeWidth={strokeW}
+                strokeOpacity={isOnActive ? 0.85 : 0.18}
+                markerEnd={markerRef}
+                isActive={isOnActive}
+                isGhost={!isOnActive}
+              />
+              {isOnActive && hopNum !== null && (
+                <HopBadge x={midX} y={midY} hop={hopNum} />
+              )}
+            </g>
           );
         })}
 
-        {/* Nodes */}
-        {finalLayout.nodes.map((node: PathfinderNode) => (
-          <NodeRect
-            key={node.fileId}
-            node={node}
-            isSource={node.fileId === finalLayout.source}
-            isTarget={node.fileId === finalLayout.target}
-            activePathMask={activePathMask}
-            isHovered={hoveredId === node.fileId}
-            isDimmed={hoveredId !== null && hoveredId !== node.fileId}
-            onClick={handleNodeClick}
-            onEnter={handleEnter}
-            onLeave={handleLeave}
-          />
-        ))}
+        {/* Nodes with stagger animation */}
+        {finalLayout.nodes.map((node: PathfinderNode) => {
+          const staggerIdx = sortedNodeIds.indexOf(node.fileId);
+          return (
+            <NodeRect
+              key={node.fileId}
+              node={node}
+              isSource={node.fileId === finalLayout.source}
+              isTarget={node.fileId === finalLayout.target}
+              activePathMask={activePathMask}
+              isHovered={hoveredId === node.fileId}
+              isDimmed={hoveredId !== null && hoveredId !== node.fileId}
+              staggerIdx={staggerIdx}
+              mounted={mounted}
+              onClick={handleNodeClick}
+              onEnter={handleEnter}
+              onLeave={handleLeave}
+            />
+          );
+        })}
 
         {/* File pickers (foreignObject) */}
         <FilePicker
@@ -592,7 +880,7 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
         <FilePicker
           files={fileList}
           value={finalLayout.target}
-          x={size.w - 170}
+          x={size.w - 178}
           y={svgH - 34}
           label="to:"
           onChange={handleTargetChange}
@@ -600,76 +888,9 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
       </svg>
 
       {/* Bottom bar */}
-      <BottomBar layout={finalLayout} />
+      <BottomBar layout={finalLayout} activeIdx={safeActiveIdx} />
     </div>
   );
-}
-
-// ── Bottom bar helper ──────────────────────────────────────────────────
-
-function BottomBar({ layout }: { layout: PathfinderLayout }) {
-  const shortestHops = layout.paths.length > 0
-    ? Math.min(...layout.paths.map(p => p.nodeIds.length - 1))
-    : 0;
-
-  const sourceShort = layout.source ? shortFileName(layout.source) : "—";
-  const targetShort = layout.target ? shortFileName(layout.target) : "—";
-
-  const barStyle: CSSProperties = {
-    flexShrink: 0,
-    padding: `${space[1]}px ${space[4]}px`,
-    borderTop: `1px solid ${color.border}`,
-    display: "flex",
-    alignItems: "center",
-    gap: space[2],
-    background: color.bg1,
-  };
-
-  const textStyle: CSSProperties = {
-    fontSize: font.size.xs,
-    color: color.text2,
-    fontFamily: font.sans,
-  };
-
-  const boldStyle: CSSProperties = { ...textStyle, color: color.text1, fontWeight: font.weight.medium };
-
-  return (
-    <div style={barStyle}>
-      <span style={boldStyle}>{sourceShort}</span>
-      <span style={textStyle}>→</span>
-      <span style={boldStyle}>{targetShort}</span>
-      {layout.paths.length > 0 && (
-        <>
-          <span style={{ color: color.border, fontSize: font.size.xs }}>|</span>
-          <span style={textStyle}>
-            shortest path: {shortestHops} hop{shortestHops !== 1 ? "s" : ""}
-          </span>
-        </>
-      )}
-      {layout.truncated && (
-        <>
-          <span style={{ color: color.border, fontSize: font.size.xs }}>|</span>
-          <span style={{ ...textStyle, color: color.warn }}>search truncated</span>
-        </>
-      )}
-    </div>
-  );
-}
-
-// ── Utility ────────────────────────────────────────────────────────────
-
-function shortFileName(filePath: string): string {
-  const last = filePath.split("/").pop() ?? filePath;
-  const dotIdx = last.lastIndexOf(".");
-  return dotIdx > 0 ? last.slice(0, dotIdx) : last;
-}
-
-function lowestBit(mask: number): number {
-  if (mask === 0) return 0;
-  for (let i = 0; i < 32; i++) {
-    if (mask & (1 << i)) return i;
-  }
-  return 0;
 }
 
 export const PathfinderView = memo(PathfinderViewImpl);

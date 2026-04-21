@@ -1,20 +1,32 @@
-// RefactorSimView — "what-if" refactor impact simulator
+// RefactorSimView — "what-if" refactor impact simulator (SOTA++ redesign)
 //
-// Each row represents a refactor plan produced by buildRefactorSuggestions.
-// For each plan, simulateRefactor was already called during layout; we show:
-//   - Plan kind badge (colored)
-//   - File name
-//   - Score bar (current ROI score, red→green)
-//   - Delta indicator (negative delta = improvement, shown as ↓ green)
-//   - "Affects N files" chip
-//   - Confidence %
+// Layout:
+//   • Header: title + subtitle + total-debt chip + dismiss ×
+//   • Best Move hero card: green-accented, large delta number, kind badge,
+//     confidence %, "Affects N files" chip
+//   • Compact list below: rank | kind badge | filename | score bar | delta
+//     chip | affects chip | 5-segment confidence meter
+//   • Click row → smooth height-transition expanded panel (affected files)
+//   • Fade-up entry + per-row stagger
 //
-// Hover a row: expand panel with the list of affected files + their deltas.
-// Top banner: "Best move: ..." summary.
-// Pure DOM — no SVG root.
+// Pure DOM — inline styles only — no className — strict TypeScript.
 
-import { memo, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { color as tokenColor, font, radius, shadow } from "../../../shared/ui/tokens";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import {
+  color as tokenColor,
+  font,
+  radius,
+  space,
+  transition,
+  shadow,
+} from "../../../shared/ui/tokens";
 import type { RefactorSimLayout, RefactorSimRow } from "../model/types";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import { buildRefactorSimLayout } from "../model/build-refactor-sim-layout";
@@ -25,43 +37,115 @@ export interface RefactorSimViewProps {
   onDismiss?: () => void;
 }
 
-const ENTRY_MS = 280;
+// ─── Keyframe injection (once) ──────────────────────────────────────────────
 
-// ─── Kind badge ────────────────────────────────────────────────────────────
+let _stylesInjected = false;
+function injectStyles(): void {
+  if (_stylesInjected || typeof document === "undefined") return;
+  _stylesInjected = true;
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes rsv-fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes rsv-rowIn {
+      from { opacity: 0; transform: translateX(-4px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ─── Kind badge colors ──────────────────────────────────────────────────────
+
+const KIND_BADGE_COLORS: Record<string, string> = {
+  "extract-interface": "#3b82f6",   // blue
+  "split-file":        "#f97316",   // orange
+  "break-cycle":       "#ef4444",   // red
+  "invert-dependency": "#8b5cf6",   // purple
+  "add-tests":         "#14b8a6",   // teal
+  "reduce-fan-in":     "#6366f1",   // indigo
+};
+
+function kindBadgeColor(kind: string): string {
+  return KIND_BADGE_COLORS[kind] ?? "#757575";
+}
+
+// ─── Score bar color ────────────────────────────────────────────────────────
+
+function scoreBarColor(score: number): string {
+  const hue = 120 - score * 1.2;
+  return `hsl(${hue}deg, 65%, 50%)`;
+}
+
+// ─── Kind badge ─────────────────────────────────────────────────────────────
 
 interface KindBadgeProps {
   kind: string;
-  color: string;
+  size?: "sm" | "md";
 }
 
-function KindBadge({ kind, color }: KindBadgeProps) {
+function KindBadge({ kind, size = "sm" }: KindBadgeProps) {
+  const clr = kindBadgeColor(kind);
   const style: CSSProperties = {
     display: "inline-block",
-    padding: "2px 7px",
+    padding: size === "md" ? "3px 9px" : "2px 6px",
     borderRadius: radius.pill,
-    fontSize: font.size.xxs,
+    fontSize: size === "md" ? font.size.xs : font.size.xxs,
     fontWeight: font.weight.semibold,
-    background: `${color}1a`, // 10% alpha
-    color,
+    background: `${clr}1a`,
+    color: clr,
     lineHeight: "16px",
     flexShrink: 0,
     letterSpacing: 0.3,
     textTransform: "uppercase",
     whiteSpace: "nowrap",
+    border: `1px solid ${clr}33`,
   };
   return <span style={style}>{kind}</span>;
 }
 
-// ─── Score bar ─────────────────────────────────────────────────────────────
+// ─── Delta chip ─────────────────────────────────────────────────────────────
+
+interface DeltaChipProps {
+  delta: number;
+  size?: "sm" | "lg";
+}
+
+function DeltaChip({ delta, size = "sm" }: DeltaChipProps) {
+  const isImprovement = delta < 0;
+  const clr = isImprovement ? "#22c55e" : tokenColor.danger;
+  const bg = isImprovement ? "rgba(34,197,94,0.12)" : "rgba(229,72,77,0.12)";
+  const arrow = isImprovement ? "↓" : "↑";
+  const abs = Math.abs(delta).toFixed(1);
+
+  const style: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 2,
+    padding: size === "lg" ? "3px 10px" : "1px 7px",
+    borderRadius: radius.pill,
+    background: bg,
+    color: clr,
+    fontSize: size === "lg" ? font.size.md : font.size.xs,
+    fontWeight: font.weight.semibold,
+    fontVariantNumeric: "tabular-nums",
+    flexShrink: 0,
+    lineHeight: size === "lg" ? "22px" : "18px",
+    border: `1px solid ${clr}33`,
+  };
+  return (
+    <span style={style}>
+      {arrow} {abs}
+    </span>
+  );
+}
+
+// ─── Score bar ──────────────────────────────────────────────────────────────
 
 interface ScoreBarProps {
   score: number; // 0..100
-}
-
-function scoreBarColor(score: number): string {
-  // red at 100, green at 0
-  const hue = 120 - score * 1.2;
-  return `hsl(${hue}deg, 65%, 50%)`;
 }
 
 function ScoreBar({ score }: ScoreBarProps) {
@@ -71,7 +155,7 @@ function ScoreBar({ score }: ScoreBarProps) {
     borderRadius: radius.pill,
     background: tokenColor.bg3,
     overflow: "hidden",
-    minWidth: 60,
+    minWidth: 48,
   };
   const fillStyle: CSSProperties = {
     height: "100%",
@@ -87,36 +171,73 @@ function ScoreBar({ score }: ScoreBarProps) {
   );
 }
 
-// ─── Delta indicator ────────────────────────────────────────────────────────
+// ─── Confidence meter (5 segments) ──────────────────────────────────────────
 
-interface DeltaChipProps {
-  delta: number;
+interface ConfidenceMeterProps {
+  confidence: number; // 0..1
 }
 
-function DeltaChip({ delta }: DeltaChipProps) {
-  const isImprovement = delta < 0;
-  const clr = isImprovement ? tokenColor.success : tokenColor.danger;
-  const arrow = isImprovement ? "↓" : "↑";
-  const label = `${arrow} ${Math.abs(delta).toFixed(1)}`;
+function ConfidenceMeter({ confidence }: ConfidenceMeterProps) {
+  const filled = Math.round(confidence * 5);
+  const clr =
+    confidence >= 0.7
+      ? "#22c55e"
+      : confidence >= 0.5
+        ? tokenColor.warn
+        : tokenColor.danger;
+  const wrapStyle: CSSProperties = {
+    display: "flex",
+    gap: 2,
+    alignItems: "center",
+    flexShrink: 0,
+  };
+  return (
+    <div style={wrapStyle} title={`Confidence: ${Math.round(confidence * 100)}%`}>
+      {Array.from({ length: 5 }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            width: 6,
+            height: 5,
+            borderRadius: 2,
+            background: i < filled ? clr : tokenColor.bg3,
+            border: `1px solid ${i < filled ? clr + "55" : tokenColor.border}`,
+            transition: `background ${transition.fast}`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
+// ─── Affects chip ───────────────────────────────────────────────────────────
+
+interface AffectsChipProps {
+  count: number;
+}
+
+function AffectsChip({ count }: AffectsChipProps) {
+  if (count === 0) return null;
   const style: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
-    gap: 2,
-    padding: "1px 7px",
+    padding: "1px 6px",
     borderRadius: radius.pill,
-    background: isImprovement ? "rgba(34, 160, 107, 0.10)" : "rgba(229, 72, 77, 0.10)",
-    color: clr,
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    fontVariantNumeric: "tabular-nums",
+    background: tokenColor.bg3,
+    color: tokenColor.text2,
+    fontSize: font.size.xxs,
     flexShrink: 0,
-    lineHeight: "18px",
+    lineHeight: "16px",
+    border: `1px solid ${tokenColor.border}`,
   };
-  return <span style={style}>{label}</span>;
+  return (
+    <span style={style}>
+      Affects {count} file{count !== 1 ? "s" : ""}
+    </span>
+  );
 }
 
-// ─── Expanded detail panel ──────────────────────────────────────────────────
+// ─── Expanded panel ──────────────────────────────────────────────────────────
 
 interface ExpandedPanelProps {
   row: RefactorSimRow;
@@ -124,34 +245,31 @@ interface ExpandedPanelProps {
 }
 
 function ExpandedPanel({ row, onFocusEntity }: ExpandedPanelProps) {
-  const containerStyle: CSSProperties = {
+  const outerStyle: CSSProperties = {
+    overflow: "hidden",
+    transition: "max-height 200ms ease, opacity 200ms ease",
+    maxHeight: 200,
+    opacity: 1,
+  };
+  const innerStyle: CSSProperties = {
     background: tokenColor.bg2,
     borderTop: `1px solid ${tokenColor.border}`,
-    padding: "8px 16px 8px 44px",
+    padding: `${space[2]}px ${space[4]}px ${space[2]}px 44px`,
     fontSize: font.size.xs,
     color: tokenColor.text1,
   };
-
-  const rationaleStyle: CSSProperties = {
-    fontStyle: "italic",
-    color: tokenColor.text2,
-    marginBottom: 6,
-  };
-
   const headerStyle: CSSProperties = {
     fontWeight: font.weight.semibold,
     color: tokenColor.text0,
-    marginBottom: 4,
+    marginBottom: space[1],
     fontSize: font.size.xs,
   };
-
   const fileRowStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: space[2],
     padding: "2px 0",
   };
-
   const fileIdStyle: CSSProperties = {
     flex: 1,
     overflow: "hidden",
@@ -165,84 +283,200 @@ function ExpandedPanel({ row, onFocusEntity }: ExpandedPanelProps) {
 
   if (row.affectedDetails.length === 0) {
     return (
-      <div style={containerStyle}>
-        <span style={rationaleStyle}>No individual file deltas projected.</span>
+      <div style={outerStyle}>
+        <div style={innerStyle}>
+          <span style={{ fontStyle: "italic", color: tokenColor.text2 }}>
+            No individual file deltas projected.
+          </span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={containerStyle}>
-      {row.affectedDetails.length > 0 && (
-        <>
-          <div style={headerStyle}>Affected files ({row.affectedDetails.length})</div>
-          {row.affectedDetails.slice(0, 8).map(({ fileId, delta }) => {
-            const isImprovement = delta < 0;
-            const clr = isImprovement ? tokenColor.success : tokenColor.danger;
-            return (
-              <div key={fileId} style={fileRowStyle}>
-                <span
-                  style={{ ...fileIdStyle }}
-                  title={fileId}
-                  onClick={() => onFocusEntity?.(fileId)}
-                  role={onFocusEntity ? "button" : undefined}
-                  tabIndex={onFocusEntity ? 0 : undefined}
-                  onKeyDown={onFocusEntity ? (e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onFocusEntity(fileId);
-                    }
-                  } : undefined}
-                >
-                  {fileId}
-                </span>
-                <span style={{ color: clr, fontVariantNumeric: "tabular-nums", fontWeight: font.weight.medium, fontSize: font.size.xxs, flexShrink: 0 }}>
-                  {isImprovement ? "↓" : "↑"} {Math.abs(delta).toFixed(1)}
-                </span>
-              </div>
-            );
-          })}
-          {row.affectedDetails.length > 8 && (
-            <div style={{ color: tokenColor.text2, marginTop: 2 }}>
-              +{row.affectedDetails.length - 8} more
+    <div style={outerStyle}>
+      <div style={innerStyle}>
+        <div style={headerStyle}>
+          Affected files ({row.affectedDetails.length})
+        </div>
+        {row.affectedDetails.slice(0, 8).map(({ fileId, delta }) => {
+          const isImprovement = delta < 0;
+          const clr = isImprovement ? "#22c55e" : tokenColor.danger;
+          const pillStyle: CSSProperties = {
+            display: "inline-flex",
+            alignItems: "center",
+            padding: "0px 5px",
+            borderRadius: radius.pill,
+            background: isImprovement ? "rgba(34,197,94,0.10)" : "rgba(229,72,77,0.10)",
+            color: clr,
+            fontSize: font.size.xxs,
+            fontWeight: font.weight.semibold,
+            fontVariantNumeric: "tabular-nums",
+            flexShrink: 0,
+            lineHeight: "16px",
+          };
+          return (
+            <div key={fileId} style={fileRowStyle}>
+              <span
+                style={fileIdStyle}
+                title={fileId}
+                onClick={() => onFocusEntity?.(fileId)}
+                role={onFocusEntity ? "button" : undefined}
+                tabIndex={onFocusEntity ? 0 : undefined}
+                onKeyDown={
+                  onFocusEntity
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          onFocusEntity(fileId);
+                        }
+                      }
+                    : undefined
+                }
+              >
+                {fileId}
+              </span>
+              <span style={pillStyle}>
+                {isImprovement ? "↓" : "↑"} {Math.abs(delta).toFixed(1)}
+              </span>
             </div>
-          )}
-        </>
-      )}
+          );
+        })}
+        {row.affectedDetails.length > 8 && (
+          <div style={{ color: tokenColor.text2, marginTop: space[1], fontSize: font.size.xxs }}>
+            +{row.affectedDetails.length - 8} more files
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// ─── Single row ─────────────────────────────────────────────────────────────
+// ─── Best Move hero card ─────────────────────────────────────────────────────
 
-interface SimRowProps {
+interface BestMoveCardProps {
   row: RefactorSimRow;
   onFocusEntity?: (id: string) => void;
 }
 
-function SimRow({ row, onFocusEntity }: SimRowProps) {
+function BestMoveCard({ row, onFocusEntity }: BestMoveCardProps) {
+  const [hovered, setHovered] = useState(false);
+
+  const cardStyle: CSSProperties = {
+    margin: `${space[3]}px ${space[4]}px ${space[2]}px`,
+    borderRadius: radius.md,
+    borderLeft: "4px solid #22c55e",
+    background: hovered ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.06)",
+    padding: `${space[3]}px ${space[4]}px`,
+    transition: `background ${transition.fast}`,
+    cursor: onFocusEntity ? "pointer" : "default",
+    boxShadow: hovered ? "0 2px 8px rgba(34,197,94,0.15)" : shadow.xs,
+  };
+  const labelStyle: CSSProperties = {
+    fontSize: font.size.xxs,
+    fontWeight: font.weight.semibold,
+    color: "#22c55e",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: space[1],
+  };
+  const deltaStyle: CSSProperties = {
+    fontSize: font.size.xl,
+    fontWeight: font.weight.semibold,
+    color: "#22c55e",
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: 1.2,
+    marginBottom: 2,
+  };
+  const subtitleStyle: CSSProperties = {
+    fontSize: font.size.sm,
+    fontWeight: font.weight.medium,
+    color: tokenColor.text0,
+    marginBottom: space[2],
+  };
+  const chipsStyle: CSSProperties = {
+    display: "flex",
+    gap: space[2],
+    flexWrap: "wrap",
+    alignItems: "center",
+  };
+  const pctChipStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "1px 7px",
+    borderRadius: radius.pill,
+    background: tokenColor.bg3,
+    color: tokenColor.text1,
+    fontSize: font.size.xxs,
+    fontWeight: font.weight.medium,
+    border: `1px solid ${tokenColor.border}`,
+  };
+
+  return (
+    <div
+      style={cardStyle}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => onFocusEntity?.(row.fileId)}
+      role={onFocusEntity ? "button" : undefined}
+      tabIndex={onFocusEntity ? 0 : undefined}
+      aria-label={`Best move: ${row.kind} on ${row.fileName}`}
+      onKeyDown={
+        onFocusEntity
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onFocusEntity(row.fileId);
+              }
+            }
+          : undefined
+      }
+    >
+      <div style={labelStyle}>#1 Recommendation</div>
+      <div style={deltaStyle}>
+        ↓ {Math.abs(row.projectedDelta).toFixed(1)} debt points
+      </div>
+      <div style={subtitleStyle}>
+        Extract · <span style={{ fontFamily: font.mono }}>{row.fileName}</span>
+      </div>
+      <div style={chipsStyle}>
+        <KindBadge kind={row.kind} size="md" />
+        <span style={pctChipStyle}>
+          confidence {Math.round(row.confidence * 100)}%
+        </span>
+        <AffectsChip count={row.affectedCount} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Compact row ─────────────────────────────────────────────────────────────
+
+interface SimRowProps {
+  row: RefactorSimRow;
+  staggerMs: number;
+  onFocusEntity?: (id: string) => void;
+}
+
+function SimRow({ row, staggerMs, onFocusEntity }: SimRowProps) {
   const [hovered, setHovered] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
-  const handleClick = useCallback(() => {
-    setExpanded((v) => !v);
-  }, []);
-
+  const handleClick = useCallback(() => setExpanded((v) => !v), []);
   const handleDblClick = useCallback(() => {
     onFocusEntity?.(row.fileId);
   }, [onFocusEntity, row.fileId]);
 
-  const handleMouseEnter = useCallback(() => setHovered(true), []);
-  const handleMouseLeave = useCallback(() => setHovered(false), []);
-
   const containerStyle: CSSProperties = {
     background: hovered || expanded ? tokenColor.hover : "transparent",
-    transition: "background 120ms ease",
+    transition: `background ${transition.fast}`,
     borderBottom: `1px solid ${tokenColor.borderSoft}`,
+    animation: `rsv-rowIn 220ms ease both`,
+    animationDelay: `${staggerMs}ms`,
   };
 
   const rowStyle: CSSProperties = {
-    padding: "8px 16px",
+    padding: `${space[2]}px ${space[4]}px`,
     cursor: "pointer",
     display: "flex",
     flexDirection: "column",
@@ -257,7 +491,7 @@ function SimRow({ row, onFocusEntity }: SimRowProps) {
   };
 
   const rankStyle: CSSProperties = {
-    width: 24,
+    width: 22,
     flexShrink: 0,
     fontFamily: font.mono,
     fontSize: font.size.xs,
@@ -267,8 +501,8 @@ function SimRow({ row, onFocusEntity }: SimRowProps) {
 
   const fileNameStyle: CSSProperties = {
     flex: 1,
-    fontSize: font.size.md,
-    fontWeight: font.weight.bold,
+    fontSize: font.size.sm,
+    fontWeight: font.weight.semibold,
     color: tokenColor.text0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -276,43 +510,28 @@ function SimRow({ row, onFocusEntity }: SimRowProps) {
     minWidth: 0,
   };
 
-  const confidenceStyle: CSSProperties = {
-    fontSize: font.size.xs,
-    color: tokenColor.text2,
-    flexShrink: 0,
-    fontVariantNumeric: "tabular-nums",
-  };
-
   const bottomLineStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
     gap: 6,
     minWidth: 0,
+    paddingLeft: 28,
   };
 
-  const affectsStyle: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "1px 6px",
-    borderRadius: radius.pill,
-    background: tokenColor.bg3,
-    color: tokenColor.text2,
-    fontSize: font.size.xxs,
-    flexShrink: 0,
-    lineHeight: "16px",
-  };
-
-  const expandHintStyle: CSSProperties = {
+  const expandArrowStyle: CSSProperties = {
     fontSize: font.size.xxs,
     color: tokenColor.text3,
     marginLeft: "auto",
+    flexShrink: 0,
+    transition: `transform ${transition.fast}`,
+    transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
   };
 
   return (
     <div
       style={containerStyle}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       role="button"
       tabIndex={0}
       aria-expanded={expanded}
@@ -325,24 +544,22 @@ function SimRow({ row, onFocusEntity }: SimRowProps) {
       }}
     >
       <div style={rowStyle} onClick={handleClick} onDoubleClick={handleDblClick}>
-        {/* Top line: rank · kind badge · filename · confidence · delta */}
+        {/* Top line: rank · kind badge · filename · delta chip */}
         <div style={topLineStyle}>
           <span style={rankStyle}>#{row.rank}</span>
-          <KindBadge kind={row.kind} color={row.barColor} />
-          <span style={fileNameStyle} title={row.fileId}>{row.fileName}</span>
-          <span style={confidenceStyle}>{Math.round(row.confidence * 100)}%</span>
+          <KindBadge kind={row.kind} />
+          <span style={fileNameStyle} title={row.fileId}>
+            {row.fileName}
+          </span>
           <DeltaChip delta={row.projectedDelta} />
+          <span style={expandArrowStyle}>▼</span>
         </div>
 
-        {/* Bottom line: score bar · affects chip · expand hint */}
+        {/* Bottom line: score bar · affects chip · confidence meter */}
         <div style={bottomLineStyle}>
           <ScoreBar score={row.score} />
-          {row.affectedCount > 0 && (
-            <span style={affectsStyle}>
-              Affects {row.affectedCount} file{row.affectedCount !== 1 ? "s" : ""}
-            </span>
-          )}
-          <span style={expandHintStyle}>{expanded ? "▲" : "▼"}</span>
+          <AffectsChip count={row.affectedCount} />
+          <ConfidenceMeter confidence={row.confidence} />
         </div>
       </div>
 
@@ -353,39 +570,40 @@ function SimRow({ row, onFocusEntity }: SimRowProps) {
   );
 }
 
-// ─── Best-move banner ───────────────────────────────────────────────────────
+// ─── Total debt chip ─────────────────────────────────────────────────────────
 
-interface BestMoveBannerProps {
-  summary: string;
+interface TotalDebtChipProps {
+  rows: RefactorSimRow[];
 }
 
-function BestMoveBanner({ summary }: BestMoveBannerProps) {
+function TotalDebtChip({ rows }: TotalDebtChipProps) {
+  if (rows.length === 0) return null;
+  // Approximate total before = sum of scores; after = sum of (score + projected delta per-file)
+  const totalBefore = rows.reduce((s, r) => s + r.score, 0);
+  const totalAfter = rows.reduce((s, r) => s + Math.max(0, r.score + r.projectedDelta), 0);
   const style: CSSProperties = {
-    padding: "8px 16px",
-    background: "rgba(13, 153, 255, 0.06)",
-    borderBottom: `1px solid ${tokenColor.accentBorder}`,
-    fontSize: font.size.xs,
-    color: tokenColor.text1,
-    flexShrink: 0,
-    display: "flex",
+    display: "inline-flex",
     alignItems: "center",
-    gap: 6,
-  };
-  const iconStyle: CSSProperties = {
-    fontSize: font.size.md,
-    color: tokenColor.accent,
+    gap: 4,
+    padding: "2px 8px",
+    borderRadius: radius.pill,
+    background: tokenColor.bg3,
+    border: `1px solid ${tokenColor.border}`,
+    fontSize: font.size.xxs,
+    fontWeight: font.weight.medium,
+    color: tokenColor.text1,
+    fontVariantNumeric: "tabular-nums",
     flexShrink: 0,
-    lineHeight: 1,
+    whiteSpace: "nowrap",
   };
   return (
-    <div style={style}>
-      <span style={iconStyle}>★</span>
-      <span>{summary}</span>
-    </div>
+    <span style={style}>
+      Total debt: {totalBefore.toFixed(0)} pts → {totalAfter.toFixed(0)} pts
+    </span>
   );
 }
 
-// ─── Main view ──────────────────────────────────────────────────────────────
+// ─── Main view ───────────────────────────────────────────────────────────────
 
 function RefactorSimViewImpl({
   graph,
@@ -395,7 +613,6 @@ function RefactorSimViewImpl({
   const [mounted, setMounted] = useState(false);
   const layoutRef = useRef<RefactorSimLayout | null>(null);
 
-  // Compute layout once on mount / graph change
   if (layoutRef.current === null) {
     layoutRef.current = buildRefactorSimLayout({ graph });
   }
@@ -405,16 +622,16 @@ function RefactorSimViewImpl({
     layoutRef.current = buildRefactorSimLayout({ graph });
   }, [graph]);
 
-  // Two-rAF fade-in — same pattern as RefactorTerrainView
   useEffect(() => {
-    let raf1 = 0;
-    let raf2 = 0;
-    raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setMounted(true));
+    injectStyles();
+    let r1 = 0;
+    let r2 = 0;
+    r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => setMounted(true));
     });
     return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
     };
   }, []);
 
@@ -426,50 +643,60 @@ function RefactorSimViewImpl({
     background: tokenColor.bg1,
     overflow: "hidden",
     opacity: mounted ? 1 : 0,
-    transition: `opacity ${ENTRY_MS}ms ease-out`,
+    transform: mounted ? "translateY(0)" : "translateY(6px)",
+    transition: `opacity 250ms ease-out, transform 250ms ease-out`,
     fontFamily: font.sans,
     position: "relative",
+    animation: mounted ? undefined : undefined,
   };
 
   const headerStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
-    padding: "10px 16px",
+    padding: `${space[2]}px ${space[4]}px`,
     borderBottom: `1px solid ${tokenColor.border}`,
     background: tokenColor.bg1,
     flexShrink: 0,
-    gap: 8,
+    gap: space[2],
+  };
+
+  const titleBlockStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 1,
+    flex: 1,
+    minWidth: 0,
   };
 
   const titleStyle: CSSProperties = {
     fontSize: font.size.lg,
-    fontWeight: font.weight.bold,
+    fontWeight: font.weight.semibold,
     color: tokenColor.text0,
-    lineHeight: 1,
+    lineHeight: 1.2,
   };
 
-  const subtitleStyle: CSSProperties = {
-    fontSize: font.size.xs,
+  const headerSubtitleStyle: CSSProperties = {
+    fontSize: font.size.xxs,
     color: tokenColor.text2,
-    flex: 1,
     lineHeight: 1,
   };
 
   const dismissStyle: CSSProperties = {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     cursor: "pointer",
     color: tokenColor.text2,
     fontSize: font.size.md,
-    borderRadius: radius.xs,
+    borderRadius: radius.sm,
     flexShrink: 0,
     background: "transparent",
     border: "none",
     padding: 0,
     lineHeight: 1,
+    transition: `background ${transition.fast}, color ${transition.fast}`,
   };
 
   const scrollAreaStyle: CSSProperties = {
@@ -483,9 +710,11 @@ function RefactorSimViewImpl({
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: space[2],
     fontSize: font.size.md,
     color: tokenColor.text2,
+    padding: space[4],
+    textAlign: "center",
   };
 
   const emptyHintStyle: CSSProperties = {
@@ -493,18 +722,23 @@ function RefactorSimViewImpl({
     color: tokenColor.text3,
   };
 
-  const subtitle = `${layout.totalFiles} file${layout.totalFiles !== 1 ? "s" : ""} · ${layout.rows.length} plan${layout.rows.length !== 1 ? "s" : ""} projected`;
+  // Rows below hero (skip rank 1 which is shown in hero card)
+  const heroRow = layout.rows[0] ?? null;
+  const remainingRows = layout.rows.slice(1);
 
   return (
-    <div
-      style={rootStyle}
-      role="region"
-      aria-label="Refactor Simulator"
-    >
+    <div style={rootStyle} role="region" aria-label="Refactor Simulator">
       {/* Header */}
       <div style={headerStyle}>
-        <span style={titleStyle}>Refactor Simulator</span>
-        <span style={subtitleStyle}>{subtitle}</span>
+        <div style={titleBlockStyle}>
+          <span style={titleStyle}>Refactor Simulator</span>
+          <span style={headerSubtitleStyle}>
+            projected impact of each refactoring plan
+          </span>
+        </div>
+        {layout.rows.length > 0 && (
+          <TotalDebtChip rows={layout.rows} />
+        )}
         {onDismiss !== undefined && (
           <button
             style={dismissStyle}
@@ -517,40 +751,57 @@ function RefactorSimViewImpl({
         )}
       </div>
 
-      {/* Best-move banner */}
-      {layout.bestMoveSummary !== null && (
-        <BestMoveBanner summary={layout.bestMoveSummary} />
-      )}
-
-      {/* Rows or empty state */}
-      {layout.rows.length > 0 ? (
-        <div style={scrollAreaStyle}>
-          {layout.rows.map((row) => (
-            <SimRow
-              key={`${row.fileId}:${row.kind}`}
-              row={row}
-              onFocusEntity={onFocusEntity}
-            />
-          ))}
-          {/* Bottom padding so last row isn't flush */}
-          <div style={{ height: 12 }} />
-        </div>
-      ) : (
+      {/* Body */}
+      {layout.rows.length === 0 ? (
         <div style={emptyStyle}>
           <span>No refactor suggestions</span>
           <span style={emptyHintStyle}>
-            {layout.totalFiles === 0
-              ? "Load a workspace with files to analyze."
-              : "All files are within healthy thresholds."}
+            Graph has no high-ROI refactoring opportunities
           </span>
+        </div>
+      ) : (
+        <div style={scrollAreaStyle}>
+          {/* Best Move hero card */}
+          {heroRow !== null && (
+            <BestMoveCard row={heroRow} onFocusEntity={onFocusEntity} />
+          )}
+
+          {/* Section label */}
+          {remainingRows.length > 0 && (
+            <div
+              style={{
+                padding: `${space[2]}px ${space[4]}px ${space[1]}px`,
+                fontSize: font.size.xxs,
+                fontWeight: font.weight.semibold,
+                color: tokenColor.text3,
+                textTransform: "uppercase",
+                letterSpacing: 0.5,
+                borderBottom: `1px solid ${tokenColor.border}`,
+              }}
+            >
+              Other Plans
+            </div>
+          )}
+
+          {/* Remaining rows (staggered) */}
+          {remainingRows.map((row, i) => (
+            <SimRow
+              key={`${row.fileId}:${row.kind}`}
+              row={row}
+              staggerMs={i * 35}
+              onFocusEntity={onFocusEntity}
+            />
+          ))}
+
+          <div style={{ height: 12 }} />
         </div>
       )}
 
-      {/* Legend footer */}
+      {/* Footer hint */}
       {layout.rows.length > 0 && (
         <div
           style={{
-            padding: "5px 16px",
+            padding: `${space[1]}px ${space[4]}px`,
             borderTop: `1px solid ${tokenColor.border}`,
             fontSize: font.size.xxs,
             color: tokenColor.text3,
@@ -559,7 +810,7 @@ function RefactorSimViewImpl({
             background: tokenColor.bg1,
           }}
         >
-          Click a row to expand · Double-click to focus file on canvas
+          Click to expand · Double-click to focus file on canvas
         </div>
       )}
     </div>

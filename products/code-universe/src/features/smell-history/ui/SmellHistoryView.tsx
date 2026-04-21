@@ -1,62 +1,53 @@
 // SmellHistoryView — "Smell History" visualization
 // --------------------------------------------------------------------
-// SOTA++ DOM-based visualization showing when code smells first appeared.
+// SOTA++ visualization showing when code smells first appeared.
 //
 // Layout (top → bottom):
-//   1. Header bar — title + dismiss button
-//   2. Sparkline strip — SVG sparkline showing smell count over time
-//   3. Section groups — one per SmellKind, with colour-coded header
-//   4. Entries — dot + file name + age + timestamp chip
-//   5. Empty state per section when no smells of that kind
-//
-// All layouts are DOM (no SVG except for the sparkline strip).
-// Hover: hovering an entry highlights it and shows the SHA chip.
-// Click: clicking a file name calls onFocusEntity.
+//   1. Header bar — title + subtitle + dismiss button
+//   2. Summary strip — total smells + files affected chips
+//   3. Sparkline — 64px SVG area chart with hover cursor + tooltip
+//   4. Section groups — colored left-border accent bar + trend indicator
+//   5. Entry rows — dot + filename + age + hover-reveal SHA chip
+//   6. Empty state per section
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
-import { color, font, radius, space } from "../../../shared/ui/tokens";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { CSSProperties, MouseEvent } from "react";
+import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import type { SmellKind } from "@quanta/canvas-engine";
-import { buildSmellHistoryLayout, SMELL_COLORS } from "../model/build-smell-history-layout";
+import { buildSmellHistoryLayout } from "../model/build-smell-history-layout";
 import type { SmellHistoryEntry, SparklineBucket } from "../model/types";
 
 // ── Constants ─────────────────────────────────────────────────────────
 
-const ENTRY_MS = 240;
-const SPARKLINE_H = 48;
-const DOT_SIZE = 7;
+const SPARKLINE_H = 64;
+const ANIM_STAGGER = 30; // ms between row stagger
 
-// ── Smell section metadata ────────────────────────────────────────────
+// ── Style injection (keyframes) ───────────────────────────────────────
 
-interface SmellSectionMeta {
-  kind: SmellKind;
-  label: string;
-  description: string;
+const FADE_UP_NAME = "shv-fadeUp";
+const KEYFRAME_CSS = `
+@keyframes ${FADE_UP_NAME} {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0);    }
 }
+`;
 
-const SMELL_SECTIONS: readonly SmellSectionMeta[] = [
-  {
-    kind: "high-coupling",
-    label: "High Coupling",
-    description: "Files with too many dependencies",
-  },
-  {
-    kind: "cycle-member",
-    label: "Cycle Member",
-    description: "Files participating in import cycles",
-  },
-  {
-    kind: "risk-spike",
-    label: "Risk Spike",
-    description: "Files whose risk score jumped significantly",
-  },
-  {
-    kind: "layer-violation",
-    label: "Layer Violation",
-    description: "Files that break architectural layer rules",
-  },
-];
+let _keyframesInjected = false;
+function ensureKeyframes(): void {
+  if (_keyframesInjected || typeof document === "undefined") return;
+  _keyframesInjected = true;
+  const style = document.createElement("style");
+  style.textContent = KEYFRAME_CSS;
+  document.head.appendChild(style);
+}
 
 // ── Prop types ────────────────────────────────────────────────────────
 
@@ -66,84 +57,262 @@ export interface SmellHistoryViewProps {
   onDismiss?: () => void;
 }
 
-// ── Sparkline component ───────────────────────────────────────────────
+// ── Smell section metadata ────────────────────────────────────────────
+
+interface SmellSectionMeta {
+  kind: SmellKind;
+  label: string;
+  description: string;
+  accentColor: string;
+}
+
+const SMELL_SECTIONS: readonly SmellSectionMeta[] = [
+  {
+    kind: "high-coupling",
+    label: "High Coupling",
+    description: "Files with too many dependencies",
+    accentColor: "#f59e0b",
+  },
+  {
+    kind: "cycle-member",
+    label: "Cycle Member",
+    description: "Files participating in import cycles",
+    accentColor: "#ef4444",
+  },
+  {
+    kind: "risk-spike",
+    label: "Risk Spike",
+    description: "Files whose risk score jumped significantly",
+    accentColor: "#f97316",
+  },
+  {
+    kind: "layer-violation",
+    label: "Layer Violation",
+    description: "Files that break architectural layer rules",
+    accentColor: "#8b5cf6",
+  },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+function hexToAlpha(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Age badge: green < 30d, amber 30-90d, red > 90d */
+function ageBadgeColors(timestamp: number): { bg: string; fg: string } {
+  const daysAgo = (Date.now() - timestamp) / 86_400_000;
+  if (daysAgo <= 30) return { bg: "rgba(34,160,107,0.12)", fg: "#22a06b" };
+  if (daysAgo <= 90) return { bg: "rgba(245,158,11,0.12)", fg: "#d97706" };
+  return { bg: "rgba(239,68,68,0.12)", fg: "#ef4444" };
+}
+
+/** Trend direction: looks at last 3 buckets. */
+type TrendDir = "up" | "stable" | "down";
+function computeTrend(buckets: SparklineBucket[]): TrendDir {
+  if (buckets.length < 3) return "stable";
+  const last3 = buckets.slice(-3).map(b => b.count);
+  if (last3[2] > last3[1] && last3[1] >= last3[0]) return "up";
+  if (last3[2] < last3[1] && last3[1] <= last3[0]) return "down";
+  return "stable";
+}
+
+// ── Summary pill chip ─────────────────────────────────────────────────
+
+interface PillChipProps {
+  label: string;
+  bg: string;
+  fg: string;
+}
+
+function PillChip({ label, bg, fg }: PillChipProps) {
+  const style: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    paddingLeft: space[2],
+    paddingRight: space[2],
+    paddingTop: 3,
+    paddingBottom: 3,
+    borderRadius: radius.pill,
+    backgroundColor: bg,
+    color: fg,
+    fontFamily: font.sans,
+    fontSize: font.size.xs,
+    fontWeight: font.weight.semibold,
+    userSelect: "none",
+    whiteSpace: "nowrap",
+  };
+  return <span style={style}>{label}</span>;
+}
+
+// ── Sparkline with hover cursor ───────────────────────────────────────
 
 interface SparklineProps {
   buckets: SparklineBucket[];
 }
 
 function Sparkline({ buckets }: SparklineProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [cursorX, setCursorX] = useState<number | null>(null);
+  const [tooltipIdx, setTooltipIdx] = useState<number | null>(null);
+
   if (buckets.length === 0) return null;
 
-  const maxCount = Math.max(...buckets.map(b => b.count), 1);
-  const W = 100; // viewBox units wide
+  const W = 400; // viewBox width (scales with SVG)
   const H = SPARKLINE_H;
-  const padX = 2;
-  const padY = 4;
+  const padX = 4;
+  const padY = 6;
   const usableW = W - padX * 2;
   const usableH = H - padY * 2;
+  const maxCount = Math.max(...buckets.map(b => b.count), 1);
 
   const pts = buckets.map((b, i) => {
     const x = padX + (i / (buckets.length - 1 || 1)) * usableW;
     const y = padY + usableH - (b.count / maxCount) * usableH;
-    return { x, y, count: b.count };
+    return { x, y, count: b.count, index: i };
   });
 
-  // Build SVG polyline points string.
-  const polyPoints = pts.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+  const polyPoints = pts.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
 
-  // Area path — closed polygon for the fill.
   const areaPath =
-    `M ${pts[0].x.toFixed(2)},${H} ` +
-    pts.map(p => `L ${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ") +
-    ` L ${pts[pts.length - 1].x.toFixed(2)},${H} Z`;
+    `M ${pts[0].x.toFixed(1)},${H} ` +
+    pts.map(p => `L ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ") +
+    ` L ${pts[pts.length - 1].x.toFixed(1)},${H} Z`;
+
+  const gradId = "shv-sparkline-grad";
+
+  const handleMouseMove = useCallback((e: MouseEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
+    const fraction = relX / rect.width;
+    const viewX = padX + fraction * usableW;
+    setCursorX(viewX);
+    // Find closest bucket
+    let closest = 0;
+    let minDist = Infinity;
+    pts.forEach((p, i) => {
+      const dist = Math.abs(p.x - viewX);
+      if (dist < minDist) { minDist = dist; closest = i; }
+    });
+    setTooltipIdx(closest);
+  }, [pts, usableW]);
+
+  const handleMouseLeave = useCallback(() => {
+    setCursorX(null);
+    setTooltipIdx(null);
+  }, []);
+
+  const tooltipBucket = tooltipIdx !== null ? buckets[tooltipIdx] : null;
+  const tooltipPt = tooltipIdx !== null ? pts[tooltipIdx] : null;
 
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      preserveAspectRatio="none"
-      width="100%"
-      height={H}
-      style={{ display: "block" }}
-      aria-label="Smell count over time"
-      role="img"
-    >
-      {/* Area fill */}
-      <path d={areaPath} fill="rgba(239,68,68,0.08)" />
-      {/* Line */}
-      <polyline
-        points={polyPoints}
-        fill="none"
-        stroke="#ef4444"
-        strokeWidth={1}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-        opacity={0.7}
-      />
-      {/* Dots at each bucket */}
-      {pts.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r={1.5}
-          fill="#ef4444"
-          opacity={0.6}
+    <div style={{ position: "relative" }}>
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`}
+        preserveAspectRatio="none"
+        width="100%"
+        height={H}
+        style={{ display: "block", cursor: "crosshair" }}
+        aria-label="Smell count over time"
+        role="img"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color.accent} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={color.accent} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+
+        {/* Area fill */}
+        <path d={areaPath} fill={`url(#${gradId})`} />
+
+        {/* Polyline */}
+        <polyline
+          points={polyPoints}
+          fill="none"
+          stroke={color.accent}
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          opacity={0.85}
+        />
+
+        {/* Dots — colored by worst smell kind in bucket (use accent as fallback) */}
+        {pts.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={2.5}
+            fill={color.accent}
+            opacity={tooltipIdx === i ? 1 : 0.5}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+
+        {/* Hover cursor vertical line */}
+        {cursorX !== null && (
+          <line
+            x1={cursorX}
+            y1={padY}
+            x2={cursorX}
+            y2={H - padY}
+            stroke={color.text2}
+            strokeWidth={1}
+            strokeDasharray="2,2"
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+
+        {/* Baseline */}
+        <line
+          x1={padX}
+          y1={H - 2}
+          x2={W - padX}
+          y2={H - 2}
+          stroke={color.border}
+          strokeWidth={0.5}
           vectorEffect="non-scaling-stroke"
         />
-      ))}
-      {/* Zero baseline */}
-      <line
-        x1={padX}
-        y1={H - padY / 2}
-        x2={W - padX}
-        y2={H - padY / 2}
-        stroke={color.border}
-        strokeWidth={0.5}
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
+      </svg>
+
+      {/* Tooltip */}
+      {tooltipBucket !== null && tooltipPt !== null && (
+        <div
+          style={{
+            position: "absolute",
+            top: 4,
+            // Position tooltip: if bucket in left half, show right; else left
+            ...(tooltipIdx !== null && tooltipIdx < buckets.length / 2
+              ? { left: "50%" }
+              : { right: "50%" }),
+            background: color.bg0,
+            border: `1px solid ${color.border}`,
+            borderRadius: radius.sm,
+            padding: `3px ${space[2]}px`,
+            fontFamily: font.sans,
+            fontSize: font.size.xs,
+            color: color.text1,
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            zIndex: 10,
+          }}
+          aria-hidden="true"
+        >
+          {tooltipBucket.count} smell{tooltipBucket.count !== 1 ? "s" : ""} at this snapshot
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -151,21 +320,22 @@ function Sparkline({ buckets }: SparklineProps) {
 
 interface EntryRowProps {
   entry: SmellHistoryEntry;
+  index: number;
   hovered: boolean;
-  onHoverEnter: (id: string) => void;
+  onHoverEnter: () => void;
   onHoverLeave: () => void;
-  onFocus: (fileId: string) => void;
+  onFocus: () => void;
 }
 
 function EntryRow({
   entry,
+  index,
   hovered,
   onHoverEnter,
   onHoverLeave,
   onFocus,
 }: EntryRowProps) {
-  const handleEnter = useCallback(() => onHoverEnter(entry.id), [entry.id, onHoverEnter]);
-  const handleClick = useCallback(() => onFocus(entry.fileId), [entry.fileId, onFocus]);
+  const { bg: ageBg, fg: ageFg } = ageBadgeColors(entry.firstSeenTimestamp);
 
   const rowStyle: CSSProperties = {
     display: "flex",
@@ -177,13 +347,16 @@ function EntryRow({
     paddingBottom: 5,
     borderRadius: radius.sm,
     backgroundColor: hovered ? color.hover : "transparent",
-    transition: `background-color 120ms ease`,
+    transition: `background-color ${transition.fast}`,
     cursor: "pointer",
+    animation: `${FADE_UP_NAME} 250ms ease-out both`,
+    animationDelay: `${index * ANIM_STAGGER}ms`,
   };
 
   const dotStyle: CSSProperties = {
-    width: DOT_SIZE,
-    height: DOT_SIZE,
+    width: 8,
+    height: 8,
+    minWidth: 8,
     borderRadius: radius.pill,
     backgroundColor: entry.color,
     flexShrink: 0,
@@ -191,7 +364,7 @@ function EntryRow({
 
   const fileNameStyle: CSSProperties = {
     fontFamily: font.mono,
-    fontSize: font.size.sm,
+    fontSize: font.size.xs,
     fontWeight: font.weight.medium,
     color: hovered ? color.text0 : color.text1,
     flex: 1,
@@ -199,19 +372,29 @@ function EntryRow({
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis",
+    transition: `color ${transition.fast}`,
   };
 
-  const ageStyle: CSSProperties = {
+  const ageBadgeStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingTop: 2,
+    paddingBottom: 2,
+    borderRadius: radius.pill,
+    backgroundColor: ageBg,
+    color: ageFg,
     fontFamily: font.sans,
     fontSize: font.size.xs,
-    color: color.text2,
-    whiteSpace: "nowrap",
+    fontWeight: font.weight.semibold,
     flexShrink: 0,
+    userSelect: "none",
   };
 
-  const shaStyle: CSSProperties = {
+  const shaChipStyle: CSSProperties = {
     fontFamily: font.mono,
-    fontSize: font.size.xxs,
+    fontSize: font.size.xs,
     color: color.text3,
     backgroundColor: color.bg3,
     borderRadius: radius.xs,
@@ -221,97 +404,131 @@ function EntryRow({
     paddingBottom: 1,
     flexShrink: 0,
     opacity: hovered ? 1 : 0,
-    transition: `opacity 120ms ease`,
+    transition: `opacity ${transition.fast}`,
     userSelect: "text",
   };
 
   return (
     <div
       style={rowStyle}
-      onPointerEnter={handleEnter}
+      onPointerEnter={onHoverEnter}
       onPointerLeave={onHoverLeave}
-      onClick={handleClick}
+      onClick={onFocus}
       title={entry.fileId}
       role="button"
       tabIndex={0}
-      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onFocus(); }}
     >
-      <div style={dotStyle} />
+      <div style={dotStyle} aria-hidden="true" />
       <span style={fileNameStyle}>{entry.fileName}</span>
-      <span style={ageStyle}>{entry.age}</span>
-      <span style={shaStyle}>{entry.firstSeenSha.slice(0, 7)}</span>
+      <span style={ageBadgeStyle}>{entry.age}</span>
+      <span style={shaChipStyle} aria-hidden={!hovered}>
+        {entry.firstSeenSha.slice(0, 7)}
+      </span>
     </div>
   );
 }
 
-// ── Section header + entries ──────────────────────────────────────────
+// ── Trend indicator ───────────────────────────────────────────────────
+
+interface TrendBadgeProps {
+  dir: TrendDir;
+}
+
+function TrendBadge({ dir }: TrendBadgeProps) {
+  const configs: Record<TrendDir, { label: string; fg: string; bg: string }> = {
+    up:     { label: "↑ accelerating", fg: "#ef4444", bg: "rgba(239,68,68,0.10)" },
+    stable: { label: "→ stable",       fg: "#757575", bg: "rgba(117,117,117,0.10)" },
+    down:   { label: "↓ declining",    fg: "#22a06b", bg: "rgba(34,160,107,0.10)" },
+  };
+  const cfg = configs[dir];
+
+  const style: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingTop: 1,
+    paddingBottom: 1,
+    borderRadius: radius.pill,
+    backgroundColor: cfg.bg,
+    color: cfg.fg,
+    fontFamily: font.sans,
+    fontSize: font.size.xs,
+    fontWeight: font.weight.semibold,
+    userSelect: "none",
+  };
+
+  return <span style={style}>{cfg.label}</span>;
+}
+
+// ── Smell section ─────────────────────────────────────────────────────
 
 interface SmellSectionProps {
   meta: SmellSectionMeta;
   entries: SmellHistoryEntry[];
+  sparklineBuckets: SparklineBucket[];
   hoveredId: string | null;
   onHoverEnter: (id: string) => void;
   onHoverLeave: () => void;
   onFocus: (fileId: string) => void;
+  entryOffset: number; // global entry index offset for stagger
 }
 
 function SmellSection({
   meta,
   entries,
+  sparklineBuckets,
   hoveredId,
   onHoverEnter,
   onHoverLeave,
   onFocus,
+  entryOffset,
 }: SmellSectionProps) {
-  const sectionColor = SMELL_COLORS[meta.kind];
+  const trend = computeTrend(sparklineBuckets);
+
+  const sectionStyle: CSSProperties = {
+    borderLeft: `4px solid ${meta.accentColor}`,
+    marginLeft: space[3],
+    marginRight: space[3],
+    marginBottom: space[2],
+    borderRadius: `0 ${radius.sm}px ${radius.sm}px 0`,
+    overflow: "hidden",
+  };
 
   const headerStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
     gap: space[2],
-    paddingLeft: space[3],
-    paddingRight: space[3],
-    paddingTop: space[3],
+    paddingLeft: space[2],
+    paddingRight: space[2],
+    paddingTop: space[2],
     paddingBottom: space[2],
+    backgroundColor: hexToAlpha(meta.accentColor, 0.04),
   };
 
-  const kindDotStyle: CSSProperties = {
-    width: 8,
-    height: 8,
-    borderRadius: radius.pill,
-    backgroundColor: sectionColor,
-    flexShrink: 0,
-  };
-
-  const kindLabelStyle: CSSProperties = {
+  const sectionLabelStyle: CSSProperties = {
     fontFamily: font.sans,
     fontSize: font.size.sm,
     fontWeight: font.weight.semibold,
-    color: sectionColor,
-    letterSpacing: font.letter.tight,
+    color: meta.accentColor,
     userSelect: "none",
+    flex: 1,
   };
 
-  const kindDescStyle: CSSProperties = {
+  const countBadgeStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingTop: 1,
+    paddingBottom: 1,
+    borderRadius: radius.pill,
+    backgroundColor: hexToAlpha(meta.accentColor, 0.12),
+    color: meta.accentColor,
     fontFamily: font.sans,
     fontSize: font.size.xs,
-    color: color.text3,
-    marginLeft: "auto",
-    userSelect: "none",
-  };
-
-  const countChipStyle: CSSProperties = {
-    fontFamily: font.sans,
-    fontSize: font.size.xxs,
     fontWeight: font.weight.semibold,
-    color: sectionColor,
-    backgroundColor: hexToAlpha(sectionColor, 0.1),
-    borderRadius: radius.pill,
-    paddingLeft: space[2],
-    paddingRight: space[2],
-    paddingTop: 2,
-    paddingBottom: 2,
-    flexShrink: 0,
     userSelect: "none",
   };
 
@@ -319,83 +536,93 @@ function SmellSection({
     paddingLeft: space[3],
     paddingRight: space[3],
     paddingTop: space[2],
-    paddingBottom: space[3],
+    paddingBottom: space[2],
     fontFamily: font.sans,
     fontSize: font.size.xs,
     color: color.text3,
     fontStyle: "italic",
   };
 
-  const separatorStyle: CSSProperties = {
-    height: 1,
-    backgroundColor: color.border,
-    marginLeft: space[3],
-    marginRight: space[3],
-    marginTop: space[2],
-  };
-
   return (
-    <section aria-label={`${meta.label} smells`}>
+    <section style={sectionStyle} aria-label={`${meta.label} smells`}>
       <div style={headerStyle}>
-        <div style={kindDotStyle} />
-        <span style={kindLabelStyle}>{meta.label}</span>
+        <span style={sectionLabelStyle}>{meta.label}</span>
         {entries.length > 0 && (
-          <span style={countChipStyle}>{entries.length}</span>
+          <span style={countBadgeStyle}>{entries.length}</span>
         )}
-        <span style={kindDescStyle}>{meta.description}</span>
+        <TrendBadge dir={trend} />
       </div>
 
       {entries.length === 0 ? (
         <div style={emptyStyle}>No {meta.label.toLowerCase()} smells found</div>
       ) : (
-        entries.map(entry => (
+        entries.map((entry, i) => (
           <EntryRow
             key={entry.id}
             entry={entry}
+            index={entryOffset + i}
             hovered={hoveredId === entry.id}
-            onHoverEnter={onHoverEnter}
+            onHoverEnter={() => onHoverEnter(entry.id)}
             onHoverLeave={onHoverLeave}
-            onFocus={onFocus}
+            onFocus={() => onFocus(entry.fileId)}
           />
         ))
       )}
-
-      <div style={separatorStyle} />
     </section>
   );
 }
 
-// ── Utility: convert hex colour to rgba string ────────────────────────
+// ── Summary strip ─────────────────────────────────────────────────────
 
-function hexToAlpha(hex: string, alpha: number): string {
-  // Accepts #rrggbb format only (all our SMELL_COLORS are this form).
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
+interface SummaryStripProps {
+  totalSmells: number;
+  filesAffected: number;
+}
+
+function SummaryStrip({ totalSmells, filesAffected }: SummaryStripProps) {
+  const stripStyle: CSSProperties = {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: space[1],
+    paddingLeft: space[3],
+    paddingRight: space[3],
+    paddingTop: space[2],
+    paddingBottom: space[2],
+    borderBottom: `1px solid ${color.border}`,
+    flexShrink: 0,
+  };
+
+  return (
+    <div style={stripStyle}>
+      <PillChip
+        label={`${totalSmells} smell${totalSmells !== 1 ? "s" : ""}`}
+        bg={totalSmells > 0 ? "rgba(239,68,68,0.10)" : "rgba(34,160,107,0.10)"}
+        fg={totalSmells > 0 ? "#ef4444" : "#22a06b"}
+      />
+      <PillChip
+        label={`${filesAffected} file${filesAffected !== 1 ? "s" : ""} affected`}
+        bg="rgba(13,153,255,0.10)"
+        fg="#0d99ff"
+      />
+    </div>
+  );
 }
 
 // ── Sparkline header strip ────────────────────────────────────────────
 
 interface SparklineHeaderProps {
   buckets: SparklineBucket[];
-  totalEntries: number;
 }
 
-function SparklineHeader({ buckets, totalEntries }: SparklineHeaderProps) {
+function SparklineHeader({ buckets }: SparklineHeaderProps) {
   const containerStyle: CSSProperties = {
     paddingLeft: space[3],
     paddingRight: space[3],
     paddingTop: space[2],
-    paddingBottom: space[1],
+    paddingBottom: space[2],
     borderBottom: `1px solid ${color.border}`,
-  };
-
-  const labelRowStyle: CSSProperties = {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
+    flexShrink: 0,
   };
 
   const labelStyle: CSSProperties = {
@@ -403,22 +630,13 @@ function SparklineHeader({ buckets, totalEntries }: SparklineHeaderProps) {
     fontSize: font.size.xs,
     color: color.text2,
     userSelect: "none",
-  };
-
-  const countStyle: CSSProperties = {
-    fontFamily: font.sans,
-    fontSize: font.size.xs,
-    fontWeight: font.weight.semibold,
-    color: totalEntries > 0 ? "#ef4444" : color.text2,
-    userSelect: "none",
+    marginBottom: 4,
+    display: "block",
   };
 
   return (
     <div style={containerStyle}>
-      <div style={labelRowStyle}>
-        <span style={labelStyle}>Smell count over time</span>
-        <span style={countStyle}>{totalEntries} smell{totalEntries !== 1 ? "s" : ""} total</span>
-      </div>
+      <span style={labelStyle}>Smell trend over time</span>
       <Sparkline buckets={buckets} />
     </div>
   );
@@ -431,20 +649,9 @@ function SmellHistoryViewImpl({
   onFocusEntity,
   onDismiss,
 }: SmellHistoryViewProps) {
-  const [mounted, setMounted] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let raf1 = 0;
-    let raf2 = 0;
-    raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setMounted(true));
-    });
-    return () => {
-      cancelAnimationFrame(raf1);
-      cancelAnimationFrame(raf2);
-    };
-  }, []);
+  useEffect(() => { ensureKeyframes(); }, []);
 
   const layout = useMemo(
     () => buildSmellHistoryLayout({ graph }),
@@ -458,35 +665,54 @@ function SmellHistoryViewImpl({
     [onFocusEntity],
   );
 
+  // Count unique files affected
+  const filesAffected = useMemo(
+    () => new Set(layout.entries.map(e => e.fileId)).size,
+    [layout.entries],
+  );
+
   const rootStyle: CSSProperties = {
     display: "flex",
     flexDirection: "column",
     width: "100%",
+    height: "100%",
     fontFamily: font.sans,
-    opacity: mounted ? 1 : 0,
-    transition: `opacity ${ENTRY_MS}ms ease-out`,
+    animation: `${FADE_UP_NAME} 250ms ease-out both`,
   };
-
-  // ── Header ─────────────────────────────────────────────────────────
 
   const headerStyle: CSSProperties = {
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     paddingLeft: space[3],
     paddingRight: space[3],
-    paddingTop: space[2],
+    paddingTop: space[3],
     paddingBottom: space[2],
     borderBottom: `1px solid ${color.border}`,
     flexShrink: 0,
+    gap: space[2],
+  };
+
+  const titleBlockStyle: CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
   };
 
   const titleStyle: CSSProperties = {
     fontFamily: font.sans,
-    fontSize: font.size.lg,
+    fontSize: font.size.md,
     fontWeight: font.weight.semibold,
     color: color.text0,
     letterSpacing: font.letter.tight,
+    userSelect: "none",
+    lineHeight: 1.3,
+  };
+
+  const subtitleStyle: CSSProperties = {
+    fontFamily: font.sans,
+    fontSize: font.size.xs,
+    color: color.text2,
     userSelect: "none",
   };
 
@@ -497,16 +723,18 @@ function SmellHistoryViewImpl({
     color: color.text2,
     fontSize: font.size.xl,
     lineHeight: 1,
-    padding: `${space[1]}px ${space[1]}px`,
-    borderRadius: radius.xs,
-    display: onDismiss ? "flex" : "none",
+    padding: `${space[1]}px`,
+    borderRadius: radius.sm,
+    display: "flex",
     alignItems: "center",
+    flexShrink: 0,
+    transition: `color ${transition.fast}`,
   };
 
   // ── No history guard ───────────────────────────────────────────────
 
   if (!graph.history) {
-    const emptyBodyStyle: CSSProperties = {
+    const noHistoryStyle: CSSProperties = {
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
@@ -514,8 +742,7 @@ function SmellHistoryViewImpl({
       padding: space[7],
       gap: space[3],
     };
-
-    const noHistoryStyle: CSSProperties = {
+    const noHistoryTextStyle: CSSProperties = {
       fontFamily: font.sans,
       fontSize: font.size.sm,
       color: color.text3,
@@ -525,15 +752,18 @@ function SmellHistoryViewImpl({
     return (
       <div style={rootStyle}>
         <div style={headerStyle}>
-          <span style={titleStyle}>Smell History</span>
+          <div style={titleBlockStyle}>
+            <span style={titleStyle}>Smell History</span>
+            <span style={subtitleStyle}>first appearance of each code smell</span>
+          </div>
           {onDismiss && (
             <button style={dismissBtnStyle} onClick={onDismiss} aria-label="Dismiss">
               &#x2715;
             </button>
           )}
         </div>
-        <div style={emptyBodyStyle}>
-          <div style={noHistoryStyle}>
+        <div style={noHistoryStyle}>
+          <div style={noHistoryTextStyle}>
             No history available — temporal smell analysis requires commit history.
           </div>
         </div>
@@ -547,13 +777,21 @@ function SmellHistoryViewImpl({
     overflowY: "auto",
     overflowX: "hidden",
     flex: 1,
+    paddingTop: space[2],
+    paddingBottom: space[2],
   };
+
+  // Compute cumulative entry offsets for stagger
+  let entryOffset = 0;
 
   return (
     <div style={rootStyle}>
       {/* Header */}
       <div style={headerStyle}>
-        <span style={titleStyle}>Smell History</span>
+        <div style={titleBlockStyle}>
+          <span style={titleStyle}>Smell History</span>
+          <span style={subtitleStyle}>first appearance of each code smell</span>
+        </div>
         {onDismiss && (
           <button style={dismissBtnStyle} onClick={onDismiss} aria-label="Dismiss">
             &#x2715;
@@ -561,25 +799,32 @@ function SmellHistoryViewImpl({
         )}
       </div>
 
-      {/* Sparkline strip */}
-      <SparklineHeader
-        buckets={layout.sparkline}
-        totalEntries={layout.entries.length}
-      />
+      {/* Summary chips */}
+      <SummaryStrip totalSmells={layout.entries.length} filesAffected={filesAffected} />
 
-      {/* Grouped sections */}
+      {/* Sparkline */}
+      <SparklineHeader buckets={layout.sparkline} />
+
+      {/* Grouped smell sections */}
       <div style={bodyStyle} role="list" aria-label="Smell history sections">
-        {SMELL_SECTIONS.map(meta => (
-          <SmellSection
-            key={meta.kind}
-            meta={meta}
-            entries={layout.byKind.get(meta.kind) ?? []}
-            hoveredId={hoveredId}
-            onHoverEnter={handleHoverEnter}
-            onHoverLeave={handleHoverLeave}
-            onFocus={handleFocus}
-          />
-        ))}
+        {SMELL_SECTIONS.map(meta => {
+          const entries = layout.byKind.get(meta.kind) ?? [];
+          const offset = entryOffset;
+          entryOffset += entries.length;
+          return (
+            <SmellSection
+              key={meta.kind}
+              meta={meta}
+              entries={entries}
+              sparklineBuckets={layout.sparkline}
+              hoveredId={hoveredId}
+              onHoverEnter={handleHoverEnter}
+              onHoverLeave={handleHoverLeave}
+              onFocus={handleFocus}
+              entryOffset={offset}
+            />
+          );
+        })}
       </div>
     </div>
   );
