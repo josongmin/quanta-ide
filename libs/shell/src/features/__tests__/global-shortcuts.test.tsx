@@ -20,6 +20,7 @@ const { mockUiBus, mockShortcutRegistry, mockTabBus, registeredBindings } = vi.h
     devConsoleOpen: false,
     rulesOpen: false,
     settingsOpen: false,
+    dashboardOpen: false,
   };
 
   const mockUiBus = {
@@ -36,8 +37,11 @@ const { mockUiBus, mockShortcutRegistry, mockTabBus, registeredBindings } = vi.h
     toggleSettings: vi.fn((open?: boolean) => {
       uiState = { ...uiState, settingsOpen: open ?? !uiState.settingsOpen };
     }),
+    toggleDashboard: vi.fn((open?: boolean) => {
+      uiState = { ...uiState, dashboardOpen: open ?? !uiState.dashboardOpen };
+    }),
     _reset: () => {
-      uiState = { paletteOpen: false, devConsoleOpen: false, rulesOpen: false, settingsOpen: false };
+      uiState = { paletteOpen: false, devConsoleOpen: false, rulesOpen: false, settingsOpen: false, dashboardOpen: false };
     },
     _set: (patch: Partial<typeof uiState>) => {
       uiState = { ...uiState, ...patch };

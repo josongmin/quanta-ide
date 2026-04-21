@@ -62,7 +62,7 @@ function registerShellShortcuts(): () => void {
       // so app-level escape handlers (e.g. IDE overlays) can respond.
       when: () => {
         const ui = uiBus.get();
-        return ui.paletteOpen || ui.devConsoleOpen || ui.rulesOpen || ui.settingsOpen;
+        return ui.paletteOpen || ui.devConsoleOpen || ui.rulesOpen || ui.settingsOpen || ui.dashboardOpen;
       },
       run: () => {
         const ui = uiBus.get();
@@ -80,6 +80,10 @@ function registerShellShortcuts(): () => void {
         }
         if (ui.settingsOpen) {
           uiBus.toggleSettings(false);
+          return;
+        }
+        if (ui.dashboardOpen) {
+          uiBus.toggleDashboard(false);
           return;
         }
       },

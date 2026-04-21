@@ -1,0 +1,23 @@
+{
+  "name": "@quanta/telemetry-agent",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./browser": {
+      "types": "./src/browser.ts",
+      "default": "./src/browser.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  }
+}

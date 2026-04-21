@@ -14,10 +14,11 @@
 //   room      — upward triangle + ƒ mark        (ƒ glyph)
 //   default   — circle
 
-import { memo, useCallback, useEffect, useState, type KeyboardEvent } from "react";
+import { cloneElement, memo, useCallback, useEffect, useState, type KeyboardEvent, type ReactElement } from "react";
 import type { CSSProperties } from "react";
 
 import type { EntityKind } from "@quanta/canvas-engine";
+import { pickFileIcon } from "@quanta/ui-kit";
 
 import {
   color,
@@ -28,6 +29,24 @@ import {
   radius as radiusToken,
 } from "../../../shared/ui/tokens";
 import type { AggregatorKind, MindMapNode as MindMapNodeModel } from "../model/types";
+
+// Kinds whose label is a file name — overlay the file-type icon on the
+// geometric silhouette so a reader sees "TS / CSS / JSON / ..." at a
+// glance without losing the mind-map's shape-per-kind language.
+// `room` (function) and containers (street/galaxy/universe) keep their
+// glyph-only treatment: the label isn't a filename for those.
+const FILE_ICON_KINDS: ReadonlySet<EntityKind> = new Set<EntityKind>(["building", "floor"]);
+
+function sizeSvgIcon(icon: ReactElement, sizePx: number): ReactElement {
+  // pickFileIcon returns an <svg viewBox="0 0 16 16"> without width/height.
+  // Clone-add the dimensions so foreignObject children render at a fixed
+  // pixel size instead of collapsing to zero (SVG default for "auto").
+  return cloneElement(icon as ReactElement<Record<string, unknown>>, {
+    width: sizePx,
+    height: sizePx,
+    style: { display: "block" },
+  });
+}
 
 export interface MindMapNodeProps {
   node: MindMapNodeModel;
@@ -209,7 +228,15 @@ function MindMapNodeImpl({
     opacity: mounted
       ? (anyDragging && !isThisDragging ? 0.42 : 1)
       : 0,
-    cursor: isThisDragging ? "grabbing" : "grab",
+    // Interactive nodes (center + entity) show a pointer — "this clicks
+    // and re-centers". Non-interactive aggregators still get grab so the
+    // drag-to-reposition affordance reads. During drag the grabbing
+    // cursor takes over regardless.
+    cursor: isThisDragging
+      ? "grabbing"
+      : interactive
+        ? "pointer"
+        : "grab",
     outline: "none",
   };
 
@@ -268,7 +295,8 @@ function MindMapNodeImpl({
         </g>
       )}
       <g style={innerStyle}>
-        {renderShape(node, hovered || isThisDragging, ripple)}
+        {renderShape(node, hovered || isThisDragging, ripple, hasFileIconOverlay(node))}
+        {renderFileIconOverlay(node)}
       </g>
       {renderLabel(node)}
     </g>
@@ -277,20 +305,67 @@ function MindMapNodeImpl({
 
 // ── Shape renderers ──────────────────────────────────────────────────
 
-function renderShape(node: MindMapNodeModel, hovered: boolean, ripple: boolean) {
-  if (node.kind === "center")     return renderCenter(node, hovered);
+function hasFileIconOverlay(node: MindMapNodeModel): boolean {
+  if (node.kind === "aggregator") return false;
+  return !!node.entityKind && FILE_ICON_KINDS.has(node.entityKind);
+}
+
+function renderShape(node: MindMapNodeModel, hovered: boolean, ripple: boolean, iconOverlay: boolean) {
+  if (node.kind === "center")     return renderCenter(node, hovered, iconOverlay);
   if (node.kind === "aggregator") return renderAggregator(node, hovered);
-  return renderEntity(node, hovered, ripple);
+  return renderEntity(node, hovered, ripple, iconOverlay);
+}
+
+// Overlay a file-type icon (TS / TSX / JSON / CSS / MD / generic) on
+// the geometric silhouette when the node represents a file. Aggregator
+// hubs and non-file kinds (function/class/directory/workspace) are
+// skipped — the existing glyph carries the right semantics there.
+function renderFileIconOverlay(node: MindMapNodeModel) {
+  if (node.kind === "aggregator") return null;
+  if (!node.entityKind || !FILE_ICON_KINDS.has(node.entityKind)) return null;
+  // Clamp the icon so it sits inside the silhouette with breathing room —
+  // 62% of the node radius keeps the colored outline visible around it.
+  const iconPx = Math.round(node.radius * 1.24);
+  const half = iconPx / 2;
+  const icon = sizeSvgIcon(pickFileIcon(node.label), iconPx);
+  return (
+    <foreignObject
+      x={-half}
+      y={-half}
+      width={iconPx}
+      height={iconPx}
+      style={{ pointerEvents: "none", overflow: "visible" }}
+    >
+      <div
+        style={{
+          width: `${iconPx}px`,
+          height: `${iconPx}px`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {icon}
+      </div>
+    </foreignObject>
+  );
 }
 
 // Center — glowing rounded square with animated halo ring.
-function renderCenter(node: MindMapNodeModel, hovered: boolean) {
+// When a file icon is overlaid the face goes white with a thin tinted
+// stroke; the doc-shell icon carries the kind cue, so a heavy tinted
+// fill + inner highlight would just compete with it.
+function renderCenter(node: MindMapNodeModel, hovered: boolean, iconOverlay: boolean) {
   const tint = node.entityKind ? kindColor[node.entityKind] : color.accent;
   const r    = node.radius;
 
   // Halo always accent-blue — "selected/focus" visual language consistent
   // with the rest of the design system.  Entity kind is shown via face color.
   const haloTint = color.accent;
+
+  const faceFillOpacity   = iconOverlay ? 0 : (hovered ? 0.38 : 0.26);
+  const faceStrokeOpacity = iconOverlay ? 0.55 : 0.88;
+  const faceStrokeWidth   = iconOverlay ? (hovered ? 1.6 : 1.2) : (hovered ? 2.5 : 2.0);
 
   return (
     <g filter="url(#mm-center-glow)">
@@ -311,19 +386,21 @@ function renderCenter(node: MindMapNodeModel, hovered: boolean) {
           style={{ animation: "mm-breathe 1.4s ease-in-out infinite", transformOrigin: "0px 0px" }}
         />
       )}
-      {/* Face — edges start from radius+1 so no backdrop needed here */}
+      {/* Opaque white backdrop so edges don't bleed through when the face
+       *  is unfilled (icon-overlay mode). */}
+      {iconOverlay && (
+        <rect x={-r} y={-r} width={r * 2} height={r * 2}
+          rx={radiusToken.lg} ry={radiusToken.lg}
+          fill={color.bg0} stroke="none"
+        />
+      )}
+      {/* Face */}
       <rect x={-r} y={-r} width={r * 2} height={r * 2}
         rx={radiusToken.lg} ry={radiusToken.lg}
-        fill={tint} fillOpacity={hovered ? 0.38 : 0.26}
-        stroke={tint} strokeWidth={hovered ? 2.5 : 2.0}
-        strokeOpacity={0.88}
+        fill={tint} fillOpacity={faceFillOpacity}
+        stroke={tint} strokeWidth={faceStrokeWidth}
+        strokeOpacity={faceStrokeOpacity}
         style={{ transition: "fill-opacity 160ms ease-out, stroke-width 160ms ease-out, stroke-opacity 160ms" }}
-      />
-      {/* Inner highlight — gives the card a slight top-lit depth */}
-      <rect x={-r + 3} y={-r + 3} width={(r - 3) * 2} height={(r - 3) * 2}
-        rx={radiusToken.md} ry={radiusToken.md}
-        fill="none" stroke="white" strokeWidth={1.0} strokeOpacity={0.30}
-        style={{ pointerEvents: "none" }}
       />
     </g>
   );
@@ -411,7 +488,7 @@ function renderAggregator(node: MindMapNodeModel, hovered: boolean) {
 }
 
 // Entity — kind-shaped silhouette with hover ring and click ripple.
-function renderEntity(node: MindMapNodeModel, hovered: boolean, ripple: boolean) {
+function renderEntity(node: MindMapNodeModel, hovered: boolean, ripple: boolean, iconOverlay: boolean) {
   const tint = node.entityKind ? kindColor[node.entityKind] : color.text2;
   const r    = node.radius;
 
@@ -429,7 +506,7 @@ function renderEntity(node: MindMapNodeModel, hovered: boolean, ripple: boolean)
           style={{ animation: "mm-hover-ring 500ms ease-out forwards", transformOrigin: "0px 0px" }}
         />
       )}
-      {renderEntityShape(node.entityKind, r, tint, hovered)}
+      {renderEntityShape(node.entityKind, r, tint, hovered, iconOverlay)}
     </g>
   );
 }
@@ -443,10 +520,13 @@ function renderEntityShape(
   r: number,
   tint: string,
   hovered: boolean,
+  iconOverlay: boolean,
 ) {
-  const fillOpacity   = hovered ? 0.36 : 0.22;
-  const strokeWidth   = hovered ? 2.0  : 1.5;
-  const strokeOpacity = hovered ? 0.95 : 0.82;
+  // File-icon overlay carries the language cue — drop the tint fill and
+  // the inner miniature so the doc-shell icon isn't fighting layers.
+  const fillOpacity   = iconOverlay ? 0 : (hovered ? 0.36 : 0.22);
+  const strokeWidth   = iconOverlay ? (hovered ? 1.4 : 1.0) : (hovered ? 2.0 : 1.5);
+  const strokeOpacity = iconOverlay ? (hovered ? 0.72 : 0.55) : (hovered ? 0.95 : 0.82);
   const trans: CSSProperties = {
     transition: "fill-opacity 140ms, stroke-width 140ms, stroke-opacity 140ms",
   };
@@ -475,11 +555,13 @@ function renderEntityShape(
           fill={tint} fillOpacity={fillOpacity}
           stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity}
           style={trans} />
-        {/* Inner miniature — same rhythm as the other kind shapes */}
-        <rect x={-wi} y={-hi} width={wi * 2} height={hi * 2} rx={rxi} ry={rxi}
-          fill="none"
-          stroke={tint} strokeWidth={0.8}
-          strokeOpacity={strokeOpacity * 0.38} />
+        {/* Inner miniature — skipped when a file icon will overlay it */}
+        {!iconOverlay && (
+          <rect x={-wi} y={-hi} width={wi * 2} height={hi * 2} rx={rxi} ry={rxi}
+            fill="none"
+            stroke={tint} strokeWidth={0.8}
+            strokeOpacity={strokeOpacity * 0.38} />
+        )}
       </g>
     );
   }
@@ -495,8 +577,10 @@ function renderEntityShape(
           style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
         <polygon points={pts} fill={tint} fillOpacity={fillOpacity}
           stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity} style={trans} />
-        <polygon points={ptsI} fill="none"
-          stroke={tint} strokeWidth={0.8} strokeOpacity={strokeOpacity * 0.38} />
+        {!iconOverlay && (
+          <polygon points={ptsI} fill="none"
+            stroke={tint} strokeWidth={0.8} strokeOpacity={strokeOpacity * 0.38} />
+        )}
       </g>
     );
   }

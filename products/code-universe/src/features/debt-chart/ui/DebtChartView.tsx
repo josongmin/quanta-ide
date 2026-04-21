@@ -477,9 +477,9 @@ function DebtChartViewImpl({ layout, width, height, onDismiss }: DebtChartViewPr
         ))}
 
         {/* ── X axis labels ─────────────────────────────────────────── */}
-        {xAxisTicks.map(({ x, label }) => (
+        {xAxisTicks.map(({ x, label }, i) => (
           <text
-            key={label}
+            key={i}
             x={x}
             y={plotBottom + 16}
             textAnchor="middle"

@@ -527,8 +527,10 @@ function AuthorTerritoryViewImpl({
       ref={(el) => {
         if (el) {
           const { width, height } = el.getBoundingClientRect();
-          if (width > 0 && height > 0 && (width !== dims.w || height !== dims.h)) {
-            setDims({ w: Math.floor(width), h: Math.floor(height) });
+          const w = Math.floor(width);
+          const h = Math.floor(height);
+          if (w > 0 && h > 0 && (w !== dims.w || h !== dims.h)) {
+            setDims({ w, h });
           }
         }
       }}

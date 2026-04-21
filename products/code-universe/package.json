@@ -22,6 +22,7 @@
     "@lezer/highlight": "^1.2.0",
     "@quanta/canvas-engine": "workspace:*",
     "@quanta/shell-contract": "workspace:*",
+    "@quanta/ui-kit": "workspace:*",
     "@uiw/react-codemirror": "^4.25.9",
     "pixi.js": "^8.6.0",
     "three": "^0.184.0"

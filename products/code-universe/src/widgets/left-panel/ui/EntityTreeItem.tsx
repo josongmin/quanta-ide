@@ -1,33 +1,42 @@
 import {
+  cloneElement,
   useCallback,
   useEffect,
   useRef,
   type CSSProperties,
   type ReactElement,
 } from "react";
-import type { Entity, EntityKind, EntityTree } from "@quanta/canvas-engine";
+import { pickFileIcon } from "@quanta/ui-kit/ui/icons";
+import type { Entity, EntityTree } from "@quanta/canvas-engine";
 import { entityStore, useEntityState } from "../../../entities/entity";
 import { DEFAULT_TIER_LADDER, tierStore } from "../../../entities/tier";
+import { fileDisplayName, inferFileExt } from "../../../shared/lib/file-ext";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { expansionStore, useIsExpanded } from "../model/expansion-store";
 import {
   IconBraces,
   IconChevronDown,
   IconChevronRight,
-  IconFile,
   IconFolder,
   IconFolderOpen,
   IconFunction,
 } from "../../../shared/ui/icons";
 
-function KindIcon({ kind, expanded }: { kind: EntityKind; expanded: boolean }): ReactElement {
-  switch (kind) {
+function KindIcon({ entity, expanded }: { entity: Entity; expanded: boolean }): ReactElement {
+  switch (entity.kind) {
     case "universe":
     case "galaxy":
     case "street":
       return expanded ? <IconFolderOpen size={13} /> : <IconFolder size={13} />;
-    case "building":
-      return <IconFile size={13} />;
+    case "building": {
+      const ext = inferFileExt(entity.path, entity.name);
+      const raw = pickFileIcon(entity.name + ext) as ReactElement<Record<string, unknown>>;
+      return cloneElement(raw, {
+        width: 13,
+        height: 13,
+        style: { display: "block" },
+      });
+    }
     case "floor":
       return <IconBraces size={13} />;
     case "room":
@@ -181,7 +190,7 @@ export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
             flexShrink: 0,
           }}
         >
-          <KindIcon kind={entity.kind} expanded={expanded} />
+          <KindIcon entity={entity} expanded={expanded} />
         </span>
         <span
           style={{
@@ -191,7 +200,7 @@ export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
             letterSpacing: font.letter.tight,
           }}
         >
-          {entity.name}
+          {fileDisplayName(entity)}
         </span>
         {entity.metrics?.loc !== undefined && entity.metrics.loc > 0 ? (
           <span

@@ -13,7 +13,7 @@ import {
 import { useViewMode, viewModeStore, type ViewMode } from "../model/store";
 import { entityStore, useEntityState } from "../../../entities/entity";
 import { mindMapStore } from "../../mind-map";
-import { color, font, radius, space } from "../../../shared/ui/tokens";
+import { color, font, radius, shadow, space, transition } from "../../../shared/ui/tokens";
 
 // ── View mode catalogue (exported for external label lookups) ─────────
 
@@ -200,7 +200,7 @@ const NEEDS_TREE = new Set<ViewMode>(["mindmap", "blast", "neighborhood", "pathf
 
 // ── Per-view-mode glyph (scannable identifier) ────────────────────────
 
-const VIEW_GLYPH: Readonly<Record<ViewMode, string>> = {
+export const VIEW_GLYPH: Readonly<Record<ViewMode, string>> = {
   "treemap":          "◎",
   "mindmap":          "✸",
   "chord":            "⬡",
@@ -227,195 +227,186 @@ const VIEW_GLYPH: Readonly<Record<ViewMode, string>> = {
 
 // ── Context palette ───────────────────────────────────────────────────
 
-interface CtxPalette { glyph: string; ko: string; en: string; accent: string }
+interface CtxPalette { glyph: string; ko: string; en: string }
 
 const CTX_PALETTE: Readonly<Record<ViewCtx, CtxPalette>> = {
-  repo:   { glyph: "◎", ko: "레포",  en: "WORKSPACE", accent: "#7e4ed6" },
-  folder: { glyph: "⊞", ko: "폴더",  en: "FOLDER",    accent: "#22a06b" },
-  file:   { glyph: "⊟", ko: "파일",  en: "FILE",      accent: "#0d99ff" },
+  repo:   { glyph: "◎", ko: "레포",  en: "WORKSPACE" },
+  folder: { glyph: "⊞", ko: "폴더",  en: "FOLDER"    },
+  file:   { glyph: "⊟", ko: "파일",  en: "FILE"      },
 };
 
 // ── Styles ────────────────────────────────────────────────────────────
+//
+// Matches the `.symtip` (symbol popup) design vocabulary — flat white
+// surface, thin border, modest shadow, small 18×18 glyph with muted
+// `bg3` fill, mono+semibold names, uppercase micro-labels in `text2`,
+// `color.hover` row hover. No gradients, no glow, no per-category
+// accent fills — the picker should feel like every other popup in
+// the product.
 
 const OUTER: CSSProperties = {
-  width: 460,
-  maxHeight: 620,
+  width: 380,
+  maxHeight: 560,
   display: "flex",
   flexDirection: "column",
   fontFamily: font.sans,
+  fontSize: font.size.sm,
+  color: color.text0,
   background: color.bg1,
-  borderRadius: radius.lg,
+  border: `1px solid ${color.borderStrong}`,
+  borderRadius: radius.md,
+  boxShadow: shadow.md,
   overflow: "hidden",
 };
 
-// Context card — large, gradient, unmistakable
+// Context card — mirrors .symtip__head: small 18px glyph, mono name,
+// tiny uppercase kind. Path + count on a second line. No gradient.
 const CTX_CARD: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: space[2],
-  padding: `${space[4]}px ${space[4]}px ${space[3]}px`,
+  gap: 4,
+  padding: `${space[2]}px ${space[3]}px`,
   flexShrink: 0,
-  position: "relative",
-  overflow: "hidden",
+  borderBottom: `1px solid ${color.border}`,
 };
 
 const CTX_TOP_ROW: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: space[3],
+  gap: space[2],
 };
 
-const CTX_GLYPH_BADGE: CSSProperties = {
-  width: 42,
-  height: 42,
-  borderRadius: 12,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 20,
-  fontWeight: font.weight.bold,
-  flexShrink: 0,
-  color: "#ffffff",
-};
-
-const CTX_NAME_COL: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: 2,
-  minWidth: 0,
-  flex: 1,
-};
-
-const CTX_KIND_PILL: CSSProperties = {
+const CTX_GLYPH: CSSProperties = {
+  width: 18,
+  height: 18,
   display: "inline-flex",
   alignItems: "center",
-  gap: 6,
-  padding: "3px 9px",
-  borderRadius: 999,
-  fontSize: 10,
-  fontWeight: font.weight.semibold,
-  letterSpacing: 0.4,
-  fontFamily: font.sans,
-  width: "fit-content",
+  justifyContent: "center",
+  borderRadius: radius.sm,
+  background: color.bg3,
+  color: color.text2,
+  fontFamily: font.mono,
+  fontSize: font.size.xs,
+  flexShrink: 0,
 };
 
-const CTX_ENTITY_NAME: CSSProperties = {
-  fontSize: font.size.xl,
+const CTX_NAME: CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: font.size.md,
   fontWeight: font.weight.semibold,
   color: color.text0,
-  letterSpacing: font.letter.tight,
-  lineHeight: 1.15,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+  flex: 1,
+  minWidth: 0,
+};
+
+const CTX_KIND: CSSProperties = {
+  fontSize: font.size.xs,
+  color: color.text2,
+  textTransform: "uppercase",
+  letterSpacing: font.letter.ultra,
+  flexShrink: 0,
+};
+
+const CTX_META: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: space[2],
+  fontSize: font.size.xs,
+  color: color.text2,
 };
 
 const CTX_PATH: CSSProperties = {
-  fontSize: 10.5,
   fontFamily: font.mono,
+  fontSize: font.size.xs,
   color: color.text2,
-  letterSpacing: -0.15,
+  letterSpacing: -0.1,
   overflow: "hidden",
   textOverflow: "ellipsis",
   whiteSpace: "nowrap",
+  flex: 1,
+  minWidth: 0,
 };
 
-const CTX_FOOTER: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: 6,
-  fontSize: font.size.xs,
-  color: color.text2,
-  paddingTop: space[1],
-  borderTop: `1px dashed ${color.border}`,
-  marginTop: space[1],
+const CTX_COUNT: CSSProperties = {
+  fontFamily: font.mono,
+  fontVariantNumeric: "tabular-nums",
+  color: color.text1,
+  fontWeight: font.weight.medium,
+  flexShrink: 0,
 };
 
-// Scroll
+// Scroll list
 const SCROLL: CSSProperties = {
   flex: 1,
   overflowY: "auto",
   overscrollBehavior: "contain",
-  padding: `${space[2]}px ${space[2]}px ${space[3]}px`,
+  padding: `${space[1]}px 0 ${space[2]}px`,
 };
 
-// Category header
+// Category header — .symtip's section-header idiom: subtle band, tiny
+// uppercase label in `text2`.
 const CAT_HEADER: CSSProperties = {
   display: "flex",
   alignItems: "center",
   gap: space[2],
-  padding: `${space[3]}px ${space[2]}px ${space[2]}px`,
-  marginTop: space[1],
+  padding: `${space[2]}px ${space[3]}px 4px`,
 };
 
-const CAT_DOT: CSSProperties = {
-  width: 6,
-  height: 6,
-  borderRadius: 999,
-  flexShrink: 0,
-};
-
-const CAT_KO: CSSProperties = {
-  fontSize: font.size.md,
+const CAT_LABEL: CSSProperties = {
+  fontSize: font.size.xxs,
   fontWeight: font.weight.semibold,
-  color: color.text0,
-  letterSpacing: font.letter.tight,
-};
-
-const CAT_EN: CSSProperties = {
-  fontSize: 9,
-  fontWeight: font.weight.semibold,
-  color: color.text3,
-  letterSpacing: 0.2,
+  color: color.text2,
   textTransform: "uppercase",
+  letterSpacing: font.letter.ultra,
 };
 
 const CAT_LINE: CSSProperties = {
   flex: 1,
   height: 1,
-  background: `linear-gradient(90deg, ${color.border}, transparent)`,
+  background: color.border,
 };
 
 const CAT_COUNT: CSSProperties = {
-  fontSize: 9.5,
   fontFamily: font.mono,
+  fontSize: font.size.xxs,
   color: color.text3,
-  fontWeight: font.weight.semibold,
-  padding: "1px 6px",
-  borderRadius: 999,
-  background: color.bg3,
+  fontVariantNumeric: "tabular-nums",
 };
 
-// View-mode card (row)
+// Row — flat. No per-category accent, no gradient. Hover = `color.hover`.
+// Active = `color.selected` + a small accent dot to the right.
 const ROW_BASE: CSSProperties = {
   display: "flex",
-  alignItems: "flex-start",
-  gap: space[3],
-  padding: `${space[2] + 2}px ${space[3]}px`,
-  border: `1px solid transparent`,
-  borderRadius: radius.lg + 2,
+  alignItems: "center",
+  gap: space[2],
+  padding: `${space[1] + 1}px ${space[3]}px`,
+  border: "none",
   background: "transparent",
   cursor: "pointer",
   textAlign: "left",
   width: "100%",
   boxSizing: "border-box",
-  transition: "background 140ms, border-color 140ms, transform 140ms",
+  transition: `background ${transition.fast}`,
   fontFamily: font.sans,
   color: color.text0,
-  position: "relative",
 };
 
-const ROW_GLYPH_BASE: CSSProperties = {
-  width: 32,
-  height: 32,
-  borderRadius: 9,
-  display: "flex",
+const ROW_GLYPH: CSSProperties = {
+  width: 18,
+  height: 18,
+  display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  fontSize: 15,
-  fontWeight: font.weight.semibold,
+  borderRadius: radius.sm,
+  background: color.bg3,
+  color: color.text2,
+  fontFamily: font.mono,
+  fontSize: font.size.xs,
   flexShrink: 0,
-  transition: "background 140ms, color 140ms, box-shadow 140ms",
+  transition: `background ${transition.fast}, color ${transition.fast}`,
 };
 
 const ROW_CONTENT: CSSProperties = {
@@ -423,17 +414,19 @@ const ROW_CONTENT: CSSProperties = {
   minWidth: 0,
   display: "flex",
   flexDirection: "column",
-  gap: 2,
+  gap: 1,
 };
 
-const ROW_LABEL_LINE: CSSProperties = {
+const ROW_LINE1: CSSProperties = {
   display: "flex",
   alignItems: "baseline",
   gap: space[2],
+  minWidth: 0,
 };
 
 const ROW_LABEL: CSSProperties = {
-  fontSize: font.size.md,
+  fontFamily: font.mono,
+  fontSize: font.size.sm,
   fontWeight: font.weight.semibold,
   color: color.text0,
   letterSpacing: font.letter.tight,
@@ -442,32 +435,28 @@ const ROW_LABEL: CSSProperties = {
 
 const ROW_HINT: CSSProperties = {
   fontSize: font.size.xs,
-  color: color.text1,
+  color: color.text2,
   lineHeight: 1.35,
-  letterSpacing: -0.01,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 };
 
-const ROW_TECH: CSSProperties = {
-  fontSize: 9.5,
-  fontFamily: font.mono,
+const ROW_DISABLED_TAG: CSSProperties = {
+  fontSize: font.size.xxs,
   color: color.text3,
-  lineHeight: 1.4,
-  letterSpacing: -0.1,
-  marginTop: 1,
+  fontStyle: "italic",
+  fontFamily: font.sans,
+  fontWeight: font.weight.medium,
+  flexShrink: 0,
 };
 
-const ACTIVE_MARK: CSSProperties = {
-  width: 18,
-  height: 18,
+const ACTIVE_DOT: CSSProperties = {
+  width: 6,
+  height: 6,
   borderRadius: 999,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 11,
-  fontWeight: font.weight.bold,
-  color: "#ffffff",
+  background: color.accent,
   flexShrink: 0,
-  alignSelf: "center",
 };
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -523,53 +512,19 @@ export function ViewModePicker(): ReactElement {
 
   return (
     <div style={OUTER} role="radiogroup" aria-label="시각화 모드 선택">
-      {/* Context card — massive, unmistakable */}
-      <div style={{
-        ...CTX_CARD,
-        background: `linear-gradient(135deg, ${ctxPal.accent}14 0%, ${ctxPal.accent}03 55%, transparent 100%)`,
-        borderBottom: `1px solid ${color.border}`,
-      }}>
-        {/* subtle accent glow top-right */}
-        <div style={{
-          position: "absolute", top: -40, right: -40,
-          width: 140, height: 140, borderRadius: 999,
-          background: `radial-gradient(circle, ${ctxPal.accent}22 0%, transparent 70%)`,
-          pointerEvents: "none",
-        }} />
-
+      {/* Context head — .symtip__head idiom: small glyph, mono name,
+          uppercase kind label. Path + count sit on a second muted line. */}
+      <div style={CTX_CARD}>
         <div style={CTX_TOP_ROW}>
-          <div style={{
-            ...CTX_GLYPH_BADGE,
-            background: ctxPal.accent,
-            boxShadow: `0 4px 14px ${ctxPal.accent}55, inset 0 1px 0 rgba(255,255,255,0.25)`,
-          }}>
-            {ctxPal.glyph}
-          </div>
-          <div style={CTX_NAME_COL}>
-            <span style={{
-              ...CTX_KIND_PILL,
-              background: `${ctxPal.accent}18`,
-              color: ctxPal.accent,
-            }}>
-              <span style={{ width: 5, height: 5, borderRadius: 999, background: ctxPal.accent }} />
-              {ctxPal.en}
-              <span style={{ opacity: 0.6, marginLeft: 2 }}>· {ctxPal.ko}</span>
-            </span>
-            <span style={CTX_ENTITY_NAME} title={ctxName}>{ctxName}</span>
-          </div>
+          <span style={CTX_GLYPH}>{ctxPal.glyph}</span>
+          <span style={CTX_NAME} title={ctxName}>{ctxName}</span>
+          <span style={CTX_KIND}>{ctxPal.en}</span>
         </div>
-
-        {ctxPath ? (
-          <div style={CTX_PATH} title={ctxPath}>{ctxPath}</div>
-        ) : null}
-
-        <div style={CTX_FOOTER}>
-          <span style={{ color: ctxPal.accent, fontWeight: font.weight.semibold, fontSize: font.size.sm }}>
-            {totalModes}
+        <div style={CTX_META}>
+          <span style={CTX_PATH} title={ctxPath || undefined}>
+            {ctxPath || "workspace root"}
           </span>
-          <span>개 시각화</span>
-          <span style={{ margin: "0 4px", color: color.text3 }}>·</span>
-          <span style={{ color: color.text3 }}>이 {ctxPal.ko} 컨텍스트에서 사용 가능</span>
+          <span style={CTX_COUNT}>{totalModes}</span>
         </div>
       </div>
 
@@ -578,9 +533,7 @@ export function ViewModePicker(): ReactElement {
         {visCats.map(cat => (
           <div key={cat.id}>
             <div style={CAT_HEADER}>
-              <span style={{ ...CAT_DOT, background: cat.accent }} />
-              <span style={CAT_KO}>{cat.label}</span>
-              <span style={CAT_EN}>{cat.id.toUpperCase()}</span>
+              <span style={CAT_LABEL}>{cat.id}</span>
               <span style={CAT_LINE} />
               <span style={CAT_COUNT}>{cat.vis.length}</span>
             </div>
@@ -598,63 +551,48 @@ export function ViewModePicker(): ReactElement {
                   role="radio"
                   aria-checked={active}
                   aria-label={`${opt.label} — ${opt.hint}`}
+                  title={opt.tech}
                   disabled={disabled}
                   onClick={() => !disabled && pick(m)}
                   onMouseEnter={e => {
                     if (!active && !disabled) {
-                      e.currentTarget.style.background = color.bg2;
-                      e.currentTarget.style.borderColor = color.border;
-                      e.currentTarget.style.transform = "translateY(-1px)";
+                      e.currentTarget.style.background = color.hover;
                     }
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = active
-                      ? `linear-gradient(135deg, ${cat.accent}14 0%, ${cat.accent}06 100%)`
-                      : "transparent";
-                    e.currentTarget.style.borderColor = active ? `${cat.accent}44` : "transparent";
-                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.background = active ? color.selected : "transparent";
                   }}
                   style={{
                     ...ROW_BASE,
-                    background: active
-                      ? `linear-gradient(135deg, ${cat.accent}14 0%, ${cat.accent}06 100%)`
-                      : "transparent",
-                    borderColor: active ? `${cat.accent}44` : "transparent",
-                    opacity: disabled ? 0.38 : 1,
+                    background: active ? color.selected : "transparent",
+                    opacity: disabled ? 0.45 : 1,
                     cursor: disabled ? "not-allowed" : "pointer",
-                    boxShadow: active ? `0 1px 6px ${cat.accent}22` : "none",
                   }}
                 >
-                  <div style={{
-                    ...ROW_GLYPH_BASE,
-                    background: active ? cat.accent : `${cat.accent}14`,
-                    color: active ? "#ffffff" : cat.accent,
-                    boxShadow: active ? `0 2px 8px ${cat.accent}55` : "none",
+                  <span style={{
+                    ...ROW_GLYPH,
+                    background: active ? color.accentSoft : color.bg3,
+                    color: active ? color.accent : color.text2,
                   }}>
                     {VIEW_GLYPH[m]}
-                  </div>
+                  </span>
 
                   <div style={ROW_CONTENT}>
-                    <div style={ROW_LABEL_LINE}>
-                      <span style={ROW_LABEL}>{opt.label}</span>
+                    <div style={ROW_LINE1}>
+                      <span style={{
+                        ...ROW_LABEL,
+                        color: active ? color.accent : color.text0,
+                      }}>
+                        {opt.label}
+                      </span>
                       {disabled ? (
-                        <span style={{
-                          fontSize: 9, color: color.text3, fontStyle: "italic",
-                          fontFamily: font.sans, fontWeight: font.weight.medium,
-                        }}>
-                          워크스페이스 로딩중
-                        </span>
+                        <span style={ROW_DISABLED_TAG}>로딩중</span>
                       ) : null}
                     </div>
-                    <div style={ROW_HINT}>{opt.hint}</div>
-                    <div style={{ ...ROW_TECH, color: active ? cat.accent : color.text3 }}>
-                      {opt.tech}
-                    </div>
+                    <div style={ROW_HINT} title={opt.hint}>{opt.hint}</div>
                   </div>
 
-                  {active ? (
-                    <div style={{ ...ACTIVE_MARK, background: cat.accent }}>✓</div>
-                  ) : null}
+                  {active ? <span style={ACTIVE_DOT} aria-hidden /> : null}
                 </button>
               );
             })}

@@ -198,3 +198,16 @@ export function IconFunction(p: IconProps): ReactElement {
     </Svg>
   );
 }
+
+// 2×2 grid — used as the view-mode switcher trigger ("which shape is
+// the data?"). Matches Figma/Linear's layout-picker convention.
+export function IconLayoutGrid(p: IconProps): ReactElement {
+  return (
+    <Svg {...p}>
+      <rect x="2.5" y="2.5" width="4.5" height="4.5" rx="0.75" />
+      <rect x="9"   y="2.5" width="4.5" height="4.5" rx="0.75" />
+      <rect x="2.5" y="9"   width="4.5" height="4.5" rx="0.75" />
+      <rect x="9"   y="9"   width="4.5" height="4.5" rx="0.75" />
+    </Svg>
+  );
+}

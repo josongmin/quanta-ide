@@ -12,6 +12,7 @@ export type TabApp =
   | "reviews"
   | "policy"
   | "settings"
+  | "dashboard"
   | "demo";
 
 /** Superset: every surface the shell can render, including non-tab pages. */

@@ -17,6 +17,7 @@
 
 import { computeNeighborhood, decodeSymbolId } from "@quanta/canvas-engine";
 import type { SymbolNode, WorkspaceGraph } from "@quanta/canvas-engine";
+import { inferFileExt } from "../../../shared/lib/file-ext";
 import type { BuildNeighborhoodLayoutOpts, NeighborhoodEdge, NeighborhoodLayout, NeighborhoodNode } from "./types";
 
 // ── Constants ─────────────────────────────────────────────────────────
@@ -62,8 +63,11 @@ function packageLabel(dir: string): string {
 
 function shortName(path: string): string {
   const last = path.split("/").pop() ?? path;
-  const dot = last.lastIndexOf(".");
-  return dot > 0 ? last.slice(0, dot) : last;
+  // Preserve the real extension when the path already carries one; for
+  // extension-less mock ids, infer a likely one so the neighborhood
+  // reads as file names ("types.ts") rather than bare stems.
+  if (/\.[a-z0-9]+$/i.test(last)) return last;
+  return last + inferFileExt(path, last);
 }
 
 function pickCenter(graph: { files: readonly { id: string }[]; fileEdges: readonly { from: string; to: string }[] }): string | null {

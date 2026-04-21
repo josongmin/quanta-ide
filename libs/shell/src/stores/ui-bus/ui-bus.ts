@@ -7,6 +7,7 @@ export interface UiBusState {
   hubOpen: boolean;
   rulesOpen: boolean;
   settingsOpen: boolean;
+  dashboardOpen: boolean;
   selectedFeatureId?: string;
 }
 
@@ -18,6 +19,7 @@ let state: UiBusState = {
   hubOpen: false,
   rulesOpen: false,
   settingsOpen: false,
+  dashboardOpen: false,
 };
 
 const listeners = new Set<UiBusListener>();
@@ -67,6 +69,13 @@ export const uiBus = {
     emit();
   },
 
+  /** Toggle the dashboard overlay. Peer to settings — surfaces the
+   *  aggregated 5-layer metrics view without opening a tab. */
+  toggleDashboard: (open?: boolean): void => {
+    state = { ...state, dashboardOpen: open ?? !state.dashboardOpen };
+    emit();
+  },
+
   /** Set the currently-inspected feature (used by Settings page deep-link). */
   selectFeature: (id?: string): void => {
     state = { ...state, selectedFeatureId: id };
@@ -75,7 +84,7 @@ export const uiBus = {
 
   /** Close every panel / overlay tracked by the bus. */
   closeAll: (): void => {
-    state = { ...state, paletteOpen: false, devConsoleOpen: false, hubOpen: false, rulesOpen: false, settingsOpen: false };
+    state = { ...state, paletteOpen: false, devConsoleOpen: false, hubOpen: false, rulesOpen: false, settingsOpen: false, dashboardOpen: false };
     emit();
   },
 };

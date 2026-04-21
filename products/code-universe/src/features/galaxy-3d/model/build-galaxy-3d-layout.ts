@@ -11,7 +11,8 @@
 //
 // Deterministic: sorted packages, seeded Fibonacci distribution.
 
-import type { WorkspaceGraph } from "@quanta/canvas-engine";
+import { decodeSymbolId } from "@quanta/canvas-engine";
+import type { SymbolNode, WorkspaceGraph } from "@quanta/canvas-engine";
 import type { BuildGalaxy3DLayoutOpts, Galaxy3DEdge, Galaxy3DLayout, Galaxy3DNode } from "./types";
 
 // ── Constants ─────────────────────────────────────────────────────────
@@ -62,13 +63,37 @@ function hexToInt(hex: string): number {
   return parseInt(hex.replace("#", ""), 16);
 }
 
-/** Blend risk color with a package hue (60% risk, 40% pkg) for visual variety. */
+/** HSL → #rrggbb. h in deg, s/l in 0..1. Needed because three.js
+ *  consumes 0xRRGGBB ints; a raw "hsl(...)" string through parseInt
+ *  yields NaN and the material silently falls back to black. */
+function hslToHex(h: number, s: number, l: number): string {
+  const hp = (((h % 360) + 360) % 360) / 60;
+  const c  = (1 - Math.abs(2 * l - 1)) * s;
+  const x  = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0, g = 0, b = 0;
+  if (hp < 1)      { r = c; g = x; }
+  else if (hp < 2) { r = x; g = c; }
+  else if (hp < 3) { g = c; b = x; }
+  else if (hp < 4) { g = x; b = c; }
+  else if (hp < 5) { r = x; b = c; }
+  else             { r = c;        b = x; }
+  const m = l - c / 2;
+  const toHex = (v: number) =>
+    Math.max(0, Math.min(255, Math.round((v + m) * 255))).toString(16).padStart(2, "0");
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+/** Colour a satellite from its bucket/hub hue. Risk modulates lightness
+ *  only — hue stays inside the hub's colour family, so "files attached
+ *  to the purple hub look purple, files attached to the cyan hub look
+ *  cyan". Earlier versions blended a 0°→120° risk hue at 55% weight,
+ *  which dragged every low-risk file toward green regardless of hub,
+ *  breaking the group-identity read. Risk is already encoded via mesh
+ *  radius (`2.4 + risk * 1.4`), so losing the hue-based red signal is a
+ *  fair trade for a cleaner cluster colour. */
 function blendColor(riskScore: number, pkgHue: number): string {
-  // risk color in HSL: 120° (green) → 0° (red)
-  const riskHue = 120 - riskScore * 120;
-  const blended = Math.round(riskHue * 0.55 + pkgHue * 0.45);
-  const l       = Math.round(55 - riskScore * 10); // slightly darker when risky
-  return `hsl(${blended}, 72%, ${l}%)`;
+  const l = (62 - riskScore * 18) / 100; // safe 0.62 → risky 0.44
+  return hslToHex(pkgHue, 0.78, l);
 }
 
 // ── Mock data ─────────────────────────────────────────────────────────
@@ -145,6 +170,8 @@ const SAT_SPREAD_MAX   = 95;    // perpendicular radius for outer files
 const BUCKET_CAP       = 12;    // max satellites per bucket
 const CENTER_RADIUS    = 7;
 const HUB_RADIUS       = 5.5;
+const SYM_ORBIT        = 14;    // radius of symbol sub-sphere around a file
+const SYM_CAP          = 8;     // max symbols per expanded file
 const GOLDEN_ANGLE     = Math.PI * (3 - Math.sqrt(5));
 
 /** Build an orthonormal basis (u, e1, e2) where u is the unit vector
@@ -177,10 +204,20 @@ interface Bucket {
   kind: "callers" | "callees" | "siblings";
   label: string;
   colorInt: number;
+  /** HSL hue (0..360) of colorInt. Pinned per bucket so satellite files
+   *  can share the hub's colour family — earlier code indexed PKG_HUES
+   *  by bucket order, which drifted whenever a bucket was empty (e.g.
+   *  no callees → SIBLINGS took PKG_HUES[1]=280, making yellow-hub
+   *  files render purple). */
+  hue: number;
   files: { id: string; name: string; riskScore: number }[];
 }
 
-function buildEgocentricLayout(graph: WorkspaceGraph, centerId: string): Galaxy3DLayout | null {
+function buildEgocentricLayout(
+  graph: WorkspaceGraph,
+  centerId: string,
+  expandedFileIds: ReadonlySet<string>,
+): Galaxy3DLayout | null {
   const centerFile = graph.files.find(f => f.id === centerId);
   if (!centerFile) return null;
 
@@ -212,17 +249,23 @@ function buildEgocentricLayout(graph: WorkspaceGraph, centerId: string): Galaxy3
   const callers = take(callerIds);
   const callees = take(calleeIds);
   const siblings = take(siblingIds);
-  if (callers.length)  buckets.push({ kind: "callers",  label: "CALLERS",  colorInt: 0x4aa9d9, files: callers });
-  if (callees.length)  buckets.push({ kind: "callees",  label: "CALLEES",  colorInt: 0xb078d9, files: callees });
-  if (siblings.length) buckets.push({ kind: "siblings", label: "SIBLINGS", colorInt: 0xd9c24a, files: siblings });
+  // Hue values below are the HSL hue of each hub's colorInt. Keeping
+  // them in sync is a manual contract — update both together.
+  if (callers.length)  buckets.push({ kind: "callers",  label: "CALLERS",  colorInt: 0x4aa9d9, hue: 200, files: callers });
+  if (callees.length)  buckets.push({ kind: "callees",  label: "CALLEES",  colorInt: 0xb078d9, hue: 275, files: callees });
+  if (siblings.length) buckets.push({ kind: "siblings", label: "SIBLINGS", colorInt: 0xd9c24a, hue: 50,  files: siblings });
 
   if (buckets.length === 0) return null; // no context → caller falls back
 
   const nodes: Galaxy3DNode[] = [];
   const edges: Galaxy3DEdge[] = [];
   const packageColorMap = new Map<string, number>();
+  /** fileId → HSL hue (deg). Feeds symbol expansion colouring so each
+   *  symbol inherits its parent file's colour family instead of being
+   *  hashed to an unrelated PKG_HUES entry. */
+  const fileHueMap = new Map<string, number>();
 
-  // Centre node
+  // Centre node — gold (#f5c060, hue ~38°)
   nodes.push({
     fileId: centerFile.id,
     fileName: centerFile.name,
@@ -237,6 +280,7 @@ function buildEgocentricLayout(graph: WorkspaceGraph, centerId: string): Galaxy3
     kind: "center",
   });
   packageColorMap.set(centerDir, hexToInt("#f5c060"));
+  fileHueMap.set(centerFile.id, 38);
 
   // Hubs on Fibonacci sphere at HUB_ORBIT
   const hubPts = fibSphere(buckets.length).map(([x, y, z]) =>
@@ -272,7 +316,9 @@ function buildEgocentricLayout(graph: WorkspaceGraph, centerId: string): Galaxy3
     // slight depth ramp so labels separate along Z too.
     const basis = hubBasis(hx, hy, hz);
     const total = bucket.files.length;
-    const pkgHue = PKG_HUES[hi % PKG_HUES.length]!;
+    // Use the bucket's pinned hue so satellites share the hub's colour
+    // family regardless of which buckets ended up populated.
+    const pkgHue = bucket.hue;
 
     for (let si = 0; si < total; si++) {
       const f = bucket.files[si]!;
@@ -299,7 +345,98 @@ function buildEgocentricLayout(graph: WorkspaceGraph, centerId: string): Galaxy3
         edgeCount: 1,
         kind: "file",
       });
+      fileHueMap.set(f.id, pkgHue);
       edges.push({ from: hubId, to: f.id, highlighted: false });
+    }
+  }
+
+  // ── Symbol expansion ─────────────────────────────────────────────
+  // For every visible file whose id is in expandedFileIds (center or
+  // any satellite), spawn up to SYM_CAP symbol nodes on a small
+  // Fibonacci shell around the file. After all symbol nodes are
+  // placed, draw a symbol↔symbol edge for every graph.symbolEdges pair
+  // whose endpoints are BOTH visible — this is what turns the
+  // expansion into a real dependency view instead of a file decoration.
+  if (expandedFileIds.size > 0 && graph.symbolNodes && graph.symbolNodes.length > 0) {
+    // fileId → [x, y, z] for every currently-placed file-tier node
+    // (center + satellites). Symbols anchor to one of these positions.
+    const fileAnchor = new Map<string, [number, number, number]>();
+    for (const n of nodes) {
+      if (n.kind === "center" || n.kind === "file") {
+        fileAnchor.set(n.fileId, [n.x, n.y, n.z]);
+      }
+    }
+
+    const symsByFile = new Map<string, SymbolNode[]>();
+    for (const s of graph.symbolNodes) {
+      if (!fileAnchor.has(s.fileId)) continue;
+      if (!expandedFileIds.has(s.fileId)) continue;
+      const bucket = symsByFile.get(s.fileId) ?? [];
+      bucket.push(s);
+      symsByFile.set(s.fileId, bucket);
+    }
+
+    const visibleSymbolIds = new Set<string>();
+
+    for (const [fileId, syms] of symsByFile) {
+      const [ax, ay, az] = fileAnchor.get(fileId)!;
+      // Deterministic ordering: most-connected first (callers+callees)
+      // so the top symbols land on the front side of the parent
+      // (closest to origin = easier to read).
+      const sorted = [...syms].sort((a, b) => {
+        const ac = (a.callers ?? 0) + (a.callees ?? 0);
+        const bc = (b.callers ?? 0) + (b.callees ?? 0);
+        if (ac !== bc) return bc - ac;
+        return a.line - b.line;
+      }).slice(0, SYM_CAP);
+
+      const pts = fibSphere(sorted.length).map(([x, y, z]) =>
+        [x * SYM_ORBIT, y * SYM_ORBIT, z * SYM_ORBIT] as [number, number, number],
+      );
+      // Inherit the parent file's hue — we recorded it during satellite
+      // placement above. Falls back to a neutral blue if a symbol's file
+      // somehow isn't in the map (e.g. centre hasn't expanded yet).
+      const parentPkgHue = fileHueMap.get(fileId) ?? 210;
+
+      for (let si = 0; si < sorted.length; si++) {
+        const sym = sorted[si]!;
+        const [dx, dy, dz] = pts[si]!;
+        // Dim the symbol color vs the parent file so file-tier stays
+        // the dominant silhouette; symbols read as detail, not peers.
+        const risk = (sym.riskScore ?? 0) / 100;
+        const colorHex = blendColor(risk, parentPkgHue);
+        const symRadius = 1.3 + risk * 0.8;
+
+        nodes.push({
+          fileId: sym.id,
+          fileName: sym.name,
+          packageId: `__sym__${fileId}`,
+          packageLabel: "symbol",
+          x: ax + dx, y: ay + dy, z: az + dz,
+          radius: symRadius,
+          colorHex, colorInt: hexToInt(colorHex),
+          riskScore: risk,
+          edgeCount: (sym.callers ?? 0) + (sym.callees ?? 0),
+          kind: "symbol",
+          parentFileId: fileId,
+          symbolKind: sym.kind,
+        });
+        visibleSymbolIds.add(sym.id);
+
+        // Tree tether: parent file → its symbol. Keeps the expansion
+        // visually grouped when the scene spins.
+        edges.push({ from: fileId, to: sym.id, highlighted: false, tree: true });
+      }
+    }
+
+    // Real symbol↔symbol dependency edges — the reason the expansion
+    // exists. Only emit when BOTH endpoints are visible; otherwise the
+    // edge would stub into empty space.
+    if (graph.symbolEdges && visibleSymbolIds.size > 1) {
+      for (const e of graph.symbolEdges) {
+        if (!visibleSymbolIds.has(e.from) || !visibleSymbolIds.has(e.to)) continue;
+        edges.push({ from: e.from, to: e.to, highlighted: true });
+      }
     }
   }
 
@@ -388,16 +525,23 @@ function buildFullLayout(graph: WorkspaceGraph, selectedId: string | undefined):
 // is deliberately not exported.
 
 export function buildGalaxy3DLayout(opts: BuildGalaxy3DLayoutOpts): Galaxy3DLayout {
-  const { graph, selectedId } = opts;
+  const { graph, selectedId, expandedFileIds } = opts;
 
   if (!graph.files.length) return mockLayout();
 
+  const expanded: ReadonlySet<string> = expandedFileIds ?? new Set<string>();
+
   if (selectedId) {
-    // Module / function selections carry `<filePath>#<symbol>` ids.
-    // Promote them to the parent file id so the galaxy still centres on
-    // a real file instead of falling through to the empty state.
-    const fileId = selectedId.includes("#") ? selectedId.split("#")[0]! : selectedId;
-    const ego = buildEgocentricLayout(graph, fileId);
+    // Symbol selections carry either the entity-tree path
+    // `<fileId>#<symbol>` or the canonical `SymbolNode.id`
+    // `<fileId>:<name>@<line>`. Promote both to the parent fileId so
+    // the galaxy still centres on a real file instead of falling
+    // through to the empty state.
+    const decoded = decodeSymbolId(selectedId);
+    const fileId = decoded
+      ? decoded.fileId
+      : selectedId.includes("#") ? selectedId.split("#")[0]! : selectedId;
+    const ego = buildEgocentricLayout(graph, fileId, expanded);
     if (ego) return ego;
   }
 

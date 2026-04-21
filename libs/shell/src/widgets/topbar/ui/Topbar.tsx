@@ -5,6 +5,7 @@ import {
   Bot,
   Code2,
   FileCheck,
+  Gauge,
   GitPullRequest,
   Home,
   Inbox,
@@ -24,7 +25,7 @@ import "./topbar.css";
 /** Show floating title when tab is this narrow (px), or when the label is truncated. */
 const TAB_TITLE_TIP_NARROW_PX = 128;
 
-export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "universe" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "demo";
+export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "universe" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo";
 export interface Tab { id: string; app: AppKind; label: string; }
 
 const TAB_ICON_SIZE = 13;
@@ -42,6 +43,7 @@ const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   reviews:     () => <FileCheck       size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   policy:      () => <Shield          size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   settings:    () => <Settings        size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
+  dashboard:   () => <Gauge           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   demo:        () => <Rocket          size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
 };
 
@@ -72,9 +74,11 @@ function HomeButton({ active, onClick }: { active: boolean; onClick: () => void 
 
 export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onToggleHome }: TopbarProps) {
   const settingsOpen = useUiBus((s) => s.settingsOpen);
-  const homeActive = !settingsOpen && homeOpen;
+  const dashboardOpen = useUiBus((s) => s.dashboardOpen);
+  const homeActive = !settingsOpen && !dashboardOpen && homeOpen;
   const handleHomeClick = () => {
     if (settingsOpen) uiBus.toggleSettings(false);
+    if (dashboardOpen) uiBus.toggleDashboard(false);
     onToggleHome();
   };
   const { stripRef, onStripMouseLeave, beginCloseTab, tabChrome } = useWorkspaceTabStrip(onClose);
@@ -123,7 +127,7 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
           onMouseLeave={handleTabsMouseLeave}
         >
           {tabs.map((t) => {
-            const isActive = !settingsOpen && !homeOpen && t.id === activeId;
+            const isActive = !settingsOpen && !dashboardOpen && !homeOpen && t.id === activeId;
             const { className, style, innerStyle } = tabChrome(t.id, isActive);
             const Icon = TAB_ICON_REGISTRY[t.app] ?? TAB_ICON_REGISTRY.ide;
             return (
@@ -140,6 +144,7 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
                 onMouseLeave={clearTabTitleTip}
                 onClick={() => {
                   if (settingsOpen) uiBus.toggleSettings(false);
+                  if (dashboardOpen) uiBus.toggleDashboard(false);
                   onSelect(t.id);
                 }}
               >
@@ -172,6 +177,13 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
           <IconButton title="Notifications">
             <Inbox size={16} strokeWidth={1.8} aria-hidden />
             <span className="topbar__badge">2</span>
+          </IconButton>
+          <IconButton
+            title="Dashboard"
+            onClick={() => uiBus.toggleDashboard()}
+            active={dashboardOpen}
+          >
+            <Gauge size={16} strokeWidth={1.8} aria-hidden />
           </IconButton>
           <IconButton
             title="Settings (⌘,)"

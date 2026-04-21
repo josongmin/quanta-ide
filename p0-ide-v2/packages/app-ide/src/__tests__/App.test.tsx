@@ -53,6 +53,7 @@ function createMockShellAPI(overrides: Partial<ShellAPI> = {}): ShellAPI {
     togglePalette: vi.fn(),
     toggleDevConsole: vi.fn(),
     toggleSettings: vi.fn(),
+    toggleDashboard: vi.fn(),
     toggleRules: vi.fn(),
     theme: { current: "light", toggle: vi.fn() },
     registerFeatures: vi.fn(() => vi.fn()),

@@ -8,7 +8,9 @@
     "baseUrl": ".",
     "paths": {
       "@quanta/canvas-engine": ["../../libs/canvas-engine/src/index.ts"],
-      "@quanta/canvas-engine/*": ["../../libs/canvas-engine/src/*"]
+      "@quanta/canvas-engine/*": ["../../libs/canvas-engine/src/*"],
+      "@quanta/ui-kit": ["../../libs/ui-kit/src/index.ts"],
+      "@quanta/ui-kit/*": ["../../libs/ui-kit/src/*"]
     }
   },
   "include": ["src"]

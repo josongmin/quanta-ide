@@ -6,9 +6,12 @@
 // file; the FSD layer rules enforced by ESLint `boundaries` + Semgrep
 // guarantee the package does not leak its internals.
 export { CodeUniverse, type CodeUniverseProps } from "./app/CodeUniverse";
+export { DashboardView, type DashboardViewProps } from "./features/dashboard";
 export {
   setWorkspaceGraph,
   getWorkspaceGraph,
+  useWorkspaceGraph,
+  subscribeWorkspaceGraph,
 } from "./shared/api/graph-source";
 export { setRepoRoot, getRepoRoot } from "./shared/api/repo-root";
 export {

@@ -128,6 +128,14 @@ appRegistry.register({
 });
 
 appRegistry.register({
+  id: "dashboard",
+  label: "Dashboard",
+  Component: lazy(() =>
+    import("@quanta/app-dashboard").then((m) => ({ default: m.DashboardApp })),
+  ),
+});
+
+appRegistry.register({
   id: "home",
   label: "Home",
   Component: lazy(() =>

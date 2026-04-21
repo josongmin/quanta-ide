@@ -8,10 +8,20 @@
 //   Tree edges (center→pkg, pkg→file) — thin dashed grey
 //   Dependency edges (file↔file)      — colored by severity
 //
-// Click package hub: re-center on first member file
-// Click file node:   re-center diagram on that file
+// Interaction:
+//   Wheel     → zoom toward cursor (non-passive, preventDefault)
+//   Drag      → pan (>4px moved disables click-to-dismiss)
+//   Dbl-click → reset zoom/pan
+//   Click pkg hub → re-center on first member file
+//   Click file    → re-center diagram on that file
+//
+// Viewport & LOD:
+//   Culling drops nodes/edges outside the visible layout-space rect
+//   (+margin) so 100+ file halos don't hairball. LOD tiers collapse
+//   the outer ring at low zoom and fade dep edges until zoomed in
+//   enough to read individual files.
 
-import { memo, useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { buildNeighborhoodLayout } from "../model/build-neighborhood-layout";
@@ -93,6 +103,25 @@ function useSpringSimulation(nodes: NeighborhoodNode[], simKey: number) {
   return { pos, settled };
 }
 
+// ── Zoom / pan ────────────────────────────────────────────────────────
+interface ZP { scale: number; tx: number; ty: number }
+const ZP_INIT: ZP = { scale: 1, tx: 0, ty: 0 };
+function clampScale(s: number): number { return Math.max(0.18, Math.min(5, s)); }
+
+// ── LOD thresholds ────────────────────────────────────────────────────
+// Below LOD_FILES: hide file ring entirely — user is reading the sector
+// shape, not individual files. Below LOD_DEPS: hide dep edges (they're
+// only legible once each endpoint is ~8px on screen, which is roughly
+// scale=0.7 given FILE_R_BASE=7). Above LOD_FULL_LABEL: stop truncating
+// filenames — there's room to show the real name.
+const LOD_FILES      = 0.42;
+const LOD_DEPS       = 0.72;
+const LOD_FULL_LABEL = 1.35;
+
+// Extra margin (px, layout-space) when testing node visibility so a
+// node's label stays painted when its centre is just past the edge.
+const CULL_MARGIN = 36;
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 const SEVERITY_COLOR: Readonly<Record<string, string>> = {
@@ -113,12 +142,13 @@ function riskFill(r: number): string {
 
 // ── Package hub glyph ─────────────────────────────────────────────────
 
-function PackageHub({ node, isHovered, isDimmed, sx, sy, settled, onClick, onEnter, onLeave }: {
+function PackageHub({ node, isHovered, isDimmed, sx, sy, settled, onClick, onEnter, onLeave, fullLabel }: {
   node: NeighborhoodNode;
   isHovered: boolean; isDimmed: boolean;
   sx: number; sy: number; settled: boolean;
   onClick: (e: React.MouseEvent, id: string) => void;
   onEnter: (id: string) => void; onLeave: () => void;
+  fullLabel: boolean;
 }) {
   const r    = node.radius;
   const fill = riskFill(node.riskScore);
@@ -165,7 +195,7 @@ function PackageHub({ node, isHovered, isDimmed, sx, sy, settled, onClick, onEnt
         fill={isHovered ? color.text0 : color.text1}
         fontFamily={font.sans}
         style={{ pointerEvents: "none", userSelect: "none" }}
-      >{truncate(node.fileName, 12)}</text>
+      >{fullLabel ? node.fileName : truncate(node.fileName, 12)}</text>
       {/* File count badge */}
       <text x={0} y={r + 20}
         textAnchor="middle" dominantBaseline="hanging"
@@ -178,13 +208,14 @@ function PackageHub({ node, isHovered, isDimmed, sx, sy, settled, onClick, onEnt
 
 // ── File node glyph ───────────────────────────────────────────────────
 
-function FileNode({ node, isCenter, isHovered, isDimmed, sx, sy, settled, onClick, onEnter, onLeave, pulsing }: {
+function FileNode({ node, isCenter, isHovered, isDimmed, sx, sy, settled, onClick, onEnter, onLeave, pulsing, fullLabel }: {
   node: NeighborhoodNode;
   isCenter: boolean; isHovered: boolean; isDimmed: boolean;
   sx: number; sy: number; settled: boolean;
   onClick: (e: React.MouseEvent, id: string) => void;
   onEnter: (id: string) => void; onLeave: () => void;
   pulsing: boolean;
+  fullLabel: boolean;
 }) {
   const r    = node.radius;
   const fill = isCenter ? "#0d99ff" : riskFill(node.riskScore);
@@ -221,7 +252,7 @@ function FileNode({ node, isCenter, isHovered, isDimmed, sx, sy, settled, onClic
         <>
           <text x={0} y={-3} textAnchor="middle" dominantBaseline="middle"
             fontSize={font.size.xs} fontWeight={font.weight.semibold} fill={color.bg0} fontFamily={font.sans}
-            style={{ userSelect: "none" }}>{truncate(node.fileName, 10)}</text>
+            style={{ userSelect: "none" }}>{fullLabel ? node.fileName : truncate(node.fileName, 10)}</text>
           <text x={0} y={8} textAnchor="middle" dominantBaseline="middle"
             fontSize={font.size.xxs} fill="rgba(255,255,255,0.72)" fontFamily={font.sans}
             style={{ userSelect: "none" }}>center</text>
@@ -230,7 +261,7 @@ function FileNode({ node, isCenter, isHovered, isDimmed, sx, sy, settled, onClic
         <>
           <text x={0} y={r + 8} textAnchor="middle" dominantBaseline="hanging"
             fontSize={font.size.xs} fill={isHovered ? color.text0 : color.text1} fontFamily={font.sans}
-            style={{ userSelect: "none" }}>{truncate(node.fileName, 12)}</text>
+            style={{ userSelect: "none" }}>{fullLabel ? node.fileName : truncate(node.fileName, 12)}</text>
           {node.fileHop !== undefined && (
             <text x={r * 0.7} y={-r * 0.7} textAnchor="middle" dominantBaseline="middle"
               fontSize={font.size.xxs} fill={color.text2} fontFamily={font.sans}
@@ -249,20 +280,24 @@ function FileNode({ node, isCenter, isHovered, isDimmed, sx, sy, settled, onClic
 
 // ── Tooltip ────────────────────────────────────────────────────────────
 
-function Tooltip({ node, cx, cy, sp }: { node: NeighborhoodNode; cx: number; cy: number; sp: { x: number; y: number } }) {
+// Tooltip renders inside the scaled graph group, so coords are in
+// layout-space. We counter-scale (1/scale) so the chip stays at a
+// constant on-screen size regardless of zoom — a tooltip that grows
+// to banner size at 3× zoom is nobody's friend.
+function Tooltip({ node, sp, scale }: { node: NeighborhoodNode; sp: { x: number; y: number }; scale: number }) {
   const r = node.radius;
-  const ax = cx + sp.x, ay = cy + sp.y + r + 26;
   const w = node.isPackageGroup ? 190 : 160, h = 34;
+  const offsetY = r + 22 / scale;
   const text = node.isPackageGroup
     ? `${node.fileName}/ — ${node.memberCount}개 파일, 평균 위험도 ${(node.riskScore * 100).toFixed(0)}%`
     : `${node.fileName} | ${node.fileHop ?? node.hop}h | 위험도 ${(node.riskScore * 100).toFixed(0)}%`;
   return (
-    <g style={{ pointerEvents: "none" }}>
-      <rect x={ax - w / 2} y={ay - h} width={w} height={h} rx={radius.sm}
+    <g style={{ pointerEvents: "none" }} transform={`translate(${sp.x},${sp.y + offsetY}) scale(${1 / scale})`}>
+      <rect x={-w / 2} y={-h} width={w} height={h} rx={radius.sm}
         fill={color.bg3} stroke={color.border} strokeWidth={1}
         style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.08))" }}
       />
-      <text x={ax} y={ay - h / 2} textAnchor="middle" dominantBaseline="middle"
+      <text x={0} y={-h / 2} textAnchor="middle" dominantBaseline="middle"
         fontSize={font.size.xs} fill={color.text1} fontFamily={font.sans}
       >{truncate(text, 34)}</text>
     </g>
@@ -316,7 +351,20 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
 
   const handleEnter  = useCallback((id: string) => setHoveredId(id), []);
   const handleLeave  = useCallback(() => setHoveredId(null), []);
-  const handleBackdrop = useCallback(() => onDismiss?.(), [onDismiss]);
+
+  // ── Zoom / pan state ───────────────────────────────────────────────
+  // Re-centring resets zp so the new halo starts in view — otherwise
+  // the old pan/zoom can leave the new centre off-screen.
+  const [zp, setZp] = useState<ZP>(ZP_INIT);
+  const [isPanning, setIsPanning] = useState(false);
+  const drag = useRef({ active: false, moved: false, x0: 0, y0: 0, tx0: 0, ty0: 0 });
+
+  useEffect(() => { setZp(ZP_INIT); }, [centerId, selectedSymbolId]);
+
+  const handleBackdrop = useCallback(() => {
+    if (drag.current.moved) return;
+    onDismiss?.();
+  }, [onDismiss]);
 
   const layout: NeighborhoodLayout = buildNeighborhoodLayout({
     graph,
@@ -326,6 +374,58 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
 
   const cx = size.w / 2;
   const cy = (size.h - 36) / 2;
+
+  // Wheel → zoom toward cursor. Non-passive so preventDefault stops the
+  // page (or the surrounding overlay) from scrolling while the user
+  // zooms into the halo.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const mag   = Math.min(Math.abs(e.deltaY), 50) / 50;
+      const step  = 0.04 + mag * 0.04;                       // 4%..8%
+      const factor = e.deltaY < 0 ? 1 + step : 1 / (1 + step);
+      const r = el.getBoundingClientRect();
+      const px = e.clientX - r.left;
+      const py = e.clientY - r.top;
+      setZp(prev => {
+        const ns = clampScale(prev.scale * factor);
+        const f  = ns / prev.scale;
+        const ccx = size.w / 2;
+        const ccy = (size.h - 36) / 2;
+        return {
+          scale: ns,
+          tx: px - ccx - (px - ccx - prev.tx) * f,
+          ty: py - ccy - (py - ccy - prev.ty) * f,
+        };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [size.w, size.h]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return;
+    drag.current = { active: true, moved: false, x0: e.clientX, y0: e.clientY, tx0: zp.tx, ty0: zp.ty };
+    setIsPanning(true);
+  }, [zp.tx, zp.ty]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    if (!d.active) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (!d.moved && Math.hypot(dx, dy) > 4) d.moved = true;
+    if (d.moved) setZp(prev => ({ ...prev, tx: d.tx0 + dx, ty: d.ty0 + dy }));
+  }, []);
+
+  const handleMouseUp = useCallback(() => {
+    drag.current.active = false;
+    setIsPanning(false);
+  }, []);
+
+  const handleDblClick = useCallback(() => setZp(ZP_INIT), []);
 
   const { pos, settled } = useSpringSimulation(layout.nodes, simKey);
 
@@ -344,6 +444,65 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
 
   function sp(fileId: string, fx: number, fy: number) {
     return pos.get(fileId) ?? { x: fx, y: fy };
+  }
+
+  // ── Viewport bounds (layout-space) ──────────────────────────────────
+  // Screen pt (sx, sy) maps to layout pt ((sx - cx - tx)/scale, ...).
+  // Cache the inverse-mapped visible rect so every node/edge test is a
+  // cheap aabb-overlap instead of re-deriving per call.
+  const viewRect = useMemo(() => {
+    const s   = Math.max(zp.scale, 1e-6);
+    const vw  = size.w;
+    const vh  = size.h - 36;
+    const x0  = (0  - cx - zp.tx) / s - CULL_MARGIN;
+    const y0  = (0  - cy - zp.ty) / s - CULL_MARGIN;
+    const x1  = (vw - cx - zp.tx) / s + CULL_MARGIN;
+    const y1  = (vh - cy - zp.ty) / s + CULL_MARGIN;
+    return { x0, y0, x1, y1 };
+  }, [zp, size.w, size.h, cx, cy]);
+
+  const pointVisible = useCallback((x: number, y: number, r = 0): boolean => {
+    return x + r >= viewRect.x0 && x - r <= viewRect.x1
+        && y + r >= viewRect.y0 && y - r <= viewRect.y1;
+  }, [viewRect]);
+
+  const segmentVisible = useCallback((
+    ax: number, ay: number, bx: number, by: number,
+  ): boolean => {
+    // Either endpoint inside → visible.
+    if (pointVisible(ax, ay) || pointVisible(bx, by)) return true;
+    // Both endpoints outside the same side → cannot intersect the rect.
+    const { x0, y0, x1, y1 } = viewRect;
+    if ((ax < x0 && bx < x0) || (ax > x1 && bx > x1)) return false;
+    if ((ay < y0 && by < y0) || (ay > y1 && by > y1)) return false;
+    return true; // conservative — edge bbox overlaps rect
+  }, [pointVisible, viewRect]);
+
+  // ── LOD flags ──────────────────────────────────────────────────────
+  const showFiles    = zp.scale >= LOD_FILES;
+  const showDepEdges = zp.scale >= LOD_DEPS;
+  const fullLabels   = zp.scale >= LOD_FULL_LABEL;
+
+  // Visible counts for the footer indicator — cheap loop, no memo.
+  let visibleFiles = 0, visiblePkgs = 0, visibleDeps = 0;
+  if (showFiles) {
+    for (const n of fileNodes) {
+      const p = sp(n.fileId, n.x, n.y);
+      if (pointVisible(p.x, p.y, n.radius)) visibleFiles++;
+    }
+  }
+  for (const n of pkgNodes) {
+    const p = sp(n.fileId, n.x, n.y);
+    if (pointVisible(p.x, p.y, n.radius)) visiblePkgs++;
+  }
+  if (showDepEdges) {
+    for (const e of layout.edges) {
+      if (e.isTreeEdge) continue;
+      const fn = nodeById.get(e.from), tn = nodeById.get(e.to);
+      if (!fn || !tn) continue;
+      const fp = sp(fn.fileId, fn.x, fn.y), tp = sp(tn.fileId, tn.x, tn.y);
+      if (segmentVisible(fp.x, fp.y, tp.x, tp.y)) visibleDeps++;
+    }
   }
 
   const outerStyle: CSSProperties = {
@@ -395,7 +554,15 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
       {/* SVG */}
       <svg ref={svgRef}
         viewBox={`0 0 ${size.w} ${size.h - 36}`}
-        style={{ display: "block", width: "100%", flex: 1, userSelect: "none", overflow: "visible" }}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onDoubleClick={handleDblClick}
+        style={{
+          display: "block", width: "100%", flex: 1, userSelect: "none", overflow: "hidden",
+          cursor: isPanning ? "grabbing" : "grab",
+        }}
       >
         <defs>
           <pattern id="nh-dot" width={20} height={20} patternUnits="userSpaceOnUse">
@@ -406,7 +573,7 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
         <rect x={0} y={0} width={size.w} height={size.h - 36} fill="url(#nh-dot)" style={{ pointerEvents: "none" }} />
         <rect x={0} y={0} width={size.w} height={size.h - 36} fill="transparent" onClick={handleBackdrop} />
 
-        <g transform={`translate(${cx},${cy})`}>
+        <g transform={`translate(${cx + zp.tx},${cy + zp.ty}) scale(${zp.scale})`}>
 
           {/* Guide rings */}
           {([
@@ -427,7 +594,9 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
           {layout.edges.filter(e => e.isTreeEdge).map((edge: NeighborhoodEdge) => {
             const fn = nodeById.get(edge.from), tn = nodeById.get(edge.to);
             if (!fn || !tn) return null;
+            if (!showFiles && tn.hop === 2) return null; // LOD: pkg→file edges collapse
             const fp = sp(fn.fileId, fn.x, fn.y), tp = sp(tn.fileId, tn.x, tn.y);
+            if (!segmentVisible(fp.x, fp.y, tp.x, tp.y)) return null;
             const isHovAdj = hoveredId === edge.from || hoveredId === edge.to;
             return (
               <line key={edge.id}
@@ -440,11 +609,12 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
             );
           })}
 
-          {/* Dependency edges (file↔file) — colored */}
-          {layout.edges.filter(e => !e.isTreeEdge).map((edge: NeighborhoodEdge) => {
+          {/* Dependency edges (file↔file) — colored. Hidden at low zoom. */}
+          {showDepEdges && layout.edges.filter(e => !e.isTreeEdge).map((edge: NeighborhoodEdge) => {
             const fn = nodeById.get(edge.from), tn = nodeById.get(edge.to);
             if (!fn || !tn) return null;
             const fp = sp(fn.fileId, fn.x, fn.y), tp = sp(tn.fileId, tn.x, tn.y);
+            if (!segmentVisible(fp.x, fp.y, tp.x, tp.y)) return null;
             const isHovAdj = hoveredId === edge.from || hoveredId === edge.to;
             const isPulsing = hovEdgeIds.has(edge.id);
             const sc = edge.isHighlighted ? depStroke(edge.severity) : color.border;
@@ -459,9 +629,10 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
             );
           })}
 
-          {/* File nodes (outer ring) — behind packages */}
-          {fileNodes.map(n => {
+          {/* File nodes (outer ring) — hidden at low zoom. */}
+          {showFiles && fileNodes.map(n => {
             const p = sp(n.fileId, n.x, n.y);
+            if (!pointVisible(p.x, p.y, n.radius + 12)) return null;
             const pulsing = hoveredId !== null && layout.edges.some(
               e => !e.isTreeEdge && (e.from === hoveredId || e.to === hoveredId) && (e.from === n.fileId || e.to === n.fileId),
             );
@@ -473,6 +644,7 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
                 sx={p.x} sy={p.y} settled={settled}
                 onClick={handleNodeClick} onEnter={handleEnter} onLeave={handleLeave}
                 pulsing={pulsing}
+                fullLabel={fullLabels}
               />
             );
           })}
@@ -480,17 +652,19 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
           {/* Package hub nodes (inner ring) */}
           {pkgNodes.map(n => {
             const p = sp(n.fileId, n.x, n.y);
+            if (!pointVisible(p.x, p.y, n.radius + 24)) return null;
             return (
               <PackageHub key={n.fileId} node={n}
                 isHovered={hoveredId === n.fileId}
                 isDimmed={hoveredId !== null && hoveredId !== n.fileId}
                 sx={p.x} sy={p.y} settled={settled}
                 onClick={handleNodeClick} onEnter={handleEnter} onLeave={handleLeave}
+                fullLabel={fullLabels}
               />
             );
           })}
 
-          {/* Center node (always on top) */}
+          {/* Center node (always on top, never culled) */}
           {centerNode && (() => {
             const p = sp(centerNode.fileId, 0, 0);
             return (
@@ -501,15 +675,17 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
                 sx={p.x} sy={p.y} settled={settled}
                 onClick={handleNodeClick} onEnter={handleEnter} onLeave={handleLeave}
                 pulsing={false}
+                fullLabel={fullLabels}
               />
             );
           })()}
 
-          {/* Tooltip */}
+          {/* Tooltip — only if the hovered node is still in view. */}
           {hoveredId && nodeById.get(hoveredId) && (() => {
             const n = nodeById.get(hoveredId)!;
             const p = sp(n.fileId, n.x, n.y);
-            return <Tooltip node={n} cx={cx} cy={cy} sp={p} />;
+            if (!pointVisible(p.x, p.y, n.radius)) return null;
+            return <Tooltip node={n} sp={p} scale={zp.scale} />;
           })()}
         </g>
       </svg>
@@ -524,16 +700,37 @@ function NeighborhoodViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: N
         <span style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>center:</span>
         <span style={{ fontSize: font.size.xs, color: color.text1, fontWeight: font.weight.medium, fontFamily: font.sans }}>{centerName}</span>
         <span style={{ color: color.border }}>|</span>
-        <span style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>{pkgCount}개 패키지</span>
+        <span style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>
+          시야 {visiblePkgs}/{pkgCount}개 패키지
+        </span>
         <span style={{ color: color.border }}>|</span>
-        <span style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>{layout.totalNodes}개 파일</span>
+        <span style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>
+          {showFiles ? `${visibleFiles}/${layout.totalNodes}개 파일` : `${layout.totalNodes}개 파일 (축소됨)`}
+        </span>
         <span style={{ color: color.border }}>|</span>
-        <span style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>{layout.edges.filter(e => !e.isTreeEdge).length}개 의존 엣지</span>
-        {!settled && (
-          <span style={{ marginLeft: "auto", fontSize: font.size.xxs, color: color.text2, fontFamily: font.sans, opacity: 0.6 }}>
-            시뮬레이션 중…
+        <span style={{ fontSize: font.size.xs, color: color.text2, fontFamily: font.sans }}>
+          {showDepEdges ? `${visibleDeps}개 의존 엣지` : "의존 엣지 숨김"}
+        </span>
+        <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: space[2] }}>
+          {!settled && (
+            <span style={{ fontSize: font.size.xxs, color: color.text2, fontFamily: font.sans, opacity: 0.6 }}>
+              시뮬레이션 중…
+            </span>
+          )}
+          <span style={{ fontSize: font.size.xxs, color: color.text2, fontFamily: font.sans, fontVariantNumeric: "tabular-nums" }}>
+            zoom {(zp.scale * 100).toFixed(0)}%
           </span>
-        )}
+          <button type="button"
+            onClick={() => setZp(ZP_INIT)}
+            disabled={zp.scale === 1 && zp.tx === 0 && zp.ty === 0}
+            style={{
+              background: "none", border: `1px solid ${color.border}`, borderRadius: radius.sm,
+              padding: `2px ${space[2]}px`, cursor: "pointer",
+              fontSize: font.size.xxs, color: color.text2, fontFamily: font.sans,
+              opacity: (zp.scale === 1 && zp.tx === 0 && zp.ty === 0) ? 0.4 : 1,
+            }}
+          >리셋</button>
+        </span>
       </div>
     </div>
   );

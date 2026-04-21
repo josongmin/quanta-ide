@@ -4,6 +4,7 @@ import type {
   FileEdge,
   WorkspaceGraph,
 } from "@quanta/canvas-engine";
+import { fileDisplayName } from "../../../shared/lib/file-ext";
 import type {
   AggregatorKind,
   EntityWeightHint,
@@ -221,7 +222,7 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
     kind: "center",
     entityId: centre.id,
     entityKind: centre.kind,
-    label: centre.name,
+    label: fileDisplayName(centre),
     sublabel: centre.path || undefined,
     x: 0,
     y: 0,
@@ -309,7 +310,7 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
         kind: "entity",
         entityId: entity.id,
         entityKind: entity.kind,
-        label: entity.name,
+        label: fileDisplayName(entity),
         sublabel: entity.path || undefined,
         x,
         y,

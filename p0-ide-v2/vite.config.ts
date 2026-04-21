@@ -36,6 +36,7 @@ export default defineConfig({
       "@quanta/app-rules": path.resolve(__dirname, "packages/app-rules/src"),
       "@quanta/app-scenario": path.resolve(__dirname, "packages/app-scenario/src"),
       "@quanta/app-settings": path.resolve(__dirname, "packages/app-settings/src"),
+      "@quanta/app-dashboard": path.resolve(__dirname, "packages/app-dashboard/src"),
       "@quanta/app-home": path.resolve(__dirname, "packages/app-home/src"),
       "@quanta/app-policy": path.resolve(__dirname, "packages/app-policy/src"),
       "@quanta/app-demo": path.resolve(__dirname, "packages/app-demo/src"),

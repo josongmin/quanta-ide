@@ -96,9 +96,12 @@ function MindMapEdgeImpl({
   const gradId = `mmg_${gid}`;
   const glowId = `mmglow_${gid}`;
 
-  // Gradient stop opacities — trunk is bolder than spokes.
-  const stopFrom = isTrunk ? 0.80 : 0.58;
-  const stopTo   = isTrunk ? 0.30 : 0.14;
+  // Gradient stop opacities — trunk is bolder than spokes. Leaf-side
+  // stops used to fade to 14% which collapsed the aggregator's accent
+  // colour into the dark background; bumped so each AggregatorKind
+  // (siblings/callers/callees/...) stays legible at both ends.
+  const stopFrom = isTrunk ? 0.90 : 0.80;
+  const stopTo   = isTrunk ? 0.55 : 0.45;
 
   const groupStyle: React.CSSProperties = {
     opacity:    mounted ? 1 : 0,
@@ -153,13 +156,16 @@ function MindMapEdgeImpl({
       />
 
       {/* ── Spine highlight ─────────────────────────────────────── */}
-      {/* Thin bright centerline that gives the ribbon a physical depth. */}
+      {/* Thin centerline that gives the ribbon a physical depth. Tinted
+       *  with the aggregator accent (not pure white) on spokes so the
+       *  per-type colour reads from end to end — white spine used to
+       *  flatten every spoke into the same "bright thread" silhouette. */}
       <path
         d={spineD}
         fill="none"
-        stroke="white"
-        strokeWidth={isTrunk ? 0.9 : 0.55}
-        strokeOpacity={hovered ? 0.38 : 0.20}
+        stroke={isTrunk ? "white" : accent}
+        strokeWidth={isTrunk ? 0.9 : 0.6}
+        strokeOpacity={isTrunk ? (hovered ? 0.38 : 0.20) : (hovered ? 0.95 : 0.75)}
         strokeLinecap="round"
         style={{ transition: "stroke-opacity 180ms ease-out" }}
       />

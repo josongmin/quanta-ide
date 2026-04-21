@@ -24,6 +24,7 @@ export interface ShellAPI {
   togglePalette(): void;
   toggleDevConsole(): void;
   toggleSettings(): void;
+  toggleDashboard(): void;
   toggleRules(open?: boolean): void;
 
   // -- Theme ----------------------------------------------------------------

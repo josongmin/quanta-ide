@@ -63,6 +63,7 @@ export function Shell() {
   useGlobalShortcuts();
   const registeredOverlays = useOverlays();
   const settingsOpen = useUiBus((s) => s.settingsOpen);
+  const dashboardOpen = useUiBus((s) => s.dashboardOpen);
   const { state, openTab, addTab, closeTab, selectTab, toggleHome } =
     useTabManager(initialTabs);
 
@@ -124,7 +125,7 @@ export function Shell() {
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
-  }, [sidebarW, state.activeId, state.homeOpen, settingsOpen, state.tabs.length]);
+  }, [sidebarW, state.activeId, state.homeOpen, settingsOpen, dashboardOpen, state.tabs.length]);
 
   const activeTab = state.tabs.find((t) => t.id === state.activeId);
 
@@ -148,9 +149,10 @@ export function Shell() {
     );
   };
 
-  // Resolve shell-level overrides (settings/home) from registry.
+  // Resolve shell-level overrides (settings/home/dashboard) from registry.
   const SettingsComp = appRegistry.get("settings")?.Component;
   const HomeComp = appRegistry.get("home")?.Component;
+  const DashboardComp = appRegistry.get("dashboard")?.Component;
 
   return (
     <ShellProviderWrapper
@@ -170,6 +172,10 @@ export function Shell() {
           {settingsOpen && SettingsComp ? (
             <Suspense fallback={<AppSkeleton />}>
               <SettingsComp tabId="__settings" isActive />
+            </Suspense>
+          ) : dashboardOpen && DashboardComp ? (
+            <Suspense fallback={<AppSkeleton />}>
+              <DashboardComp tabId="__dashboard" isActive />
             </Suspense>
           ) : state.homeOpen && HomeComp ? (
             <Suspense fallback={<AppSkeleton />}>

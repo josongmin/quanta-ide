@@ -151,6 +151,16 @@ const KEYFRAMES = `
   0%, 100% { stroke-opacity: 0.55; }
   50%       { stroke-opacity: 0.78; }
 }
+/* Entrance — subtle rotate-in + fade, plays once when the mind-map
+ * mounts. The rotation is small (~3°) so it reads as "the graph is
+ * settling into place" rather than a spinning animation. Runs in the
+ * inner wrapper (inside pan/zoom) so it rotates around the graph's
+ * own center, not the SVG's top-left. */
+@keyframes mm-enter {
+  0%   { opacity: 0; transform: rotate(-3deg)  scale(0.96); }
+  55%  { opacity: 1;                                        }
+  100% { opacity: 1; transform: rotate(0deg)   scale(1);    }
+}
 `;
 
 // ── Zoom / pan helpers ───────────────────────────────────────────────
@@ -323,6 +333,14 @@ function MindMapViewImpl({
         userSelect: "none",
         background: "transparent",
         cursor: isDragging || draggingId ? "grabbing" : "grab",
+        // Subtle rotate-in on mount. SVG element's CSS transform-origin
+        // defaults to 50% 50% (the SVG rect's center) — which coincides
+        // with where the center node sits — so the graph swings into
+        // place around its own pivot. `both` fill-mode holds the final
+        // state so the anim doesn't restart on style re-renders (cursor
+        // swaps during drag would otherwise be suspect).
+        animation: "mm-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        transformOrigin: "50% 50%",
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}

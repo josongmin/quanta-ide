@@ -26,6 +26,7 @@ export function createShellAPI(tabActions: TabActions): ShellAPI {
     togglePalette: () => uiBus.togglePalette(),
     toggleDevConsole: () => uiBus.toggleDevConsole(),
     toggleSettings: () => uiBus.toggleSettings(),
+    toggleDashboard: () => uiBus.toggleDashboard(),
     toggleRules: (open) => uiBus.toggleRules(open),
 
     theme: {

@@ -49,6 +49,8 @@
       "@quanta/app-scenario/*": ["packages/app-scenario/src/*"],
       "@quanta/app-settings": ["packages/app-settings/src"],
       "@quanta/app-settings/*": ["packages/app-settings/src/*"],
+      "@quanta/app-dashboard": ["packages/app-dashboard/src"],
+      "@quanta/app-dashboard/*": ["packages/app-dashboard/src/*"],
       "@quanta/app-home": ["packages/app-home/src"],
       "@quanta/app-home/*": ["packages/app-home/src/*"],
       "@quanta/app-policy": ["packages/app-policy/src"],

@@ -39,7 +39,7 @@ import { NeighborhoodView } from "../../../features/neighborhood";
 import { AuthorTerritoryView } from "../../../features/author-territory";
 import { ServiceTopoView } from "../../../features/service-topo";
 import { Galaxy3DView } from "../../../features/galaxy-3d";
-import { useViewMode, viewModeStore, ViewModePicker, VIEW_MODE_OPTIONS } from "../../../features/view-mode";
+import { useViewMode, viewModeStore, ViewModePicker, VIEW_MODE_OPTIONS, VIEW_GLYPH } from "../../../features/view-mode";
 import { loadViewport } from "../../../shared/api/viewport-persistence";
 import { LeftPanel } from "../../left-panel";
 import { Inspector } from "../../inspector";
@@ -50,7 +50,7 @@ import {
 import { NavHistoryButtons } from "../../../features/nav-history";
 import { ColorModePicker } from "../../../features/color-mode";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
-import { IconSidebarLeft, IconSidebarRight } from "../../../shared/ui/icons";
+import { IconLayoutGrid, IconSidebarLeft, IconSidebarRight } from "../../../shared/ui/icons";
 
 // CanvasShell — top-level Code Universe widget.
 //
@@ -120,10 +120,12 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
   const tree = useEntityState(s => s.tree);
   const graph = useWorkspaceGraph();
 
-  const [initialCamera] = useState(() => {
-    const saved = loadViewport(tabId);
-    return saved ? { tx: saved.tx, ty: saved.ty, scale: saved.scale } : undefined;
-  });
+  // Treemap camera pose is read fresh on each (re-)mount of
+  // CanvasViewport — switching to Mind/Galaxy and back restores the
+  // last-seen pan/zoom instead of reverting to the pose at shell
+  // first-mount. CanvasViewport captures this prop once in its own
+  // useState initializer, so the read only matters at mount instant
+  // — the wasted localStorage hits on other re-renders are trivial.
 
   const [prefs, setPrefs] = useState<PanelPrefs>(loadPrefs);
   useEffect(() => {
@@ -420,21 +422,14 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
         </div>
 
         <div style={HEADER_MIDDLE}>
-          <TierBreadcrumb />
+          <SelectedPath />
         </div>
 
-        {/* Right cluster: view-mode picker + current-context readouts
-            + Inspector toggle. No tools — those live in the floating
-            toolbar. */}
+        {/* Right cluster: shell chrome only (color mode + inspector
+            toggle). Code-Universe-specific controls (view mode, tier,
+            scale, kind) live in the floating overlay inside the
+            viewport below. */}
         <div style={HEADER_GROUP}>
-          <ViewModeDropdown />
-          <span style={SCALE_CHIP}>
-            <span style={{ color: color.text2 }}>scale</span>
-            <span style={{ fontVariantNumeric: "tabular-nums", color: color.text0, fontWeight: font.weight.semibold }}>
-              {scale.toFixed(2)}
-            </span>
-          </span>
-          <span style={KIND_CHIP}>{tier.visibleKind}</span>
           <ColorModePicker />
           <IconToggle
             onClick={() => setPrefs(p => ({ ...p, rightCollapsed: !p.rightCollapsed }))}
@@ -472,7 +467,45 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
             background: color.bg0,
           }}
         >
-          {tree && layout && graph ? (
+          {/* Code-Universe context bar — floating top-center overlay.
+              Carries tier / scale / kind, which ONLY make sense in the
+              treemap (Code Universe) view — zoom tier and visible-kind
+              are treemap-tier artefacts. Other view modes (galaxy /
+              mind / chord / …) own their own spatial language and
+              don't read tier/scale. Wrapper is pointer-events: none so
+              drag-pan flows through the gaps; individual controls opt
+              back in. */}
+          {viewMode === "treemap" ? (
+            <div style={FLOATING_CONTEXT_BAR} role="toolbar" aria-label="Code Universe controls">
+              <span style={FLOATING_GROUP}>
+                <TierBreadcrumb />
+              </span>
+              <span style={FLOATING_DIVIDER} aria-hidden />
+              <span style={{ ...SCALE_CHIP, ...FLOATING_GROUP_INLINE }}>
+                <span style={{ color: color.text2 }}>scale</span>
+                <span style={{ fontVariantNumeric: "tabular-nums", color: color.text0, fontWeight: font.weight.semibold }}>
+                  {scale.toFixed(2)}
+                </span>
+              </span>
+              <span style={{ ...KIND_CHIP, ...FLOATING_GROUP_INLINE }}>{tier.visibleKind}</span>
+            </div>
+          ) : null}
+
+          {/* View-mode switcher — icon button at top-right of the
+              viewport. Opens the ViewModePicker popup below itself,
+              anchored to the right edge. */}
+          <div style={VIEW_MODE_TRIGGER_WRAP}>
+            <ViewModeDropdown />
+          </div>
+
+          {/* Universe (Pixi treemap) is the *base* view — only mount it
+              when the user is actually looking at it. Other view modes
+              (mind / galaxy / chord / …) cover the whole viewport, so
+              keeping the treemap alive underneath just burns GPU ticker
+              work + traps stray pointer/keyboard events. Unmounting
+              tears down the Pixi app; camera pose is restored from
+              `initialCamera` (loadViewport(tabId)) on re-mount. */}
+          {viewMode === "treemap" && tree && layout && graph ? (
             <CanvasViewport
               tree={tree}
               layout={layout}
@@ -481,15 +514,19 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               width={viewportSize.w}
               height={viewportSize.h}
               tabId={tabId}
-              initialCamera={initialCamera}
+              initialCamera={(() => {
+                const saved = loadViewport(tabId);
+                return saved ? { tx: saved.tx, ty: saved.ty, scale: saved.scale } : undefined;
+              })()}
             />
-          ) : (
+          ) : null}
+          {viewMode === "treemap" && (!tree || !layout || !graph) ? (
             <div style={LOADING_STYLE}>
               <span style={{ opacity: 0.5 }}>·</span>
               <span>waiting for workspace graph</span>
               <span style={{ opacity: 0.5 }}>·</span>
             </div>
-          )}
+          ) : null}
           {mindMapEnabled && mindMapGraph ? (
             <div
               style={{
@@ -893,9 +930,53 @@ const HEADER_MIDDLE: CSSProperties = {
   minWidth: 0,
   display: "flex",
   alignItems: "center",
-  justifyContent: "center",
-  paddingInline: space[2],
+  justifyContent: "flex-start",
+  paddingInline: space[3],
   overflow: "hidden",
+};
+
+const PATH_MONO: CSSProperties = {
+  fontFamily: font.mono,
+  fontSize: font.size.sm,
+  color: color.text1,
+  letterSpacing: -0.1,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  maxWidth: "100%",
+};
+
+const PATH_MUTED: CSSProperties = {
+  ...PATH_MONO,
+  color: color.text3,
+  fontStyle: "italic",
+};
+
+const PATH_SEP: CSSProperties = {
+  color: color.text3,
+  padding: "0 4px",
+};
+
+const PATH_LEAF: CSSProperties = {
+  color: color.text0,
+  fontWeight: font.weight.semibold,
+};
+
+const PATH_KIND_PILL: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "1px 6px",
+  marginRight: space[2],
+  fontFamily: font.family,
+  fontSize: 10,
+  fontWeight: font.weight.semibold,
+  letterSpacing: 0.3,
+  textTransform: "uppercase",
+  color: color.text2,
+  background: color.bg2,
+  border: `1px solid ${color.border}`,
+  borderRadius: radius.sm,
+  flexShrink: 0,
 };
 
 const PRODUCT_NAME: CSSProperties = {
@@ -980,38 +1061,161 @@ const LOADING_STYLE: CSSProperties = {
   letterSpacing: font.letter.wide,
 };
 
-const VIEW_MODE_BTN_STYLE: CSSProperties = {
+const FLOATING_CONTEXT_BAR: CSSProperties = {
+  position: "absolute",
+  top: 12,
+  left: "50%",
+  transform: "translateX(-50%)",
   display: "inline-flex",
   alignItems: "center",
-  gap: 4,
-  padding: `2px ${space[2]}px`,
-  fontSize: font.size.sm,
-  fontWeight: font.weight.medium,
-  fontFamily: font.family,
-  color: color.text0,
-  background: color.bg2,
+  gap: space[2],
+  padding: `${space[1]}px ${space[2]}px`,
+  background: color.bg1,
   border: `1px solid ${color.border}`,
-  borderRadius: radius.sm,
-  cursor: "pointer",
-  whiteSpace: "nowrap",
-  transition: `background ${transition.fast}`,
+  borderRadius: radius.pill,
+  boxShadow: [
+    "0 1px 2px rgba(0, 0, 0, 0.04)",
+    "0 10px 28px rgba(0, 0, 0, 0.08)",
+  ].join(", "),
+  zIndex: 10,
+  pointerEvents: "none",
 };
 
+const FLOATING_GROUP: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  pointerEvents: "auto",
+};
+
+const FLOATING_GROUP_INLINE: CSSProperties = {
+  pointerEvents: "auto",
+};
+
+const FLOATING_DIVIDER: CSSProperties = {
+  width: 1,
+  height: 20,
+  alignSelf: "center",
+  background: color.border,
+  opacity: 0.7,
+};
+
+// Icon-button trigger for the view-mode dropdown. Sits top-right of
+// the canvas viewport — square, glass-pill styled to match the
+// floating context bar so the two read as part of one system.
+const VIEW_MODE_TRIGGER_WRAP: CSSProperties = {
+  position: "absolute",
+  top: 12,
+  right: 12,
+  zIndex: 11,
+};
+
+const VIEW_MODE_ICON_BTN: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 7,
+  height: 30,
+  padding: "0 9px 0 8px",
+  color: color.text1,
+  background: color.bg1,
+  border: `1px solid ${color.border}`,
+  borderRadius: radius.md,
+  cursor: "pointer",
+  fontFamily: font.sans,
+  boxShadow: [
+    "0 1px 2px rgba(0, 0, 0, 0.04)",
+    "0 10px 28px rgba(0, 0, 0, 0.08)",
+  ].join(", "),
+  transition: `background ${transition.fast}, color ${transition.fast}, border-color ${transition.fast}`,
+};
+
+const VIEW_MODE_BTN_ICON_SLOT: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  // Pinned color so the grid glyph stays a neutral "handle" instead of
+  // tracking the button's color on hover / open (was going near-black).
+  color: color.text2,
+};
+
+const VIEW_MODE_BTN_GLYPH: CSSProperties = {
+  fontSize: 14,
+  lineHeight: 1,
+  color: color.accent,
+  fontWeight: font.weight.semibold,
+};
+
+const VIEW_MODE_BTN_LABEL: CSSProperties = {
+  fontSize: font.size.md,
+  fontWeight: font.weight.semibold,
+  letterSpacing: font.letter.tight,
+  color: color.text0,
+  lineHeight: 1,
+};
+
+const VIEW_MODE_BTN_CHEVRON: CSSProperties = {
+  fontSize: 9,
+  color: color.text3,
+  marginLeft: 2,
+  fontFamily: font.sans,
+  lineHeight: 1,
+};
+
+const VIEW_MODE_ICON_BTN_OPEN: CSSProperties = {
+  ...VIEW_MODE_ICON_BTN,
+  background: color.selected,
+  color: color.text0,
+  borderColor: color.borderStrong,
+};
+
+// ViewModePicker owns its own card chrome (symtip-style border + shadow)
+// so the dropdown wrapper only needs to position + lift it. Padding/
+// background/border would double up and clash.
 const VIEW_MODE_POPUP_STYLE: CSSProperties = {
   position: "absolute",
   top: "100%",
   right: 0,
   marginTop: 4,
   zIndex: 20,
-  background: color.bg1,
-  border: `1px solid ${color.border}`,
-  borderRadius: radius.md,
-  padding: space[1],
-  boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
-  maxWidth: 420,
 };
+
+// SelectedPath — shows the full path of the currently anchored/selected
+// entity in the shell header. Shell chrome should say *what* you are
+// looking at; view-mode/tier/scale chips belong to the Code Universe
+// content area and moved to the floating overlay below.
+function SelectedPath(): ReactElement {
+  const selectedId = useEntityState(s => s.interaction.selectedId);
+  const anchorId   = useEntityState(s => s.interaction.anchorId);
+  const tree       = useEntityState(s => s.tree);
+
+  const contextId = anchorId ?? selectedId;
+  const entity = contextId ? tree?.byId.get(contextId) : undefined;
+
+  if (!entity) {
+    return (
+      <span style={PATH_MUTED} title="No selection — Workspace root">
+        Workspace · 파일을 선택하세요
+      </span>
+    );
+  }
+
+  const rawPath = entity.path || entity.name;
+  const parts = rawPath.split("/").filter(Boolean);
+  const leaf = parts.length > 0 ? parts[parts.length - 1] : rawPath;
+  const head = parts.slice(0, -1);
+
+  return (
+    <span style={PATH_MONO} title={rawPath}>
+      <span style={PATH_KIND_PILL}>{entity.kind}</span>
+      {head.map((seg, i) => (
+        <span key={i}>
+          <span>{seg}</span>
+          <span style={PATH_SEP}>/</span>
+        </span>
+      ))}
+      <span style={PATH_LEAF}>{leaf}</span>
+    </span>
+  );
+}
 
 function ViewModeDropdown(): ReactElement {
   const mode = useViewMode(s => s.mode);
@@ -1051,17 +1255,32 @@ function ViewModeDropdown(): ReactElement {
   const label = VIEW_MODE_OPTIONS.find(o => o.value === mode)?.label ?? "Universe";
 
   return (
-    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+    <div ref={ref} style={{ position: "relative" }}>
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        title="Switch visualization mode"
-        style={VIEW_MODE_BTN_STYLE}
+        aria-label={`Switch visualization mode (current: ${label})`}
+        title={`View mode · ${label}`}
+        style={open ? VIEW_MODE_ICON_BTN_OPEN : VIEW_MODE_ICON_BTN}
+        onMouseEnter={e => {
+          if (!open) {
+            e.currentTarget.style.borderColor = color.borderStrong;
+          }
+        }}
+        onMouseLeave={e => {
+          if (!open) {
+            e.currentTarget.style.borderColor = color.border;
+          }
+        }}
       >
-        {label}
-        <span style={{ fontSize: 9, opacity: 0.55, marginLeft: 1 }}>▾</span>
+        <span style={VIEW_MODE_BTN_ICON_SLOT}>
+          <IconLayoutGrid size={14} />
+        </span>
+        <span style={VIEW_MODE_BTN_GLYPH}>{VIEW_GLYPH[mode]}</span>
+        <span style={VIEW_MODE_BTN_LABEL}>{label}</span>
+        <span style={VIEW_MODE_BTN_CHEVRON}>▾</span>
       </button>
       {open && (
         <div style={VIEW_MODE_POPUP_STYLE}>
