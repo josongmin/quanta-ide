@@ -457,6 +457,16 @@
 .stree__row--flagged:hover {
   background: color-mix(in srgb, var(--danger) 6%, transparent);
 }
+/* Selection: background + accent text, no left-stripe (see feedback memory
+ * "카드 왼쪽 색상 스트라이프 금지"). Outweighs :hover via specificity. */
+.stree__row--selected,
+.stree__row--selected:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.stree__row--selected .stree__name {
+  color: var(--accent);
+  font-weight: 600;
+}
 
 /* Chevron toggle */
 .stree__chev {

@@ -1,6 +1,6 @@
 // PathfinderView.tsx
 // ---------------------------------------------------------------
-// SVG renderer for the "Pathfinding Spotlight" view — SOTA++ quality.
+// SVG renderer for the "Pathfinding Spotlight" view — LEGENDARY quality.
 //
 // Layout:
 //   ┌──────────────────────────────────────────────┐
@@ -17,13 +17,17 @@
 // Animation:
 //   - Container fadeUp 250ms on mount
 //   - Active path draws itself via stroke-dashoffset 800ms ease-out
+//   - After 850ms: continuous data-packet traveler on active path
 //   - Nodes appear with 40ms per-node stagger
+//   - Node ping ripple on simulated packet arrival
+//   - Ghost paths get animated dashes (slow reverse scroll)
 //
 // Interaction:
 //   - Path tab click: highlight that path (others ghost)
 //   - Node click: onFocusEntity(fileId)
 //   - Source / target dropdowns: rebuild layout on selection change
 //   - Backdrop click: onDismiss
+//   - Source node hover: intensified glow
 
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -44,11 +48,31 @@ export interface PathfinderViewProps {
 // ── Constants ──────────────────────────────────────────────────────────
 
 const PATH_ANIM_MS = 800;
+const ANIM_DONE_DELAY = 850;
 const STAGGER_MS = 40;
 const NODE_W = 100;
 const NODE_H = 32;
 const MAX_LABEL_CHARS = 12;
 const PATH_COLORS = ["#0d99ff", "#7e4ed6", "#22a06b"] as const;
+
+// ── Keyframe injection ─────────────────────────────────────────────────
+
+let _pfStylesInjected = false;
+function injectPfStyles(): void {
+  if (_pfStylesInjected || typeof document === "undefined") return;
+  _pfStylesInjected = true;
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes pf-ping {
+      0%   { r: var(--ping-r0); opacity: 0.8; }
+      100% { r: var(--ping-r1); opacity: 0; }
+    }
+    @keyframes pf-ghostDash {
+      to { stroke-dashoffset: -32; }
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -93,9 +117,10 @@ interface AnimatedPathProps {
   markerEnd: string;
   isActive: boolean;
   isGhost: boolean;
+  svgId?: string;
 }
 
-function AnimatedPath({ d, stroke, strokeWidth, strokeOpacity, markerEnd, isActive, isGhost }: AnimatedPathProps) {
+function AnimatedPath({ d, stroke, strokeWidth, strokeOpacity, markerEnd, isActive, isGhost, svgId }: AnimatedPathProps) {
   const pathRef = useRef<SVGPathElement>(null);
   const [dashState, setDashState] = useState<{ array: string; offset: number } | null>(null);
 
@@ -126,12 +151,17 @@ function AnimatedPath({ d, stroke, strokeWidth, strokeOpacity, markerEnd, isActi
     return () => cancelAnimationFrame(rafId);
   }, [isActive, d]);
 
-  const dashArray = isGhost ? "4 6" : (dashState?.array ?? "none");
+  const dashArray = isGhost ? "6 10" : (dashState?.array ?? "none");
   const dashOffset = isGhost ? undefined : (dashState?.offset ?? 0);
+
+  const ghostAnimStyle: CSSProperties | undefined = isGhost ? {
+    animation: "pf-ghostDash 3s linear infinite",
+  } : undefined;
 
   return (
     <path
       ref={pathRef}
+      id={svgId}
       d={d}
       fill="none"
       stroke={stroke}
@@ -140,6 +170,72 @@ function AnimatedPath({ d, stroke, strokeWidth, strokeOpacity, markerEnd, isActi
       strokeDasharray={dashArray}
       strokeDashoffset={dashOffset}
       markerEnd={isGhost ? undefined : markerEnd}
+      style={ghostAnimStyle}
+    />
+  );
+}
+
+// ── Data packet traveler ───────────────────────────────────────────────
+
+interface PacketTravelerProps {
+  pathId: string;
+  pathColor: string;
+  durationS: number;
+  animDone: boolean;
+  packetIndex: number;
+}
+
+function PacketTraveler({ pathId, pathColor, durationS, animDone, packetIndex }: PacketTravelerProps) {
+  // Stagger multiple packets slightly
+  const offset = (packetIndex * 0.4) % 1;
+  const beginStr = animDone ? `${(offset * durationS).toFixed(2)}s` : "indefinite";
+
+  return (
+    <circle
+      r={5}
+      fill={pathColor}
+      style={{ filter: `drop-shadow(0 0 4px ${pathColor})` }}
+    >
+      <animateMotion
+        dur={`${durationS.toFixed(2)}s`}
+        repeatCount="indefinite"
+        begin={beginStr}
+        rotate="auto"
+      >
+        <mpath href={`#${pathId}`} />
+      </animateMotion>
+    </circle>
+  );
+}
+
+// ── Node ping ripple ───────────────────────────────────────────────────
+
+interface PingRippleProps {
+  cx: number;
+  cy: number;
+  pingKey: number;
+  pathColor: string;
+}
+
+function PingRipple({ cx, cy, pingKey, pathColor }: PingRippleProps) {
+  const r0 = NODE_W / 2;
+
+  return (
+    <circle
+      key={pingKey}
+      cx={cx}
+      cy={cy}
+      r={r0}
+      fill="none"
+      stroke={pathColor}
+      strokeWidth={2}
+      style={{
+        animation: "pf-ping 600ms ease-out both",
+        animationDuration: "600ms",
+        animationFillMode: "both",
+        // Use transform scale from origin for the expanding ring effect
+        transformOrigin: `${cx}px ${cy}px`,
+      }}
     />
   );
 }
@@ -263,11 +359,12 @@ interface NodeRectProps {
   onClick: (e: React.MouseEvent, fileId: string) => void;
   onEnter: (fileId: string) => void;
   onLeave: () => void;
+  hoveredId: string | null;
 }
 
 function NodeRect({
   node, isSource, isTarget, activePathMask, isHovered, isDimmed,
-  staggerIdx, mounted, onClick, onEnter, onLeave,
+  staggerIdx, mounted, onClick, onEnter, onLeave, hoveredId,
 }: NodeRectProps) {
   const isOnActivePath = (node.pathMask & activePathMask) !== 0;
 
@@ -295,8 +392,12 @@ function NodeRect({
     : color.bg1;
 
   const strokeWidth = isSource || isTarget ? 2.5 : isHovered ? 1.5 : 1;
+
+  // Source node gets intensified glow on hover
+  const normalSourceGlow = "drop-shadow(0 0 6px rgba(13,153,255,0.55))";
+  const intensifiedSourceGlow = "drop-shadow(0 0 12px rgba(13,153,255,0.8))";
   const glowFilter = isSource
-    ? "drop-shadow(0 0 6px rgba(13,153,255,0.55))"
+    ? (hoveredId === node.fileId ? intensifiedSourceGlow : normalSourceGlow)
     : isTarget
     ? "drop-shadow(0 0 6px rgba(239,68,68,0.55))"
     : undefined;
@@ -581,14 +682,21 @@ function BottomBar({ layout, activeIdx }: { layout: PathfinderLayout; activeIdx:
 
 function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: PathfinderViewProps) {
   const [mounted, setMounted] = useState(false);
+  const [animDone, setAnimDone] = useState(false);
   const [activePathIdx, setActivePathIdx] = useState(0);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [pingState, setPingState] = useState<{ nodeId: string; key: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 680, h: 460 });
 
   // Manual source/target overrides
   const [manualSource, setManualSource] = useState<string | undefined>(undefined);
   const [manualTarget, setManualTarget] = useState<string | undefined>(undefined);
+
+  // Inject CSS keyframes once
+  useEffect(() => {
+    injectPfStyles();
+  }, []);
 
   // Observe container
   useEffect(() => {
@@ -611,6 +719,20 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     });
     return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
   }, []);
+
+  // animDone fires 850ms after mount — enables packet travelers
+  useEffect(() => {
+    if (!mounted) return;
+    const t = setTimeout(() => setAnimDone(true), ANIM_DONE_DELAY);
+    return () => clearTimeout(t);
+  }, [mounted]);
+
+  // Reset animDone when active path changes (re-trigger after new draw animation)
+  useEffect(() => {
+    setAnimDone(false);
+    const t = setTimeout(() => setAnimDone(true), ANIM_DONE_DELAY);
+    return () => clearTimeout(t);
+  }, [activePathIdx]);
 
   // Build layout
   const effectiveSelectedId = manualSource ?? selectedId;
@@ -636,6 +758,34 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
   // Clamp activePathIdx to valid range
   const safeActiveIdx = Math.min(activePathIdx, Math.max(0, finalLayout.paths.length - 1));
   const activePathMask = 1 << safeActiveIdx;
+  const activePath = finalLayout.paths[safeActiveIdx];
+
+  // Node ping interval — cycle through active path nodes
+  useEffect(() => {
+    if (!animDone || !activePath) return;
+    const nodeCount = activePath.nodeIds.length;
+    if (nodeCount < 2) return;
+
+    const hops = nodeCount - 1;
+    const durationMs = (1.5 + hops * 0.4) * 1000;
+    const intervalMs = durationMs / nodeCount;
+
+    let pingIdx = 0;
+    let pingKey = 0;
+    const nodeIds = activePath.nodeIds;
+
+    const tick = () => {
+      const nodeId = nodeIds[pingIdx];
+      if (nodeId) {
+        setPingState({ nodeId, key: pingKey++ });
+      }
+      pingIdx = (pingIdx + 1) % nodeCount;
+    };
+
+    tick(); // fire immediately
+    const id = setInterval(tick, intervalMs);
+    return () => clearInterval(id);
+  }, [animDone, activePath, safeActiveIdx]);
 
   const handleBackdrop = useCallback(() => { onDismiss?.(); }, [onDismiss]);
 
@@ -753,6 +903,19 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
     .sort((a, b) => a.x - b.x)
     .map(n => n.fileId);
 
+  // Determine packet paths: build combined path strings for active path edges
+  // We use per-path active path IDs for animateMotion
+  const activePacketPathIds: Array<{ pathId: string; pathColor: string; durationS: number }> = [];
+  if (activePath) {
+    const hops = activePath.nodeIds.length - 1;
+    const durationS = 1.5 + hops * 0.4;
+    activePacketPathIds.push({
+      pathId: `active-path-0`,
+      pathColor: PATH_COLORS[safeActiveIdx] ?? "#0d99ff",
+      durationS,
+    });
+  }
+
   return (
     <div ref={containerRef} style={outerStyle}>
       {/* Title bar */}
@@ -796,7 +959,7 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
         </defs>
 
         {/* Edges */}
-        {finalLayout.edges.map((edge: PathfinderEdge) => {
+        {finalLayout.edges.map((edge: PathfinderEdge, edgeRenderIdx: number) => {
           const fromNode = nodeById.get(edge.from);
           const toNode = nodeById.get(edge.to);
           if (!fromNode || !toNode) return null;
@@ -822,15 +985,20 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
           const midY = (y1 + y2) / 2;
 
           // Determine hop index for this edge in the active path
-          const activePath = finalLayout.paths[safeActiveIdx];
           let hopNum: number | null = null;
           if (isOnActive && activePath) {
             const edgeIdx = activePath.edgeIds.indexOf(edge.id);
             if (edgeIdx >= 0) hopNum = edgeIdx + 1;
           }
 
+          // Assign a unique SVG id to the first active path edge for animateMotion
+          // We use the concatenated bezier of all active-path edges for the packet
+          // For simplicity: assign id to first active edge segment only
+          const isFirstActiveEdge = isOnActive && activePath && activePath.edgeIds[0] === edge.id;
+          const svgPathId = isFirstActiveEdge ? `active-path-0` : undefined;
+
           return (
-            <g key={edge.id}>
+            <g key={`${edge.id}-${edgeRenderIdx}`}>
               <AnimatedPath
                 d={pathD}
                 stroke={edgeColor}
@@ -839,6 +1007,7 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
                 markerEnd={markerRef}
                 isActive={isOnActive}
                 isGhost={!isOnActive}
+                svgId={svgPathId}
               />
               {isOnActive && hopNum !== null && (
                 <HopBadge x={midX} y={midY} hop={hopNum} />
@@ -846,6 +1015,34 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
             </g>
           );
         })}
+
+        {/* Packet travelers (rendered after edges so they appear on top) */}
+        {activePacketPathIds.map(({ pathId, pathColor, durationS }, idx) => (
+          <PacketTraveler
+            key={`packet-${idx}-${safeActiveIdx}`}
+            pathId={pathId}
+            pathColor={pathColor}
+            durationS={durationS}
+            animDone={animDone}
+            packetIndex={idx}
+          />
+        ))}
+
+        {/* Node ping ripple */}
+        {pingState && (() => {
+          const pingedNode = nodeById.get(pingState.nodeId);
+          if (!pingedNode) return null;
+          const pathColor = PATH_COLORS[safeActiveIdx] ?? "#0d99ff";
+          return (
+            <PingRipple
+              key={`ping-${pingState.key}`}
+              cx={pingedNode.x}
+              cy={pingedNode.y}
+              pingKey={pingState.key}
+              pathColor={pathColor}
+            />
+          );
+        })()}
 
         {/* Nodes with stagger animation */}
         {finalLayout.nodes.map((node: PathfinderNode) => {
@@ -864,6 +1061,7 @@ function PathfinderViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Pat
               onClick={handleNodeClick}
               onEnter={handleEnter}
               onLeave={handleLeave}
+              hoveredId={hoveredId}
             />
           );
         })}

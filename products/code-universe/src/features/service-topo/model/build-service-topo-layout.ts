@@ -205,10 +205,74 @@ function bezierPath(
 
 // ── Main entry ─────────────────────────────────────────────────────────
 
+// ── Mock data (shown when graph has no files) ─────────────────────────
+
+function mockServiceTopoLayout(width: number, height: number): ServiceTopoLayout {
+  const cx = width / 2;
+  const cy = height / 2 + 20;
+  const triR = Math.min(width, height) * 0.28;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+
+  const nodeSpecs = [
+    { id: "canvas-engine", label: "canvas-engine", color: "#7e4ed6", deg: 270, files: 42, loc: 8200, risk: 0.38, layer: "domain"  as const, breakdown: { domain: 0.45, adapter: 0.25, util: 0.30 } as Partial<Record<ArchLayer, number>> },
+    { id: "code-universe",  label: "code-universe",  color: "#0d99ff", deg: 210, files: 68, loc: 14500, risk: 0.55, layer: "ui" as const, breakdown: { ui: 0.55, domain: 0.30, infra: 0.15 } as Partial<Record<ArchLayer, number>> },
+    { id: "ide-shell",      label: "ide-shell",      color: "#22a06b", deg: 330, files: 24, loc: 4800, risk: 0.30, layer: "adapter" as const, breakdown: { adapter: 0.60, util: 0.40 } as Partial<Record<ArchLayer, number>> },
+  ];
+
+  const nodes: ServiceNode[] = nodeSpecs.map(n => ({
+    graphId: n.id,
+    label: n.label,
+    color: n.color,
+    fileCount: n.files,
+    loc: n.loc,
+    riskScore: n.risk,
+    archLayer: n.layer,
+    x: cx + triR * Math.cos(toRad(n.deg)),
+    y: cy + triR * Math.sin(toRad(n.deg)),
+    radius: Math.max(12, Math.round(12 + Math.sqrt(n.files) * 6)),
+    layerBreakdown: n.breakdown,
+  }));
+
+  const nodeMap = new Map(nodes.map(n => [n.graphId, n]));
+
+  const edgeSpecs: Array<{ from: string; to: string; weight: number; kind: ServiceEdge["kind"] }> = [
+    { from: "code-universe",  to: "canvas-engine", weight: 28, kind: "api-call"  },
+    { from: "ide-shell",      to: "canvas-engine", weight: 12, kind: "rpc"       },
+    { from: "ide-shell",      to: "code-universe", weight: 6,  kind: "api-call"  },
+  ];
+
+  const KIND_COLORS_LOCAL: Record<ServiceEdge["kind"], string> = {
+    "api-call":  "#22a06b",
+    "rpc":       "#0d99ff",
+    "queue":     "#e09321",
+    "shared-db": "#7e4ed6",
+  };
+
+  const edges: ServiceEdge[] = edgeSpecs.map(spec => {
+    const fn_ = nodeMap.get(spec.from)!;
+    const tn_ = nodeMap.get(spec.to)!;
+    const dx = tn_.x - fn_.x, dy = tn_.y - fn_.y;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx_ = dx / len, ny_ = dy / len;
+    const sx = fn_.x + nx_ * fn_.radius, sy = fn_.y + ny_ * fn_.radius;
+    const ex = tn_.x - nx_ * tn_.radius, ey = tn_.y - ny_ * tn_.radius;
+    const perp = len * 0.22;
+    const px = -ny_, py = nx_;
+    const c1x = sx + nx_ * len * 0.33 + px * perp, c1y = sy + ny_ * len * 0.33 + py * perp;
+    const c2x = ex - nx_ * len * 0.33 + px * perp, c2y = ey - ny_ * len * 0.33 + py * perp;
+    const path = `M ${sx.toFixed(2)} ${sy.toFixed(2)} C ${c1x.toFixed(2)} ${c1y.toFixed(2)}, ${c2x.toFixed(2)} ${c2y.toFixed(2)}, ${ex.toFixed(2)} ${ey.toFixed(2)}`;
+    return { from: spec.from, to: spec.to, weight: spec.weight, kind: spec.kind, isCrossGraph: true, color: KIND_COLORS_LOCAL[spec.kind], path };
+  });
+
+  return { nodes, edges, totalFiles: 134 };
+}
+
 export function buildServiceTopoLayout(
   opts: BuildServiceTopoLayoutOpts,
 ): ServiceTopoLayout {
   const { graph, width = 800, height = 600 } = opts;
+
+  if (graph.files.length === 0) return mockServiceTopoLayout(width, height);
 
   // ── 1. Group files by package prefix ────────────────────────────────
   const packageFiles = new Map<string, FileNode[]>();

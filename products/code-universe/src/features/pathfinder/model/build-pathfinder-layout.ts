@@ -167,6 +167,60 @@ function computePositions(
   return positions;
 }
 
+// ── Mock data (shown when graph has no files) ─────────────────────────
+
+function mockPathfinderLayout(width: number, height: number): PathfinderLayout {
+  // 5 nodes in a horizontal pipeline with 2 paths
+  const cy = height / 2;
+  const xs = [
+    width * 0.08,
+    width * 0.28,
+    width * 0.5,
+    width * 0.72,
+    width * 0.92,
+  ];
+
+  const ids = [
+    "src/api/authApi.ts",
+    "src/domain/userService.ts",
+    "src/store/userStore.ts",
+    "src/domain/orderService.ts",
+    "src/infra/db.ts",
+  ];
+  const names   = ["authApi", "userService", "userStore", "orderService", "db"];
+  const layers  = ["adapter", "domain", "domain", "domain", "infra"];
+  const risks   = [0.45, 0.60, 0.38, 0.72, 0.55];
+  const masks   = [0b01, 0b11, 0b01, 0b10, 0b11];
+  const nodeYs  = [cy, cy - 30, cy, cy + 30, cy];
+
+  const nodes: PathfinderNode[] = ids.map((id, i) => ({
+    fileId: id, fileName: names[i]!, layer: layers[i]!, riskScore: risks[i]!,
+    x: xs[i]!, y: nodeYs[i]!, isOnPath: true, pathMask: masks[i]!,
+  }));
+
+  // Edges: 0→1→2→4 (path 0) and 0→1→3→4 (path 1)
+  const edges: PathfinderEdge[] = [
+    { id: "e01", from: ids[0]!, to: ids[1]!, isOnPath: true, pathMask: 0b11, weight: 2 },
+    { id: "e12", from: ids[1]!, to: ids[2]!, isOnPath: true, pathMask: 0b01, weight: 1 },
+    { id: "e13", from: ids[1]!, to: ids[3]!, isOnPath: true, pathMask: 0b10, weight: 3 },
+    { id: "e24", from: ids[2]!, to: ids[4]!, isOnPath: true, pathMask: 0b01, weight: 1 },
+    { id: "e34", from: ids[3]!, to: ids[4]!, isOnPath: true, pathMask: 0b10, weight: 2 },
+  ];
+
+  return {
+    paths: [
+      { nodeIds: [ids[0]!, ids[1]!, ids[2]!, ids[4]!], edgeIds: ["e01", "e12", "e24"], cost: 4.0, pathColor: PATH_COLORS[0]! },
+      { nodeIds: [ids[0]!, ids[1]!, ids[3]!, ids[4]!], edgeIds: ["e01", "e13", "e34"], cost: 6.0, pathColor: PATH_COLORS[1]! },
+    ],
+    nodes,
+    edges,
+    source: ids[0]!,
+    target: ids[4]!,
+    truncated: false,
+    noPath: false,
+  };
+}
+
 // ── Main entry ─────────────────────────────────────────────────────────
 
 export function buildPathfinderLayout(opts: BuildPathfinderLayoutOpts): PathfinderLayout {
@@ -176,28 +230,12 @@ export function buildPathfinderLayout(opts: BuildPathfinderLayoutOpts): Pathfind
 
   // Empty guard
   if (graph.files.length < 2) {
-    return {
-      paths: [],
-      nodes: [],
-      edges: [],
-      source: "",
-      target: "",
-      truncated: false,
-      noPath: true,
-    };
+    return mockPathfinderLayout(width, height);
   }
 
   const pair = pickSourceTarget(graph, selectedId);
   if (!pair) {
-    return {
-      paths: [],
-      nodes: [],
-      edges: [],
-      source: "",
-      target: "",
-      truncated: false,
-      noPath: true,
-    };
+    return mockPathfinderLayout(width, height);
   }
 
   const { sourceId, targetId } = pair;

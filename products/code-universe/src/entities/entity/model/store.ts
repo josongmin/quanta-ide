@@ -33,12 +33,25 @@ export interface EntityInteraction {
   anchorId: string | null;
   /** Street-tier inline expansion — the folder whose children render inside its rect; peers dim to thumbnails. */
   expandedFolderId: string | null;
+  /** One-shot signal: pan the canvas to bring this entity into view without
+   *  changing selection or tier. Fired by a debounced tree-hover (350 ms).
+   *  Cleared by the consumer (CanvasViewport) after the tween starts, and by
+   *  the tree item on mouse-leave so the same entity can be re-located. */
+  locateId: string | null;
+  /** Ancestor IDs (parent chain, excluding the hovered entity itself)
+   *  of the currently hovered entity. Computed alongside hoveredId so
+   *  collapsed Explorer rows can show a "contains hovered item"
+   *  indicator without per-row tree traversal. Empty set when nothing
+   *  is hovered. */
+  hoveredAncestorIds: ReadonlySet<string>;
 }
 
 export interface EntityState {
   tree: EntityTree | null;
   interaction: EntityInteraction;
 }
+
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 const initial: EntityState = {
   tree: null,
@@ -48,6 +61,8 @@ const initial: EntityState = {
     focusMode: "none",
     anchorId: null,
     expandedFolderId: null,
+    locateId: null,
+    hoveredAncestorIds: EMPTY_SET,
   },
 };
 
@@ -109,7 +124,17 @@ export const entityStore = {
   },
   hoverEntity(id: string | null): void {
     if (state.interaction.hoveredId === id) return;
-    state = { ...state, interaction: { ...state.interaction, hoveredId: id } };
+    let hoveredAncestorIds: ReadonlySet<string> = EMPTY_SET;
+    if (id !== null && state.tree !== null) {
+      const ancestors = new Set<string>();
+      let cur = state.tree.byId.get(id);
+      while (cur?.parentId !== null && cur?.parentId !== undefined) {
+        ancestors.add(cur.parentId);
+        cur = state.tree.byId.get(cur.parentId);
+      }
+      hoveredAncestorIds = ancestors;
+    }
+    state = { ...state, interaction: { ...state.interaction, hoveredId: id, hoveredAncestorIds } };
     emit();
   },
   setFocusMode(mode: "none" | "neighborhood"): void {
@@ -147,6 +172,11 @@ export const entityStore = {
    *  `anchorId` — expanding a folder does not move the selection, and
    *  selecting a child inside the expanded folder must not collapse
    *  it. */
+  locateEntity(id: string | null): void {
+    if (state.interaction.locateId === id) return;
+    state = { ...state, interaction: { ...state.interaction, locateId: id } };
+    emit();
+  },
   setExpandedFolder(id: string | null): void {
     if (state.interaction.expandedFolderId === id) return;
     state = { ...state, interaction: { ...state.interaction, expandedFolderId: id } };

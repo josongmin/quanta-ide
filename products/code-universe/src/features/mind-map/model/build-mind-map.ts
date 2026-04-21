@@ -45,21 +45,18 @@ const R1_FRAC = 0.22;
 // Outer ring radius — where the entity spokes terminate. Roughly
 // double R1 keeps the spoke long enough to read a leaf label without
 // the aggregator hub overlapping it.
-const R2_FRAC = 0.42;
-// Weight-to-inward-pull: a weight-1.0 entity pulls ~8% of shortDim
-// closer to centre than a weight-0.0 entity. Keeps the ring readable
-// while still letting heavy nodes dominate.
-const WEIGHT_PULL_FRAC = 0.08;
+const R2_FRAC = 0.48;
+// Weight-to-inward-pull: reduced so entities stay on a more level ring.
+const WEIGHT_PULL_FRAC = 0.04;
 // Minimum R1 in CSS px. At very small viewports the ring would
 // collapse onto the centre node; clamp so labels still fit.
-const R1_MIN = 80;
-// Minimum angular budget per entity inside a bucket. Below this, the
-// leaf labels overlap into each other regardless of aggregator span.
-const MIN_ENTITY_ARC = (2 * Math.PI) / 48; // 7.5° — a dozen nodes per quadrant before crowding.
-// Default per-bucket cap — bigger buckets get truncated to the top-N
-// entities by weight. Renderers show "+M more" using the original
-// count from `aggregatorCounts`.
-const DEFAULT_CAP = 8;
+const R1_MIN = 90;
+// Minimum angular budget per entity — 15° keeps nodes legible even
+// when several buckets share tight arc space.
+const MIN_ENTITY_ARC = (2 * Math.PI) / 24; // 15° per entity
+// Per-bucket cap. Capped at 6 so a single bucket never monopolises
+// the full circle and node density stays comfortable.
+const DEFAULT_CAP = 6;
 // Golden angle ≈ 137.5°. Used as a gentle irregularity inside a
 // bucket's arc so evenly-weighted siblings don't look like a clock
 // face. Phyllotaxis, not rigid spacing.
@@ -213,6 +210,11 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
   const nodes: MindMapNode[] = [];
   const edges: MindMapEdge[] = [];
 
+  // Track entity ids we've already placed so the same entity can't
+  // appear in two buckets simultaneously (which would cause React key
+  // collisions + apparently-disconnected edges).
+  const seenEntityIds = new Set<string>();
+
   // Centre node at origin.
   const centreNode: MindMapNode = {
     id: centre.id,
@@ -284,6 +286,11 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
       const item = bucket[i];
       if (!item) continue;
       const { entity, weight } = item;
+      // Skip entities that already appear in a higher-priority bucket —
+      // prevents the same node from being added twice (which causes React
+      // key collisions and makes one set of spoke edges appear disconnected).
+      if (seenEntityIds.has(entity.id)) continue;
+      seenEntityIds.add(entity.id);
       // Phyllotactic offset within the arc — distributes siblings
       // irregularly so equal weights don't collapse into a clock face,
       // while still preserving deterministic ordering.
@@ -324,6 +331,12 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
     }
   }
 
+  // ── Collision resolution ───────────────────────────────────────────
+  // Run a simple O(n²) force-repulsion pass so overlapping nodes push
+  // apart rather than stacking. Aggregators move very little (they're
+  // anchored to their ring); entities move freely.
+  resolveNodeCollisions(nodes);
+
   // ── Bounds ─────────────────────────────────────────────────────────
   let minX = -CENTER_RADIUS;
   let minY = -CENTER_RADIUS;
@@ -343,6 +356,118 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
     bounds: { minX, minY, maxX, maxY },
     aggregatorCounts,
   };
+}
+
+// ── Collision resolution ─────────────────────────────────────────────
+//
+// AABB-based. Each node's bounding box includes its label region (which
+// sits BELOW the shape for entities and IS the shape for aggregator
+// pills), so two nodes whose hexagons don't touch but whose labels
+// would overlap still push apart.
+
+/** Axis-aligned bounding half-extents around node center position.
+ *  Returns {rx, ry, offsetY} — offsetY is how far the box is shifted
+ *  down from n.(x,y); entity boxes extend further below than above
+ *  because the label is rendered at y ≈ n.y + radius + 18. */
+function nodeAabb(n: MindMapNode): { rx: number; ry: number; cy: number } {
+  if (n.kind === "center") {
+    const r = n.radius + 4;
+    return { rx: r, ry: r, cy: n.y };
+  }
+  if (n.kind === "aggregator") {
+    // Premium pill: [glyph | LABEL | count-badge] ≈ 110–140 px wide
+    const labelLen = n.label.length;
+    const pillW = Math.max(n.radius * 2 + 20, labelLen * 7 + 70);
+    return { rx: pillW / 2 + 4, ry: n.radius + 6, cy: n.y };
+  }
+  // Entity: shape (height ≈ 2*radius) + label below (≈ 16 px)
+  const labelW = n.label.length * 6.3;
+  const rx = Math.max(n.radius, labelW / 2) + 4;
+  const topExtent    = n.radius + 4;
+  const bottomExtent = n.radius + 22; // includes label band below shape
+  const ry = (topExtent + bottomExtent) / 2;
+  const cy = n.y + (bottomExtent - topExtent) / 2;
+  return { rx, ry, cy };
+}
+
+function resolveNodeCollisions(nodes: MindMapNode[]): void {
+  const ITER = 120;
+  const MAX_ENTITY_DRIFT = 70;
+
+  const orig = new Map<string, { x: number; y: number }>();
+  for (const n of nodes) {
+    if (n.kind !== "center") orig.set(n.id, { x: n.x, y: n.y });
+  }
+
+  for (let it = 0; it < ITER; it++) {
+    let moved = false;
+    for (let i = 0; i < nodes.length; i++) {
+      const a = nodes[i]!;
+      if (a.kind === "center") continue;
+      const ab = nodeAabb(a);
+
+      for (let j = i + 1; j < nodes.length; j++) {
+        const b = nodes[j]!;
+        if (b.kind === "center") continue;
+        const bb = nodeAabb(b);
+
+        const dx = b.x - a.x;
+        const dy = bb.cy - ab.cy;
+        const minX = ab.rx + bb.rx;
+        const minY = ab.ry + bb.ry;
+        const overlapX = minX - Math.abs(dx);
+        const overlapY = minY - Math.abs(dy);
+        if (overlapX <= 0 || overlapY <= 0) continue;
+
+        // Movement weight — aggregators are ring-anchored (nudge only
+        // 10%). Two entities split the push 50/50.
+        const fa = a.kind === "aggregator" ? 0.10 : 0.5;
+        const fb = b.kind === "aggregator" ? 0.10 : 0.5;
+
+        // Resolve along axis of minimum penetration (cheapest escape).
+        if (overlapX < overlapY) {
+          const push = overlapX * 0.55 + 0.25;
+          const sign = dx >= 0 ? 1 : -1;
+          a.x -= sign * push * fa;
+          b.x += sign * push * fb;
+        } else {
+          const push = overlapY * 0.55 + 0.25;
+          const sign = dy >= 0 ? 1 : -1;
+          a.y -= sign * push * fa;
+          b.y += sign * push * fb;
+        }
+        moved = true;
+      }
+    }
+
+    // Clamp drift so spokes stay visible + their aggregator reachable.
+    for (const n of nodes) {
+      if (n.kind !== "entity") continue;
+      const o = orig.get(n.id);
+      if (!o) continue;
+      const ddx = n.x - o.x;
+      const ddy = n.y - o.y;
+      const dd = Math.hypot(ddx, ddy);
+      if (dd > MAX_ENTITY_DRIFT) {
+        const s = MAX_ENTITY_DRIFT / dd;
+        n.x = o.x + ddx * s;
+        n.y = o.y + ddy * s;
+      }
+    }
+
+    if (!moved) break; // early-exit once settled
+  }
+
+  // Keep entities outside the aggregator ring.
+  for (const n of nodes) {
+    if (n.kind !== "entity") continue;
+    const d = Math.hypot(n.x, n.y);
+    if (d < R1_MIN + 10 && d > 0.001) {
+      const s = (R1_MIN + 10) / d;
+      n.x *= s;
+      n.y *= s;
+    }
+  }
 }
 
 // ── Internals ────────────────────────────────────────────────────────

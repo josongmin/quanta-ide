@@ -54,6 +54,8 @@ function makeViewState(overrides: Partial<ViewState> = {}): ViewState {
     focusedNodeId: null,
     hoveredClusterId: null,
     hoveredSuperclusterId: null,
+    selectedSymbolId: null,
+    hoveredSymbolId: null,
     ...overrides,
   };
 }

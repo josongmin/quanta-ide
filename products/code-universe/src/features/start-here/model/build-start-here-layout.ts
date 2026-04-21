@@ -26,10 +26,46 @@ function describeEntry(centrality: number, entryPoint: number, risk: number): st
 
 const EMPTY_LAYOUT: StartHereLayout = { rows: [], totalFiles: 0 };
 
+// ── Mock data (shown when graph has no files) ─────────────────────────
+
+function mockStartHereLayout(): StartHereLayout {
+  const entries = [
+    { fileId: "src/store/appStore.ts",       centrality: 0.92, entryPoint: 0.80, risk: 0.45 },
+    { fileId: "src/domain/userService.ts",   centrality: 0.78, entryPoint: 0.60, risk: 0.62 },
+    { fileId: "src/api/client.ts",           centrality: 0.65, entryPoint: 0.85, risk: 0.38 },
+    { fileId: "src/components/App.tsx",      centrality: 0.55, entryPoint: 0.90, risk: 0.30 },
+    { fileId: "src/domain/orderService.ts",  centrality: 0.70, entryPoint: 0.45, risk: 0.70 },
+    { fileId: "src/infra/db.ts",             centrality: 0.48, entryPoint: 0.35, risk: 0.72 },
+    { fileId: "src/hooks/useStore.ts",       centrality: 0.60, entryPoint: 0.55, risk: 0.28 },
+    { fileId: "src/utils/logger.ts",         centrality: 0.42, entryPoint: 0.70, risk: 0.18 },
+    { fileId: "src/auth/authService.ts",     centrality: 0.50, entryPoint: 0.50, risk: 0.55 },
+    { fileId: "src/store/cartStore.ts",      centrality: 0.38, entryPoint: 0.40, risk: 0.48 },
+  ];
+  const rows: StartHereRow[] = entries.map((e, i) => {
+    const score = (e.centrality * 0.4 + e.entryPoint * 0.4 + (1 - e.risk) * 0.2);
+    const hue = 145 - score * 125;
+    return {
+      rank: i + 1,
+      fileId: e.fileId,
+      fileName: e.fileId.split("/").pop() ?? e.fileId,
+      score,
+      centrality: e.centrality,
+      entryPoint: e.entryPoint,
+      risk: e.risk,
+      ringColor: `hsl(${hue}deg, 60%, 48%)`,
+      description: e.risk > 0.7 ? "Risk hotspot" : e.entryPoint > 0.7 ? "Package entry point" : e.centrality > 0.7 ? "High-traffic hub" : "Structural node",
+    };
+  });
+  // Sort by score desc, re-rank
+  rows.sort((a, b) => b.score - a.score);
+  rows.forEach((r, i) => { r.rank = i + 1; });
+  return { rows, totalFiles: 48 };
+}
+
 export function buildStartHereLayout(opts: BuildStartHereLayoutOpts): StartHereLayout {
   const { graph, topN = DEFAULT_TOP_N } = opts;
 
-  if (graph.files.length === 0) return EMPTY_LAYOUT;
+  if (graph.files.length === 0) return mockStartHereLayout();
 
   // Step 1: workspace metrics
   let metrics;
@@ -48,7 +84,7 @@ export function buildStartHereLayout(opts: BuildStartHereLayoutOpts): StartHereL
     return EMPTY_LAYOUT;
   }
   if (entries.length === 0) {
-    return { rows: [], totalFiles: graph.files.length };
+    return mockStartHereLayout();
   }
 
   // Step 3: map to StartHereRow

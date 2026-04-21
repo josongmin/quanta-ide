@@ -8,6 +8,9 @@ export interface TabDescriptor {
     id: string;
     app: AppKind;
     label: string;
+    /** Stable URL slug. Unique across open tabs; written into the hash
+     *  as `#/<slug>[/...][?...]`. */
+    slug?: string;
 }
 /** Each micro-web app exports this to register itself with the shell. */
 export interface TabAppDescriptor {

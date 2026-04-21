@@ -1,6 +1,11 @@
 import { sceneStore } from "@quanta/app-ide/features/workspace-canvas/store/scene-store";
+import { interactionStore } from "@quanta/app-ide/features/workspace-canvas/store/interaction-store";
 import { loadRepoGraph } from "@quanta/app-ide/features/workspace-canvas";
-import { setRepoRoot, setWorkspaceGraph } from "@quanta/code-universe";
+import {
+  setRepoRoot,
+  setSelectedSymbol,
+  setWorkspaceGraph,
+} from "@quanta/code-universe";
 
 // Code-universe ↔ legacy scene-store bridge.
 // --------------------------------------------------------------------
@@ -16,9 +21,9 @@ import { setRepoRoot, setWorkspaceGraph } from "@quanta/code-universe";
 // once at boot so v2 gets real data regardless of tab activation.
 
 const BOOT_REPO_PATH =
-  "/Users/songmin/Documents/code-new/semantica-codegraph-v2/packages/analysis/quanta-v2";
-const BOOT_REPO_EXTS = [".rs"];
-const BOOT_REPO_MAX = 50_000;
+  "/Users/songmin/Documents/code-new/quanta-ide";
+const BOOT_REPO_EXTS = [".ts", ".tsx"];
+const BOOT_REPO_MAX = 8_000;
 
 /**
  * Install the bridge. Call once at app boot (main.tsx). Returns a
@@ -30,10 +35,11 @@ export function installCodeUniverseBridge(): () => void {
   // doesn't flash the mock graph.
   setWorkspaceGraph(sceneStore.getState().graph ?? null);
   setRepoRoot(sceneStore.getState().repoRoot ?? null);
+  setSelectedSymbol(interactionStore.getState().viewState.selectedSymbolId);
 
   let lastGraph = sceneStore.getState().graph;
   let lastRoot = sceneStore.getState().repoRoot;
-  const unsub = sceneStore.subscribe(() => {
+  const unsubScene = sceneStore.subscribe(() => {
     const next = sceneStore.getState();
     if (next.graph !== lastGraph) {
       lastGraph = next.graph;
@@ -44,6 +50,27 @@ export function installCodeUniverseBridge(): () => void {
       setRepoRoot(next.repoRoot ?? null);
     }
   });
+
+  // Symbol-selection bridge: inspector (in app-ide) writes to
+  // interactionStore, the v2 canvas views read via `useSelectedSymbol`.
+  // We mirror the string id only — the canvas decodes it into
+  // `{ fileId, name, line }` via `decodeSymbolId` on demand. Comparing
+  // against `lastSelectedSymbol` drops emits for unrelated ViewState
+  // churn (hover, lod, edge selection) so the product side never
+  // re-renders for no reason.
+  let lastSelectedSymbol = interactionStore.getState().viewState.selectedSymbolId;
+  const unsubInteraction = interactionStore.subscribe(() => {
+    const next = interactionStore.getState().viewState.selectedSymbolId;
+    if (next !== lastSelectedSymbol) {
+      lastSelectedSymbol = next;
+      setSelectedSymbol(next);
+    }
+  });
+
+  const unsub = () => {
+    unsubScene();
+    unsubInteraction();
+  };
 
   // Kick the initial scan if nothing else has. Fire-and-forget; the
   // subscribe loop above forwards the resulting graph once

@@ -73,6 +73,68 @@ function rowId(members: readonly string[]): string {
   return [...members].sort().join("|");
 }
 
+// ── Mock data (shown when no git history or no cycles) ───────────────
+
+function mockCycleGenesisLayout(nowMs: number): CycleGenesisLayout {
+  const DAY = 86_400_000;
+  const rows: CycleGenesisRow[] = [
+    {
+      id: "src/store/cartStore.ts|src/domain/orderService.ts|src/api/checkoutApi.ts",
+      sccMembers: ["src/store/cartStore.ts", "src/domain/orderService.ts", "src/api/checkoutApi.ts"],
+      memberLabel: "store/cartStore ↔ domain/orderService ↔ api/checkoutApi",
+      formedAtSha: "a1b2c3d",
+      formedAtTimestamp: nowMs - 120 * DAY,
+      timelineX: 0.15,
+      ageLabel: "4 months ago",
+      circleColor: cycleColor(1),
+      introducingEdge: { from: "src/api/checkoutApi.ts", to: "src/store/cartStore.ts", kind: "import" },
+      beforeFormation: [],
+      predatesHistory: false,
+    },
+    {
+      id: "src/utils/helpers.ts|src/domain/userService.ts",
+      sccMembers: ["src/utils/helpers.ts", "src/domain/userService.ts"],
+      memberLabel: "utils/helpers ↔ domain/userService",
+      formedAtSha: "b2c3d4e",
+      formedAtTimestamp: nowMs - 75 * DAY,
+      timelineX: 0.4,
+      ageLabel: "2 months ago",
+      circleColor: cycleColor(0.6),
+      introducingEdge: { from: "src/domain/userService.ts", to: "src/utils/helpers.ts", kind: "import" },
+      beforeFormation: [],
+      predatesHistory: false,
+    },
+    {
+      id: "src/infra/db.ts|src/domain/reportService.ts|src/store/reportStore.ts",
+      sccMembers: ["src/infra/db.ts", "src/domain/reportService.ts", "src/store/reportStore.ts"],
+      memberLabel: "infra/db ↔ domain/reportService ↔ store/reportStore",
+      formedAtSha: "c3d4e5f",
+      formedAtTimestamp: nowMs - 30 * DAY,
+      timelineX: 0.75,
+      ageLabel: "1 month ago",
+      circleColor: cycleColor(0.25),
+      introducingEdge: { from: "src/store/reportStore.ts", to: "src/infra/db.ts", kind: "import" },
+      beforeFormation: [],
+      predatesHistory: false,
+    },
+    {
+      id: "src/auth/authService.ts|src/api/sessionApi.ts",
+      sccMembers: ["src/auth/authService.ts", "src/api/sessionApi.ts"],
+      memberLabel: "auth/authService ↔ api/sessionApi",
+      formedAtSha: "d4e5f6a",
+      formedAtTimestamp: nowMs - 8 * DAY,
+      timelineX: 0.95,
+      ageLabel: "8 days ago",
+      circleColor: cycleColor(0.05),
+      introducingEdge: { from: "src/api/sessionApi.ts", to: "src/auth/authService.ts", kind: "import" },
+      beforeFormation: [],
+      predatesHistory: false,
+    },
+  ];
+  const earliest = rows[0]!.formedAtTimestamp!;
+  return { rows, earliestTimestamp: earliest, nowTimestamp: nowMs };
+}
+
 // ── Main entry ────────────────────────────────────────────────────────
 
 export function buildCycleGenesisLayout(
@@ -81,14 +143,8 @@ export function buildCycleGenesisLayout(
   const { graph } = opts;
   const nowMs = opts.nowMs ?? Date.now();
 
-  const EMPTY: CycleGenesisLayout = {
-    rows: [],
-    earliestTimestamp: null,
-    nowTimestamp: nowMs,
-  };
-
   // ── 1. Guard: history required ────────────────────────────────────
-  if (!graph.history) return EMPTY;
+  if (!graph.history) return mockCycleGenesisLayout(nowMs);
   const history = graph.history;
 
   // ── 2. Find SCCs ──────────────────────────────────────────────────
@@ -96,7 +152,7 @@ export function buildCycleGenesisLayout(
   // sccResult.components contains only non-trivial SCCs (size ≥ 2 or self-loop)
   // Filter strictly to ≥ 2 distinct members.
   const validComponents = sccResult.components.filter(c => c.length >= 2);
-  if (validComponents.length === 0) return EMPTY;
+  if (validComponents.length === 0) return mockCycleGenesisLayout(nowMs);
 
   // ── 3. Build edgeIndex ────────────────────────────────────────────
   const edgeIndex = new Map<string, FileEdge>(

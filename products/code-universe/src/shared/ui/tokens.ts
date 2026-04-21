@@ -127,12 +127,22 @@ export const kindColor: Readonly<Record<EntityKind, string>> = {
 };
 
 export const kindLabel: Readonly<Record<EntityKind, string>> = {
-  universe: "Universe",
-  galaxy: "Galaxy",
-  street: "Street",
+  universe: "Workspace",
+  galaxy: "Package",
+  street: "Folder",
   building: "File",
   floor: "Module",
   room: "Function",
+};
+
+/** Small unicode glyph rendered alongside the kind label in diagrams. */
+export const kindIcon: Readonly<Record<EntityKind, string>> = {
+  universe: "◎",
+  galaxy: "⬡",
+  street: "⊞",
+  building: "⊟",
+  floor: "◆",
+  room: "ƒ",
 };
 
 // Pixi needs hex ints (0xRRGGBB). Mirror the same values as integer

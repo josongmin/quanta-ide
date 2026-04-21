@@ -76,6 +76,34 @@ function f(n: number): string {
   return (Math.round(n * 100) / 100).toString();
 }
 
+/**
+ * Returns the cubic bezier spine path (same control points as taperedPathD)
+ * as an SVG path string. Use to draw a centerline highlight or gradient
+ * reference line over the ribbon.
+ */
+export function taperedSpineD(opts: Pick<TaperedPathOpts, "x0" | "y0" | "x1" | "y1" | "curvature">): string {
+  const { x0, y0, x1, y1 } = opts;
+  const curvature = opts.curvature ?? 0.25;
+
+  const dx = x1 - x0;
+  const dy = y1 - y0;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 0.001) return "";
+
+  const ux = dx / dist;
+  const uy = dy / dist;
+  const nx = -uy;
+  const ny = ux;
+  const off = curvature * dist;
+
+  const cx0 = x0 + ux * (dist / 3) + nx * off;
+  const cy0 = y0 + uy * (dist / 3) + ny * off;
+  const cx1 = x0 + ux * (2 * dist / 3) + nx * off;
+  const cy1 = y0 + uy * (2 * dist / 3) + ny * off;
+
+  return `M${f(x0)},${f(y0)} C${f(cx0)},${f(cy0)} ${f(cx1)},${f(cy1)} ${f(x1)},${f(y1)}`;
+}
+
 export function taperedPathD(opts: TaperedPathOpts): string {
   const { x0, y0, x1, y1, w0, w1 } = opts;
   const curvature = opts.curvature ?? 0.25;

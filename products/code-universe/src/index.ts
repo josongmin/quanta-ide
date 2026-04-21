@@ -11,3 +11,8 @@ export {
   getWorkspaceGraph,
 } from "./shared/api/graph-source";
 export { setRepoRoot, getRepoRoot } from "./shared/api/repo-root";
+export {
+  setSelectedSymbol,
+  getSelectedSymbol,
+  useSelectedSymbol,
+} from "./shared/api/selected-symbol";

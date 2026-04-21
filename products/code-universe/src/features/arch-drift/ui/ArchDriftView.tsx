@@ -12,7 +12,7 @@
 //
 // Entry animation: container fadeUp 250ms, cards stagger 40ms.
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { buildArchDriftLayout } from "../model/build-arch-drift-layout";
@@ -91,6 +91,15 @@ function injectKeyframes(): void {
     @keyframes _adv-fadeUp {
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes adv-rowIn {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes adv-confetti {
+      0%   { opacity: 1; r: 0; }
+      60%  { opacity: 1; }
+      100% { opacity: 0; r: 40; }
     }
   `;
   document.head.appendChild(style);
@@ -177,7 +186,8 @@ function SeverityBadge({ severity }: { severity: ArchDriftRow["severity"] }) {
 function DegreeMiniBar({
   beforeDegree,
   afterDegree,
-}: Pick<ArchDriftRow, "beforeDegree" | "afterDegree">) {
+  mounted,
+}: Pick<ArchDriftRow, "beforeDegree" | "afterDegree"> & { mounted: boolean }) {
   const max  = Math.max(beforeDegree, afterDegree, 1);
   const TOTAL_W = 80;
   const H = 6;
@@ -211,21 +221,23 @@ function DegreeMiniBar({
     position: "absolute",
     left: 0,
     top: 0,
-    width: beforeW,
+    width: mounted ? beforeW : 0,
     height: H,
     borderRadius: 3,
     backgroundColor: color.border,
+    transition: "width 500ms ease-out 100ms",
   };
   // after bar — semantic color
   const afterBarStyle: CSSProperties = {
     position: "absolute",
     left: 0,
     top: 0,
-    width: afterW,
+    width: mounted ? afterW : 0,
     height: H,
     borderRadius: 3,
     backgroundColor: barColor,
     opacity: 0.85,
+    transition: "width 600ms ease-out 200ms",
   };
 
   return (
@@ -246,10 +258,12 @@ function DegreeMiniBar({
 function HighSeverityCard({
   row,
   index,
+  mounted,
   onFocusEntity,
 }: {
   row: ArchDriftRow;
   index: number;
+  mounted: boolean;
   onFocusEntity?: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -339,6 +353,7 @@ function HighSeverityCard({
         <DegreeMiniBar
           beforeDegree={row.beforeDegree}
           afterDegree={row.afterDegree}
+          mounted={mounted}
         />
       </div>
     </div>
@@ -347,11 +362,17 @@ function HighSeverityCard({
 
 // ── Summary chips ─────────────────────────────────────────────────────
 
+interface SummaryChipsProps extends Pick<ArchDriftLayout, "highCount" | "mediumCount" | "lowCount"> {
+  countedHigh: number;
+  countedMedium: number;
+  countedLow: number;
+}
+
 function SummaryChips({
-  highCount,
-  mediumCount,
-  lowCount,
-}: Pick<ArchDriftLayout, "highCount" | "mediumCount" | "lowCount">) {
+  countedHigh,
+  countedMedium,
+  countedLow,
+}: SummaryChipsProps) {
   const wrapStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -370,6 +391,7 @@ function SummaryChips({
     fontFamily: font.sans,
     fontWeight: font.weight.semibold,
     userSelect: "none",
+    fontVariantNumeric: "tabular-nums",
   });
 
   const dotStyle = (bg: string): CSSProperties => ({
@@ -384,15 +406,15 @@ function SummaryChips({
     <div style={wrapStyle}>
       <span style={chipStyle("rgba(239,68,68,0.12)", "#ef4444")}>
         <span style={dotStyle("#ef4444")} />
-        {highCount} high
+        {Math.round(countedHigh)} high
       </span>
       <span style={chipStyle("rgba(245,158,11,0.12)", "#f59e0b")}>
         <span style={dotStyle("#f59e0b")} />
-        {mediumCount} medium
+        {Math.round(countedMedium)} medium
       </span>
       <span style={chipStyle("rgba(113,113,122,0.10)", "#71717a")}>
         <span style={dotStyle("#71717a")} />
-        {lowCount} low
+        {Math.round(countedLow)} low
       </span>
     </div>
   );
@@ -443,9 +465,13 @@ function CompactTableHeader() {
 
 function CompactTableRow({
   row,
+  index,
+  mounted,
   onFocusEntity,
 }: {
   row: ArchDriftRow;
+  index: number;
+  mounted: boolean;
   onFocusEntity?: (id: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -461,6 +487,8 @@ function CompactTableRow({
     backgroundColor: hovered ? color.bg1 : "transparent",
     cursor: onFocusEntity ? "pointer" : "default",
     transition: `background-color ${transition.fast}, border-left-color ${transition.fast}`,
+    animation: mounted ? `adv-rowIn 200ms ease-out both` : undefined,
+    animationDelay: mounted ? `${index * 25}ms` : undefined,
   };
 
   const fileNameStyle: CSSProperties = {
@@ -522,6 +550,13 @@ function CompactTableRow({
 // ── Empty state ───────────────────────────────────────────────────────
 
 function StableEmptyState() {
+  const [confettiMounted, setConfettiMounted] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setConfettiMounted(true), 400);
+    return () => clearTimeout(timer);
+  }, []);
+
   const wrapStyle: CSSProperties = {
     display: "flex",
     flexDirection: "column",
@@ -546,10 +581,15 @@ function StableEmptyState() {
     lineHeight: 1.5,
   };
 
+  // 8 confetti pieces: colors cycling through accent/success/warn
+  const confettiColors = ["#22c55e", "#0d99ff", "#f59e0b", "#8b5cf6", "#22c55e", "#ef4444", "#14b8a6", "#f97316"];
+  const cx = 20;
+  const cy = 20;
+
   return (
     <div style={wrapStyle}>
-      {/* Green shield SVG */}
-      <svg width={40} height={40} viewBox="0 0 40 40" fill="none" aria-hidden="true">
+      {/* Green shield SVG with confetti */}
+      <svg width={40} height={40} viewBox="0 0 40 40" fill="none" aria-hidden="true" style={{ overflow: "visible" }}>
         <path
           d="M20 4L6 9.5V20c0 8 6.2 14.9 14 16 7.8-1.1 14-8 14-16V9.5L20 4z"
           fill="rgba(34,160,107,0.12)"
@@ -564,6 +604,27 @@ function StableEmptyState() {
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {confettiMounted && confettiColors.map((fill, i) => {
+          const angle = (i / 8) * Math.PI * 2;
+          const dist = 28;
+          const x = cx + Math.cos(angle) * dist;
+          const y = cy + Math.sin(angle) * dist;
+          return (
+            <rect
+              key={i}
+              x={x - 3}
+              y={y - 3}
+              width={6}
+              height={6}
+              rx={1}
+              fill={fill}
+              style={{
+                animation: `adv-confetti 800ms ease-out ${i * 60}ms both`,
+                transformOrigin: `${cx}px ${cy}px`,
+              }}
+            />
+          );
+        })}
       </svg>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
         <span style={titleStyle}>Architecture is stable ✓</span>
@@ -601,7 +662,13 @@ function NoHistoryState() {
 
 function ArchDriftViewImpl({ graph, onFocusEntity, onDismiss }: ArchDriftViewProps) {
   const [mounted, setMounted] = useState(false);
+  const [countedHigh, setCountedHigh] = useState(0);
+  const [countedMedium, setCountedMedium] = useState(0);
+  const [countedLow, setCountedLow] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rafHighRef = useRef<number>(0);
+  const rafMediumRef = useRef<number>(0);
+  const rafLowRef = useRef<number>(0);
 
   injectKeyframes();
 
@@ -625,6 +692,47 @@ function ArchDriftViewImpl({ graph, onFocusEntity, onDismiss }: ArchDriftViewPro
 
   const highRows   = useMemo(() => layout.rows.filter(r => r.severity === "high"),   [layout]);
   const lowerRows  = useMemo(() => layout.rows.filter(r => r.severity !== "high"),   [layout]);
+
+  // Severity chip count-up animation
+  useEffect(() => {
+    if (!mounted) return;
+    const duration = 600;
+
+    const animate = (
+      target: number,
+      setFn: (v: number) => void,
+      rafRef: React.MutableRefObject<number>,
+      delayMs: number,
+    ) => {
+      const timer = setTimeout(() => {
+        const startTime = performance.now();
+        const tick = (now: number) => {
+          const elapsed = now - startTime;
+          const t = Math.min(elapsed / duration, 1);
+          const eased = 1 - Math.pow(1 - t, 3);
+          setFn(eased * target);
+          if (t < 1) {
+            rafRef.current = requestAnimationFrame(tick);
+          }
+        };
+        rafRef.current = requestAnimationFrame(tick);
+      }, delayMs);
+      return timer;
+    };
+
+    const t1 = animate(layout.highCount,   setCountedHigh,   rafHighRef,   0);
+    const t2 = animate(layout.mediumCount, setCountedMedium, rafMediumRef, 100);
+    const t3 = animate(layout.lowCount,    setCountedLow,    rafLowRef,    200);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      cancelAnimationFrame(rafHighRef.current);
+      cancelAnimationFrame(rafMediumRef.current);
+      cancelAnimationFrame(rafLowRef.current);
+    };
+  }, [mounted, layout.highCount, layout.mediumCount, layout.lowCount]);
 
   // ── Styles ────────────────────────────────────────────────────────
 
@@ -733,6 +841,9 @@ function ArchDriftViewImpl({ graph, onFocusEntity, onDismiss }: ArchDriftViewPro
               highCount={layout.highCount}
               mediumCount={layout.mediumCount}
               lowCount={layout.lowCount}
+              countedHigh={countedHigh}
+              countedMedium={countedMedium}
+              countedLow={countedLow}
             />
           </div>
 
@@ -770,6 +881,7 @@ function ArchDriftViewImpl({ graph, onFocusEntity, onDismiss }: ArchDriftViewPro
                       key={row.fileId + row.kind}
                       row={row}
                       index={i}
+                      mounted={mounted}
                       onFocusEntity={onFocusEntity}
                     />
                   ))}
@@ -800,10 +912,12 @@ function ArchDriftViewImpl({ graph, onFocusEntity, onDismiss }: ArchDriftViewPro
                     </div>
                   )}
                   <CompactTableHeader />
-                  {lowerRows.map(row => (
+                  {lowerRows.map((row, i) => (
                     <CompactTableRow
                       key={row.fileId + row.kind}
                       row={row}
+                      index={i}
+                      mounted={mounted}
                       onFocusEntity={onFocusEntity}
                     />
                   ))}

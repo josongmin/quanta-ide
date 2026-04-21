@@ -1,57 +1,162 @@
-// MindMapView — the SVG renderer for the egocentric mind-map.
-// --------------------------------------------------------------------
-// Top-level component. Consumes a pre-computed `MindMapGraph` (origin-
-// centred coords) and paints it onto an SVG translated to the viewport
-// centre. Renders in z-order:
-//   1. Full-size transparent backdrop (captures click-outside → dismiss)
-//   2. Edges (tapered bezier ribbons, painted first so nodes sit on top)
-//   3. Nodes (centre / aggregator / entity)
-//
-// Animations:
-// - Initial mount: each node fades + scales in, staggered by ring
-//   (centre 0ms, aggregators ~40ms, entities ~80ms+).
-// - Re-centre (graph.centerId changes): React's key-based reconciliation
-//   mounts new nodes with a fresh fade, unmounts removed ones, and
-//   persisting nodes interpolate `transform: translate(x, y)` via CSS
-//   transition set on the node wrapper.
-// - Hover: scale + edge-width multiplier (see MindMapNode / MindMapEdge).
+// MindMapView — SVG renderer for the egocentric mind-map.
+// Interaction: wheel to zoom (toward cursor), drag to pan, dbl-click to reset.
+// Renders in z-order: dot-grid → backdrop → edges → nodes.
+// CSS keyframes for micro-animations are injected via a <style> block.
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { MindMapGraph } from "../model/types";
+import type { AggregatorKind, MindMapGraph, MindMapNode as MindMapNodeModel } from "../model/types";
 import { MindMapEdge } from "./MindMapEdge";
 import { MindMapNode } from "./MindMapNode";
 
+// ── Category palette (mirrors MindMapNode / MindMapEdge) ──────────────
+const AGG_ACCENT: Readonly<Record<AggregatorKind, string>> = {
+  callers:          "#0d99ff",
+  callees:          "#e09321",
+  siblings:         "#9e77ff",
+  children:         "#22a06b",
+  "parent-dir":     "#8c9bab",
+  "external-deps":  "#e5484d",
+  inheritance:      "#f76b15",
+  "data-relations": "#30a46c",
+};
+const AGG_LABEL: Readonly<Record<AggregatorKind, string>> = {
+  "parent-dir":     "PARENTS",
+  children:         "CHILDREN",
+  siblings:         "SIBLINGS",
+  callers:          "CALLERS",
+  callees:          "CALLEES",
+  "external-deps":  "EXTERNAL",
+  inheritance:      "INHERITS",
+  "data-relations": "DATA",
+};
+
+// ── Sector geometry ──────────────────────────────────────────────────
+interface Sector {
+  id: string;
+  kind: AggregatorKind;
+  aggAngle: number;
+  startAngle: number;
+  endAngle: number;
+  accent: string;
+  label: string;
+}
+
+// CSS-safe id suffix for per-sector <defs>
+function cssId(raw: string): string {
+  return raw.replace(/[^a-zA-Z0-9]/g, "_");
+}
+
+/** Compute angular span per aggregator from the graph's leaf angles. */
+function buildSectors(graph: MindMapGraph): Sector[] {
+  const nodeById = new Map<string, MindMapNodeModel>();
+  for (const n of graph.nodes) nodeById.set(n.id, n);
+
+  const leavesByAgg = new Map<string, MindMapNodeModel[]>();
+  for (const e of graph.edges) {
+    if (e.kind !== "aggregator-to-entity") continue;
+    const leaf = nodeById.get(e.toId);
+    if (!leaf) continue;
+    const bucket = leavesByAgg.get(e.fromId) ?? [];
+    bucket.push(leaf);
+    leavesByAgg.set(e.fromId, bucket);
+  }
+
+  const sectors: Sector[] = [];
+  for (const agg of graph.nodes) {
+    if (agg.kind !== "aggregator" || !agg.aggregatorKind) continue;
+    const leaves = leavesByAgg.get(agg.id) ?? [];
+    if (leaves.length === 0) continue;
+
+    // Normalise leaf angles to (-π, π] relative to aggregator — avoids
+    // the 0 / 2π wrap-around discontinuity when the sector straddles east.
+    const rels = leaves.map(l => {
+      let d = l.angle - agg.angle;
+      while (d >  Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      return d;
+    });
+    const minRel = Math.min(...rels, 0);
+    const maxRel = Math.max(...rels, 0);
+    // Pad the arc 5° minimum so the wedge breathes past extreme leaves.
+    const pad    = Math.max(Math.PI / 36, (maxRel - minRel) * 0.12);
+
+    sectors.push({
+      id:         agg.id,
+      kind:       agg.aggregatorKind,
+      aggAngle:   agg.angle,
+      startAngle: agg.angle + minRel - pad,
+      endAngle:   agg.angle + maxRel + pad,
+      accent:     AGG_ACCENT[agg.aggregatorKind] ?? "#8c9bab",
+      label:      AGG_LABEL[agg.aggregatorKind] ?? agg.label,
+    });
+  }
+  return sectors;
+}
+
+/** Pie-slice wedge: apex at origin, arc at outer radius. */
+function wedgeD(s: Sector, rOuter: number): string {
+  const x0 = rOuter * Math.cos(s.startAngle);
+  const y0 = rOuter * Math.sin(s.startAngle);
+  const x1 = rOuter * Math.cos(s.endAngle);
+  const y1 = rOuter * Math.sin(s.endAngle);
+  const largeArc = (s.endAngle - s.startAngle) > Math.PI ? 1 : 0;
+  return `M0,0 L${x0.toFixed(2)},${y0.toFixed(2)} A${rOuter},${rOuter} 0 ${largeArc} 1 ${x1.toFixed(2)},${y1.toFixed(2)} Z`;
+}
+
+/** Arc path (no stroke fill — used as a curved textPath target). */
+function arcD(rArc: number, startAngle: number, endAngle: number): string {
+  const x0 = rArc * Math.cos(startAngle);
+  const y0 = rArc * Math.sin(startAngle);
+  const x1 = rArc * Math.cos(endAngle);
+  const y1 = rArc * Math.sin(endAngle);
+  const largeArc = (endAngle - startAngle) > Math.PI ? 1 : 0;
+  return `M${x0.toFixed(2)},${y0.toFixed(2)} A${rArc},${rArc} 0 ${largeArc} 1 ${x1.toFixed(2)},${y1.toFixed(2)}`;
+}
+
 export interface MindMapViewProps {
-  /** Pre-computed mind-map graph. `null` = feature inactive, render
-   *  nothing (the parent's overlay is collapsed). */
   graph: MindMapGraph | null;
-  /** SVG viewport dimensions in CSS pixels. The graph's origin maps to
-   *  `(width/2, height/2)`. */
   width: number;
   height: number;
-  /** Click on an entity node → usually "re-centre the mind-map on this
-   *  entity". Aggregators don't fire this; they're virtual. */
   onFocusEntity?: (entityId: string) => void;
-  /** Click on the backdrop outside any node → usually "close mind-map". */
   onDismiss?: () => void;
 }
 
-// Mount-delay schedule by node kind/ring. Centre lands first so the
-// user's eye has an anchor; then the aggregator ring; then the leaf
-// entities. Gentle enough that it reads as "drawing the web" not
-// "waiting for a list".
-const MOUNT_DELAY_CENTER = 0;
-const MOUNT_DELAY_AGGREGATOR = 40;
-const MOUNT_DELAY_ENTITY_BASE = 90;
-const MOUNT_DELAY_ENTITY_STAGGER = 12;
+// ── Stagger schedule (ms) ────────────────────────────────────────────
+const DELAY_CENTER     = 0;
+const DELAY_AGG        = 55;
+const DELAY_TRUNK_EDGE = 30;
+const DELAY_SPOKE_BASE = 120;
+const DELAY_SPOKE_STEP = 12;
+const DELAY_ENTITY_BASE = 95;
+const DELAY_ENTITY_STEP = 14;
 
-// Re-centre transition duration — how long a persisting node takes to
-// glide to its new position when the centre changes.
-const RECENTRE_MS = 400;
-// Initial mount transition duration for position — 0 so the node
-// appears in place without an unwanted slide-from-origin.
-const INITIAL_POSITION_MS = 0;
+// Re-centre glide — slower feels more deliberate and lets the eye
+// follow nodes swapping orbits instead of teleporting.
+const RECENTRE_MS    = 780;
+const INITIAL_POS_MS = 0;
+
+// ── CSS keyframes ────────────────────────────────────────────────────
+const KEYFRAMES = `
+@keyframes mm-breathe {
+  0%, 100% { opacity: 0.38; transform: scale(1);    }
+  50%       { opacity: 0.14; transform: scale(1.35); }
+}
+@keyframes mm-hover-ring {
+  0%   { r: 0;  opacity: 0.6; }
+  80%  { r: 18; opacity: 0;   }
+  100% { r: 18; opacity: 0;   }
+}
+@keyframes mm-edge-drift {
+  0%, 100% { stroke-opacity: 0.55; }
+  50%       { stroke-opacity: 0.78; }
+}
+`;
+
+// ── Zoom / pan helpers ───────────────────────────────────────────────
+interface ZP { scale: number; tx: number; ty: number }
+const ZP_INIT: ZP = { scale: 1, tx: 0, ty: 0 };
+function clampScale(s: number) { return Math.max(0.18, Math.min(6, s)); }
 
 function MindMapViewImpl({
   graph,
@@ -60,16 +165,9 @@ function MindMapViewImpl({
   onFocusEntity,
   onDismiss,
 }: MindMapViewProps) {
-  // Track the last centre id we saw so we can tell "first render with
-  // this graph" from "re-centred". On first render we skip the position
-  // transition; on re-centre we enable it.
   const [lastCenterId, setLastCenterId] = useState<string | null>(null);
   const isInitial = graph ? lastCenterId !== graph.centerId : true;
 
-  // Commit the new centre id in an effect so the *next* render treats
-  // position changes as re-centre transitions. Using an effect (not
-  // setState-in-render) avoids any chance of an infinite update loop
-  // and cleanly scopes the write to graph swaps.
   useEffect(() => {
     if (graph && graph.centerId !== lastCenterId) {
       setLastCenterId(graph.centerId);
@@ -77,29 +175,113 @@ function MindMapViewImpl({
   }, [graph, lastCenterId]);
 
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const handleHoverChange = useCallback((id: string | null) => {
-    setHoveredNodeId(id);
+  const handleHoverChange = useCallback((id: string | null) => setHoveredNodeId(id), []);
+
+  // ── Per-node offsets — manually dragged positions layered on top of
+  // the algorithmic polar layout. Reset when the center changes so a
+  // new graph starts clean. ─────────────────────────────────────────
+  const [offsets, setOffsets] = useState<Record<string, { dx: number; dy: number }>>({});
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setOffsets({});
+    setDraggingId(null);
+  }, [graph?.centerId]);
+
+  const handleNodeOffsetChange = useCallback((id: string, dx: number, dy: number) => {
+    setOffsets(prev => ({ ...prev, [id]: { dx, dy } }));
+  }, []);
+  const handleNodeDragStart = useCallback((id: string) => setDraggingId(id), []);
+  const handleNodeDragEnd   = useCallback(() => setDraggingId(null), []);
+
+  // ── Zoom / pan state ─────────────────────────────────────────────
+  const [zp, setZp] = useState<ZP>(ZP_INIT);
+  const [isDragging, setIsDragging] = useState(false);
+  const svgRef  = useRef<SVGSVGElement>(null);
+  // drag state tracked in ref to avoid stale closures during mousemove
+  const drag = useRef({ active: false, moved: false, x0: 0, y0: 0, tx0: 0, ty0: 0 });
+
+  // Wheel: zoom toward cursor. Must be non-passive to call preventDefault.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      // Gentle zoom — scaled by wheel delta magnitude so trackpad pinch
+      // (small deltas) ≈ 3% per event, mouse-wheel (large deltas)
+      // caps at ~6%. Previous 14%-per-notch was aggressive on trackpads.
+      const mag   = Math.min(Math.abs(e.deltaY), 50) / 50; // 0..1
+      const step  = 0.03 + mag * 0.03;                      // 3%..6%
+      const factor = e.deltaY < 0 ? 1 + step : 1 / (1 + step);
+      const r = el.getBoundingClientRect();
+      const cx = e.clientX - r.left;
+      const cy = e.clientY - r.top;
+      setZp(prev => {
+        const ns = clampScale(prev.scale * factor);
+        const f  = ns / prev.scale;
+        return {
+          scale: ns,
+          // Keep the graph point under the cursor fixed:
+          // origin_svg = (width/2 + tx, height/2 + ty), zoom around (cx,cy)
+          tx: cx - width  / 2 - (cx - width  / 2 - prev.tx) * f,
+          ty: cy - height / 2 - (cy - height / 2 - prev.ty) * f,
+        };
+      });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [width, height]);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return;
+    drag.current = { active: true, moved: false, x0: e.clientX, y0: e.clientY, tx0: zp.tx, ty0: zp.ty };
+    setIsDragging(true);
+  }, [zp.tx, zp.ty]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
+    const d = drag.current;
+    if (!d.active) return;
+    const dx = e.clientX - d.x0;
+    const dy = e.clientY - d.y0;
+    if (!d.moved && Math.hypot(dx, dy) > 4) d.moved = true;
+    if (d.moved) setZp(prev => ({ ...prev, tx: d.tx0 + dx, ty: d.ty0 + dy }));
   }, []);
 
-  // Index nodes by id for edge resolution. useMemo keyed on `graph` so
-  // this only rebuilds when the graph swaps.
+  const handleMouseUp = useCallback(() => {
+    drag.current.active = false;
+    setIsDragging(false);
+  }, []);
+
+  const handleDblClick = useCallback(() => setZp(ZP_INIT), []);
+
+  const handleBackdropClick = useCallback(() => {
+    if (drag.current.moved) return;
+    onDismiss?.();
+  }, [onDismiss]);
+
+  // ── Graph helpers ────────────────────────────────────────────────
+  // Node positions combine the algorithmic layout (n.x / n.y) with any
+  // per-node drag offset the user applied. Edges re-compute from this
+  // index so they track a dragged node in real time.
   const nodeIndex = useMemo(() => {
     const map = new Map<string, { x: number; y: number; radius: number }>();
-    if (graph) {
-      for (const n of graph.nodes) {
-        map.set(n.id, { x: n.x, y: n.y, radius: n.radius });
-      }
+    if (graph) for (const n of graph.nodes) {
+      const off = offsets[n.id];
+      map.set(n.id, {
+        x: n.x + (off?.dx ?? 0),
+        y: n.y + (off?.dy ?? 0),
+        radius: n.radius,
+      });
     }
     return map;
-  }, [graph]);
+  }, [graph, offsets]);
 
-  // Pre-compute connected-edge map for hover-widening.
   const edgesByNode = useMemo(() => {
     const map = new Map<string, Set<string>>();
     if (graph) {
       for (const e of graph.edges) {
         if (!map.has(e.fromId)) map.set(e.fromId, new Set());
-        if (!map.has(e.toId)) map.set(e.toId, new Set());
+        if (!map.has(e.toId))   map.set(e.toId,   new Set());
         map.get(e.fromId)!.add(e.id);
         map.get(e.toId)!.add(e.id);
       }
@@ -107,20 +289,32 @@ function MindMapViewImpl({
     return map;
   }, [graph]);
 
-  const handleBackdropClick = useCallback(() => {
-    onDismiss?.();
-  }, [onDismiss]);
-
   if (!graph) return null;
 
-  // Sort edges so higher-weight paints last (on top) — the contract in
-  // `MindMapEdge`'s `weight` comment.
-  const sortedEdges = [...graph.edges].sort((a, b) => a.weight - b.weight);
+  const sortedEdges   = [...graph.edges].sort((a, b) => a.weight - b.weight);
+  const hoveredEdges  = hoveredNodeId ? edgesByNode.get(hoveredNodeId) : undefined;
+  const aggSpokeIndex = new Map<string, number>();
 
-  const hoveredEdges = hoveredNodeId ? edgesByNode.get(hoveredNodeId) : undefined;
+  // Derive ring radii from node distances (layout is polar — aggregators
+  // all share one distance, entities cluster near another).
+  const aggDistances = graph.nodes.filter(n => n.kind === "aggregator").map(n => n.distance);
+  const entDistances = graph.nodes.filter(n => n.kind === "entity").map(n => n.distance);
+  const R1 = aggDistances.length ? aggDistances.reduce((a, b) => a + b, 0) / aggDistances.length : 0;
+  const R2 = entDistances.length ? Math.max(...entDistances) : 0;
+  // Wedges extend just past the entity ring; labels curve a touch beyond.
+  const R_WEDGE = R2 + 34;
+  const R_LABEL = R2 + 22;
+  const sectors = buildSectors(graph);
+  // Fade entire atmosphere layer down when hovering a node — keeps
+  // focus on the active relationship, not the decorative scaffolding.
+  const atmosphereDim = hoveredNodeId ? 0.35 : 1;
+
+  // Root group transform: origin → (width/2 + tx, height/2 + ty), scale around origin.
+  const rootTransform = `translate(${width / 2 + zp.tx}px, ${height / 2 + zp.ty}px) scale(${zp.scale})`;
 
   return (
     <svg
+      ref={svgRef}
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
@@ -128,86 +322,257 @@ function MindMapViewImpl({
         display: "block",
         userSelect: "none",
         background: "transparent",
+        cursor: isDragging || draggingId ? "grabbing" : "grab",
       }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onDoubleClick={handleDblClick}
       role="img"
       aria-label="Entity relationship mind-map"
     >
+      <style>{KEYFRAMES}</style>
+
       <defs>
-        <filter id="mindmap-glow" x="-50%" y="-50%" width="200%" height="200%">
-          {/* Soft glow under the centre node. Uses a double-blur so the
-              falloff reads as a halo rather than a hard drop-shadow. */}
-          <feGaussianBlur in="SourceAlpha" stdDeviation="6" result="blur" />
-          <feColorMatrix
-            in="blur"
-            type="matrix"
-            values="0 0 0 0 0.05  0 0 0 0 0.6  0 0 0 0 1  0 0 0 0.35 0"
-            result="tinted"
-          />
+        <pattern id="mm-dotgrid" x={0} y={0} width={24} height={24} patternUnits="userSpaceOnUse">
+          <circle cx={12} cy={12} r={0.9} fill="currentColor" opacity={0.12} />
+        </pattern>
+        <filter id="mm-center-glow" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="10" result="blur" />
+          <feColorMatrix in="blur" type="matrix"
+            values="0 0 0 0 0.05  0 0 0 0 0.60  0 0 0 0 1  0 0 0 0.40 0"
+            result="tinted" />
           <feMerge>
             <feMergeNode in="tinted" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
+        {/* Soft drop-shadow for entity + aggregator nodes — gives
+         *  depth so the floating motion feels real, not just layered. */}
+        <filter id="mm-soft-shadow" x="-40%" y="-40%" width="180%" height="180%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+          <feOffset in="blur" dx="0" dy="3" result="offset" />
+          <feColorMatrix in="offset" type="matrix"
+            values="0 0 0 0 0.05  0 0 0 0 0.10  0 0 0 0 0.18  0 0 0 0.16 0"
+            result="shadow" />
+          <feMerge>
+            <feMergeNode in="shadow" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+        {/* Radial vignette — subtle darkening at edges gives the
+         *  floating nodes a "space" backdrop to breathe in. */}
+        <radialGradient id="mm-vignette" cx="50%" cy="50%" r="75%">
+          <stop offset="0%"  stopColor="rgba(13,153,255,0)" />
+          <stop offset="65%" stopColor="rgba(13,153,255,0)" />
+          <stop offset="100%" stopColor="rgba(13,153,255,0.04)" />
+        </radialGradient>
+        {/* Per-sector wedge gradient — alpha ramps from 0 at the apex
+         *  (where it would drown the center) to a faint tint at the rim. */}
+        {sectors.map(s => (
+          <radialGradient
+            key={s.id}
+            id={`mm-sector-${cssId(s.id)}`}
+            cx="0" cy="0" r={R_WEDGE}
+            gradientUnits="userSpaceOnUse"
+          >
+            <stop offset="0%"   stopColor={s.accent} stopOpacity={0.00} />
+            <stop offset="42%"  stopColor={s.accent} stopOpacity={0.04} />
+            <stop offset="82%"  stopColor={s.accent} stopOpacity={0.08} />
+            <stop offset="100%" stopColor={s.accent} stopOpacity={0.00} />
+          </radialGradient>
+        ))}
       </defs>
 
-      {/* Backdrop — transparent, full-viewport, captures click-outside. */}
-      <rect
-        x={0}
-        y={0}
-        width={width}
-        height={height}
+      {/* Dot-grid */}
+      <rect x={0} y={0} width={width} height={height}
+        fill="url(#mm-dotgrid)"
+        style={{ pointerEvents: "none", color: "var(--color-text2, #8c9bab)" }}
+      />
+
+      {/* Vignette — subtle radial tint so floating nodes have "space" depth */}
+      <rect x={0} y={0} width={width} height={height}
+        fill="url(#mm-vignette)"
+        style={{ pointerEvents: "none" }}
+      />
+
+      {/* Backdrop: click-outside dismiss, dbl-click zoom-reset */}
+      <rect x={0} y={0} width={width} height={height}
         fill="transparent"
         onClick={handleBackdropClick}
-        style={{ cursor: onDismiss ? "default" : "inherit" }}
       />
+
+      {/* Zoom level hint (bottom-right, only when zoomed) */}
+      {Math.abs(zp.scale - 1) > 0.05 && (
+        <text
+          x={width - 10} y={height - 10}
+          textAnchor="end"
+          fontFamily="'Inter Tight', sans-serif"
+          fontSize={10}
+          fill="rgba(0,0,0,0.28)"
+          style={{ pointerEvents: "none", userSelect: "none" }}
+        >
+          {Math.round(zp.scale * 100)}%
+        </text>
+      )}
 
       <g
         className="mindmap-root"
-        transform={`translate(${width / 2}, ${height / 2})`}
+        style={{ transform: rootTransform, transformOrigin: "0px 0px" }}
       >
-        {/* Edges first so nodes paint on top. */}
+        {/* ── Atmosphere layer ──────────────────────────────────────────
+         *  Sits beneath the edges/nodes. Provides:
+         *    (a) pie-slice wedges that visually bind each aggregator's
+         *        leaves to its category accent without adding noise to
+         *        the individual nodes,
+         *    (b) two thin dashed guide rings at the aggregator and
+         *        entity distances — gives the composition a planetary
+         *        "orbit" grammar,
+         *    (c) curved textPath labels (PARENTS / CALLERS / …) along
+         *        the outer arc, set wide with letter-spacing so the
+         *        typography itself becomes a decorative element. */}
+        {sectors.length > 0 && (
+          <g
+            aria-hidden="true"
+            style={{
+              opacity: atmosphereDim,
+              transition: "opacity 220ms ease-out",
+              pointerEvents: "none",
+            }}
+          >
+            {/* Wedges — tinted pie slices per category */}
+            {sectors.map(s => (
+              <path
+                key={`w-${s.id}`}
+                d={wedgeD(s, R_WEDGE)}
+                fill={`url(#mm-sector-${cssId(s.id)})`}
+                stroke="none"
+              />
+            ))}
+            {/* Outer sector rim — thin accent arc along R_WEDGE */}
+            {sectors.map(s => (
+              <path
+                key={`r-${s.id}`}
+                d={arcD(R_WEDGE, s.startAngle, s.endAngle)}
+                fill="none"
+                stroke={s.accent}
+                strokeWidth={0.9}
+                strokeOpacity={0.35}
+                strokeLinecap="round"
+              />
+            ))}
+            {/* Guide rings — orbital scaffolding */}
+            {R1 > 0 && (
+              <circle
+                cx={0} cy={0} r={R1}
+                fill="none"
+                stroke="rgba(13,153,255,0.18)"
+                strokeWidth={0.6}
+                strokeDasharray="1.5 5"
+              />
+            )}
+            {R2 > 0 && (
+              <circle
+                cx={0} cy={0} r={R2}
+                fill="none"
+                stroke="rgba(13,153,255,0.14)"
+                strokeWidth={0.6}
+                strokeDasharray="1.5 5"
+              />
+            )}
+            {/* Curved category labels along the outer arc */}
+            <defs>
+              {sectors.map(s => (
+                <path
+                  key={`p-${s.id}`}
+                  id={`mm-label-${cssId(s.id)}`}
+                  d={arcD(R_LABEL, s.startAngle, s.endAngle)}
+                  fill="none"
+                />
+              ))}
+            </defs>
+            {sectors.map(s => {
+              // Only show the label if the arc is wide enough to hold
+              // the text comfortably — otherwise the letters cramp and
+              // the decoration becomes noise.
+              const arcLenPx = (s.endAngle - s.startAngle) * R_LABEL;
+              const fits     = arcLenPx > s.label.length * 9;
+              if (!fits) return null;
+              return (
+                <text
+                  key={`t-${s.id}`}
+                  fontFamily="'Inter Tight', sans-serif"
+                  fontSize={10}
+                  fontWeight={600}
+                  fill={s.accent}
+                  fillOpacity={0.58}
+                  letterSpacing="0.22em"
+                >
+                  <textPath
+                    href={`#mm-label-${cssId(s.id)}`}
+                    startOffset="50%"
+                    textAnchor="middle"
+                  >
+                    {s.label}
+                  </textPath>
+                </text>
+              );
+            })}
+          </g>
+        )}
+
+        {/* Edges */}
         {sortedEdges.map((edge) => {
           const from = nodeIndex.get(edge.fromId);
-          const to = nodeIndex.get(edge.toId);
+          const to   = nodeIndex.get(edge.toId);
           if (!from || !to) return null;
+
           const hovered = hoveredEdges?.has(edge.id) ?? false;
+          let mountDelayMs: number;
+          if (edge.kind === "center-to-aggregator") {
+            mountDelayMs = DELAY_TRUNK_EDGE;
+          } else {
+            const idx = aggSpokeIndex.get(edge.fromId) ?? 0;
+            aggSpokeIndex.set(edge.fromId, idx + 1);
+            mountDelayMs = DELAY_SPOKE_BASE + idx * DELAY_SPOKE_STEP;
+          }
           return (
-            <MindMapEdge
-              key={edge.id}
-              edge={edge}
-              from={from}
-              to={to}
-              hovered={hovered}
-            />
+            <MindMapEdge key={edge.id} edge={edge} from={from} to={to}
+              hovered={hovered} mountDelayMs={mountDelayMs} />
           );
         })}
 
-        {/* Nodes — centre first, then aggregators, then entities. The
-            sort is for mount-delay purposes; React keys off `node.id`
-            so re-centre reconciliation is stable regardless of order. */}
+        {/* Nodes */}
         {graph.nodes.map((node) => {
-          let mountDelay = MOUNT_DELAY_ENTITY_BASE;
+          let mountDelay = DELAY_ENTITY_BASE;
           if (node.kind === "center") {
-            mountDelay = MOUNT_DELAY_CENTER;
+            mountDelay = DELAY_CENTER;
           } else if (node.kind === "aggregator") {
-            mountDelay = MOUNT_DELAY_AGGREGATOR;
+            mountDelay = DELAY_AGG;
           } else {
-            // Entity: stagger by angle so they fan in around the clock.
-            // Normalise angle to [0, 2π) and use it as the stagger index.
-            const twoPi = Math.PI * 2;
-            const norm = ((node.angle % twoPi) + twoPi) % twoPi;
+            const twoPi  = Math.PI * 2;
+            const norm   = ((node.angle % twoPi) + twoPi) % twoPi;
             const bucket = Math.floor((norm / twoPi) * 12);
-            mountDelay = MOUNT_DELAY_ENTITY_BASE + bucket * MOUNT_DELAY_ENTITY_STAGGER;
+            mountDelay   = DELAY_ENTITY_BASE + bucket * DELAY_ENTITY_STEP;
           }
-
+          const off = offsets[node.id];
           return (
             <MindMapNode
               key={node.id}
               node={node}
               mountDelayMs={mountDelay}
-              positionTransitionMs={isInitial ? INITIAL_POSITION_MS : RECENTRE_MS}
+              positionTransitionMs={isInitial ? INITIAL_POS_MS : RECENTRE_MS}
               onFocusEntity={onFocusEntity}
               onHoverChange={handleHoverChange}
+              offsetX={off?.dx ?? 0}
+              offsetY={off?.dy ?? 0}
+              viewScale={zp.scale}
+              onOffsetChange={handleNodeOffsetChange}
+              onDragStart={handleNodeDragStart}
+              onDragEnd={handleNodeDragEnd}
+              anyDragging={draggingId !== null}
+              isThisDragging={draggingId === node.id}
             />
           );
         })}

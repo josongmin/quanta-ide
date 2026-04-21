@@ -109,7 +109,7 @@ function LoadedInspector({ entity, tree }: { entity: Entity; tree: EntityTree })
           ) : null}
         </div>
 
-        <AnalyzePanel entity={entity} tree={tree} />
+        <AnalyzePanel entity={entity} tree={tree} graph={graph} />
         <Metrics entity={entity} />
         <EngineeringMetrics entity={entity} />
         <ExternalDependencies entity={entity} />

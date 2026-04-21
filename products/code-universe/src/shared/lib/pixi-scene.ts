@@ -108,9 +108,9 @@ const INERTIA_SAMPLE_WINDOW_MS = 80;    // use moves inside this window for vel
 // feels good on both is impossible, so we branch on magnitude: coarse
 // (mouse) gets a lower K so each notch ≈ 1.2× zoom step; fine (trackpad)
 // gets a higher K so a steady pinch gesture accumulates smoothly.
-const WHEEL_ZOOM_K_COARSE = 0.002;
-const WHEEL_ZOOM_K_FINE = 0.01;
-const WHEEL_COARSE_THRESHOLD = 50;
+export const WHEEL_ZOOM_K_COARSE = 0.002;
+export const WHEEL_ZOOM_K_FINE = 0.01;
+export const WHEEL_COARSE_THRESHOLD = 50;
 
 // Tier-change reveal: a short alpha cross-fade and nothing else. The
 // earlier iteration also scaled `content` from 0.92 → 1.0 around the

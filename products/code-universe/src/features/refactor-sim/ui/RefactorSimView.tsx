@@ -53,6 +53,11 @@ function injectStyles(): void {
       from { opacity: 0; transform: translateX(-4px); }
       to   { opacity: 1; transform: translateX(0); }
     }
+    @keyframes rsv-aurora {
+      0%   { background-position: 0% 50%; }
+      50%  { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -146,9 +151,11 @@ function DeltaChip({ delta, size = "sm" }: DeltaChipProps) {
 
 interface ScoreBarProps {
   score: number; // 0..100
+  mounted: boolean;
+  delayMs?: number;
 }
 
-function ScoreBar({ score }: ScoreBarProps) {
+function ScoreBar({ score, mounted, delayMs = 0 }: ScoreBarProps) {
   const trackStyle: CSSProperties = {
     flex: 1,
     height: 6,
@@ -159,10 +166,10 @@ function ScoreBar({ score }: ScoreBarProps) {
   };
   const fillStyle: CSSProperties = {
     height: "100%",
-    width: `${score}%`,
+    width: mounted ? `${score}%` : "0%",
     borderRadius: radius.pill,
     background: scoreBarColor(score),
-    transition: "width 400ms ease",
+    transition: `width 600ms ease-out ${delayMs}ms`,
   };
   return (
     <div style={trackStyle} title={`Current score: ${score.toFixed(1)}`}>
@@ -361,17 +368,46 @@ interface BestMoveCardProps {
 
 function BestMoveCard({ row, onFocusEntity }: BestMoveCardProps) {
   const [hovered, setHovered] = useState(false);
+  const [countedDelta, setCountedDelta] = useState(0);
+  const rafRef = useRef<number>(0);
 
-  const cardStyle: CSSProperties = {
+  useEffect(() => {
+    const target = Math.abs(row.projectedDelta);
+    const duration = 800;
+    const startTime = performance.now();
+
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setCountedDelta(eased * target);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [row.projectedDelta]);
+
+  // Aurora wrapper style
+  const auroraWrapStyle: CSSProperties = {
     margin: `${space[3]}px ${space[4]}px ${space[2]}px`,
     borderRadius: radius.md,
-    borderLeft: "4px solid #22c55e",
+    background: "linear-gradient(135deg, #22c55e, #0d99ff, #8b5cf6, #22c55e)",
+    backgroundSize: "300% 300%",
+    animation: "rsv-aurora 4s ease infinite",
+    padding: 2,
+  };
+
+  const cardStyle: CSSProperties = {
+    borderRadius: `calc(${radius.md}px - 2px)`,
     background: hovered ? "rgba(34,197,94,0.10)" : "rgba(34,197,94,0.06)",
     padding: `${space[3]}px ${space[4]}px`,
     transition: `background ${transition.fast}`,
     cursor: onFocusEntity ? "pointer" : "default",
     boxShadow: hovered ? "0 2px 8px rgba(34,197,94,0.15)" : shadow.xs,
   };
+
   const labelStyle: CSSProperties = {
     fontSize: font.size.xxs,
     fontWeight: font.weight.semibold,
@@ -413,38 +449,40 @@ function BestMoveCard({ row, onFocusEntity }: BestMoveCardProps) {
   };
 
   return (
-    <div
-      style={cardStyle}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      onClick={() => onFocusEntity?.(row.fileId)}
-      role={onFocusEntity ? "button" : undefined}
-      tabIndex={onFocusEntity ? 0 : undefined}
-      aria-label={`Best move: ${row.kind} on ${row.fileName}`}
-      onKeyDown={
-        onFocusEntity
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onFocusEntity(row.fileId);
+    <div style={auroraWrapStyle}>
+      <div
+        style={cardStyle}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={() => onFocusEntity?.(row.fileId)}
+        role={onFocusEntity ? "button" : undefined}
+        tabIndex={onFocusEntity ? 0 : undefined}
+        aria-label={`Best move: ${row.kind} on ${row.fileName}`}
+        onKeyDown={
+          onFocusEntity
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onFocusEntity(row.fileId);
+                }
               }
-            }
-          : undefined
-      }
-    >
-      <div style={labelStyle}>#1 Recommendation</div>
-      <div style={deltaStyle}>
-        ↓ {Math.abs(row.projectedDelta).toFixed(1)} debt points
-      </div>
-      <div style={subtitleStyle}>
-        Extract · <span style={{ fontFamily: font.mono }}>{row.fileName}</span>
-      </div>
-      <div style={chipsStyle}>
-        <KindBadge kind={row.kind} size="md" />
-        <span style={pctChipStyle}>
-          confidence {Math.round(row.confidence * 100)}%
-        </span>
-        <AffectsChip count={row.affectedCount} />
+            : undefined
+        }
+      >
+        <div style={labelStyle}>#1 Recommendation</div>
+        <div style={deltaStyle}>
+          ↓ {countedDelta.toFixed(1)} debt points
+        </div>
+        <div style={subtitleStyle}>
+          Extract · <span style={{ fontFamily: font.mono }}>{row.fileName}</span>
+        </div>
+        <div style={chipsStyle}>
+          <KindBadge kind={row.kind} size="md" />
+          <span style={pctChipStyle}>
+            confidence {Math.round(row.confidence * 100)}%
+          </span>
+          <AffectsChip count={row.affectedCount} />
+        </div>
       </div>
     </div>
   );
@@ -455,10 +493,11 @@ function BestMoveCard({ row, onFocusEntity }: BestMoveCardProps) {
 interface SimRowProps {
   row: RefactorSimRow;
   staggerMs: number;
+  mounted: boolean;
   onFocusEntity?: (id: string) => void;
 }
 
-function SimRow({ row, staggerMs, onFocusEntity }: SimRowProps) {
+function SimRow({ row, staggerMs, mounted, onFocusEntity }: SimRowProps) {
   const [hovered, setHovered] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -469,8 +508,9 @@ function SimRow({ row, staggerMs, onFocusEntity }: SimRowProps) {
 
   const containerStyle: CSSProperties = {
     background: hovered || expanded ? tokenColor.hover : "transparent",
-    transition: `background ${transition.fast}`,
+    transition: `background ${transition.fast}, border-left-color ${transition.fast}`,
     borderBottom: `1px solid ${tokenColor.borderSoft}`,
+    borderLeft: hovered ? "3px solid #0d99ff" : "3px solid transparent",
     animation: `rsv-rowIn 220ms ease both`,
     animationDelay: `${staggerMs}ms`,
   };
@@ -557,7 +597,7 @@ function SimRow({ row, staggerMs, onFocusEntity }: SimRowProps) {
 
         {/* Bottom line: score bar · affects chip · confidence meter */}
         <div style={bottomLineStyle}>
-          <ScoreBar score={row.score} />
+          <ScoreBar score={row.score} mounted={mounted} delayMs={staggerMs} />
           <AffectsChip count={row.affectedCount} />
           <ConfidenceMeter confidence={row.confidence} />
         </div>
@@ -574,13 +614,59 @@ function SimRow({ row, staggerMs, onFocusEntity }: SimRowProps) {
 
 interface TotalDebtChipProps {
   rows: RefactorSimRow[];
+  mounted: boolean;
 }
 
-function TotalDebtChip({ rows }: TotalDebtChipProps) {
-  if (rows.length === 0) return null;
+function TotalDebtChip({ rows, mounted }: TotalDebtChipProps) {
+  const [countedBefore, setCountedBefore] = useState(0);
+  const [countedAfter, setCountedAfter] = useState(0);
+  const rafBeforeRef = useRef<number>(0);
+  const rafAfterRef = useRef<number>(0);
+
   // Approximate total before = sum of scores; after = sum of (score + projected delta per-file)
   const totalBefore = rows.reduce((s, r) => s + r.score, 0);
   const totalAfter = rows.reduce((s, r) => s + Math.max(0, r.score + r.projectedDelta), 0);
+
+  useEffect(() => {
+    if (!mounted || rows.length === 0) return;
+    const duration = 600;
+    const startBefore = performance.now();
+    const tickBefore = (now: number) => {
+      const elapsed = now - startBefore;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setCountedBefore(eased * totalBefore);
+      if (t < 1) {
+        rafBeforeRef.current = requestAnimationFrame(tickBefore);
+      }
+    };
+    rafBeforeRef.current = requestAnimationFrame(tickBefore);
+
+    // After value with 400ms delay
+    const afterTimer = setTimeout(() => {
+      const startAfter = performance.now();
+      const tickAfter = (now: number) => {
+        const elapsed = now - startAfter;
+        const t = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setCountedAfter(eased * totalAfter);
+        if (t < 1) {
+          rafAfterRef.current = requestAnimationFrame(tickAfter);
+        }
+      };
+      rafAfterRef.current = requestAnimationFrame(tickAfter);
+    }, 400);
+
+    return () => {
+      cancelAnimationFrame(rafBeforeRef.current);
+      cancelAnimationFrame(rafAfterRef.current);
+      clearTimeout(afterTimer);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, rows.length]);
+
+  if (rows.length === 0) return null;
+
   const style: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
@@ -598,7 +684,7 @@ function TotalDebtChip({ rows }: TotalDebtChipProps) {
   };
   return (
     <span style={style}>
-      Total debt: {totalBefore.toFixed(0)} pts → {totalAfter.toFixed(0)} pts
+      Total debt: {countedBefore.toFixed(0)} pts → {countedAfter.toFixed(0)} pts
     </span>
   );
 }
@@ -737,7 +823,7 @@ function RefactorSimViewImpl({
           </span>
         </div>
         {layout.rows.length > 0 && (
-          <TotalDebtChip rows={layout.rows} />
+          <TotalDebtChip rows={layout.rows} mounted={mounted} />
         )}
         {onDismiss !== undefined && (
           <button
@@ -789,6 +875,7 @@ function RefactorSimViewImpl({
               key={`${row.fileId}:${row.kind}`}
               row={row}
               staggerMs={i * 35}
+              mounted={mounted}
               onFocusEntity={onFocusEntity}
             />
           ))}

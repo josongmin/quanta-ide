@@ -40,6 +40,9 @@ import type { SceneBadge } from "../../../shared/lib/pixi-scene";
 import {
   acquirePixiScene,
   releasePixiScene,
+  WHEEL_ZOOM_K_COARSE,
+  WHEEL_ZOOM_K_FINE,
+  WHEEL_COARSE_THRESHOLD,
   type PixiScene,
   type SceneCallbacks,
   type SceneFrame,
@@ -111,6 +114,7 @@ export function CanvasViewport({
   initialCamera,
 }: Props): ReactElement {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   // ⌘/Ctrl+Shift+S → PNG snapshot of the current frame. The hook
   // owns the keyboard binding; we just give it the canvas ref so
   // CanvasViewport keeps the DOM element inside its slice.
@@ -136,7 +140,7 @@ export function CanvasViewport({
     () => rollupEdges(tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy),
     [tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy],
   );
-  const { hoveredId, selectedId, focusMode, anchorId, expandedFolderId } = useEntityState(s => s.interaction);
+  const { hoveredId, selectedId, focusMode, anchorId, expandedFolderId, locateId } = useEntityState(s => s.interaction);
 
   // Adaptive focus filter — the rule the rest of the product hangs
   // off. Three regimes, picked by comparing anchor depth to the
@@ -402,6 +406,47 @@ export function CanvasViewport({
 
   useEffect(() => () => cancelTween(), [cancelTween]);
 
+  // Locate — pan to an entity on tree-hover (scale-preserving). Fires
+  // when `locateId` transitions from null → id after a 350 ms pause in
+  // the Explorer tree. Skipped when: entity is not in the current visible
+  // set (wrong tier / filtered out), or it already fills the viewport.
+  const prevLocateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevLocateRef.current === locateId) return;
+    prevLocateRef.current = locateId;
+    if (!locateId) return;
+    const rect = layout.rects.get(locateId);
+    if (!rect) return;
+    if (!visibleEntities.some(e => e.id === locateId)) return;
+    const cur = cameraRef.current;
+    const sl = rect.x * cur.scale + cur.tx;
+    const st = rect.y * cur.scale + cur.ty;
+    const sr = sl + rect.w * cur.scale;
+    const sb = st + rect.h * cur.scale;
+    const pad = 48;
+    if (sl > pad && st > pad && sr < width - pad && sb < height - pad) return;
+    const cx = rect.x + rect.w / 2;
+    const cy = rect.y + rect.h / 2;
+    tweenTo({ tx: width / 2 - cx * cur.scale, ty: height / 2 - cy * cur.scale, scale: cur.scale }, 300);
+  }, [locateId, layout, visibleEntities, width, height, tweenTo]);
+
+  // Anchor pulse — fire an expanding ring on the entity card after the
+  // fly-to tween settles (~260 ms). Delayed so the ring lands on a
+  // stable screen position rather than chasing a moving camera.
+  const [pulseKey, setPulseKey] = useState(0);
+  const [pulseAnchorId, setPulseAnchorId] = useState<string | null>(null);
+  const prevAnchorForPulse = useRef<string | null>(anchorId);
+  useEffect(() => {
+    if (prevAnchorForPulse.current === anchorId) return;
+    prevAnchorForPulse.current = anchorId;
+    if (!anchorId) { setPulseAnchorId(null); return; }
+    const t = setTimeout(() => {
+      setPulseKey(k => k + 1);
+      setPulseAnchorId(anchorId);
+    }, 280);
+    return () => clearTimeout(t);
+  }, [anchorId]);
+
   // Camera follow on inline expansion — glide to the expanded
   // folder's rect so the user's eye doesn't have to hunt for where
   // the children just materialised. Uses a slightly longer tween than
@@ -626,6 +671,35 @@ export function CanvasViewport({
     };
   }, []);
 
+  // Container-level wheel handler — catches zoom/pan events that fire
+  // on HTML overlays (SourceCard headers, MiniMap, CanvasToolbar) which
+  // are siblings of the <canvas>, not ancestors. Pixi's own listener is
+  // attached to the <canvas> element so it never fires for overlay
+  // targets; this handler fills that gap. Canvas events are skipped
+  // (pixi already handled them) by checking e.target.
+  const wheelCbRef = useRef({ zoomAt, onWheelPan });
+  useEffect(() => { wheelCbRef.current = { zoomAt, onWheelPan }; });
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.target === canvasRef.current) return;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cx = e.clientX - rect.left;
+      const cy = e.clientY - rect.top;
+      const { zoomAt: za, onWheelPan: owp } = wheelCbRef.current;
+      if (e.ctrlKey || e.metaKey) {
+        const k = Math.abs(e.deltaY) > WHEEL_COARSE_THRESHOLD ? WHEEL_ZOOM_K_COARSE : WHEEL_ZOOM_K_FINE;
+        za(cx, cy, Math.exp(-e.deltaY * k));
+      } else {
+        owp(-e.deltaX, -e.deltaY);
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   // Static-analysis rollup: per-entity aggregated signals (riskMax,
   // taintCount, archViolations, …). Memoised on (tree, graph) — the
   // combination is stable per graph load, so colour-mode flips and
@@ -825,9 +899,24 @@ export function CanvasViewport({
     [drillOut, cancelTween, cameraForRect, tweenTo, visibleEntities, layout, zoomAt, width, height],
   );
 
+  const pulseRingProps = useMemo((): { left: number; top: number; w: number; h: number } | null => {
+    if (!pulseAnchorId) return null;
+    const rect = layout.rects.get(pulseAnchorId);
+    if (!rect) return null;
+    const sl = Math.round(rect.x * camera.scale + camera.tx);
+    const st = Math.round(rect.y * camera.scale + camera.ty);
+    const sw = Math.max(1, Math.round(rect.w * camera.scale));
+    const sh = Math.max(1, Math.round(rect.h * camera.scale));
+    if (sl + sw < -20 || st + sh < -20 || sl > width + 20 || st > height + 20) return null;
+    return { left: sl, top: st, w: sw, h: sh };
+  }, [pulseAnchorId, layout, camera, width, height]);
+
   return (
-    <div tabIndex={0} onKeyDown={onKeyDown} style={ROOT_STYLE}>
+    <div ref={containerRef} tabIndex={0} onKeyDown={onKeyDown} style={ROOT_STYLE}>
       <canvas ref={canvasRef} style={CANVAS_STYLE} />
+      {pulseRingProps && (
+        <AnchorPulseRing key={pulseKey} {...pulseRingProps} />
+      )}
       <SourceOverlay
         tree={tree}
         layout={layout}
@@ -877,6 +966,39 @@ export function CanvasViewport({
         }}
       />
     </div>
+  );
+}
+
+function AnchorPulseRing({ left, top, w, h }: {
+  left: number; top: number; w: number; h: number;
+}): ReactElement {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    ref.current?.animate(
+      [
+        { opacity: 0,    transform: "scale(0.88)" },
+        { opacity: 0.85, transform: "scale(1.0)",  offset: 0.12 },
+        { opacity: 0,    transform: "scale(1.38)" },
+      ],
+      { duration: 560, easing: "ease-out", fill: "forwards" },
+    );
+  }, []);
+  return (
+    <div
+      ref={ref}
+      style={{
+        position: "absolute",
+        left,
+        top,
+        width: w,
+        height: h,
+        border: "2px solid rgba(99, 102, 241, 0.75)",
+        borderRadius: 5,
+        pointerEvents: "none",
+        zIndex: 12,
+        transformOrigin: "center",
+      }}
+    />
   );
 }
 

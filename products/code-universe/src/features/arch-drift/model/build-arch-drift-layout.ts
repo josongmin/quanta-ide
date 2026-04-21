@@ -31,6 +31,22 @@ const SEVERITY_COLORS: Record<ArchDriftRow["severity"], string> = {
   low:    "#f59e0b",
 };
 
+// ── Mock data (shown when no git history is connected) ───────────────
+
+function mockArchDriftLayout(): ArchDriftLayout {
+  const rows: ArchDriftRow[] = [
+    { fileId: "src/domain/userService.ts",     fileName: "userService.ts",     kind: "layer-escalation",   severity: "high",   detail: "Now calls infra layer directly (was domain→adapter)",  beforeLayer: "domain",  afterLayer: "infra",    beforeDegree: 3,  afterDegree: 9,  severityColor: SEVERITY_COLORS.high },
+    { fileId: "src/api/paymentClient.ts",      fileName: "paymentClient.ts",   kind: "fanout-explosion",   severity: "high",   detail: "Fan-out grew from 4 to 14 dependencies in 60 days",      beforeLayer: "adapter", afterLayer: "adapter",  beforeDegree: 4,  afterDegree: 14, severityColor: SEVERITY_COLORS.high },
+    { fileId: "src/store/cartStore.ts",        fileName: "cartStore.ts",       kind: "new-cycle-member",   severity: "high",   detail: "Joined cycle: cartStore ↔ orderStore ↔ checkoutService", beforeLayer: "domain",  afterLayer: "domain",   beforeDegree: 2,  afterDegree: 6,  severityColor: SEVERITY_COLORS.high },
+    { fileId: "src/components/Sidebar.tsx",    fileName: "Sidebar.tsx",        kind: "layer-escalation",   severity: "medium", detail: "UI component now imports from domain layer",              beforeLayer: "ui",      afterLayer: "ui",       beforeDegree: 2,  afterDegree: 5,  severityColor: SEVERITY_COLORS.medium },
+    { fileId: "src/utils/formatters.ts",       fileName: "formatters.ts",      kind: "ownership-shift",    severity: "medium", detail: "Primary author changed 3 times in 30 days",              beforeLayer: "util",    afterLayer: "util",     beforeDegree: 1,  afterDegree: 3,  severityColor: SEVERITY_COLORS.medium },
+    { fileId: "src/infra/logger.ts",           fileName: "logger.ts",          kind: "fanout-explosion",   severity: "medium", detail: "Depended on by 8 new callers across 3 layers",           beforeLayer: "infra",   afterLayer: "infra",    beforeDegree: 5,  afterDegree: 13, severityColor: SEVERITY_COLORS.medium },
+    { fileId: "src/domain/orderService.ts",    fileName: "orderService.ts",    kind: "ownership-shift",    severity: "low",    detail: "Two new authors contributed 40% of lines",               beforeLayer: "domain",  afterLayer: "domain",   beforeDegree: 4,  afterDegree: 6,  severityColor: SEVERITY_COLORS.low },
+    { fileId: "src/api/analyticsClient.ts",    fileName: "analyticsClient.ts", kind: "layer-escalation",   severity: "low",    detail: "Adapter started importing from util directly",            beforeLayer: "adapter", afterLayer: "adapter",  beforeDegree: 2,  afterDegree: 4,  severityColor: SEVERITY_COLORS.low },
+  ];
+  return { rows, highCount: 3, mediumCount: 3, lowCount: 2, totalCount: 8, hasHistory: true };
+}
+
 // ── Main entry ───────────────────────────────────────────────────────
 
 export function buildArchDriftLayout(
@@ -38,16 +54,9 @@ export function buildArchDriftLayout(
 ): ArchDriftLayout {
   const { graph } = opts;
 
-  // ── 1. No history → empty layout ────────────────────────────────────
+  // ── 1. No history → mock layout ────────────────────────────────────
   if (!graph.history || graph.history.snapshots.length === 0) {
-    return {
-      rows: [],
-      highCount: 0,
-      mediumCount: 0,
-      lowCount: 0,
-      totalCount: 0,
-      hasHistory: false,
-    };
+    return mockArchDriftLayout();
   }
 
   const history = graph.history;

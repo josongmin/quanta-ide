@@ -49,6 +49,8 @@ function emptyViewState(): ViewState {
     focusedNodeId: null,
     hoveredClusterId: null,
     hoveredSuperclusterId: null,
+    selectedSymbolId: null,
+    hoveredSymbolId: null,
   };
 }
 

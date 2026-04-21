@@ -301,6 +301,7 @@ function dirOf(path: string): string {
 const ROOT_STYLE: CSSProperties = {
   position: "absolute",
   inset: 0,
+  overflow: "hidden",
   pointerEvents: "none",
 };
 

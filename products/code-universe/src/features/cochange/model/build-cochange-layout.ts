@@ -45,6 +45,52 @@ function lerpColor(ratio: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
+// ── Mock data (shown when no git history is connected) ───────────────
+
+function mockCoChangeLayout(): CoChangeLayout {
+  const files = [
+    "src/store/userStore.ts",
+    "src/api/userApi.ts",
+    "src/components/UserProfile.tsx",
+    "src/hooks/useUser.ts",
+    "src/utils/auth.ts",
+    "src/components/NavBar.tsx",
+  ];
+  const names = ["userStore", "userApi", "UserProfile", "useUser", "auth", "NavBar"];
+  const pairs: Array<[number, number, number, number]> = [
+    // [ai, bi, cochangeCount, unionCount]
+    [0, 1, 18, 22],
+    [0, 2,  9, 24],
+    [0, 3, 14, 19],
+    [1, 2, 11, 20],
+    [1, 4,  8, 18],
+    [2, 3,  6, 21],
+    [2, 5,  5, 17],
+    [3, 4,  7, 16],
+    [4, 5,  4, 15],
+  ];
+  const cells: CoChangeCell[] = pairs.map(([ai, bi, cochangeCount, unionCount]) => {
+    const ratio = cochangeCount / unionCount;
+    return {
+      fileA: files[ai]!,
+      fileB: files[bi]!,
+      nameA: names[ai]!,
+      nameB: names[bi]!,
+      cochangeCount,
+      totalSnapshots: unionCount,
+      ratio,
+      color: lerpColor(ratio),
+    };
+  });
+  return {
+    cells,
+    fileOrder: files,
+    fileNames: names,
+    hasHistory: true,
+    totalSnapshots: 28,
+  };
+}
+
 // ── Main entry ───────────────────────────────────────────────────────
 
 export function buildCoChangeLayout(
@@ -55,13 +101,7 @@ export function buildCoChangeLayout(
 
   // ── 1. Guard missing history ─────────────────────────────────────
   if (!graph.history || graph.history.snapshots.length < 2) {
-    return {
-      cells: [],
-      fileOrder: [],
-      fileNames: [],
-      hasHistory: false,
-      totalSnapshots: 0,
-    };
+    return mockCoChangeLayout();
   }
 
   const history = graph.history;

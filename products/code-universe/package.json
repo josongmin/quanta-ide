@@ -21,11 +21,16 @@
     "@codemirror/view": "^6.41.0",
     "@lezer/highlight": "^1.2.0",
     "@quanta/canvas-engine": "workspace:*",
+    "@quanta/shell-contract": "workspace:*",
     "@uiw/react-codemirror": "^4.25.9",
-    "pixi.js": "^8.6.0"
+    "pixi.js": "^8.6.0",
+    "three": "^0.184.0"
   },
   "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.184.0"
   }
 }

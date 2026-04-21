@@ -51,9 +51,19 @@ describe("useTabManager", () => {
     pendingReq = null;
   });
 
-  it("initial state matches the provided tabs", () => {
+  it("initial state matches the provided tabs (with auto-hydrated slugs)", () => {
     const { result } = setup();
-    expect(result.current.state.tabs).toEqual(INITIAL_TABS);
+    const tabs = result.current.state.tabs;
+    expect(tabs).toHaveLength(INITIAL_TABS.length);
+    for (let i = 0; i < INITIAL_TABS.length; i++) {
+      expect(tabs[i]).toMatchObject(INITIAL_TABS[i]);
+      // Slugs are derived from app + de-duplicated across siblings.
+      expect(typeof tabs[i].slug).toBe("string");
+      expect(tabs[i].slug!.length).toBeGreaterThan(0);
+    }
+    // Two "ide" tabs → first gets "ide", second gets "ide-2".
+    expect(tabs[0].slug).toBe("ide");
+    expect(tabs[1].slug).toBe("ide-2");
     expect(result.current.state.activeId).toBe("t1");
     expect(result.current.state.homeOpen).toBe(false);
   });

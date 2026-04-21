@@ -7,7 +7,8 @@
 //   1. Header bar — title + subtitle + dismiss button
 //   2. Summary strip — pill chips (count, oldest, most-recent)
 //   3. Vertical timeline — left time-axis line with red dots + right cards
-//   4. Empty state — centered green checkmark when no cycles
+//   4. Timeline scrubber — range input to snapshot-filter rows
+//   5. Empty state — centered green checkmark when no cycles
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
@@ -32,12 +33,35 @@ const KEYFRAME_CSS = `
 }
 `;
 
+const SCRUB_THUMB_CSS = (accentColor: string, accentSoft: string) => `
+.cg-range { appearance: none; -webkit-appearance: none; }
+.cg-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: ${accentColor};
+  cursor: pointer;
+  box-shadow: 0 0 0 3px ${accentSoft};
+}
+.cg-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: ${accentColor};
+  cursor: pointer;
+  box-shadow: 0 0 0 3px ${accentSoft};
+  border: none;
+}
+`;
+
 let _keyframesInjected = false;
 function ensureKeyframes(): void {
   if (_keyframesInjected || typeof document === "undefined") return;
   _keyframesInjected = true;
   const style = document.createElement("style");
-  style.textContent = KEYFRAME_CSS;
+  style.textContent = KEYFRAME_CSS + SCRUB_THUMB_CSS(color.accent, color.accentSoft);
   document.head.appendChild(style);
 }
 
@@ -107,6 +131,128 @@ function PillChip({ label, bg, fg }: PillChipProps) {
     whiteSpace: "nowrap",
   };
   return <span style={style}>{label}</span>;
+}
+
+// ── Member pill with → focus arrow ────────────────────────────────────
+
+interface MemberPillProps {
+  member: string;
+  isLast: boolean;
+  onFocus: () => void;
+}
+
+function MemberPill({ member, isLast, onFocus }: MemberPillProps) {
+  const [hovered, setHovered] = useState(false);
+
+  const pillStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    position: "relative",
+    paddingLeft: 6,
+    paddingRight: hovered ? 22 : 6,
+    paddingTop: 2,
+    paddingBottom: 2,
+    borderRadius: radius.pill,
+    backgroundColor: hovered ? color.bg3 : color.bg2,
+    fontFamily: font.mono,
+    fontSize: font.size.xs,
+    color: color.text1,
+    cursor: "pointer",
+    transition: `background-color ${transition.fast}, padding-right ${transition.fast}`,
+    overflow: "hidden",
+  };
+
+  const arrowStyle: CSSProperties = {
+    position: "absolute",
+    right: 5,
+    top: "50%",
+    transform: hovered ? "translateY(-50%) translateX(0)" : "translateY(-50%) translateX(-4px)",
+    opacity: hovered ? 1 : 0,
+    transition: `opacity ${transition.fast}, transform ${transition.fast}`,
+    fontSize: font.size.xs,
+    color: color.accent,
+    pointerEvents: "none",
+    lineHeight: 1,
+  };
+
+  return (
+    <span
+      style={pillStyle}
+      onClick={onFocus}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onFocus(); }}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
+      {shortName(member)}
+      {!isLast && (
+        <span style={{ color: color.text3, marginLeft: 3 }}>↔</span>
+      )}
+      <span style={arrowStyle} aria-hidden="true">→</span>
+    </span>
+  );
+}
+
+// ── SHA chip with copy button ─────────────────────────────────────────
+
+interface ShaChipProps {
+  sha: string;
+}
+
+function ShaChip({ sha }: ShaChipProps) {
+  const [copiedSha, setCopiedSha] = useState<string | null>(null);
+
+  const handleCopy = useCallback(() => {
+    void navigator.clipboard.writeText(sha).then(() => {
+      setCopiedSha(sha);
+      setTimeout(() => setCopiedSha(null), 500);
+    });
+  }, [sha]);
+
+  const chipStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingTop: 1,
+    paddingBottom: 1,
+    borderRadius: radius.xs,
+    backgroundColor: color.bg3,
+    fontFamily: font.mono,
+    fontSize: font.size.xs,
+    color: color.text2,
+    userSelect: "text",
+  };
+
+  const copyBtnStyle: CSSProperties = {
+    border: "none",
+    background: "none",
+    padding: 0,
+    cursor: "pointer",
+    fontSize: 10,
+    color: copiedSha ? "#22a06b" : color.text3,
+    display: "inline-flex",
+    alignItems: "center",
+    lineHeight: 1,
+    transition: `color ${transition.fast}`,
+    flexShrink: 0,
+  };
+
+  return (
+    <span style={chipStyle}>
+      {sha.slice(0, 7)}
+      <button
+        style={copyBtnStyle}
+        onClick={handleCopy}
+        aria-label={copiedSha ? "Copied!" : "Copy SHA"}
+        title={copiedSha ? "Copied!" : "Copy SHA"}
+      >
+        {copiedSha ? "✓" : "📋"}
+      </button>
+    </span>
+  );
 }
 
 // ── Timeline entry row ────────────────────────────────────────────────
@@ -199,44 +345,12 @@ function TimelineRow({
     fontStyle: row.predatesHistory ? "italic" : "normal",
   };
 
-  // SHA chip
-  const shaChipStyle: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    paddingLeft: 5,
-    paddingRight: 5,
-    paddingTop: 1,
-    paddingBottom: 1,
-    borderRadius: radius.xs,
-    backgroundColor: color.bg3,
-    fontFamily: font.mono,
-    fontSize: font.size.xs,
-    color: color.text2,
-    userSelect: "text",
-  };
-
   // Member pills row
   const pillsRowStyle: CSSProperties = {
     display: "flex",
     flexWrap: "wrap",
     gap: 4,
     alignItems: "center",
-  };
-
-  const memberPillStyle: CSSProperties = {
-    display: "inline-flex",
-    alignItems: "center",
-    paddingLeft: 6,
-    paddingRight: 6,
-    paddingTop: 2,
-    paddingBottom: 2,
-    borderRadius: radius.pill,
-    backgroundColor: color.bg2,
-    fontFamily: font.mono,
-    fontSize: font.size.xs,
-    color: color.text1,
-    cursor: "pointer",
-    transition: `background-color ${transition.fast}`,
   };
 
   const edgeStyle: CSSProperties = {
@@ -292,7 +406,6 @@ function TimelineRow({
         </span>
         {/* Dot (positioned absolute) */}
         <div style={dotWrapStyle} aria-hidden="true" />
-        {/* Connecting line to next — painted as a pseudo-border. Handled by parent. */}
       </div>
 
       {/* RIGHT — content card */}
@@ -300,7 +413,7 @@ function TimelineRow({
         {/* Top row: SHA chip + age badge */}
         <div style={metaRowStyle}>
           {row.formedAtSha && (
-            <span style={shaChipStyle}>{row.formedAtSha.slice(0, 7)}</span>
+            <ShaChip sha={row.formedAtSha} />
           )}
           {row.predatesHistory ? (
             <span style={predatesLabel}>Pre-dates recorded history</span>
@@ -312,19 +425,12 @@ function TimelineRow({
         {/* Member pills */}
         <div style={pillsRowStyle} title={row.sccMembers.join(" ↔ ")}>
           {row.sccMembers.map((m, idx) => (
-            <span
+            <MemberPill
               key={m}
-              style={memberPillStyle}
-              onClick={() => onFocusMember(m)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onFocusMember(m); }}
-            >
-              {shortName(m)}
-              {idx < row.sccMembers.length - 1 && (
-                <span style={{ color: color.text3, marginLeft: 3 }}>↔</span>
-              )}
-            </span>
+              member={m}
+              isLast={idx === row.sccMembers.length - 1}
+              onFocus={() => onFocusMember(m)}
+            />
           ))}
         </div>
 
@@ -350,33 +456,102 @@ function TimelineRow({
 }
 
 // ── Vertical axis line wrapper ────────────────────────────────────────
-// Renders the continuous vertical line through all timeline rows.
+// Renders the continuous vertical line through all timeline rows,
+// with an animated draw on mount.
 
 interface TimelineAxisProps {
   children: React.ReactNode;
+  rowCount: number;
+  mounted: boolean;
 }
 
-function TimelineAxis({ children }: TimelineAxisProps) {
+function TimelineAxis({ children, rowCount, mounted }: TimelineAxisProps) {
   const outerStyle: CSSProperties = {
     position: "relative",
   };
 
-  // The vertical line runs from top to bottom through the left column.
-  // left = TIME_AXIS_W - 1 (aligns center of the 2px line with the dots).
+  // Animated axis line: starts at height 0, grows to 100%
   const lineStyle: CSSProperties = {
     position: "absolute",
     top: 0,
-    bottom: 0,
     left: TIME_AXIS_W - 1,
     width: 2,
+    height: mounted ? "100%" : 0,
     backgroundColor: color.border,
     pointerEvents: "none",
+    borderRadius: radius.pill,
+    transition: `height ${rowCount * 60}ms ease-out 200ms`,
   };
 
   return (
     <div style={outerStyle}>
       <div style={lineStyle} aria-hidden="true" />
       {children}
+    </div>
+  );
+}
+
+// ── Timeline scrubber ─────────────────────────────────────────────────
+
+interface ScrubberProps {
+  value: number;
+  max: number;
+  onChange: (val: number) => void;
+}
+
+function TimelineScrubber({ value, max, onChange }: ScrubberProps) {
+  const wrapStyle: CSSProperties = {
+    paddingLeft: space[3],
+    paddingRight: space[3],
+    paddingTop: space[2],
+    paddingBottom: space[2],
+    borderTop: `1px solid ${color.border}`,
+    flexShrink: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  };
+
+  const labelStyle: CSSProperties = {
+    fontFamily: font.sans,
+    fontSize: font.size.xs,
+    color: color.text2,
+    userSelect: "none",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  };
+
+  const rangeStyle: CSSProperties = {
+    appearance: "none",
+    WebkitAppearance: "none",
+    width: "100%",
+    height: 4,
+    borderRadius: radius.pill,
+    background: color.bg3,
+    cursor: "pointer",
+    outline: "none",
+    border: "none",
+  };
+
+  return (
+    <div style={wrapStyle}>
+      <div style={labelStyle}>
+        <span>Timeline snapshot</span>
+        <span style={{ color: color.text1, fontWeight: font.weight.semibold }}>
+          {value + 1} of {max + 1}
+        </span>
+      </div>
+      <input
+        type="range"
+        className="cg-range"
+        style={rangeStyle}
+        min={0}
+        max={max}
+        value={value}
+        onChange={e => onChange(Number(e.target.value))}
+        aria-label={`Snapshot ${value + 1} of ${max + 1}`}
+      />
     </div>
   );
 }
@@ -501,17 +676,39 @@ function CycleGenesisViewImpl({
   onDismiss,
 }: CycleGenesisViewProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-
-  useEffect(() => { ensureKeyframes(); }, []);
+  const [mounted, setMounted] = useState(false);
 
   const layout = useMemo(
     () => buildCycleGenesisLayout({ graph }),
     [graph],
   );
 
+  const [scrubberIdx, setScrubberIdx] = useState(() => Math.max(0, layout.rows.length - 1));
+
+  // Keep scrubberIdx in bounds if layout changes
+  const clampedScrubberIdx = Math.min(scrubberIdx, Math.max(0, layout.rows.length - 1));
+
+  useEffect(() => {
+    ensureKeyframes();
+    // Trigger axis line animation after a short delay
+    const id = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Update scrubberIdx default when layout changes (new graph)
+  useEffect(() => {
+    setScrubberIdx(Math.max(0, layout.rows.length - 1));
+  }, [layout.rows.length]);
+
   const handleFocusMember = useCallback(
     (memberId: string) => onFocusEntity?.(memberId),
     [onFocusEntity],
+  );
+
+  // Filter rows by scrubber: show rows up to and including scrubberIdx
+  const visibleRows = useMemo(
+    () => layout.rows.filter((_row, i) => i <= clampedScrubberIdx),
+    [layout.rows, clampedScrubberIdx],
   );
 
   // ── Shared styles ──────────────────────────────────────────────────
@@ -608,21 +805,32 @@ function CycleGenesisViewImpl({
       {layout.rows.length === 0 ? (
         <EmptyState />
       ) : (
-        <div style={bodyStyle} role="list" aria-label="Cycle birth timeline">
-          <TimelineAxis>
-            {layout.rows.map((row, i) => (
-              <TimelineRow
-                key={row.id}
-                row={row}
-                index={i}
-                hovered={hoveredId === row.id}
-                onHoverEnter={() => setHoveredId(row.id)}
-                onHoverLeave={() => setHoveredId(null)}
-                onFocusMember={handleFocusMember}
-              />
-            ))}
-          </TimelineAxis>
-        </div>
+        <>
+          <div style={bodyStyle} role="list" aria-label="Cycle birth timeline">
+            <TimelineAxis rowCount={visibleRows.length} mounted={mounted}>
+              {visibleRows.map((row, i) => (
+                <TimelineRow
+                  key={row.id}
+                  row={row}
+                  index={i}
+                  hovered={hoveredId === row.id}
+                  onHoverEnter={() => setHoveredId(row.id)}
+                  onHoverLeave={() => setHoveredId(null)}
+                  onFocusMember={handleFocusMember}
+                />
+              ))}
+            </TimelineAxis>
+          </div>
+
+          {/* Timeline scrubber — show only if more than 1 row */}
+          {layout.rows.length > 1 && (
+            <TimelineScrubber
+              value={clampedScrubberIdx}
+              max={layout.rows.length - 1}
+              onChange={setScrubberIdx}
+            />
+          )}
+        </>
       )}
     </div>
   );

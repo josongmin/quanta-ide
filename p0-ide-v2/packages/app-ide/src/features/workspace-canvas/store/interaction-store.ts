@@ -71,6 +71,8 @@ const initialViewState: ViewState = {
   focusedNodeId: null,
   hoveredClusterId: null,
   hoveredSuperclusterId: null,
+  selectedSymbolId: null,
+  hoveredSymbolId: null,
 };
 
 // Path-query solves against the active graph's edges. The graph is read
@@ -147,6 +149,35 @@ const actions = {
     emit();
   },
 
+  // Symbol-tier selection. Sets the symbol id and co-selects its parent
+  // file — callers always want both (the canvas focuses the file; the
+  // layout narrows to the symbol's edges). `fileId` is stored separately
+  // so clearing just the symbol (`selectSymbol(null, fileId)` is not a
+  // valid call) leaves the file selection intact via `selectFile`.
+  selectSymbol(symbolId: string | null, fileId: string | null = null) {
+    const vs = state.viewState;
+    const nextFileId = fileId ?? vs.selectedFileId;
+    if (vs.selectedSymbolId === symbolId && vs.selectedFileId === nextFileId) return;
+    state = {
+      ...state,
+      viewState: {
+        ...vs,
+        selectedSymbolId: symbolId,
+        selectedFileId: nextFileId,
+      },
+    };
+    emit();
+  },
+
+  hoverSymbol(symbolId: string | null) {
+    if (state.viewState.hoveredSymbolId === symbolId) return;
+    state = {
+      ...state,
+      viewState: { ...state.viewState, hoveredSymbolId: symbolId },
+    };
+    emit();
+  },
+
   selectEdge(edgeId: string | null) {
     if (state.viewState.selectedEdgeId === edgeId && state.selectedEdgePoint === null) return;
     state = {
@@ -211,6 +242,8 @@ const actions = {
       vs.focusedNodeId === null &&
       vs.hoveredClusterId === null &&
       vs.hoveredSuperclusterId === null &&
+      vs.selectedSymbolId === null &&
+      vs.hoveredSymbolId === null &&
       state.selectedEdgePoint === null
     ) return;
     state = {
@@ -224,6 +257,8 @@ const actions = {
         focusedNodeId: null,
         hoveredClusterId: null,
         hoveredSuperclusterId: null,
+        selectedSymbolId: null,
+        hoveredSymbolId: null,
       },
       selectedEdgePoint: null,
     };

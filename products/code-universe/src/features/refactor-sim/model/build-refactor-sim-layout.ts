@@ -29,11 +29,29 @@ const EMPTY_LAYOUT: RefactorSimLayout = {
   totalFiles: 0,
 };
 
+// ── Mock data (shown when graph has no files) ─────────────────────────
+
+function mockRefactorSimLayout(): RefactorSimLayout {
+  const rows: RefactorSimRow[] = [
+    { rank: 1, fileId: "src/store/globalStore.ts",    fileName: "globalStore.ts",    kind: "split-file",          score: 88, projectedDelta: -22.4, affectedCount: 8,  confidence: 0.82, effort: "high",   barColor: KIND_COLORS["split-file"],          affectedDetails: [{ fileId: "src/hooks/useStore.ts",      delta: -8.2 }, { fileId: "src/components/Dashboard.tsx", delta: -5.1 }] },
+    { rank: 2, fileId: "src/domain/orderService.ts",  fileName: "orderService.ts",   kind: "break-cycle",         score: 75, projectedDelta: -18.1, affectedCount: 5,  confidence: 0.90, effort: "high",   barColor: KIND_COLORS["break-cycle"],         affectedDetails: [{ fileId: "src/api/paymentApi.ts",      delta: -9.3 }, { fileId: "src/store/cartStore.ts",       delta: -4.8 }] },
+    { rank: 3, fileId: "src/api/client.ts",            fileName: "client.ts",         kind: "extract-interface",   score: 62, projectedDelta: -14.7, affectedCount: 12, confidence: 0.75, effort: "medium", barColor: KIND_COLORS["extract-interface"],   affectedDetails: [{ fileId: "src/api/authApi.ts",         delta: -6.1 }, { fileId: "src/api/userApi.ts",           delta: -4.2 }] },
+    { rank: 4, fileId: "src/utils/helpers.ts",         fileName: "helpers.ts",        kind: "reduce-fan-in",       score: 58, projectedDelta: -11.3, affectedCount: 9,  confidence: 0.68, effort: "low",    barColor: KIND_COLORS["reduce-fan-in"],       affectedDetails: [{ fileId: "src/components/NavBar.tsx",  delta: -3.8 }] },
+    { rank: 5, fileId: "src/infra/db.ts",              fileName: "db.ts",             kind: "invert-dependency",   score: 71, projectedDelta: -9.8,  affectedCount: 4,  confidence: 0.72, effort: "high",   barColor: KIND_COLORS["invert-dependency"],   affectedDetails: [{ fileId: "src/domain/reportService.ts",delta: -5.2 }] },
+    { rank: 6, fileId: "src/domain/userService.ts",   fileName: "userService.ts",    kind: "add-tests",           score: 45, projectedDelta: -7.2,  affectedCount: 3,  confidence: 0.85, effort: "medium", barColor: KIND_COLORS["add-tests"],           affectedDetails: [{ fileId: "src/api/authApi.ts",         delta: -2.8 }] },
+  ];
+  return {
+    rows,
+    bestMoveSummary: "Best move: split-file globalStore.ts → saves 22.4 total debt points",
+    totalFiles: 48,
+  };
+}
+
 export function buildRefactorSimLayout(opts: BuildRefactorSimLayoutOpts): RefactorSimLayout {
   const { graph, maxPlans = DEFAULT_MAX_PLANS } = opts;
 
   if (graph.files.length === 0) {
-    return EMPTY_LAYOUT;
+    return mockRefactorSimLayout();
   }
 
   // Step 1: workspace metrics
@@ -62,7 +80,7 @@ export function buildRefactorSimLayout(opts: BuildRefactorSimLayoutOpts): Refact
     }
   }
   if (allPlans.length === 0) {
-    return { rows: [], bestMoveSummary: null, totalFiles: graph.files.length };
+    return mockRefactorSimLayout();
   }
 
   // Step 4: simulate each plan and collect rows
@@ -107,7 +125,7 @@ export function buildRefactorSimLayout(opts: BuildRefactorSimLayoutOpts): Refact
   }
 
   if (rows.length === 0) {
-    return { rows: [], bestMoveSummary: null, totalFiles: graph.files.length };
+    return mockRefactorSimLayout();
   }
 
   // Step 5: sort by absolute delta magnitude (biggest improvement first)

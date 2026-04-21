@@ -28,7 +28,8 @@ export type ViewMode =
   | "arch-drift" | "cochange"
   | "refactor-sim" | "start-here"
   | "pathfinder" | "neighborhood"
-  | "author-territory" | "service-topo";
+  | "author-territory" | "service-topo"
+  | "galaxy-3d";
 
 export interface ViewModeState {
   mode: ViewMode;
@@ -70,6 +71,7 @@ export const viewModeStore = {
       "refactor-sim", "start-here",
       "pathfinder", "neighborhood",
       "author-territory", "service-topo",
+      "galaxy-3d",
     ];
     const i = order.indexOf(state.mode);
     const next = order[(i + 1) % order.length];

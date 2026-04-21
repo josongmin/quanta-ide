@@ -1,5 +1,6 @@
 import { useEffect, type ReactElement, type ReactNode } from "react";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
+import { parseHash } from "@quanta/shell-contract";
 import { buildEntityTree, entityStore } from "../entities/entity";
 import { DEFAULT_TIER_LADDER, tierStore } from "../entities/tier";
 import {
@@ -9,6 +10,7 @@ import {
 import { MOCK_GRAPH } from "../shared/config/mock-graph";
 import { CanvasShell } from "../widgets/canvas-shell";
 import { loadViewport } from "../shared/api/viewport-persistence";
+import { useCodeUniverseUrlSync } from "./use-url-state-sync";
 import {
   CommandPalette,
   useCommandPaletteShortcut,
@@ -70,9 +72,17 @@ export function CodeUniverse(props: CodeUniverseProps): ReactElement {
   // Restore any previously-persisted selection on first build for
   // this tabId so returning to the tab lands the user on their
   // last pinned entity (if it still exists in the new tree).
+  //
+  // URL query wins over localStorage when both are present — a shared
+  // link must land the recipient on exactly what the sender saw, not
+  // on whatever their own localStorage had. `useCodeUniverseUrlSync`
+  // below re-applies URL state after this effect runs.
   useEffect(() => {
     const tree = buildEntityTree(effective);
     entityStore.setTree(tree);
+    const urlQuery = parseHash().query;
+    const urlHasViewState = !!(urlQuery.mode || urlQuery.tier || urlQuery.sel);
+    if (urlHasViewState) return;
     const saved = loadViewport(props.tabId);
     if (saved) {
       // Tier: restore only if the saved name still maps to a spec.
@@ -85,6 +95,11 @@ export function CodeUniverse(props: CodeUniverseProps): ReactElement {
       }
     }
   }, [effective, props.tabId]);
+
+  // Bind view-mode, tier, and selection to the tab's URL query.
+  // Registers after the restore effect above so URL values overwrite
+  // any localStorage-restored defaults on mount.
+  useCodeUniverseUrlSync();
 
   useEffect(() => {
     return () => {

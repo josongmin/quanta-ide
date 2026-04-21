@@ -20,10 +20,12 @@ export type {
   EdgeKind,
   EdgeLayer,
   EdgeSeverity,
+  SymbolNode,
+  SymbolNodeKind,
   WorkspaceGraph,
   WorkspaceComment,
 } from "./types";
-export { deriveEdgeLayer } from "./types";
+export { deriveEdgeLayer, encodeSymbolId, decodeSymbolId, isSymbolId } from "./types";
 
 // ── Multi-graph ─────────────────────────────────────────────────────
 export type { NamedGraph, JoinEdge } from "./multi-graph";

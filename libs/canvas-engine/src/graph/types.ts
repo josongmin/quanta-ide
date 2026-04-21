@@ -36,6 +36,75 @@ export interface FunctionBlock {
   complexity: number;
 }
 
+// Symbol-level node. Lives inside a file and represents a class / function /
+// method / variable / module. ID convention: `${fileId}:${name}@${line}` —
+// line disambiguates homonyms within a file (overloads, re-declarations).
+// Cross-file homonyms are resolved by the analyzer into distinct SymbolNodes
+// because `fileId` is already unique per declaration site.
+//
+// Optional on WorkspaceGraph — legacy graphs without symbol-level analysis
+// omit this array and the canvas falls back to file-tier behavior.
+export type SymbolNodeKind = "class" | "function" | "method" | "variable" | "parameter" | "module";
+
+/**
+ * Encode a SymbolNode.id from its constituent parts. Keep the delimiter
+ * choice (`:` + `@`) in sync with `decodeSymbolId` below — both are the
+ * single source of truth for the symbol-id format. `:` split works because
+ * filenames in this project never contain a colon; `@` is reserved for the
+ * line suffix.
+ */
+export function encodeSymbolId(fileId: string, name: string, line: number): string {
+  return `${fileId}:${name}@${line}`;
+}
+
+/**
+ * Decode a SymbolNode.id into `{ fileId, name, line }`. Returns null when
+ * the input is malformed (missing `@` or `:`) so callers can distinguish a
+ * symbol id from a raw file id without throwing on untyped input (e.g. a
+ * `centerId` prop that could legitimately be either).
+ */
+export function decodeSymbolId(
+  id: string,
+): { fileId: string; name: string; line: number } | null {
+  const atIdx = id.lastIndexOf("@");
+  if (atIdx < 0) return null;
+  const line = Number(id.slice(atIdx + 1));
+  if (!Number.isFinite(line)) return null;
+  const head = id.slice(0, atIdx);
+  const colonIdx = head.lastIndexOf(":");
+  if (colonIdx < 0) return null;
+  return {
+    fileId: head.slice(0, colonIdx),
+    name: head.slice(colonIdx + 1),
+    line,
+  };
+}
+
+export function isSymbolId(id: string): boolean {
+  return decodeSymbolId(id) !== null;
+}
+
+export interface SymbolNode {
+  /** `${fileId}:${name}@${line}`. Stable across analyzer runs modulo rename. */
+  id: string;
+  /** Parent file. Required — symbol edges always anchor through `fileId`. */
+  fileId: string;
+  /** Short display name (e.g. "handleRequest"). Not fully-qualified. */
+  name: string;
+  kind: SymbolNodeKind;
+  /** Declaration line inside the parent file (1-based, matches FunctionBlock). */
+  line: number;
+  /** Same 0..100 scale as FileNode.riskScore. Absent ⇒ unknown / not scored. */
+  riskScore?: number;
+  complexity?: number;
+  /** Aggregate callers/callees counts — used by renderers at low LOD. */
+  callers?: number;
+  callees?: number;
+  /** Identifies the source graph when multiple graphs are joined. Absent
+   *  ⇒ the symbol belongs to the canonical single-graph ("default"). */
+  graphId?: string;
+}
+
 // No position — WorkspaceLayout owns coordinates
 export interface FileNode {
   id: string;         // file path
@@ -192,6 +261,19 @@ export interface WorkspaceGraph {
   files: FileNode[];
   fileEdges: FileEdge[];
   comments: WorkspaceComment[];
+  /** Symbol-level nodes (classes / functions / methods). Optional — absent
+   *  ⇒ no symbol-level analysis is available and consumers (neighborhood,
+   *  mind-map, renderer) fall back to file-tier behavior. When present, the
+   *  SymbolNode.id convention `${fileId}:${name}@${line}` is unique across
+   *  the graph so BFS / pathfinding over `fileEdges` ∪ `symbolEdges` works
+   *  with a single string keyspace. */
+  symbolNodes?: SymbolNode[];
+  /** Symbol-level edges. Reuses `FileEdge` shape — the `from` / `to` fields
+   *  reference `SymbolNode.id` instead of `FileNode.id` and the renderer /
+   *  query layer treats both uniformly because IDs are globally unique.
+   *  `kind` is typically `call` | `reference` | `inheritance` at this tier.
+   *  Absent ⇒ no symbol-level relations extracted yet. */
+  symbolEdges?: FileEdge[];
   // Record (not Map) so the graph survives structured-clone to the worker
   // without a serialize/deserialize hop. Key is FileEdge.evidenceId.
   proofs?: Record<string, ProofBundle>;

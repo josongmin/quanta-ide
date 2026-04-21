@@ -7,9 +7,41 @@ import * as fs from "node:fs";
 import * as fsp from "node:fs/promises";
 import * as path from "node:path";
 import * as os from "node:os";
+import { execFileSync } from "node:child_process";
 
 // ── Types (must match @quanta/canvas-engine/graph/types) ────────────
 type ArchLayer = "domain" | "adapter" | "infra" | "ui" | "util" | "unknown";
+
+// Mirror @quanta/canvas-engine/graph/history + blame (kept local so
+// the scanner has no runtime dep on the lib bundle).
+interface GraphSnapshot {
+  timestamp: number;
+  label: string;
+  commitSha?: string;
+  added?: string[];
+  removed?: string[];
+  edgeIds?: string[];
+  author?: string;
+  authorEmail?: string;
+  message?: string;
+  additions?: number;
+}
+interface GraphHistory {
+  snapshots: GraphSnapshot[];
+  baseIndex?: number;
+}
+interface BlameEntry {
+  startLine: number;
+  endLine: number;
+  committedAt: number;
+  author: string;
+  commitSha?: string;
+}
+interface FileBlame {
+  fileId: string;
+  entries: BlameEntry[];
+  lineCount: number;
+}
 
 interface FunctionBlock {
   name: string;
@@ -45,6 +77,8 @@ interface WorkspaceGraph {
   files: FileNode[];
   fileEdges: FileEdge[];
   comments: [];
+  history?: GraphHistory;
+  blame?: Record<string, FileBlame>;
 }
 
 // Breakdown of skip reasons surfaced in the scan response. Callers can
@@ -786,11 +820,15 @@ export async function scanRepo(
   }
   const edgesMs = Date.now() - edgesStart;
 
+  const { history, blame } = buildGitEnrichment(rootReal, files, fileEdges, known);
+
   const durationMs = Date.now() - t0;
   return {
     files,
     fileEdges,
     comments: [],
+    history,
+    blame,
     skippedFiles,
     skippedReason,
     stats: {
@@ -803,6 +841,222 @@ export async function scanRepo(
       edgesMs,
       droppedEdges,
     },
+  };
+}
+
+// ── Git enrichment ───────────────────────────────────────────────────
+// Runs git log once to extract:
+//   • `blame`   — per-file last-author/timestamp (for AuthorTerritory)
+//   • `history` — commit-ordered GraphHistory snapshots (for ArchDrift,
+//                 CoChange, SmellGenesis, CycleGenesis)
+//
+// History design:
+//   Snapshot 0  — stable-import baseline (import edges whose BOTH endpoints
+//                 haven't been touched in ≥6 months). Used by ArchDrift as
+//                 the "before" reference for architectural drift detection.
+//   Snapshots 1..N-1 — one per git commit (oldest→newest). Each carries
+//                 `edgeIds` = import edges where BOTH endpoints changed in
+//                 that commit. materializeEdgeSet(i) returns that commit's
+//                 edge slice; consecutive XOR gives co-change signal for
+//                 CoChange and smell/cycle genesis timestamps for
+//                 SmellGenesis/CycleGenesis.
+//   Snapshot N  — `edgeIds` = ALL current import edges. Used by ArchDrift
+//                 as the "after" (current) architecture snapshot.
+function buildGitEnrichment(
+  rootReal: string,
+  files: FileNode[],
+  fileEdges: FileEdge[],
+  known: Set<string>,
+): { history?: GraphHistory; blame?: Record<string, FileBlame> } {
+  // ── 1. Confirm this is a git repo ────────────────────────────────
+  let repoRoot: string;
+  try {
+    repoRoot = execFileSync(
+      "git", ["-C", rootReal, "rev-parse", "--show-toplevel"],
+      { timeout: 3_000, stdio: ["pipe", "pipe", "pipe"], encoding: "utf8" },
+    ).trim();
+  } catch {
+    return {};
+  }
+
+  // Relative path from repo root to the scanned directory.
+  // git log paths are repo-root-relative; we strip this prefix to get
+  // IDs that match the `known` set (which is rootReal-relative).
+  const gitPrefix = path.relative(repoRoot, rootReal).replace(/\\/g, "/");
+  const scanArg = gitPrefix !== "" ? `${gitPrefix}/` : ".";
+
+  // ── 2. git log ────────────────────────────────────────────────────
+  let logRaw: string;
+  try {
+    logRaw = execFileSync(
+      "git",
+      [
+        "-C", repoRoot,
+        "log",
+        "--format=COMMIT %H|%an|%ae|%at|%s",
+        "--name-only",
+        "--diff-filter=AM",   // Added + Modified only (skip renames/deletes)
+        "-n", "500",
+        "--",
+        scanArg,
+      ],
+      { timeout: 10_000, stdio: ["pipe", "pipe", "pipe"], encoding: "utf8" },
+    );
+  } catch {
+    return {};
+  }
+
+  // ── 3. Parse git log output ───────────────────────────────────────
+  interface CommitRecord {
+    sha: string; author: string; authorEmail: string;
+    timestamp: number; message: string; files: string[];
+  }
+  const commits: CommitRecord[] = [];
+  // First occurrence wins (git log is newest-first → first = most recent)
+  const fileLastEdit = new Map<string, { timestamp: number; author: string }>();
+
+  let cur: CommitRecord | null = null;
+  for (const rawLine of logRaw.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    if (line.startsWith("COMMIT ")) {
+      if (cur) commits.push(cur);
+      const rest = line.slice(7);
+      const parts = rest.split("|");
+      if (parts.length < 4 || !parts[0] || parts[0].length !== 40) continue;
+      cur = {
+        sha: parts[0],
+        author: parts[1] ?? "",
+        authorEmail: parts[2] ?? "",
+        timestamp: parseInt(parts[3] ?? "0", 10),
+        message: parts.slice(4).join("|").trim(),
+        files: [],
+      };
+    } else if (cur) {
+      // File path (repo-root-relative); strip prefix → rootReal-relative id
+      let fileId = line;
+      if (gitPrefix !== "") {
+        if (!line.startsWith(gitPrefix + "/")) continue;
+        fileId = line.slice(gitPrefix.length + 1);
+      }
+      if (!known.has(fileId)) continue;
+      cur.files.push(fileId);
+      if (!fileLastEdit.has(fileId)) {
+        fileLastEdit.set(fileId, { timestamp: cur.timestamp, author: cur.author });
+      }
+    }
+  }
+  if (cur) commits.push(cur);
+  if (commits.length === 0) return {};
+
+  // Reverse to oldest-first for temporal history construction
+  commits.reverse();
+
+  // ── 4. Blame (file-level: one entry per file = last editor) ──────
+  const blame: Record<string, FileBlame> = {};
+  for (const f of files) {
+    const info = fileLastEdit.get(f.id);
+    if (!info) continue;
+    blame[f.id] = {
+      fileId: f.id,
+      entries: [{
+        startLine: 1,
+        endLine: f.loc,
+        committedAt: info.timestamp * 1_000, // git seconds → ms
+        author: info.author,
+      }],
+      lineCount: f.loc,
+    };
+  }
+
+  // ── 5. History snapshots ──────────────────────────────────────────
+
+  // Pre-index import edges by file for fast co-change edge lookup
+  const edgeMap = new Map<string, FileEdge>(fileEdges.map(e => [e.id, e]));
+  const importEdgesByFile = new Map<string, string[]>();
+  for (const e of fileEdges) {
+    if (e.kind !== "import") continue;
+    const pushEdge = (fid: string) => {
+      const arr = importEdgesByFile.get(fid);
+      if (arr) arr.push(e.id);
+      else importEdgesByFile.set(fid, [e.id]);
+    };
+    pushEdge(e.from);
+    pushEdge(e.to);
+  }
+
+  // Per-commit: import edges where BOTH endpoints changed in that commit.
+  // These become each snapshot's `edgeIds` (absolute edge-set override so
+  // materializeEdgeSet(i) = that commit's changed-pair edges directly).
+  const commitEdgeSets: string[][] = commits.map(commit => {
+    const changedSet = new Set(commit.files);
+    if (changedSet.size < 2) return [];
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const f of changedSet) {
+      for (const eid of importEdgesByFile.get(f) ?? []) {
+        if (seen.has(eid)) continue;
+        seen.add(eid);
+        const e = edgeMap.get(eid);
+        if (e && changedSet.has(e.from) && changedSet.has(e.to)) out.push(eid);
+      }
+    }
+    return out;
+  });
+
+  const now = Date.now();
+  const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1_000;
+
+  // Stable files: not touched in the last 6 months
+  const stableIds = new Set<string>();
+  for (const f of files) {
+    const info = fileLastEdit.get(f.id);
+    if (!info || now - info.timestamp * 1_000 > SIX_MONTHS_MS) stableIds.add(f.id);
+  }
+
+  const stableEdgeIds = fileEdges
+    .filter(e => e.kind === "import" && stableIds.has(e.from) && stableIds.has(e.to))
+    .map(e => e.id);
+
+  const allImportEdgeIds = fileEdges
+    .filter(e => e.kind === "import")
+    .map(e => e.id);
+
+  const snapshots: GraphSnapshot[] = [];
+
+  // Snapshot 0: stable-import baseline (ArchDrift "before")
+  snapshots.push({
+    timestamp: commits[0].timestamp * 1_000,
+    label: "baseline",
+    edgeIds: stableEdgeIds,
+  });
+
+  // Snapshots 1..N-1: one per commit
+  for (let i = 0; i < commits.length; i++) {
+    const c = commits[i];
+    snapshots.push({
+      timestamp: c.timestamp * 1_000,
+      label: c.message.slice(0, 80),
+      commitSha: c.sha,
+      author: c.author,
+      authorEmail: c.authorEmail,
+      message: c.message,
+      edgeIds: commitEdgeSets[i],
+      additions: c.files.length,
+    });
+  }
+
+  // Snapshot N: current state (ArchDrift "after")
+  snapshots.push({
+    timestamp: now,
+    label: "current",
+    edgeIds: allImportEdgeIds,
+  });
+
+  return {
+    history: { snapshots, baseIndex: 0 },
+    blame,
   };
 }
 
@@ -881,6 +1135,11 @@ export function repoScannerPlugin(): Plugin {
             res.setHeader("Cache-Control", "no-store");
             res.end(finalBody);
             // eslint-disable-next-line no-console
+            const snapCount = graph.history?.snapshots.length ?? 0;
+            const blameCount = Object.keys(graph.blame ?? {}).length;
+            const gitSuffix = snapCount > 0
+              ? ` git=${snapCount} snaps/${blameCount} blame`
+              : " git=none";
             console.log(
               `[repo-scan] ${graph.files.length} files, ${graph.fileEdges.length} edges ` +
               `(dropped=${graph.stats.droppedEdges}) · ` +
@@ -888,7 +1147,8 @@ export function repoScannerPlugin(): Plugin {
               `assemble=${graph.stats.parseMs}ms edges=${graph.stats.edgesMs}ms ` +
               `serialize=${graph.stats.serializeMs}ms total=${graph.stats.durationMs}ms ` +
               `skipped=${graph.stats.skipped} (too-short=${graph.skippedReason["too-short"]} ` +
-              `read-err=${graph.skippedReason["read-error"]} symlink-escape=${graph.skippedReason["symlink-escape"]})`,
+              `read-err=${graph.skippedReason["read-error"]} symlink-escape=${graph.skippedReason["symlink-escape"]})` +
+              gitSuffix,
             );
           } catch (err) {
             if (timedOut) {

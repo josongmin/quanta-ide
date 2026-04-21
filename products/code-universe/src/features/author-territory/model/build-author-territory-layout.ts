@@ -215,6 +215,76 @@ const TITLE_RESERVE = 56; // px reserved for title + subtitle at top
 const PADDING = 6;        // inter-territory gap
 const FILE_PAD = 3;       // inner file-rect margin
 
+// ── Mock data (shown when no git blame is connected) ─────────────────
+
+function mockAuthorTerritoryLayout(
+  width: number,
+  height: number,
+  now: number,
+): AuthorTerritoryResult {
+  const DAY = 86_400_000;
+  const TITLE_RES = 56;
+  const PAD = 6;
+  const totalH = height - TITLE_RES - PAD * 2;
+  const W = width - PAD * 2;
+  const X0 = PAD;
+  const authors = [
+    { name: "alice",  color: "#0d99ff", share: 0.45, files: [
+      { name: "userService.ts",  loc: 320, risk: 0.62, age: 8  * DAY, layer: "domain"  as const },
+      { name: "authStore.ts",    loc: 240, risk: 0.45, age: 14 * DAY, layer: "domain"  as const },
+      { name: "UserProfile.tsx", loc: 180, risk: 0.30, age: 3  * DAY, layer: "ui"      as const },
+    ]},
+    { name: "bob",    color: "#22a06b", share: 0.35, files: [
+      { name: "apiClient.ts",    loc: 210, risk: 0.55, age: 22 * DAY, layer: "adapter" as const },
+      { name: "paymentSvc.ts",   loc: 180, risk: 0.71, age: 5  * DAY, layer: "infra"   as const },
+      { name: "logger.ts",       loc: 100, risk: 0.20, age: 45 * DAY, layer: "util"    as const },
+    ]},
+    { name: "carol",  color: "#e09321", share: 0.20, files: [
+      { name: "reportEngine.ts", loc: 190, risk: 0.48, age: 30 * DAY, layer: "domain"  as const },
+      { name: "db.ts",           loc: 100, risk: 0.66, age: 60 * DAY, layer: "infra"   as const },
+    ]},
+  ];
+
+  let curY = TITLE_RES + PAD;
+  const groups: AuthorGroup[] = [];
+  const allFiles: AuthorFile[] = [];
+
+  for (const a of authors) {
+    const terrH = Math.floor(totalH * a.share) - PAD;
+    const territory = { x: X0, y: curY, w: W, h: terrH };
+    const totalLoc = a.files.reduce((s, f) => s + f.loc, 0);
+    const avgRisk = a.files.reduce((s, f) => s + f.risk, 0) / a.files.length;
+
+    // Pack files left to right
+    const files: AuthorFile[] = [];
+    let fx = X0 + 4;
+    const fy = curY + 4;
+    const fh = terrH - 8;
+    for (const f of a.files) {
+      const fw = Math.max(6, Math.floor((f.loc / totalLoc) * (W - 8)));
+      files.push({
+        fileId: `src/${f.name}`,
+        fileName: f.name,
+        layer: f.layer,
+        loc: f.loc,
+        riskScore: f.risk,
+        author: a.name,
+        lastEditedAt: now - f.age,
+        ageMs: f.age,
+        x: fx, y: fy, w: fw, h: fh,
+        color: a.color,
+      });
+      allFiles.push(files[files.length - 1]!);
+      fx += fw + 2;
+    }
+
+    groups.push({ author: a.name, files, totalLoc, avgRisk, color: a.color, territory });
+    curY += terrH + PAD;
+  }
+
+  return { hasBlame: true, groups, allFiles };
+}
+
 export function buildAuthorTerritoryLayout(
   opts: BuildAuthorTerritoryLayoutOpts,
 ): AuthorTerritoryResult {
@@ -222,7 +292,7 @@ export function buildAuthorTerritoryLayout(
 
   // ── 1. Guard ───────────────────────────────────────────────────────
   if (!graph.blame || Object.keys(graph.blame).length === 0) {
-    return { hasBlame: false };
+    return mockAuthorTerritoryLayout(width, height, now);
   }
 
   const blame = graph.blame;

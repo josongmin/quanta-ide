@@ -10,13 +10,14 @@
 //   - Cell hover tooltip: "A ↔ B changed together M/N times (ratio%)"
 //
 // Top Couplings panel:
-//   - Top 5 pairs with ratio bars + percentage
+//   - Top 5 pairs with animated ratio bars + percentage
 //   - Click a pair to highlight that row+col in the matrix
 //
 // Bottom-right: horizontal gradient color scale legend
-// Summary strip: file/snapshot counts + strongest coupling
+// Summary strip: file/snapshot counts + strongest coupling badge (🔥 amber)
 //
-// Entry animation: container fadeUp 250ms, matrix cells stagger by row.
+// Entry animation: diagonal sweep cell reveal (top-left wavefront),
+//   animated ratio bars, cell flash on pair selection.
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -85,6 +86,10 @@ function injectKeyframes(): void {
       from { opacity: 0; }
       to   { opacity: 1; }
     }
+    @keyframes _ccv-cellFlash {
+      from { opacity: 0.6; }
+      to   { opacity: 0; }
+    }
   `;
   document.head.appendChild(el);
 }
@@ -96,9 +101,10 @@ interface TopCouplingsPanelProps {
   onSelectPair?: (ai: number, bi: number) => void;
   fileOrder: string[];
   selectedPair: { ai: number; bi: number } | null;
+  mounted: boolean;
 }
 
-function TopCouplingsPanel({ cells, onSelectPair, fileOrder, selectedPair }: TopCouplingsPanelProps) {
+function TopCouplingsPanel({ cells, onSelectPair, fileOrder, selectedPair, mounted }: TopCouplingsPanelProps) {
   // Sort cells by ratio desc, take top 5
   const top5 = useMemo(() => {
     return [...cells]
@@ -160,6 +166,7 @@ function TopCouplingsPanel({ cells, onSelectPair, fileOrder, selectedPair }: Top
                 rank={idx + 1}
                 isSelected={isSelected}
                 onSelect={() => onSelectPair?.(ai, bi)}
+                mounted={mounted}
               />
             );
           })
@@ -174,11 +181,13 @@ function CouplingRow({
   rank,
   isSelected,
   onSelect,
+  mounted,
 }: {
   cell: CoChangeCell;
   rank: number;
   isSelected: boolean;
   onSelect: () => void;
+  mounted: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const pct = Math.round(cell.ratio * 100);
@@ -239,12 +248,14 @@ function CouplingRow({
     overflow: "hidden",
   };
 
+  // Animated fill: grows from 0 to final width on mount
   const fillStyle: CSSProperties = {
     height: "100%",
     borderRadius: 2,
     backgroundColor: ACCENT,
-    width: `${pct}%`,
+    width: mounted ? `${pct}%` : "0%",
     opacity: 0.7 + cell.ratio * 0.3,
+    transition: `width 600ms ease-out ${rank * 80}ms`,
   };
 
   const pctStyle: CSSProperties = {
@@ -300,6 +311,7 @@ interface MatrixPanelProps {
   onFocusEntity?: (id: string) => void;
   highlightPair: { ai: number; bi: number } | null;
   onCellClick?: (ai: number, bi: number) => void;
+  flashPair: { ai: number; bi: number; key: number } | null;
 }
 
 function MatrixPanel({
@@ -309,6 +321,7 @@ function MatrixPanel({
   onFocusEntity,
   highlightPair,
   onCellClick,
+  flashPair,
 }: MatrixPanelProps) {
   const [hovered, setHovered] = useState<{ ai: number; bi: number } | null>(null);
   const [tooltip, setTooltip] = useState<{
@@ -396,6 +409,11 @@ function MatrixPanel({
         ((highlightPair.ai === ai && highlightPair.bi === bi) ||
          (highlightPair.ai === bi && highlightPair.bi === ai));
 
+      // Flash: matches if flashPair targets this cell (symmetric)
+      const isFlashing = flashPair !== null && !isDiag &&
+        ((flashPair.ai === ai && flashPair.bi === bi) ||
+         (flashPair.ai === bi && flashPair.bi === ai));
+
       const cell = !isDiag ? cellLookup.get(cellKey(ai, bi)) : undefined;
       const ratio = cell?.ratio ?? 0;
       const isStrong = ratio > STRONG_THR;
@@ -410,8 +428,8 @@ function MatrixPanel({
       const showRowColTint = (isHovRow || isHovCol || isHighlightRow || isHighlightCol) && !isDiag;
       const showActiveBorder = (isHovCell || isHighlightCell) && !isDiag;
 
-      // Stagger animation delay by row
-      const cellDelayMs = ai * 20 + bi * 3;
+      // Diagonal sweep: stagger by (ai + bi) diagonal index
+      const cellDelayMs = (ai + bi) * 12;
 
       const ai_ = ai;
       const bi_ = bi;
@@ -419,7 +437,7 @@ function MatrixPanel({
       cellEls.push(
         <g
           key={`c-${ai_}-${bi_}`}
-          style={{ animation: `_ccv-cellIn 200ms ease-out ${cellDelayMs}ms both` }}
+          style={{ animation: `_ccv-cellIn 150ms ease-out ${cellDelayMs}ms both` }}
         >
           {/* Base cell */}
           <rect
@@ -475,6 +493,24 @@ function MatrixPanel({
               fill="none"
               stroke={ACCENT}
               strokeWidth={1.5}
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Flash overlay on pair selection */}
+          {isFlashing && (
+            <rect
+              key={`flash-${ai_}-${bi_}-${flashPair!.key}`}
+              x={cx}
+              y={cy}
+              width={cellSize - 1}
+              height={cellSize - 1}
+              rx={1}
+              fill="white"
+              style={{
+                animation: "_ccv-cellFlash 400ms ease-out both",
+                pointerEvents: "none",
+              }}
               pointerEvents="none"
             />
           )}
@@ -661,6 +697,20 @@ function SummaryStrip({ layout }: { layout: CoChangeLayout }) {
     fontFamily: font.mono,
   };
 
+  // Amber badge style for hottest pair
+  const hotBadgeStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    background: "rgba(245,158,11,0.12)",
+    color: "#e09321",
+    borderRadius: radius.pill,
+    padding: "2px 8px",
+    fontWeight: font.weight.semibold,
+    fontFamily: font.sans,
+    fontSize: font.size.xs,
+  };
+
   return (
     <div style={stripStyle}>
       <span style={itemStyle}>
@@ -672,11 +722,13 @@ function SummaryStrip({ layout }: { layout: CoChangeLayout }) {
       </span>
       {strongest && (
         <span style={itemStyle}>
-          Strongest:{" "}
-          <span style={highlightStyle}>{truncate(strongest.nameA, 12)}</span>
-          <span style={{ color: ACCENT, fontWeight: font.weight.semibold }}> ↔ </span>
-          <span style={highlightStyle}>{truncate(strongest.nameB, 12)}</span>
-          {" "}({fmtPct(strongest.ratio)})
+          <span style={hotBadgeStyle}>
+            🔥{" "}
+            {truncate(strongest.nameA, 12)}
+            <span style={{ color: ACCENT, fontWeight: font.weight.semibold }}> ↔ </span>
+            {truncate(strongest.nameB, 12)}
+            {" "}({fmtPct(strongest.ratio)})
+          </span>
         </span>
       )}
     </div>
@@ -704,7 +756,7 @@ function EmptyState({ message, sub }: { message: string; sub?: string }) {
       <span style={{ fontSize: 26 }} role="img" aria-hidden="true">📊</span>
       <span style={{ fontWeight: font.weight.medium, color: tokenColor.text1 }}>{message}</span>
       {sub && (
-        <span style={{ fontSize: font.size.xs, color: tokenColor.text2, maxWidth: 280, lineHeight: 1.5 }}>
+        <span style={{ fontSize: font.size.xs, color: tokenColor.text2, maxWidth: 280, lineHeight: 1.5, whiteSpace: "pre-line", textAlign: "center" }}>
           {sub}
         </span>
       )}
@@ -718,6 +770,8 @@ function CoChangeViewImpl({ graph, onFocusEntity, onDismiss }: CoChangeViewProps
   const [mounted, setMounted] = useState(false);
   const [svgSize, setSvgSize] = useState({ width: 400, height: 400 });
   const [selectedPair, setSelectedPair] = useState<{ ai: number; bi: number } | null>(null);
+  const [flashPair, setFlashPair] = useState<{ ai: number; bi: number; key: number } | null>(null);
+  const flashKeyRef = useRef(0);
   const containerRef  = useRef<HTMLDivElement>(null);
   const matrixWrapRef = useRef<HTMLDivElement>(null);
 
@@ -732,6 +786,13 @@ function CoChangeViewImpl({ graph, onFocusEntity, onDismiss }: CoChangeViewProps
     });
     return () => { cancelAnimationFrame(r1); cancelAnimationFrame(r2); };
   }, []);
+
+  // Clear flash after animation
+  useEffect(() => {
+    if (!flashPair) return;
+    const t = setTimeout(() => setFlashPair(null), 400);
+    return () => clearTimeout(t);
+  }, [flashPair]);
 
   // Escape to dismiss
   useEffect(() => {
@@ -757,9 +818,14 @@ function CoChangeViewImpl({ graph, onFocusEntity, onDismiss }: CoChangeViewProps
   const layout = useMemo(() => buildCoChangeLayout({ graph }), [graph]);
 
   const handlePairSelect = useCallback((ai: number, bi: number) => {
-    setSelectedPair(prev =>
-      prev?.ai === ai && prev?.bi === bi ? null : { ai, bi },
-    );
+    setSelectedPair(prev => {
+      const next = prev?.ai === ai && prev?.bi === bi ? null : { ai, bi };
+      if (next) {
+        flashKeyRef.current += 1;
+        setFlashPair({ ai, bi, key: flashKeyRef.current });
+      }
+      return next;
+    });
   }, []);
 
   const showEmpty = !layout.hasHistory || layout.fileOrder.length === 0;
@@ -835,7 +901,7 @@ function CoChangeViewImpl({ graph, onFocusEntity, onDismiss }: CoChangeViewProps
       <div style={headerStyle}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={titleStyle}>Co-change Network</span>
-          <span style={subtitleStyle}>files that evolve together</span>
+          <span style={subtitleStyle}>files that evolve together · git commit history 기반</span>
         </div>
         {onDismiss && (
           <button
@@ -857,8 +923,8 @@ function CoChangeViewImpl({ graph, onFocusEntity, onDismiss }: CoChangeViewProps
               sub="No files changed together across the tracked snapshots"
             />
           : <EmptyState
-              message="No history data"
-              sub="No history data · Connect a repository to see co-change patterns"
+              message="커밋 히스토리를 기다리는 중"
+              sub={"git commit log를 분석해 파일 간 공동 변경 패턴을 추출합니다.\n커밋이 쌓이면 히트맵이 자동으로 채워집니다."}
             />
       ) : (
         <>
@@ -893,6 +959,7 @@ function CoChangeViewImpl({ graph, onFocusEntity, onDismiss }: CoChangeViewProps
                   onFocusEntity={onFocusEntity}
                   highlightPair={selectedPair}
                   onCellClick={handlePairSelect}
+                  flashPair={flashPair}
                 />
               </svg>
             </div>
@@ -903,6 +970,7 @@ function CoChangeViewImpl({ graph, onFocusEntity, onDismiss }: CoChangeViewProps
               fileOrder={layout.fileOrder}
               onSelectPair={handlePairSelect}
               selectedPair={selectedPair}
+              mounted={mounted}
             />
           </div>
         </>

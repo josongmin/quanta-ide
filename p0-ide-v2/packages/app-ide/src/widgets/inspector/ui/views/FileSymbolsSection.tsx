@@ -2,8 +2,13 @@ import { useState, useCallback } from "react";
 import { Section } from "@quanta/ui-kit/ui/section";
 import { IconClass, IconFunction, IconChevron } from "@quanta/ui-kit/ui/icons";
 import { riskColor } from "@quanta/ui-kit/lib/risk";
+import { encodeSymbolId } from "@quanta/canvas-engine";
 import type { SymbolFacts, SymbolKind } from "@quanta/app-ide/entities/symbol";
 import type { FileFacts } from "@quanta/app-ide/entities/file";
+import {
+  interactionStore,
+  useInteractionStore,
+} from "@quanta/app-ide/features/workspace-canvas/store/interaction-store";
 
 /* ── Helpers ── */
 
@@ -55,12 +60,16 @@ function taintDot(sym: SymbolFacts) {
 
 function SymbolNode({
   sym,
+  fileId,
   depth,
   isLast,
+  selectedSymbolId,
 }: {
   sym: SymbolFacts;
+  fileId: string;
   depth: number;
   isLast: boolean;
+  selectedSymbolId: string | null;
 }) {
   const kids = sym.children ?? [];
   const expandable = kids.length > 0;
@@ -69,10 +78,27 @@ function SymbolNode({
   const signals = signalCount(sym);
   const risk = sym.riskScore;
   const color = risk != null && risk > 0 ? riskColor(risk) : undefined;
+  // Self-ID matches the adapter's encoding so the canvas and this list
+  // highlight the same entity. `line === 0` (module-level synthetic
+  // entries) falls through unselectable.
+  const symbolId = sym.line > 0 ? encodeSymbolId(fileId, sym.name, sym.line) : null;
+  const isSelected = symbolId !== null && selectedSymbolId === symbolId;
 
   const toggle = useCallback(() => {
     if (expandable) setOpen((o) => !o);
   }, [expandable]);
+
+  const selectThis = useCallback(() => {
+    if (!symbolId) return;
+    interactionStore.selectSymbol(symbolId, fileId);
+  }, [symbolId, fileId]);
+
+  // Chevron area toggles; everything else selects. Events stop at their
+  // boundary so one doesn't fire the other.
+  const onChevronClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggle();
+  }, [toggle]);
 
   return (
     <li className="stree__item">
@@ -89,17 +115,26 @@ function SymbolNode({
         className={
           "stree__row" +
           (flagged ? " stree__row--flagged" : "") +
-          (expandable ? " stree__row--expandable" : "")
+          (expandable ? " stree__row--expandable" : "") +
+          (isSelected ? " stree__row--selected" : "")
         }
         style={{ paddingLeft: `${8 + depth * 16}px` }}
-        onClick={toggle}
-        role={expandable ? "button" : undefined}
-        tabIndex={expandable ? 0 : undefined}
-        onKeyDown={expandable ? (e) => { if (e.key === "Enter" || e.key === " ") toggle(); } : undefined}
+        onClick={selectThis}
+        onMouseEnter={symbolId ? () => interactionStore.hoverSymbol(symbolId) : undefined}
+        onMouseLeave={symbolId ? () => interactionStore.hoverSymbol(null) : undefined}
+        role={symbolId ? "button" : undefined}
+        tabIndex={symbolId ? 0 : undefined}
+        onKeyDown={symbolId ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectThis(); } } : undefined}
+        aria-pressed={isSelected || undefined}
       >
         {/* chevron */}
         {expandable ? (
-          <span className={"stree__chev" + (open ? " is-open" : "")}>
+          <span
+            className={"stree__chev" + (open ? " is-open" : "")}
+            onClick={onChevronClick}
+            role="button"
+            aria-label={open ? "Collapse" : "Expand"}
+          >
             <IconChevron size={10} />
           </span>
         ) : (
@@ -155,8 +190,10 @@ function SymbolNode({
             <SymbolNode
               key={`${c.kind}-${c.name}-${c.line}`}
               sym={c}
+              fileId={fileId}
               depth={depth + 1}
               isLast={i === kids.length - 1}
+              selectedSymbolId={selectedSymbolId}
             />
           ))}
         </ul>
@@ -175,6 +212,7 @@ function countAll(syms: SymbolFacts[]): number {
 
 export function FileSymbolsSection({ file }: { file: FileFacts }) {
   const symbols = file.symbols;
+  const selectedSymbolId = useInteractionStore((s) => s.viewState.selectedSymbolId);
   if (symbols.length === 0) return null;
 
   return (
@@ -184,8 +222,10 @@ export function FileSymbolsSection({ file }: { file: FileFacts }) {
           <SymbolNode
             key={`${s.kind}-${s.name}-${s.line}`}
             sym={s}
+            fileId={file.name}
             depth={0}
             isLast={i === symbols.length - 1}
+            selectedSymbolId={selectedSymbolId}
           />
         ))}
       </ul>

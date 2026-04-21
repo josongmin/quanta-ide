@@ -113,4 +113,12 @@ export interface ViewState {
   hoveredClusterId: string | null;
   /** Universe tier hover target. Symmetry with `hoveredClusterId`. */
   hoveredSuperclusterId: string | null;
+  /** Symbol-tier selection. `SymbolNode.id` (encodeSymbolId). When non-null,
+   *  layout builders and renderers treat the symbol's parent file as the
+   *  center context and narrow further to the symbol's incoming/outgoing
+   *  edges — cheaper than a second "focus" concept. Symbol selection also
+   *  implies file selection (the containing file) but the two are stored
+   *  independently so clearing one doesn't clobber the other. */
+  selectedSymbolId: string | null;
+  hoveredSymbolId: string | null;
 }

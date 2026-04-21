@@ -13,12 +13,11 @@ import {
   buildHierarchicalLayout,
   type HierarchicalLayout,
 } from "@quanta/canvas-engine";
-import { useTierSwitch } from "../../../features/tier-switch";
+import { useTierSwitch, TierBreadcrumb } from "../../../features/tier-switch";
 import { useEntityState, entityStore } from "../../../entities/entity";
 import { useWorkspaceGraph } from "../../../shared/api/graph-source";
 import { CanvasViewport } from "./CanvasViewport";
 import { HoverTooltip } from "./HoverTooltip";
-import { DrillPath } from "./DrillPath";
 import { MindMapView, buildMindMap, mindMapStore, useMindMapState } from "../../../features/mind-map";
 import { ChordView, buildChordLayout } from "../../../features/chord-view";
 import { MatrixView, buildMatrixLayout } from "../../../features/matrix-view";
@@ -39,11 +38,11 @@ import { PathfinderView } from "../../../features/pathfinder";
 import { NeighborhoodView } from "../../../features/neighborhood";
 import { AuthorTerritoryView } from "../../../features/author-territory";
 import { ServiceTopoView } from "../../../features/service-topo";
-import { useViewMode, viewModeStore } from "../../../features/view-mode";
+import { Galaxy3DView } from "../../../features/galaxy-3d";
+import { useViewMode, viewModeStore, ViewModePicker, VIEW_MODE_OPTIONS } from "../../../features/view-mode";
 import { loadViewport } from "../../../shared/api/viewport-persistence";
 import { LeftPanel } from "../../left-panel";
 import { Inspector } from "../../inspector";
-import { CanvasToolbar } from "../../canvas-toolbar";
 import {
   makeWeightFn,
   useLayoutWeight,
@@ -214,7 +213,13 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
         // flip the segmented control to match so the user sees which
         // mode is active.
         const stillOpen = mindMapStore.getState().enabled;
-        viewModeStore.setMode(stillOpen ? "mindmap" : "treemap");
+        // M opens mindmap → sync the picker. M closes → restore treemap only
+        // if mindmap was the active mode; otherwise leave the current mode alone.
+        if (stillOpen) {
+          viewModeStore.setMode("mindmap");
+        } else if (viewModeStore.getState().mode === "mindmap") {
+          viewModeStore.setMode("treemap");
+        }
         return;
       }
       if (e.key === "Escape") {
@@ -401,9 +406,6 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
   return (
     <div data-product="code-universe" style={ROOT_STYLE}>
       <header style={HEADER_STYLE}>
-        {/* Left cluster: navigation + identity. The sidebar toggle,
-            history buttons, and title live together because a user
-            scanning the top-left expects nav context, not tools. */}
         <div style={HEADER_GROUP}>
           <IconToggle
             onClick={() => setPrefs(p => ({ ...p, leftCollapsed: !p.leftCollapsed }))}
@@ -417,16 +419,15 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
           <span style={PRODUCT_NAME}>Code Universe</span>
         </div>
 
-        {/* Middle: drill path — muted, prose-like, shows selection
-            context without competing for attention. Shrinks/truncates
-            before the right cluster gives up space. */}
         <div style={HEADER_MIDDLE}>
-          <DrillPath />
+          <TierBreadcrumb />
         </div>
 
-        {/* Right cluster: current-context readouts + Inspector
-            toggle. No tools — those live in the floating toolbar. */}
+        {/* Right cluster: view-mode picker + current-context readouts
+            + Inspector toggle. No tools — those live in the floating
+            toolbar. */}
         <div style={HEADER_GROUP}>
+          <ViewModeDropdown />
           <span style={SCALE_CHIP}>
             <span style={{ color: color.text2 }}>scale</span>
             <span style={{ fontVariantNumeric: "tabular-nums", color: color.text0, fontWeight: font.weight.semibold }}>
@@ -500,7 +501,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 background: "rgba(248, 250, 252, 0.94)",
                 backdropFilter: "blur(6px)",
                 WebkitBackdropFilter: "blur(6px)",
-                zIndex: 5,
+                zIndex: 6,
                 display: "flex",
                 alignItems: "stretch",
                 justifyContent: "stretch",
@@ -532,7 +533,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                   mindMapStore.openOn(id);
                   viewModeStore.setMode("mindmap");
                 }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -547,7 +548,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                   mindMapStore.openOn(id);
                   viewModeStore.setMode("mindmap");
                 }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -558,7 +559,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 width={viewportSize.w}
                 height={viewportSize.h}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -569,7 +570,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 width={viewportSize.w}
                 height={viewportSize.h}
                 onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("mindmap"); mindMapStore.openOn(id); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -580,7 +581,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 width={viewportSize.w}
                 height={viewportSize.h}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -592,7 +593,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 height={viewportSize.h}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
                 onToggleDirection={() => setBlastDirection(d => d === "blast" ? "fix" : "blast")}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -602,7 +603,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 layout={archLayerLayout}
                 width={viewportSize.w}
                 height={viewportSize.h}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -612,7 +613,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 layout={debtChartLayout}
                 width={viewportSize.w}
                 height={viewportSize.h}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -623,7 +624,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 width={viewportSize.w}
                 height={viewportSize.h}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -632,7 +633,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <CycleGenesisView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -641,7 +642,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <SmellHistoryView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -650,7 +651,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <ArchDriftView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -659,7 +660,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <CoChangeView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -668,7 +669,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <RefactorSimView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -677,7 +678,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <StartHereView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -687,7 +688,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 graph={graph}
                 selectedId={selectedId ?? undefined}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -697,7 +698,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
                 graph={graph}
                 selectedId={selectedId ?? undefined}
                 onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("neighborhood"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -706,7 +707,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <AuthorTerritoryView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
@@ -715,11 +716,20 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <ServiceTopoView
                 graph={graph}
                 onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => viewModeStore.setMode("treemap")}
+                onDismiss={() => entityStore.selectEntity(null)}
               />
             </div>
           ) : null}
-          <CanvasToolbar />
+          {viewMode === "galaxy-3d" && graph ? (
+            <div style={OVERLAY_STYLE}>
+              <Galaxy3DView
+                graph={graph}
+                selectedId={selectedId ?? undefined}
+                onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("galaxy-3d"); }}
+                onDismiss={() => entityStore.selectEntity(null)}
+              />
+            </div>
+          ) : null}
         </div>
 
         {prefs.rightCollapsed ? null : (
@@ -883,7 +893,7 @@ const HEADER_MIDDLE: CSSProperties = {
   minWidth: 0,
   display: "flex",
   alignItems: "center",
-  justifyContent: "flex-start",
+  justifyContent: "center",
   paddingInline: space[2],
   overflow: "hidden",
 };
@@ -951,7 +961,7 @@ const OVERLAY_STYLE: CSSProperties = {
   background: "rgba(248, 250, 252, 0.96)",
   backdropFilter: "blur(6px)",
   WebkitBackdropFilter: "blur(6px)",
-  zIndex: 4,
+  zIndex: 6,
   display: "flex",
   alignItems: "stretch",
   justifyContent: "stretch",
@@ -969,3 +979,95 @@ const LOADING_STYLE: CSSProperties = {
   fontStyle: "italic",
   letterSpacing: font.letter.wide,
 };
+
+const VIEW_MODE_BTN_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 4,
+  padding: `2px ${space[2]}px`,
+  fontSize: font.size.sm,
+  fontWeight: font.weight.medium,
+  fontFamily: font.family,
+  color: color.text0,
+  background: color.bg2,
+  border: `1px solid ${color.border}`,
+  borderRadius: radius.sm,
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  transition: `background ${transition.fast}`,
+};
+
+const VIEW_MODE_POPUP_STYLE: CSSProperties = {
+  position: "absolute",
+  top: "100%",
+  right: 0,
+  marginTop: 4,
+  zIndex: 20,
+  background: color.bg1,
+  border: `1px solid ${color.border}`,
+  borderRadius: radius.md,
+  padding: space[1],
+  boxShadow: "0 4px 16px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  maxWidth: 420,
+};
+
+function ViewModeDropdown(): ReactElement {
+  const mode = useViewMode(s => s.mode);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const prevMode = useRef(mode);
+  useEffect(() => {
+    if (prevMode.current !== mode) {
+      prevMode.current = mode;
+      setOpen(false);
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    // Close on wheel only when the scroll happens OUTSIDE the popup.
+    // Scrolling inside the picker itself (long list of modes) must not
+    // dismiss it — but scroll-to-zoom on the canvas should.
+    const closeOnWheel = (e: WheelEvent) => {
+      if (ref.current && ref.current.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", closeOnOutside);
+    document.addEventListener("wheel", closeOnWheel, { capture: true, passive: true });
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutside);
+      document.removeEventListener("wheel", closeOnWheel, { capture: true });
+    };
+  }, [open]);
+
+  const label = VIEW_MODE_OPTIONS.find(o => o.value === mode)?.label ?? "Universe";
+
+  return (
+    <div ref={ref} style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        title="Switch visualization mode"
+        style={VIEW_MODE_BTN_STYLE}
+      >
+        {label}
+        <span style={{ fontSize: 9, opacity: 0.55, marginLeft: 1 }}>▾</span>
+      </button>
+      {open && (
+        <div style={VIEW_MODE_POPUP_STYLE}>
+          <ViewModePicker />
+        </div>
+      )}
+    </div>
+  );
+}

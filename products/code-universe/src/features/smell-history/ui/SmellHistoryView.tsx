@@ -5,8 +5,8 @@
 // Layout (top → bottom):
 //   1. Header bar — title + subtitle + dismiss button
 //   2. Summary strip — total smells + files affected chips
-//   3. Sparkline — 64px SVG area chart with hover cursor + tooltip
-//   4. Section groups — colored left-border accent bar + trend indicator
+//   3. Sparkline — 64px SVG area chart with animated fill + hover cursor
+//   4. Section groups — accent dot + trend indicator + collapse toggle
 //   5. Entry rows — dot + filename + age + hover-reveal SHA chip
 //   6. Empty state per section
 
@@ -37,6 +37,15 @@ const KEYFRAME_CSS = `
 @keyframes ${FADE_UP_NAME} {
   from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0);    }
+}
+@keyframes sh-arrowBounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-3px); }
+}
+@keyframes sh-arrowSlideDown {
+  0%   { transform: translateY(0); }
+  60%  { transform: translateY(3px); }
+  100% { transform: translateY(0); }
 }
 `;
 
@@ -120,6 +129,14 @@ function computeTrend(buckets: SparklineBucket[]): TrendDir {
   return "stable";
 }
 
+/** Calculate "new this period" count comparing last two buckets. */
+function computeNewCount(buckets: SparklineBucket[]): number {
+  if (buckets.length < 2) return 0;
+  const last = buckets[buckets.length - 1];
+  const secondLast = buckets[buckets.length - 2];
+  return Math.max(0, (last?.count ?? 0) - (secondLast?.count ?? 0));
+}
+
 // ── Summary pill chip ─────────────────────────────────────────────────
 
 interface PillChipProps {
@@ -148,7 +165,7 @@ function PillChip({ label, bg, fg }: PillChipProps) {
   return <span style={style}>{label}</span>;
 }
 
-// ── Sparkline with hover cursor ───────────────────────────────────────
+// ── Sparkline with animated area fill + hover cursor ──────────────────
 
 interface SparklineProps {
   buckets: SparklineBucket[];
@@ -158,6 +175,12 @@ function Sparkline({ buckets }: SparklineProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [cursorX, setCursorX] = useState<number | null>(null);
   const [tooltipIdx, setTooltipIdx] = useState<number | null>(null);
+  const [sparklineMounted, setSparklineMounted] = useState(false);
+
+  useEffect(() => {
+    const id = setTimeout(() => setSparklineMounted(true), 100);
+    return () => clearTimeout(id);
+  }, []);
 
   if (buckets.length === 0) return null;
 
@@ -183,6 +206,7 @@ function Sparkline({ buckets }: SparklineProps) {
     ` L ${pts[pts.length - 1].x.toFixed(1)},${H} Z`;
 
   const gradId = "shv-sparkline-grad";
+  const clipId = "sh-sparkline-clip";
 
   const handleMouseMove = useCallback((e: MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
@@ -229,12 +253,22 @@ function Sparkline({ buckets }: SparklineProps) {
             <stop offset="0%" stopColor={color.accent} stopOpacity={0.25} />
             <stop offset="100%" stopColor={color.accent} stopOpacity={0} />
           </linearGradient>
+          {/* Animated clip rect: grows from width 0 → W over 800ms */}
+          <clipPath id={clipId}>
+            <rect
+              x={0}
+              y={0}
+              width={sparklineMounted ? W : 0}
+              height={H}
+              style={{ transition: "width 800ms cubic-bezier(0.4,0,0.2,1)" }}
+            />
+          </clipPath>
         </defs>
 
-        {/* Area fill */}
-        <path d={areaPath} fill={`url(#${gradId})`} />
+        {/* Area fill — clipped by animated rect */}
+        <path d={areaPath} fill={`url(#${gradId})`} clipPath={`url(#${clipId})`} />
 
-        {/* Polyline */}
+        {/* Polyline — clipped by animated rect */}
         <polyline
           points={polyPoints}
           fill="none"
@@ -244,6 +278,7 @@ function Sparkline({ buckets }: SparklineProps) {
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
           opacity={0.85}
+          clipPath={`url(#${clipId})`}
         />
 
         {/* Dots — colored by worst smell kind in bucket (use accent as fallback) */}
@@ -291,7 +326,6 @@ function Sparkline({ buckets }: SparklineProps) {
           style={{
             position: "absolute",
             top: 4,
-            // Position tooltip: if bucket in left half, show right; else left
             ...(tooltipIdx !== null && tooltipIdx < buckets.length / 2
               ? { left: "50%" }
               : { right: "50%" }),
@@ -436,14 +470,14 @@ interface TrendBadgeProps {
 }
 
 function TrendBadge({ dir }: TrendBadgeProps) {
-  const configs: Record<TrendDir, { label: string; fg: string; bg: string }> = {
-    up:     { label: "↑ accelerating", fg: "#ef4444", bg: "rgba(239,68,68,0.10)" },
-    stable: { label: "→ stable",       fg: "#757575", bg: "rgba(117,117,117,0.10)" },
-    down:   { label: "↓ declining",    fg: "#22a06b", bg: "rgba(34,160,107,0.10)" },
+  const configs: Record<TrendDir, { label: string; fg: string; bg: string; arrowAnim: string | undefined }> = {
+    up:     { label: "↑ accelerating", fg: "#ef4444", bg: "rgba(239,68,68,0.10)",   arrowAnim: "sh-arrowBounce 0.6s ease 1" },
+    stable: { label: "→ stable",       fg: "#757575", bg: "rgba(117,117,117,0.10)", arrowAnim: undefined },
+    down:   { label: "↓ declining",    fg: "#22a06b", bg: "rgba(34,160,107,0.10)",  arrowAnim: "sh-arrowSlideDown 0.6s ease 1" },
   };
   const cfg = configs[dir];
 
-  const style: CSSProperties = {
+  const wrapStyle: CSSProperties = {
     display: "inline-flex",
     alignItems: "center",
     paddingLeft: 5,
@@ -457,9 +491,25 @@ function TrendBadge({ dir }: TrendBadgeProps) {
     fontSize: font.size.xs,
     fontWeight: font.weight.semibold,
     userSelect: "none",
+    gap: 2,
   };
 
-  return <span style={style}>{cfg.label}</span>;
+  // Split out the arrow character for animation
+  const parts = cfg.label.split(" ");
+  const arrow = parts[0];
+  const rest = parts.slice(1).join(" ");
+
+  const arrowStyle: CSSProperties = {
+    display: "inline-block",
+    animation: cfg.arrowAnim,
+  };
+
+  return (
+    <span style={wrapStyle}>
+      <span style={arrowStyle} aria-hidden="true">{arrow}</span>
+      {" "}{rest}
+    </span>
+  );
 }
 
 // ── Smell section ─────────────────────────────────────────────────────
@@ -473,6 +523,8 @@ interface SmellSectionProps {
   onHoverLeave: () => void;
   onFocus: (fileId: string) => void;
   entryOffset: number; // global entry index offset for stagger
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 function SmellSection({
@@ -484,8 +536,11 @@ function SmellSection({
   onHoverLeave,
   onFocus,
   entryOffset,
+  collapsed,
+  onToggleCollapse,
 }: SmellSectionProps) {
   const trend = computeTrend(sparklineBuckets);
+  const newCount = computeNewCount(sparklineBuckets);
 
   const sectionStyle: CSSProperties = {
     borderLeft: `4px solid ${meta.accentColor}`,
@@ -505,6 +560,23 @@ function SmellSection({
     paddingTop: space[2],
     paddingBottom: space[2],
     backgroundColor: hexToAlpha(meta.accentColor, 0.04),
+    cursor: "pointer",
+    userSelect: "none",
+  };
+
+  const chevronStyle: CSSProperties = {
+    border: "none",
+    background: "none",
+    padding: 0,
+    cursor: "pointer",
+    color: color.text2,
+    fontSize: 10,
+    lineHeight: 1,
+    display: "inline-flex",
+    alignItems: "center",
+    flexShrink: 0,
+    transform: collapsed ? "rotate(-90deg)" : "rotate(0deg)",
+    transition: `transform 150ms ease`,
   };
 
   const sectionLabelStyle: CSSProperties = {
@@ -532,7 +604,34 @@ function SmellSection({
     userSelect: "none",
   };
 
+  const newBadgeStyle: CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    paddingLeft: 5,
+    paddingRight: 5,
+    paddingTop: 1,
+    paddingBottom: 1,
+    borderRadius: radius.pill,
+    backgroundColor: "rgba(239,68,68,0.12)",
+    color: "#ef4444",
+    fontFamily: font.sans,
+    fontSize: font.size.xs,
+    fontWeight: font.weight.semibold,
+    userSelect: "none",
+  };
+
   const emptyStyle: CSSProperties = {
+    paddingLeft: space[3],
+    paddingRight: space[3],
+    paddingTop: space[2],
+    paddingBottom: space[2],
+    fontFamily: font.sans,
+    fontSize: font.size.xs,
+    color: color.text3,
+    fontStyle: "italic",
+  };
+
+  const hiddenChipStyle: CSSProperties = {
     paddingLeft: space[3],
     paddingRight: space[3],
     paddingTop: space[2],
@@ -545,15 +644,37 @@ function SmellSection({
 
   return (
     <section style={sectionStyle} aria-label={`${meta.label} smells`}>
-      <div style={headerStyle}>
+      <div
+        style={headerStyle}
+        onClick={onToggleCollapse}
+        role="button"
+        tabIndex={0}
+        aria-expanded={!collapsed}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") onToggleCollapse(); }}
+      >
+        <button
+          style={chevronStyle}
+          onClick={e => { e.stopPropagation(); onToggleCollapse(); }}
+          aria-label={collapsed ? "Expand section" : "Collapse section"}
+          tabIndex={-1}
+        >
+          ▼
+        </button>
         <span style={sectionLabelStyle}>{meta.label}</span>
         {entries.length > 0 && (
           <span style={countBadgeStyle}>{entries.length}</span>
         )}
+        {newCount > 0 && (
+          <span style={newBadgeStyle}>+{newCount} new</span>
+        )}
         <TrendBadge dir={trend} />
       </div>
 
-      {entries.length === 0 ? (
+      {collapsed ? (
+        entries.length > 0 ? (
+          <div style={hiddenChipStyle}>{entries.length} entries hidden</div>
+        ) : null
+      ) : entries.length === 0 ? (
         <div style={emptyStyle}>No {meta.label.toLowerCase()} smells found</div>
       ) : (
         entries.map((entry, i) => (
@@ -650,6 +771,7 @@ function SmellHistoryViewImpl({
   onDismiss,
 }: SmellHistoryViewProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [collapsedKinds, setCollapsedKinds] = useState<Set<SmellKind>>(new Set());
 
   useEffect(() => { ensureKeyframes(); }, []);
 
@@ -664,6 +786,18 @@ function SmellHistoryViewImpl({
     (fileId: string) => onFocusEntity?.(fileId),
     [onFocusEntity],
   );
+
+  const handleToggleCollapse = useCallback((kind: SmellKind) => {
+    setCollapsedKinds(prev => {
+      const next = new Set(prev);
+      if (next.has(kind)) {
+        next.delete(kind);
+      } else {
+        next.add(kind);
+      }
+      return next;
+    });
+  }, []);
 
   // Count unique files affected
   const filesAffected = useMemo(
@@ -822,6 +956,8 @@ function SmellHistoryViewImpl({
               onHoverLeave={handleHoverLeave}
               onFocus={handleFocus}
               entryOffset={offset}
+              collapsed={collapsedKinds.has(meta.kind)}
+              onToggleCollapse={() => handleToggleCollapse(meta.kind)}
             />
           );
         })}

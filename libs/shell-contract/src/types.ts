@@ -22,6 +22,11 @@ export interface TabDescriptor {
   id: string;
   app: AppKind;
   label: string;
+  /** Stable URL slug. Unique across open tabs; written into the hash
+   *  as `#/<slug>[/...][?...]`. When omitted, the shell derives one
+   *  from `app` (and suffixes `-2`, `-3`, … to disambiguate duplicates).
+   *  Keep it short + lowercase-kebab. */
+  slug?: string;
 }
 
 /** Each micro-web app exports this to register itself with the shell. */

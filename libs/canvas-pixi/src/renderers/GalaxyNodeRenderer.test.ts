@@ -43,6 +43,8 @@ const emptyView: ViewState = {
   focusedNodeId: null,
   hoveredClusterId: null,
   hoveredSuperclusterId: null,
+  selectedSymbolId: null,
+  hoveredSymbolId: null,
 };
 
 const vp: Viewport = { x: 0, y: 0, scale: 0.1, width: 800, height: 600 };

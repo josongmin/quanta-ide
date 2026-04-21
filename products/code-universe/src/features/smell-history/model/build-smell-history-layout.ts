@@ -72,6 +72,41 @@ function shortFileName(fileId: string): string {
   return parts.slice(-2).join("/");
 }
 
+// ── Mock data (shown when no git history is connected) ────────────────
+
+function mockSmellHistoryLayout(nowMs: number): SmellHistoryLayout {
+  const DAY = 86_400_000;
+  const rawEntries: SmellHistoryEntry[] = [
+    { id: "src/store/globalStore.ts::high-coupling",   fileId: "src/store/globalStore.ts",   fileName: "store/globalStore",   smell: "high-coupling",   firstSeenTimestamp: nowMs - 90 * DAY,  age: "3 months ago",  color: SMELL_COLORS["high-coupling"],   firstSeenSha: "a1b2c3d" },
+    { id: "src/api/dataService.ts::cycle-member",      fileId: "src/api/dataService.ts",      fileName: "api/dataService",     smell: "cycle-member",    firstSeenTimestamp: nowMs - 75 * DAY,  age: "2 months ago",  color: SMELL_COLORS["cycle-member"],    firstSeenSha: "b2c3d4e" },
+    { id: "src/utils/helpers.ts::risk-spike",          fileId: "src/utils/helpers.ts",        fileName: "utils/helpers",       smell: "risk-spike",      firstSeenTimestamp: nowMs - 60 * DAY,  age: "2 months ago",  color: SMELL_COLORS["risk-spike"],      firstSeenSha: "c3d4e5f" },
+    { id: "src/components/Dashboard.tsx::high-coupling", fileId: "src/components/Dashboard.tsx", fileName: "components/Dashboard", smell: "high-coupling", firstSeenTimestamp: nowMs - 45 * DAY, age: "6 weeks ago",  color: SMELL_COLORS["high-coupling"],   firstSeenSha: "d4e5f6a" },
+    { id: "src/domain/orderService.ts::layer-violation", fileId: "src/domain/orderService.ts", fileName: "domain/orderService", smell: "layer-violation", firstSeenTimestamp: nowMs - 30 * DAY, age: "1 month ago",  color: SMELL_COLORS["layer-violation"], firstSeenSha: "e5f6a7b" },
+    { id: "src/store/globalStore.ts::cycle-member",    fileId: "src/store/globalStore.ts",   fileName: "store/globalStore",   smell: "cycle-member",    firstSeenTimestamp: nowMs - 20 * DAY,  age: "20 days ago",   color: SMELL_COLORS["cycle-member"],    firstSeenSha: "f6a7b8c" },
+    { id: "src/infra/db.ts::risk-spike",               fileId: "src/infra/db.ts",             fileName: "infra/db",            smell: "risk-spike",      firstSeenTimestamp: nowMs - 12 * DAY,  age: "12 days ago",   color: SMELL_COLORS["risk-spike"],      firstSeenSha: "a7b8c9d" },
+    { id: "src/components/UserList.tsx::layer-violation", fileId: "src/components/UserList.tsx", fileName: "components/UserList", smell: "layer-violation", firstSeenTimestamp: nowMs - 5 * DAY, age: "5 days ago",   color: SMELL_COLORS["layer-violation"], firstSeenSha: "b8c9d0e" },
+  ];
+  rawEntries.sort((a, b) => b.firstSeenTimestamp - a.firstSeenTimestamp);
+
+  const byKind = new Map<SmellKind, SmellHistoryEntry[]>([
+    ["high-coupling",  []],
+    ["cycle-member",   []],
+    ["risk-spike",     []],
+    ["layer-violation",[]],
+  ]);
+  for (const e of rawEntries) byKind.get(e.smell)!.push(e);
+
+  const earliest = rawEntries[rawEntries.length - 1]!.firstSeenTimestamp;
+  const span = nowMs - earliest;
+  const sparkline: SparklineBucket[] = Array.from({ length: 12 }, (_, i) => {
+    const bucketTs = earliest + (span * i) / 11;
+    const count = rawEntries.filter(e => e.firstSeenTimestamp <= bucketTs).length;
+    return { index: i, count, timestamp: bucketTs };
+  });
+
+  return { entries: rawEntries, sparkline, byKind };
+}
+
 // ── Main entry ────────────────────────────────────────────────────────
 
 export function buildSmellHistoryLayout(
@@ -81,16 +116,10 @@ export function buildSmellHistoryLayout(
   const topN = opts.topN ?? DEFAULT_TOP_N;
   const nowMs = opts.nowMs ?? Date.now();
 
-  const EMPTY: SmellHistoryLayout = {
-    entries: [],
-    sparkline: [],
-    byKind: new Map(),
-  };
-
   // ── 1. Guard ──────────────────────────────────────────────────────
-  if (!graph.history) return EMPTY;
+  if (!graph.history) return mockSmellHistoryLayout(nowMs);
   const history = graph.history;
-  if (history.snapshots.length === 0) return EMPTY;
+  if (history.snapshots.length === 0) return mockSmellHistoryLayout(nowMs);
 
   // ── 2. Top N files by riskScore ───────────────────────────────────
   const sortedFiles = [...graph.files]

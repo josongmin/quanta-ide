@@ -1,6 +1,6 @@
 import { Suspense, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { clamp } from "@quanta/canvas-engine";
-import { LayoutProvider, type TabDescriptor } from "@quanta/shell-contract";
+import { LayoutProvider, TabRouteProvider, type TabDescriptor } from "@quanta/shell-contract";
 import { Topbar } from "@quanta/shell/widgets/topbar";
 import { useGlobalShortcuts } from "@quanta/shell/features/global-shortcuts";
 import { ToastHost } from "@quanta/ui-kit/ui/toast";
@@ -23,11 +23,11 @@ seedFeatures();
 // Initial tabs — Phase A hardcoded; will become persisted workspace state.
 // ---------------------------------------------------------------------------
 const initialTabs: TabDescriptor[] = [
-  { id: "t1", app: "demo", label: "Try demo" },
-  { id: "t2", app: "ide", label: "order-service" },
-  { id: "t3", app: "ide", label: "payment-service" },
-  { id: "t4", app: "workspace", label: "Code Universe" },
-  { id: "t5", app: "universe", label: "Code Universe v2" },
+  { id: "t1", app: "demo", label: "Try demo", slug: "demo" },
+  { id: "t2", app: "ide", label: "order-service", slug: "order-service" },
+  { id: "t3", app: "ide", label: "payment-service", slug: "payment-service" },
+  { id: "t4", app: "workspace", label: "Code Universe", slug: "code-universe" },
+  { id: "t5", app: "universe", label: "Code Universe v2", slug: "universe" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -134,11 +134,16 @@ export function Shell() {
     const descriptor = appRegistry.get(activeTab.app);
     if (!descriptor) return null;
     const Comp = descriptor.Component;
+    // Scope URL routing to the active tab — the provider remounts
+    // on slug change so one tab's query/path can't leak into another's.
+    const slug = activeTab.slug ?? activeTab.app;
     return (
       <LayoutProvider value={resizeCtx}>
-        <Suspense fallback={<AppSkeleton />}>
-          <Comp tabId={activeTab.id} isActive />
-        </Suspense>
+        <TabRouteProvider key={slug} slug={slug}>
+          <Suspense fallback={<AppSkeleton />}>
+            <Comp tabId={activeTab.id} isActive />
+          </Suspense>
+        </TabRouteProvider>
       </LayoutProvider>
     );
   };

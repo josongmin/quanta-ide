@@ -52,14 +52,13 @@ interface Props {
 
 export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
   const expanded = useIsExpanded(entity.id);
-  const selectedId = useEntityState(s => s.interaction.selectedId);
-  const anchorId = useEntityState(s => s.interaction.anchorId);
-  const hoveredId = useEntityState(s => s.interaction.hoveredId);
-  const isSelected = selectedId === entity.id;
-  const isAnchor = anchorId === entity.id;
-  const isHovered = hoveredId === entity.id;
+  const isSelected = useEntityState(s => s.interaction.selectedId === entity.id);
+  const isAnchor = useEntityState(s => s.interaction.anchorId === entity.id);
+  const isHovered = useEntityState(s => s.interaction.hoveredId === entity.id);
+  const isHoveredAncestor = useEntityState(s => s.interaction.hoveredAncestorIds.has(entity.id));
   const hasChildren = entity.childIds.length > 0;
   const rowRef = useRef<HTMLDivElement | null>(null);
+  const locateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Scroll into view when the canvas makes us the focus. Runs on
   // both the transition *into* anchor/selected and on first mount
@@ -70,6 +69,10 @@ export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
     if (!isAnchor && !isSelected) return;
     rowRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [isAnchor, isSelected]);
+
+  useEffect(() => () => {
+    if (locateTimerRef.current !== null) clearTimeout(locateTimerRef.current);
+  }, []);
 
   const onClickRow = useCallback(() => {
     // Explorer click is a deliberate navigation — treat it like a
@@ -84,10 +87,27 @@ export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
     const spec = DEFAULT_TIER_LADDER.find(t => t.visibleKind === entity.kind);
     if (spec) tierStore.jumpToTier(spec.name);
   }, [entity.id, entity.kind]);
-  const onMouseEnter = useCallback(() => entityStore.hoverEntity(entity.id), [entity.id]);
+  const onMouseEnter = useCallback(() => {
+    entityStore.hoverEntity(entity.id);
+    // After a short pause, ask the canvas to pan to this entity if it's
+    // off-screen — "I want to see where this lives" without committing a
+    // selection. Cancelled immediately on mouse-leave so quick sweeps
+    // across the tree don't jitter the camera.
+    locateTimerRef.current = setTimeout(() => {
+      locateTimerRef.current = null;
+      entityStore.locateEntity(entity.id);
+    }, 350);
+  }, [entity.id]);
   const onMouseLeave = useCallback(() => {
+    if (locateTimerRef.current !== null) {
+      clearTimeout(locateTimerRef.current);
+      locateTimerRef.current = null;
+    }
     const cur = entityStore.getState().interaction.hoveredId;
     if (cur === entity.id) entityStore.hoverEntity(null);
+    // Always clear locate on leave so the same entity can be re-located
+    // the next time the user pauses on it.
+    entityStore.locateEntity(null);
   }, [entity.id]);
   const onToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -140,8 +160,9 @@ export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            color: color.text2,
+            color: isHoveredAncestor && !expanded ? color.accent : color.text2,
             flexShrink: 0,
+            transition: `color ${transition.fast}`,
           }}
           onClick={hasChildren ? onToggle : undefined}
         >

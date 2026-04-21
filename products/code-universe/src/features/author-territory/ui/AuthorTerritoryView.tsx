@@ -14,6 +14,12 @@
 //   8. Title + subtitle + ownership concentration chip (top-left)
 //   9. Legend chips (bottom — clickable, dims others to 0.3)
 //  10. Empty state
+//
+// Legendary upgrades:
+//   - Territory bloom animation (scale from center, fill-box)
+//   - Ownership percentage arc for top author (top-right donut arc)
+//   - File heat overlay on author focus (age-coded tint)
+//   - File count badge / ownership % pill on territories (height > 70)
 
 import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
@@ -44,6 +50,14 @@ const TOOLTIP_R = 6;
 const RISK_BAR_W = 80;
 const RISK_BAR_H = 5;
 const ONE_WEEK_MS = 7 * 24 * 3600 * 1000;
+
+// Heat overlay age thresholds (in ms)
+const HEAT_FRESH_MS   = 30 * 24 * 3600 * 1000;   // < 30 days
+const HEAT_MEDIUM_MS  = 180 * 24 * 3600 * 1000;  // 30–180 days
+
+// Ownership arc constants
+const ARC_R = 32;
+const ARC_STROKE_W = 6;
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -101,6 +115,30 @@ function riskFill(risk: number): string {
   return `hsl(${hue}, 65%, 50%)`;
 }
 
+/**
+ * SVG arc path for a sector from startAngle to endAngle (degrees, clockwise from top).
+ * Returns a path string for use as `<path d={...} />`.
+ */
+function describeArc(cx: number, cy: number, r: number, startDeg: number, endDeg: number): string {
+  // Clamp to avoid full-circle degenerate case
+  const sweep = Math.min(endDeg - startDeg, 359.99);
+  const startRad = ((startDeg - 90) * Math.PI) / 180;
+  const endRad   = ((startDeg + sweep - 90) * Math.PI) / 180;
+  const x1 = cx + r * Math.cos(startRad);
+  const y1 = cy + r * Math.sin(startRad);
+  const x2 = cx + r * Math.cos(endRad);
+  const y2 = cy + r * Math.sin(endRad);
+  const largeArc = sweep > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+}
+
+/** Heat tint color for a file based on age. */
+function heatColor(ageMs: number): string {
+  if (ageMs < HEAT_FRESH_MS)  return "rgba(34,197,94,0.25)";
+  if (ageMs < HEAT_MEDIUM_MS) return "rgba(245,158,11,0.15)";
+  return "rgba(239,68,68,0.15)";
+}
+
 // ── Inject once-per-lifetime keyframes ───────────────────────────────
 
 function injectKeyframes(): void {
@@ -113,9 +151,17 @@ function injectKeyframes(): void {
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
+    @keyframes atBloom {
+      from { opacity: 0; transform: scale(0.85); }
+      to   { opacity: 1; transform: scale(1); }
+    }
     @keyframes recentPulse {
       0%,100% { opacity: 0.6; }
       50%     { opacity: 0; }
+    }
+    @keyframes atArcIn {
+      from { stroke-dashoffset: var(--at-arc-circ); }
+      to   { stroke-dashoffset: var(--at-arc-offset); }
     }
     .at-pulse-ring {
       animation: recentPulse 1.8s ease-out infinite;
@@ -275,6 +321,86 @@ function ConcentrationChip({ groups, totalLoc }: ConcentrationChipProps) {
   );
 }
 
+// ── Ownership arc (top-right corner donut) ─────────────────────────────
+
+interface OwnershipArcProps {
+  groups: AuthorGroup[];
+  totalLoc: number;
+  svgW: number;
+  mounted: boolean;
+}
+
+function OwnershipArc({ groups, totalLoc, svgW, mounted }: OwnershipArcProps) {
+  if (groups.length === 0 || totalLoc === 0) return null;
+
+  const topAuthor = groups.reduce((a, b) => (a.totalLoc > b.totalLoc ? a : b));
+  const pct = Math.round((topAuthor.totalLoc / totalLoc) * 100);
+
+  const cx = svgW - 50;
+  const cy = 50;
+  const r = ARC_R;
+  const circumference = 2 * Math.PI * r;
+  const arcDeg = (pct / 100) * 360;
+  const dashOffset = circumference - (pct / 100) * circumference;
+
+  return (
+    <g style={{ pointerEvents: "none" }}>
+      {/* Track ring */}
+      <circle
+        cx={cx}
+        cy={cy}
+        r={r}
+        fill="none"
+        stroke={tokenColor.border}
+        strokeWidth={ARC_STROKE_W}
+      />
+
+      {/* Arc foreground — animate stroke-dashoffset on mount */}
+      {mounted && (
+        <path
+          d={describeArc(cx, cy, r, 0, arcDeg)}
+          fill="none"
+          stroke={topAuthor.color}
+          strokeWidth={ARC_STROKE_W}
+          strokeLinecap="round"
+          style={{
+            strokeDasharray: circumference,
+            strokeDashoffset: dashOffset,
+            transition: `stroke-dashoffset 900ms ease-out 200ms`,
+          }}
+        />
+      )}
+
+      {/* Percentage label */}
+      <text
+        x={cx}
+        y={cy - 6}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontFamily={font.sans}
+        fontSize={font.size.lg}
+        fontWeight={font.weight.bold}
+        fill={tokenColor.text0}
+      >
+        {pct}%
+      </text>
+
+      {/* "top author" sub-label */}
+      <text
+        x={cx}
+        y={cy + 9}
+        textAnchor="middle"
+        dominantBaseline="hanging"
+        fontFamily={font.sans}
+        fontSize={font.size.xxs}
+        fill={tokenColor.text2}
+      >
+        top author
+      </text>
+    </g>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────
 
 function AuthorTerritoryViewImpl({
@@ -392,6 +518,9 @@ function AuthorTerritoryViewImpl({
   const activeAuthor =
     focusedAuthor ?? hoverAuthorPreview ?? (hoveredFile?.author ?? null);
 
+  // Heat overlay is shown when an author is focused (not just hovered)
+  const heatActive = focusedAuthor !== null;
+
   return (
     <div
       style={rootStyle}
@@ -420,20 +549,24 @@ function AuthorTerritoryViewImpl({
           style={{ cursor: onDismiss ? "default" : "inherit" }}
         />
 
-        {/* 2. Territory fills + 2px solid "grout" borders */}
+        {/* 2. Territory fills + 2px solid "grout" borders — bloom animation */}
         {groups.map((g, gi) => {
           const dimmed = activeAuthor !== null && activeAuthor !== g.author;
           const staggerDelay = gi * STAGGER_MS;
+          const originX = g.territory.x + g.territory.w / 2;
+          const originY = g.territory.y + g.territory.h / 2;
           return (
             <g
               key={`territory-${g.author}`}
               style={{
                 pointerEvents: "none",
-                opacity: mounted ? (dimmed ? 0.3 : 1) : 0,
+                opacity: dimmed ? 0.3 : 1,
                 transition: `opacity 150ms ease-out`,
+                transformOrigin: `${originX}px ${originY}px`,
+                transformBox: "fill-box" as CSSProperties["transformBox"],
                 animation: mounted
-                  ? `atFadeUp ${ENTRY_MS}ms ${staggerDelay}ms ease-out both`
-                  : undefined,
+                  ? `atBloom ${ENTRY_MS}ms ease-out ${staggerDelay}ms both`
+                  : `atBloom ${ENTRY_MS}ms ease-out ${staggerDelay}ms both paused`,
               }}
             >
               {/* Territory fill */}
@@ -460,7 +593,7 @@ function AuthorTerritoryViewImpl({
           );
         })}
 
-        {/* 3+4+5. File rects, pulse rings, labels */}
+        {/* 3+4+5. File rects, pulse rings, labels, heat overlay */}
         {groups.map((g, gi) => {
           const groupDimmed = activeAuthor !== null && activeAuthor !== g.author;
           const staggerDelay = gi * STAGGER_MS + 40;
@@ -517,6 +650,24 @@ function AuthorTerritoryViewImpl({
                       style={{ transition: `stroke ${transition.fast}` }}
                     />
 
+                    {/* File heat overlay — shown when an author is focused */}
+                    {heatActive && (
+                      <rect
+                        x={fx}
+                        y={fy}
+                        width={fw}
+                        height={fh}
+                        rx={1}
+                        fill={heatColor(f.ageMs)}
+                        style={{
+                          opacity: heatActive ? 1 : 0,
+                          transition: `opacity 200ms ease-out`,
+                          pointerEvents: "none",
+                        }}
+                        pointerEvents="none"
+                      />
+                    )}
+
                     {/* Recent-edit glow ring (< 7 days) */}
                     {isRecent && !groupDimmed && fw > 4 && fh > 4 && (
                       <circle
@@ -553,7 +704,7 @@ function AuthorTerritoryViewImpl({
           );
         })}
 
-        {/* 6. Author territory labels */}
+        {/* 6. Author territory labels + ownership % pill */}
         {groups.map((g) => {
           const dimmed = activeAuthor !== null && activeAuthor !== g.author;
           const cx = g.territory.x + g.territory.w / 2;
@@ -562,6 +713,8 @@ function AuthorTerritoryViewImpl({
 
           const labelY = g.territory.y + 14;
           const showSub = g.territory.h > 52;
+          const showPill = g.territory.h > 70 && totalLoc > 0;
+          const ownershipPct = totalLoc > 0 ? Math.round((g.totalLoc / totalLoc) * 100) : 0;
 
           return (
             <g
@@ -605,6 +758,37 @@ function AuthorTerritoryViewImpl({
                 >
                   {g.files.length} files · {kLoc(g.totalLoc)}
                 </text>
+              )}
+
+              {/* Ownership % pill (foreignObject) */}
+              {showPill && (
+                <foreignObject
+                  x={cx - 56}
+                  y={labelY + (showSub ? 34 : 18)}
+                  width={112}
+                  height={20}
+                  style={{ pointerEvents: "none", overflow: "visible" }}
+                >
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "100%",
+                      height: "100%",
+                      background: hexWithAlpha(g.color, 0.18),
+                      borderRadius: tokenRadius.pill,
+                      border: `1px solid ${hexWithAlpha(g.color, 0.35)}`,
+                      fontFamily: font.sans,
+                      fontSize: font.size.xxs,
+                      fontWeight: font.weight.semibold,
+                      color: tokenColor.text1,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {ownershipPct}% of codebase
+                  </div>
+                </foreignObject>
               )}
             </g>
           );
@@ -731,6 +915,16 @@ function AuthorTerritoryViewImpl({
         </g>
         {layout.hasBlame && (
           <ConcentrationChip groups={layout.groups} totalLoc={totalLoc} />
+        )}
+
+        {/* Ownership arc — top-right corner */}
+        {layout.hasBlame && dims.w >= 160 && (
+          <OwnershipArc
+            groups={layout.groups}
+            totalLoc={totalLoc}
+            svgW={dims.w}
+            mounted={mounted}
+          />
         )}
       </svg>
 

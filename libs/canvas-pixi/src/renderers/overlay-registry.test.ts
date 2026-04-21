@@ -73,6 +73,8 @@ function makeStubCtx(): OverlayRenderCtx {
       focusedNodeId: null,
       hoveredClusterId: null,
       hoveredSuperclusterId: null,
+      selectedSymbolId: null,
+      hoveredSymbolId: null,
     },
     lod: "city",
     fileLookup: new Map(),

@@ -56,6 +56,8 @@ const emptyView: ViewState = {
   focusedNodeId: null,
   hoveredClusterId: null,
   hoveredSuperclusterId: null,
+  selectedSymbolId: null,
+  hoveredSymbolId: null,
 };
 
 // Below LABEL_MIN_SCREEN_SCALE (0.25) to keep label acquisition off the hot
