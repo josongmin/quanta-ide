@@ -3,9 +3,18 @@
 // Shared building blocks: Section, MetricCard, ConfidenceChip, Sparkline,
 // EmptyState, ScoreRing. All inline-styled to match the rest of the
 // product — no CSS modules, no class names.
+//
+// Visual language — Google Cloud Console / Gemini dashboard:
+//   - Pure white surface
+//   - Flat cards: 1px subtle border, 16px radius, NO shadow
+//   - Compact rounded-pill chips with a colored dot + label
+//   - Large bold section titles, muted captions
+// Every primitive here is the ground truth for the Dashboard tab
+// surface; existing tabs (RepoHealthTab, GovernanceTab, ...) inherit
+// these styles automatically.
 
 import type { CSSProperties, ReactElement, ReactNode } from "react";
-import { color, font, radius, shadow, space } from "../../../shared/ui/tokens";
+import { color, font, radius, space } from "../../../shared/ui/tokens";
 import type { Confidence, Metric, Sentiment } from "../model/types";
 
 // ── Shared palette ────────────────────────────────────────────────────
@@ -33,6 +42,7 @@ export function bucketColor(bucket: "low" | "medium" | "high"): string {
 export function Section(props: {
   title: string;
   caption?: string;
+  info?: string;
   right?: ReactNode;
   children: ReactNode;
 }): ReactElement {
@@ -40,7 +50,10 @@ export function Section(props: {
     <section style={SECTION_WRAP}>
       <header style={SECTION_HEADER}>
         <div style={SECTION_TITLE_COL}>
-          <h3 style={SECTION_TITLE}>{props.title}</h3>
+          <h3 style={SECTION_TITLE}>
+            {props.title}
+            {props.info ? <InfoIcon title={props.info} /> : null}
+          </h3>
           {props.caption ? <span style={SECTION_CAPTION}>{props.caption}</span> : null}
         </div>
         {props.right ? <div style={{ display: "flex", alignItems: "center", gap: space[2] }}>{props.right}</div> : null}
@@ -54,7 +67,7 @@ const SECTION_WRAP: CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: space[3],
-  marginBottom: space[6],
+  marginBottom: space[7],
 };
 
 const SECTION_HEADER: CSSProperties = {
@@ -72,16 +85,20 @@ const SECTION_TITLE_COL: CSSProperties = {
 
 const SECTION_TITLE: CSSProperties = {
   margin: 0,
-  fontSize: font.size.xl,
+  fontSize: 18,
   fontWeight: font.weight.semibold,
-  letterSpacing: font.letter.tight,
+  letterSpacing: -0.2,
   color: color.text0,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
 };
 
 const SECTION_CAPTION: CSSProperties = {
-  fontSize: font.size.xs,
+  fontSize: font.size.sm,
   color: color.text2,
-  letterSpacing: font.letter.tight,
+  letterSpacing: 0,
+  lineHeight: 1.45,
 };
 
 // ── Confidence chip ───────────────────────────────────────────────────
@@ -100,13 +117,14 @@ export function ConfidenceChip(props: {
         display: "inline-flex",
         alignItems: "center",
         gap: 5,
-        padding: small ? "1px 6px 1px 5px" : "2px 8px 2px 6px",
+        padding: small ? "1px 8px 1px 7px" : "2px 10px 2px 8px",
         borderRadius: radius.pill,
-        fontSize: small ? 9.5 : font.size.xs,
+        fontSize: small ? 10 : font.size.xs,
         fontWeight: font.weight.semibold,
-        letterSpacing: 0.3,
+        letterSpacing: 0.2,
         color: s.fg,
-        background: s.bg,
+        background: "transparent",
+        border: `1px solid ${color.border}`,
         cursor: props.reason ? "help" : "default",
         textTransform: "uppercase",
         fontFamily: font.sans,
@@ -116,6 +134,171 @@ export function ConfidenceChip(props: {
       <span style={{ width: 5, height: 5, borderRadius: 999, background: s.dot }} />
       {props.confidence}
     </span>
+  );
+}
+
+// ── Tier chip (Gemini-style blue-dot pill) ──────────────────────────
+// Small rounded-pill badge that attaches to a title, e.g. `Tier 1`,
+// `ACTIVE`, `BETA`. Accent-colored dot + label inside a neutral
+// bordered pill. Ship this wherever a compact status indicator reads
+// naturally next to prose.
+
+export function TierChip(props: {
+  label: string;
+  accent?: string;
+}): ReactElement {
+  const a = props.accent ?? color.accent;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "2px 10px 2px 8px",
+        borderRadius: radius.pill,
+        border: `1px solid ${color.border}`,
+        background: "#ffffff",
+        fontSize: font.size.xs,
+        fontWeight: font.weight.medium,
+        color: color.text1,
+        letterSpacing: 0.1,
+        fontFamily: font.sans,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: a }} />
+      {props.label}
+    </span>
+  );
+}
+
+// ── Info icon (ⓘ) ────────────────────────────────────────────────────
+// Inline help affordance shown next to section titles in the Gemini
+// Console. Pure SVG so the size stays crisp at every zoom.
+
+export function InfoIcon(props: { title?: string }): ReactElement {
+  return (
+    <svg
+      width={14}
+      height={14}
+      viewBox="0 0 14 14"
+      aria-hidden={!props.title}
+      role={props.title ? "img" : undefined}
+      style={{ color: color.text3, flexShrink: 0 }}
+    >
+      {props.title ? <title>{props.title}</title> : null}
+      <circle cx={7} cy={7} r={6.25} fill="none" stroke="currentColor" strokeWidth={1.1} />
+      <circle cx={7} cy={4.2} r={0.9} fill="currentColor" />
+      <rect x={6.35} y={5.9} width={1.3} height={4.2} rx={0.6} fill="currentColor" />
+    </svg>
+  );
+}
+
+// ── Progress bar (Gemini usage track) ───────────────────────────────
+// Thin pill-shaped bar with a dark leading segment representing usage
+// against a limit. When `value/limit` is tiny, we render a small
+// solid dot on the left instead of a hairline — matches the console's
+// "●━━━━━━━━  2 / 2K" readout.
+
+export function ProgressBar(props: {
+  value: number;
+  limit: number;
+  width?: number;
+  tone?: "default" | "danger" | "success";
+}): ReactElement {
+  const w = props.width ?? 180;
+  const h = 6;
+  const ratio = props.limit > 0 ? Math.max(0, Math.min(1, props.value / props.limit)) : 0;
+  const filled = Math.max(ratio * w, ratio > 0 ? 8 : 0);
+  const fill =
+    props.tone === "danger" ? color.danger :
+    props.tone === "success" ? color.success :
+    color.text0;
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: w,
+        height: h,
+        borderRadius: radius.pill,
+        background: color.bg3,
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          width: filled,
+          height: h,
+          borderRadius: radius.pill,
+          background: fill,
+          transition: "width 280ms ease-out",
+        }}
+      />
+    </div>
+  );
+}
+
+// ── Limit chart (axis with red dashed threshold) ────────────────────
+// Single-metric card body: label + big Y scale on right + horizontal
+// red dashed line at `limit` with a `Limit` pill at its left tip.
+// Used for the "비율 제한 분류" / rate-limit slots in the dashboard.
+
+export function LimitChart(props: {
+  value: number;
+  limit: number;
+  height?: number;
+  formatValue?: (v: number) => string;
+}): ReactElement {
+  const h = props.height ?? 200;
+  const fmt = props.formatValue ?? ((v: number) => v.toLocaleString());
+  // Scale: axis goes from 0 to max(value, limit*2) so the limit line
+  // lands around mid-height when usage is well below it.
+  const top = Math.max(props.value, props.limit * 2, 1);
+  const limitY = h - (props.limit / top) * h;
+  return (
+    <div style={{ position: "relative", width: "100%", height: h }}>
+      {/* Top gridline + label */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, borderTop: `1px solid ${color.border}` }} />
+      <div style={{ position: "absolute", top: -8, right: 0, fontSize: font.size.sm, color: color.text1, fontVariantNumeric: "tabular-nums" }}>
+        {fmt(top)}
+      </div>
+      {/* Limit line */}
+      <div
+        style={{
+          position: "absolute",
+          top: limitY,
+          left: 0,
+          right: 0,
+          borderTop: `1.5px dashed ${color.danger}`,
+        }}
+      />
+      <span
+        style={{
+          position: "absolute",
+          top: limitY - 11,
+          left: 0,
+          padding: "2px 8px",
+          borderRadius: 4,
+          background: color.danger,
+          color: "#ffffff",
+          fontSize: 10,
+          fontWeight: font.weight.semibold,
+          letterSpacing: 0.3,
+          lineHeight: 1.4,
+          fontFamily: font.sans,
+        }}
+      >
+        Limit
+      </span>
+      <div style={{ position: "absolute", top: limitY + 6, right: 0, fontSize: font.size.sm, color: color.text1, fontVariantNumeric: "tabular-nums" }}>
+        {fmt(props.limit)}
+      </div>
+      {/* Baseline + 0 label */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, borderTop: `1px solid ${color.border}` }} />
+      <div style={{ position: "absolute", bottom: -8, right: 0, fontSize: font.size.sm, color: color.text1, fontVariantNumeric: "tabular-nums" }}>
+        0
+      </div>
+    </div>
   );
 }
 
@@ -242,12 +425,11 @@ export function MetricCard(props: { metric: Metric; tone?: "default" | "accent" 
 const CARD_BASE: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: space[2],
-  padding: `${space[3]}px ${space[4]}px`,
-  background: color.bg1,
+  gap: 10,
+  padding: `18px 20px 16px`,
+  background: "#ffffff",
   border: `1px solid ${color.border}`,
-  borderRadius: radius.lg,
-  boxShadow: shadow.xs,
+  borderRadius: 12,
   minWidth: 0,
 };
 
@@ -262,7 +444,7 @@ const CARD_LABEL: CSSProperties = {
   fontSize: font.size.sm,
   fontWeight: font.weight.medium,
   color: color.text1,
-  letterSpacing: font.letter.tight,
+  letterSpacing: 0,
 };
 
 const CARD_VALUE_ROW: CSSProperties = {
@@ -273,9 +455,9 @@ const CARD_VALUE_ROW: CSSProperties = {
 };
 
 const CARD_VALUE: CSSProperties = {
-  fontSize: 24,
+  fontSize: 28,
   fontFamily: font.sans,
-  letterSpacing: -0.5,
+  letterSpacing: -0.8,
   lineHeight: 1.1,
   fontVariantNumeric: "tabular-nums",
 };
@@ -283,7 +465,8 @@ const CARD_VALUE: CSSProperties = {
 const CARD_HINT: CSSProperties = {
   fontSize: font.size.xs,
   color: color.text2,
-  letterSpacing: font.letter.tight,
+  letterSpacing: 0,
+  marginTop: 2,
 };
 
 const MISSING_HINT: CSSProperties = {
@@ -321,9 +504,9 @@ const EMPTY_WRAP: CSSProperties = {
   justifyContent: "center",
   gap: space[2],
   padding: `${space[7]}px ${space[4]}px`,
-  background: color.bg2,
+  background: "#ffffff",
   border: `1px dashed ${color.border}`,
-  borderRadius: radius.lg,
+  borderRadius: 12,
   color: color.text2,
   textAlign: "center",
 };

@@ -123,18 +123,18 @@ export interface MindMapViewProps {
 }
 
 // ── Stagger schedule (ms) ────────────────────────────────────────────
-const DELAY_CENTER     = 0;
-const DELAY_AGG        = 55;
-const DELAY_TRUNK_EDGE = 30;
-const DELAY_SPOKE_BASE = 120;
-const DELAY_SPOKE_STEP = 12;
-const DELAY_ENTITY_BASE = 95;
-const DELAY_ENTITY_STEP = 14;
-
-// Re-centre glide — slower feels more deliberate and lets the eye
-// follow nodes swapping orbits instead of teleporting.
-const RECENTRE_MS    = 780;
-const INITIAL_POS_MS = 0;
+// Slightly stretched so the outer group rotation and per-node scale-in
+// read as a coordinated "unfolding" rather than two animations
+// overlapping. Entity base/step bumped because the per-node scale now
+// plays on TOP of a group-level rotate-in — want them to crystallise
+// after the rotation settles, not during it.
+const DELAY_CENTER     = 40;
+const DELAY_AGG        = 140;
+const DELAY_TRUNK_EDGE = 110;
+const DELAY_SPOKE_BASE = 260;
+const DELAY_SPOKE_STEP = 18;
+const DELAY_ENTITY_BASE = 220;
+const DELAY_ENTITY_STEP = 22;
 
 // ── CSS keyframes ────────────────────────────────────────────────────
 const KEYFRAMES = `
@@ -151,15 +151,18 @@ const KEYFRAMES = `
   0%, 100% { stroke-opacity: 0.55; }
   50%       { stroke-opacity: 0.78; }
 }
-/* Entrance — subtle rotate-in + fade, plays once when the mind-map
- * mounts. The rotation is small (~3°) so it reads as "the graph is
- * settling into place" rather than a spinning animation. Runs in the
- * inner wrapper (inside pan/zoom) so it rotates around the graph's
- * own center, not the SVG's top-left. */
+/* Entrance — re-plays on every re-center via key={centerId} on the
+ * wrapper. A fast "쉬리릭" swing: the graph spins in ~135° CCW from
+ * a small, dim scale, then uses the last third of the timeline to
+ * glide smoothly into place. The two-step easing (aggressive first
+ * half via the 40% → 70% keyframes, cubic-out on the rest) gives the
+ * whoosh feel without overshooting the rest position. */
 @keyframes mm-enter {
-  0%   { opacity: 0; transform: rotate(-3deg)  scale(0.96); }
-  55%  { opacity: 1;                                        }
-  100% { opacity: 1; transform: rotate(0deg)   scale(1);    }
+  0%   { opacity: 0; transform: rotate(-135deg) scale(0.60); }
+  25%  { opacity: 0.55;                                      }
+  55%  { opacity: 1;  transform: rotate(-18deg) scale(0.96); }
+  78%  { transform: rotate(6deg)   scale(1.02);              }
+  100% { opacity: 1;  transform: rotate(0deg)   scale(1);    }
 }
 `;
 
@@ -175,15 +178,6 @@ function MindMapViewImpl({
   onFocusEntity,
   onDismiss,
 }: MindMapViewProps) {
-  const [lastCenterId, setLastCenterId] = useState<string | null>(null);
-  const isInitial = graph ? lastCenterId !== graph.centerId : true;
-
-  useEffect(() => {
-    if (graph && graph.centerId !== lastCenterId) {
-      setLastCenterId(graph.centerId);
-    }
-  }, [graph, lastCenterId]);
-
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const handleHoverChange = useCallback((id: string | null) => setHoveredNodeId(id), []);
 
@@ -333,14 +327,6 @@ function MindMapViewImpl({
         userSelect: "none",
         background: "transparent",
         cursor: isDragging || draggingId ? "grabbing" : "grab",
-        // Subtle rotate-in on mount. SVG element's CSS transform-origin
-        // defaults to 50% 50% (the SVG rect's center) — which coincides
-        // with where the center node sits — so the graph swings into
-        // place around its own pivot. `both` fill-mode holds the final
-        // state so the anim doesn't restart on style re-renders (cursor
-        // swaps during drag would otherwise be suspect).
-        animation: "mm-enter 560ms cubic-bezier(0.22, 1, 0.36, 1) both",
-        transformOrigin: "50% 50%",
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -439,6 +425,21 @@ function MindMapViewImpl({
         className="mindmap-root"
         style={{ transform: rootTransform, transformOrigin: "0px 0px" }}
       >
+        {/* Centered-content wrapper — keyed by centerId so React remounts
+         *  it on every re-center, which re-plays the `mm-enter` keyframe
+         *  (fade + ~30° unrotation + scale). Rotation origin is (0,0)
+         *  within this group, which maps to the centre node's position,
+         *  so the graph swings into place around its new focus instead
+         *  of around the viewport corner. Node-level stagger (mountDelayMs)
+         *  layers on top — center first, aggregators, then entities. */}
+        <g
+          key={graph.centerId}
+          style={{
+            animation: "mm-enter 900ms cubic-bezier(0.22, 1, 0.28, 1) both",
+            transformOrigin: "0px 0px",
+            transformBox: "fill-box",
+          }}
+        >
         {/* ── Atmosphere layer ──────────────────────────────────────────
          *  Sits beneath the edges/nodes. Provides:
          *    (a) pie-slice wedges that visually bind each aggregator's
@@ -563,7 +564,7 @@ function MindMapViewImpl({
 
         {/* Nodes */}
         {graph.nodes.map((node) => {
-          let mountDelay = DELAY_ENTITY_BASE;
+          let mountDelay: number;
           if (node.kind === "center") {
             mountDelay = DELAY_CENTER;
           } else if (node.kind === "aggregator") {
@@ -580,7 +581,7 @@ function MindMapViewImpl({
               key={node.id}
               node={node}
               mountDelayMs={mountDelay}
-              positionTransitionMs={isInitial ? INITIAL_POS_MS : RECENTRE_MS}
+              positionTransitionMs={0}
               onFocusEntity={onFocusEntity}
               onHoverChange={handleHoverChange}
               offsetX={off?.dx ?? 0}
@@ -594,6 +595,7 @@ function MindMapViewImpl({
             />
           );
         })}
+        </g>
       </g>
     </svg>
   );

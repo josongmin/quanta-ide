@@ -152,6 +152,26 @@ export const IDE_FEATURES: readonly FeatureManifest[] = [
     },
   },
   {
+    id: "code-city",
+    title: "Code City (3D)",
+    description:
+      "Standalone tab — files as skyscrapers, dependencies as aerial wires, risk as fire and tilt. Uses the same workspace graph as Code Universe.",
+    category: "intelligence",
+    visibility: "user",
+    version: "0.1.0",
+    badge: "new",
+    commands: [
+      {
+        id: "codeCity.openTab",
+        title: "Open Code City (3D)",
+        description: "Open the Code City tab — 3D buildings from the workspace graph.",
+        run: () => {
+          tabBus.open("code-city", "Code City");
+        },
+      },
+    ],
+  },
+  {
     id: "security-rules",
     title: "Security Rules",
     description:

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import BoringAvatar from "boring-avatars";
 import {
   Bot,
+  Building2,
   Code2,
   FileCheck,
   Gauge,
@@ -25,7 +26,7 @@ import "./topbar.css";
 /** Show floating title when tab is this narrow (px), or when the label is truncated. */
 const TAB_TITLE_TIP_NARROW_PX = 128;
 
-export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "universe" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo";
+export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "universe" | "code-city" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo";
 export interface Tab { id: string; app: AppKind; label: string; }
 
 const TAB_ICON_SIZE = 13;
@@ -37,6 +38,7 @@ const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   ide:         () => <Code2           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   workspace:   () => <LayoutGrid      size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   universe:    () => <LayoutGrid      size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
+  "code-city": () => <Building2       size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   agent:       () => <Bot             size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   pr:          () => <GitPullRequest  size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   scenario:    () => <Code2           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,

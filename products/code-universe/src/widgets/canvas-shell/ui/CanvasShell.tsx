@@ -9,44 +9,26 @@ import {
   type ReactElement,
   type WheelEvent as ReactWheelEvent,
 } from "react";
-import {
-  buildHierarchicalLayout,
-  type HierarchicalLayout,
-} from "@quanta/canvas-engine";
 import { useTierSwitch, TierBreadcrumb } from "../../../features/tier-switch";
 import { useEntityState, entityStore } from "../../../entities/entity";
 import { useWorkspaceGraph } from "../../../shared/api/graph-source";
-import { CanvasViewport } from "./CanvasViewport";
 import { HoverTooltip } from "./HoverTooltip";
-import { MindMapView, buildMindMap, mindMapStore, useMindMapState } from "../../../features/mind-map";
-import { ChordView, buildChordLayout } from "../../../features/chord-view";
-import { MatrixView, buildMatrixLayout } from "../../../features/matrix-view";
-import { QuadrantView, buildQuadrantLayout } from "../../../features/quadrant-view";
-import { ArcView, buildArcLayout } from "../../../features/arc-view";
-import { EmbeddingMapView, buildEmbeddingLayout } from "../../../features/embedding-map";
-import { BlastView, buildBlastLayout } from "../../../features/blast-view";
-import { ArchLayerView, buildArchLayerLayout } from "../../../features/arch-layer-view";
-import { DebtChartView, buildDebtChartLayout } from "../../../features/debt-chart";
-import { RefactorTerrainView, buildRefactorTerrainLayout } from "../../../features/refactor-terrain";
-import { CycleGenesisView } from "../../../features/cycle-genesis";
-import { SmellHistoryView } from "../../../features/smell-history";
-import { ArchDriftView } from "../../../features/arch-drift";
-import { CoChangeView } from "../../../features/cochange";
-import { RefactorSimView } from "../../../features/refactor-sim";
-import { StartHereView } from "../../../features/start-here";
-import { PathfinderView } from "../../../features/pathfinder";
-import { NeighborhoodView } from "../../../features/neighborhood";
-import { AuthorTerritoryView } from "../../../features/author-territory";
-import { ServiceTopoView } from "../../../features/service-topo";
-import { Galaxy3DView } from "../../../features/galaxy-3d";
-import { useViewMode, viewModeStore, ViewModePicker, VIEW_MODE_OPTIONS, VIEW_GLYPH } from "../../../features/view-mode";
-import { loadViewport } from "../../../shared/api/viewport-persistence";
+import { mindMapStore } from "../../../features/mind-map";
+import {
+  useViewMode,
+  viewModeStore,
+  ViewModePicker,
+  ViewContextProvider,
+  getViewDescriptor,
+  cycleMode,
+  switchMode,
+  VIEW_MODE_OPTIONS,
+  VIEW_GLYPH,
+  type ViewContextValue,
+  type ViewMode,
+} from "../../../features/view-mode";
 import { LeftPanel } from "../../left-panel";
 import { Inspector } from "../../inspector";
-import {
-  makeWeightFn,
-  useLayoutWeight,
-} from "../../../features/layout-weight";
 import { NavHistoryButtons } from "../../../features/nav-history";
 import { ColorModePicker } from "../../../features/color-mode";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
@@ -56,17 +38,17 @@ import { IconLayoutGrid, IconSidebarLeft, IconSidebarRight } from "../../../shar
 //
 //   ┌ header: [◧] [◀ ▶]  Code Universe  workspace/shell/…   [LoC·1.000] [File] [▤] [◨] ┐
 //   ├─────────────────────────────────────────────────────────────────────────────────┤
-//   │ LeftPanel  │                   CanvasViewport (Pixi)                │ Inspector │
-//   │            │                                                        │           │
-//   │            │             ┌─ Toolbar (tier · kind · weight) ─┐       │           │
-//   │            │             └─────────────── floating ─────────┘       │           │
-//   └────────────┴────────────────────────────────────────────────────────┴───────────┘
+//   │ LeftPanel  │                   active view (registry)                │ Inspector │
+//   │            │                                                         │           │
+//   │            │             ┌─ Toolbar (tier · kind · weight) ─┐        │           │
+//   │            │             └─────────────── floating ─────────┘        │           │
+//   └────────────┴─────────────────────────────────────────────────────────┴───────────┘
 //
-// Figma-style split: the top bar carries *chrome* (title, nav
-// history, current-context readouts, panel toggles); working
-// controls live in a floating toolbar centered over the viewport so
-// they're reachable without eye-travel to a distant corner. Panel
-// widths + collapsed state persist user-global.
+// The shell is view-mode agnostic — it constructs a ViewContextValue,
+// asks the view-mode registry which descriptor is active, and renders
+// that descriptor's Component inside the overlay wrapper the descriptor
+// declares ("base" = direct mount, "overlay" = translucent full-bleed).
+// Adding a new mode never requires editing this file.
 
 const KEY_FACTOR = 1.2;
 
@@ -120,36 +102,10 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
   const tree = useEntityState(s => s.tree);
   const graph = useWorkspaceGraph();
 
-  // Treemap camera pose is read fresh on each (re-)mount of
-  // CanvasViewport — switching to Mind/Galaxy and back restores the
-  // last-seen pan/zoom instead of reverting to the pose at shell
-  // first-mount. CanvasViewport captures this prop once in its own
-  // useState initializer, so the read only matters at mount instant
-  // — the wasted localStorage hits on other re-renders are trivial.
-
   const [prefs, setPrefs] = useState<PanelPrefs>(loadPrefs);
   useEffect(() => {
     try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
   }, [prefs]);
-
-  const weightMode = useLayoutWeight(s => s.mode);
-  const layout = useMemo<HierarchicalLayout | null>(
-    () =>
-      tree
-        ? buildHierarchicalLayout(tree, {
-            weight: makeWeightFn(tree, weightMode),
-            // Sibling gutter, world units. Matched to the default 24-unit
-            // outer padding so a card's gap to its neighbour reads the
-            // same as its gap to the parent's edge — otherwise inner
-            // rows look cramped relative to the rim. Worth more at deep
-            // tiers: rooms inside a small file get breathing room that
-            // survives max zoom without collapsing into a sheet.
-            gap: 32,
-            padding: 32,
-          })
-        : null,
-    [tree, weightMode],
-  );
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewportSize, setViewportSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
@@ -165,74 +121,89 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
     return () => ro.disconnect();
   }, []);
 
-  // Mind-map mode — radial egocentric view of the current selection's
-  // relationships. `M` toggles it; Esc closes it (entityStore Esc is
-  // handled elsewhere, we intercept BEFORE it propagates). When no
-  // entity is selected we fall back to the universe root so the mode
-  // always has *something* to show (repo-level package mind-map). Empty
-  // mind-maps read as a bug even when they're "correct" — better to
-  // show the zoom-out view than a blank overlay.
-  const mindMapEnabled = useMindMapState(s => s.enabled);
-  const mindMapCenterId = useMindMapState(s => s.centerId);
   const viewMode = useViewMode(s => s.mode);
   const selectedId = useEntityState(s => s.interaction.selectedId);
-  const [blastDirection, setBlastDirection] = useState<"blast" | "fix">("blast");
+  const anchorId   = useEntityState(s => s.interaction.anchorId);
 
-  // Resolve the current mind-map focus: prefer the selection, fall back
-  // to the universe root. Read both from the respective stores at call
-  // time so we don't re-register the handler on every selection tick.
-  const resolveMindMapFocus = useCallback((): string | null => {
-    const sel = entityStore.getState().interaction.selectedId;
-    if (sel) return sel;
-    return tree?.rootId ?? null;
-  }, [tree]);
+  // ── The single ViewContextValue the registry feeds every view ─────
+  //
+  // Ref-keyed dispatch means the callbacks have stable identity even
+  // as the surrounding props change — descriptor activate / deactivate
+  // hooks can safely close over them without re-subscribing.
+  const dispatch = useMemo<ViewContextValue["dispatch"]>(
+    () => ({
+      selectEntity: id => entityStore.selectEntity(id),
+      openMindMapOn: id => mindMapStore.openOn(id),
+      closeMindMap: () => mindMapStore.close(),
+      setMode: (m: ViewMode) => {
+        // Internal: picker / cross-view pivots call this when they
+        // want a mode switch without wiring a ctx themselves. The
+        // registry's switchMode handles activate/deactivate symmetry.
+        const ctx = ctxRef.current;
+        if (ctx) switchMode(m, ctx);
+        else viewModeStore.setMode(m);
+      },
+    }),
+    [],
+  );
+
+  const ctxValue: ViewContextValue = useMemo(
+    () => ({
+      graph: graph ?? null,
+      tree,
+      selectedId,
+      anchorId,
+      viewportSize,
+      tabId,
+      dispatch,
+    }),
+    [graph, tree, selectedId, anchorId, viewportSize, tabId, dispatch],
+  );
+
+  // Ref mirrors ctx so keyboard handlers + dispatch.setMode can read
+  // the current value without re-creating themselves on every update.
+  const ctxRef = useRef<ViewContextValue>(ctxValue);
+  ctxRef.current = ctxValue;
+
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
       const target = e.target as HTMLElement | null;
       const inField = !!target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+
+      // V — cycle to the next view mode. Runs through the registry so
+      // activate/deactivate hooks fire automatically.
       if ((e.key === "v" || e.key === "V") && !e.ctrlKey && !e.metaKey && !e.altKey && !inField) {
         e.preventDefault();
-        viewModeStore.cycle();
-        const next = viewModeStore.getState().mode;
-        // Cycle landed on mindmap — raise the overlay on the current
-        // selection (or silently move past if there's nothing picked).
-        // Other modes close the overlay so the underlying canvas shows.
-        if (next === "mindmap") {
-          const focus = resolveMindMapFocus();
-          if (focus) mindMapStore.openOn(focus);
-        } else {
-          mindMapStore.close();
-        }
+        cycleMode(ctxRef.current);
         return;
       }
+
+      // M — toggle mindmap mode. Same as clicking Mind in the picker;
+      // the registry handles opening / closing the mind-map store via
+      // the descriptor's activate / deactivate hooks.
       if (e.key === "m" || e.key === "M") {
         if (e.ctrlKey || e.metaKey || e.altKey) return; // leave OS shortcuts alone
         if (inField) return;
         e.preventDefault();
-        const focus = resolveMindMapFocus();
-        mindMapStore.toggle(focus);
-        // Keep the view-mode store in sync — if mindmap is now open,
-        // flip the segmented control to match so the user sees which
-        // mode is active.
-        const stillOpen = mindMapStore.getState().enabled;
-        // M opens mindmap → sync the picker. M closes → restore treemap only
-        // if mindmap was the active mode; otherwise leave the current mode alone.
-        if (stillOpen) {
-          viewModeStore.setMode("mindmap");
-        } else if (viewModeStore.getState().mode === "mindmap") {
-          viewModeStore.setMode("treemap");
-        }
+        const currentMode = viewModeStore.getState().mode;
+        const next: ViewMode = currentMode === "mindmap" ? "treemap" : "mindmap";
+        switchMode(next, ctxRef.current);
         return;
       }
+
+      // Esc — any non-treemap mode returns to the Universe (base view).
       if (e.key === "Escape") {
         const current = viewModeStore.getState().mode;
         if (current !== "treemap") {
           e.preventDefault();
-          if (mindMapEnabled) mindMapStore.close();
-          viewModeStore.setMode("treemap");
+          switchMode("treemap", ctxRef.current);
           return;
         }
       }
+
+      // Cmd/Ctrl +/- — treemap camera zoom. Harmless in other modes
+      // (the overlay masks the treemap), kept wired so the user can
+      // pre-zoom before flipping back.
       if (!(e.ctrlKey || e.metaKey)) return;
       if (e.key === "+" || e.key === "=") {
         e.preventDefault();
@@ -242,153 +213,11 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
         zoomBy(1 / KEY_FACTOR);
       }
     },
-    [zoomBy, mindMapEnabled, resolveMindMapFocus],
+    [zoomBy],
   );
   const onSwallowReactWheel = useCallback((e: ReactWheelEvent<HTMLDivElement>) => {
     if (e.ctrlKey || e.metaKey) return;
   }, []);
-
-  // Build the mind-map graph lazily — only when the mode is active AND
-  // we have tree + graph + a viewport size. The builder is pure-data;
-  // `useMemo` keyed on (centre, tree, graph, viewport dims) keeps it
-  // stable across unrelated re-renders (pan, hover, etc.).
-  const mindMapGraph = useMemo(() => {
-    if (!mindMapEnabled || !mindMapCenterId) return null;
-    if (!tree || !graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildMindMap({
-        tree,
-        graph,
-        centerId: mindMapCenterId,
-        width: viewportSize.w,
-        height: viewportSize.h,
-      });
-    } catch {
-      // Centre id no longer in the tree (e.g. workspace reload) — close
-      // the view instead of hanging on an invalid graph. The user can
-      // re-open on a fresh selection.
-      mindMapStore.close();
-      return null;
-    }
-  }, [mindMapEnabled, mindMapCenterId, tree, graph, viewportSize.w, viewportSize.h]);
-
-  // Chord layout — only built when chord view is actually selected,
-  // to avoid paying the hierarchical-edge-bundling cost on every
-  // workspace load. Defaults to galaxy-level leaves = PACKAGE COUPLING
-  // view (10–30 packages arc'd on the ring with rolled-up file import
-  // ribbons between them). This is the useful starting point; file-
-  // level chord is only meaningful when scoped into one package and
-  // is accessed by a future "Chord inside this package" question.
-  const chordLayout = useMemo(() => {
-    if (viewMode !== "chord") return null;
-    if (!tree || !graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildChordLayout({
-        tree,
-        graph,
-        width: viewportSize.w,
-        height: viewportSize.h,
-        // Explicit for clarity — also the current builder default.
-        leafKind: "galaxy",
-      });
-    } catch {
-      return null;
-    }
-  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
-
-  // Matrix layout — lazy for the same reasons as chord. Default
-  // `rowKind: "building"` at workspace scope would dump ~1000 rows;
-  // cap with `maxRows: 120` and let the connectivity rank keep the
-  // most interesting files. Power users can scope into a package via
-  // the Analyze panel's future "Matrix inside this" action.
-  const matrixLayout = useMemo(() => {
-    if (viewMode !== "matrix") return null;
-    if (!tree || !graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildMatrixLayout({
-        tree,
-        graph,
-        width: viewportSize.w,
-        height: viewportSize.h,
-        // Package-level DSM at workspace scope — ~20-30 rows with
-        // clear block structure. File-level DSM (`rowKind: "building"`)
-        // is only meaningful when scoped into one package; a future
-        // "Matrix inside this package" Analyze question will flip into
-        // that mode with an explicit scopeId.
-        rowKind: "galaxy",
-        maxRows: 60,
-      });
-    } catch {
-      return null;
-    }
-  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
-
-  const quadrantLayout = useMemo(() => {
-    if (viewMode !== "quadrant") return null;
-    if (!tree || !graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildQuadrantLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h, pointKind: "galaxy" });
-    } catch { return null; }
-  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
-
-  const arcLayout = useMemo(() => {
-    if (viewMode !== "arc-cycles") return null;
-    if (!tree || !graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildArcLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h, nodeKind: "galaxy" });
-    } catch { return null; }
-  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
-
-  const embeddingLayout = useMemo(() => {
-    if (viewMode !== "embedding") return null;
-    if (!tree || !graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildEmbeddingLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h });
-    } catch { return null; }
-  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
-
-  const blastLayout = useMemo(() => {
-    if (viewMode !== "blast") return null;
-    if (!tree || !graph) return null;
-    if (!selectedId) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildBlastLayout({ tree, graph, width: viewportSize.w, height: viewportSize.h, centerId: selectedId, direction: blastDirection });
-    } catch { return null; }
-  }, [viewMode, tree, graph, selectedId, blastDirection, viewportSize.w, viewportSize.h]);
-
-  const archLayerLayout = useMemo(() => {
-    if (viewMode !== "arch-layers") return null;
-    if (!graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildArchLayerLayout({ graph, width: viewportSize.w, height: viewportSize.h });
-    } catch { return null; }
-  }, [viewMode, graph, viewportSize.w, viewportSize.h]);
-
-  const debtChartLayout = useMemo(() => {
-    if (viewMode !== "debt-history") return null;
-    if (!graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildDebtChartLayout({ graph, width: viewportSize.w, height: viewportSize.h });
-    } catch { return null; }
-  }, [viewMode, graph, viewportSize.w, viewportSize.h]);
-
-  const refactorTerrainLayout = useMemo(() => {
-    if (viewMode !== "refactor-terrain") return null;
-    if (!tree || !graph) return null;
-    if (viewportSize.w <= 0 || viewportSize.h <= 0) return null;
-    try {
-      return buildRefactorTerrainLayout({ tree, graph });
-    } catch { return null; }
-  }, [viewMode, tree, graph, viewportSize.w, viewportSize.h]);
 
   const onDragLeft = useDividerDrag(
     prefs.leftW,
@@ -405,389 +234,138 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
     next => setPrefs(p => ({ ...p, rightW: next })),
   );
 
+  // Resolve the active descriptor + wrap its Component in the overlay
+  // it declares. "base" mounts directly (treemap / Pixi canvas);
+  // "overlay" wraps in a translucent full-bleed backdrop the rest of
+  // the views share so their visual language reads as "focused layer
+  // on top of Universe" consistently.
+  const activeDescriptor = getViewDescriptor(viewMode);
+  const ActiveComponent = activeDescriptor.Component;
+  const activeView =
+    activeDescriptor.overlay === "base" ? (
+      <ActiveComponent ctx={ctxValue} />
+    ) : (
+      <div style={OVERLAY_STYLE}>
+        <ActiveComponent ctx={ctxValue} />
+      </div>
+    );
+
   return (
-    <div data-product="code-universe" style={ROOT_STYLE}>
-      <header style={HEADER_STYLE}>
-        <div style={HEADER_GROUP}>
-          <IconToggle
-            onClick={() => setPrefs(p => ({ ...p, leftCollapsed: !p.leftCollapsed }))}
-            active={!prefs.leftCollapsed}
-            title={prefs.leftCollapsed ? "Show sidebar" : "Hide sidebar"}
-            ariaLabel="Toggle sidebar"
-          >
-            <IconSidebarLeft size={16} />
-          </IconToggle>
-          <NavHistoryButtons />
-          <span style={PRODUCT_NAME}>Code Universe</span>
-        </div>
-
-        <div style={HEADER_MIDDLE}>
-          <SelectedPath />
-        </div>
-
-        {/* Right cluster: shell chrome only (color mode + inspector
-            toggle). Code-Universe-specific controls (view mode, tier,
-            scale, kind) live in the floating overlay inside the
-            viewport below. */}
-        <div style={HEADER_GROUP}>
-          <ColorModePicker />
-          <IconToggle
-            onClick={() => setPrefs(p => ({ ...p, rightCollapsed: !p.rightCollapsed }))}
-            active={!prefs.rightCollapsed}
-            title={prefs.rightCollapsed ? "Show inspector" : "Hide inspector"}
-            ariaLabel="Toggle inspector"
-          >
-            <IconSidebarRight size={16} />
-          </IconToggle>
-        </div>
-      </header>
-
-      <div style={{ flex: 1, minHeight: 0, display: "flex", background: color.bg0 }}>
-        {prefs.leftCollapsed ? null : (
-          <>
-            <div style={{ width: prefs.leftW, flexShrink: 0, height: "100%" }}>
-              <LeftPanel />
-            </div>
-            <Divider onPointerDown={onDragLeft} />
-          </>
-        )}
-
-        <div
-          ref={viewportRef}
-          role="region"
-          aria-label="Code Universe viewport"
-          tabIndex={0}
-          onKeyDown={onKeyDown}
-          onWheel={onSwallowReactWheel}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            position: "relative",
-            outline: "none",
-            background: color.bg0,
-          }}
-        >
-          {/* Code-Universe context bar — floating top-center overlay.
-              Carries tier / scale / kind, which ONLY make sense in the
-              treemap (Code Universe) view — zoom tier and visible-kind
-              are treemap-tier artefacts. Other view modes (galaxy /
-              mind / chord / …) own their own spatial language and
-              don't read tier/scale. Wrapper is pointer-events: none so
-              drag-pan flows through the gaps; individual controls opt
-              back in. */}
-          {viewMode === "treemap" ? (
-            <div style={FLOATING_CONTEXT_BAR} role="toolbar" aria-label="Code Universe controls">
-              <span style={FLOATING_GROUP}>
-                <TierBreadcrumb />
-              </span>
-              <span style={FLOATING_DIVIDER} aria-hidden />
-              <span style={{ ...SCALE_CHIP, ...FLOATING_GROUP_INLINE }}>
-                <span style={{ color: color.text2 }}>scale</span>
-                <span style={{ fontVariantNumeric: "tabular-nums", color: color.text0, fontWeight: font.weight.semibold }}>
-                  {scale.toFixed(2)}
-                </span>
-              </span>
-              <span style={{ ...KIND_CHIP, ...FLOATING_GROUP_INLINE }}>{tier.visibleKind}</span>
-            </div>
-          ) : null}
-
-          {/* View-mode switcher — icon button at top-right of the
-              viewport. Opens the ViewModePicker popup below itself,
-              anchored to the right edge. */}
-          <div style={VIEW_MODE_TRIGGER_WRAP}>
-            <ViewModeDropdown />
+    <ViewContextProvider value={ctxValue}>
+      <div data-product="code-universe" style={ROOT_STYLE}>
+        <header style={HEADER_STYLE}>
+          <div style={HEADER_GROUP}>
+            <IconToggle
+              onClick={() => setPrefs(p => ({ ...p, leftCollapsed: !p.leftCollapsed }))}
+              active={!prefs.leftCollapsed}
+              title={prefs.leftCollapsed ? "Show sidebar" : "Hide sidebar"}
+              ariaLabel="Toggle sidebar"
+            >
+              <IconSidebarLeft size={16} />
+            </IconToggle>
+            <NavHistoryButtons />
+            <span style={PRODUCT_NAME}>Code Universe</span>
           </div>
 
-          {/* Universe (Pixi treemap) is the *base* view — only mount it
-              when the user is actually looking at it. Other view modes
-              (mind / galaxy / chord / …) cover the whole viewport, so
-              keeping the treemap alive underneath just burns GPU ticker
-              work + traps stray pointer/keyboard events. Unmounting
-              tears down the Pixi app; camera pose is restored from
-              `initialCamera` (loadViewport(tabId)) on re-mount. */}
-          {viewMode === "treemap" && tree && layout && graph ? (
-            <CanvasViewport
-              tree={tree}
-              layout={layout}
-              tier={tier}
-              graph={graph}
-              width={viewportSize.w}
-              height={viewportSize.h}
-              tabId={tabId}
-              initialCamera={(() => {
-                const saved = loadViewport(tabId);
-                return saved ? { tx: saved.tx, ty: saved.ty, scale: saved.scale } : undefined;
-              })()}
-            />
-          ) : null}
-          {viewMode === "treemap" && (!tree || !layout || !graph) ? (
-            <div style={LOADING_STYLE}>
-              <span style={{ opacity: 0.5 }}>·</span>
-              <span>waiting for workspace graph</span>
-              <span style={{ opacity: 0.5 }}>·</span>
-            </div>
-          ) : null}
-          {mindMapEnabled && mindMapGraph ? (
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                // Opaque-ish backdrop so the treemap underneath fades
-                // out without fully disappearing — gives a sense of
-                // "this is a focused layer, not a different page".
-                background: "rgba(248, 250, 252, 0.94)",
-                backdropFilter: "blur(6px)",
-                WebkitBackdropFilter: "blur(6px)",
-                zIndex: 6,
-                display: "flex",
-                alignItems: "stretch",
-                justifyContent: "stretch",
-              }}
+          <div style={HEADER_MIDDLE}>
+            <SelectedPath />
+          </div>
+
+          {/* Right cluster: shell chrome only (color mode + inspector
+              toggle). Code-Universe-specific controls (view mode, tier,
+              scale, kind) live in the floating overlay inside the
+              viewport below. */}
+          <div style={HEADER_GROUP}>
+            <ColorModePicker />
+            <IconToggle
+              onClick={() => setPrefs(p => ({ ...p, rightCollapsed: !p.rightCollapsed }))}
+              active={!prefs.rightCollapsed}
+              title={prefs.rightCollapsed ? "Show inspector" : "Hide inspector"}
+              ariaLabel="Toggle inspector"
             >
-              <MindMapView
-                graph={mindMapGraph}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => {
-                  entityStore.selectEntity(id);
-                  mindMapStore.openOn(id);
+              <IconSidebarRight size={16} />
+            </IconToggle>
+          </div>
+        </header>
+
+        <div style={{ flex: 1, minHeight: 0, display: "flex", background: color.bg0 }}>
+          {prefs.leftCollapsed ? null : (
+            <>
+              <div style={{ width: prefs.leftW, flexShrink: 0, height: "100%" }}>
+                <LeftPanel />
+              </div>
+              <Divider onPointerDown={onDragLeft} />
+            </>
+          )}
+
+          <div
+            ref={viewportRef}
+            role="region"
+            aria-label="Code Universe viewport"
+            tabIndex={0}
+            onKeyDown={onKeyDown}
+            onWheel={onSwallowReactWheel}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              position: "relative",
+              outline: "none",
+              background: color.bg0,
+            }}
+          >
+            {/* Code-Universe context bar — floating top-center overlay.
+                Carries tier / scale / kind, which ONLY make sense in the
+                treemap (Universe) view — zoom tier and visible-kind are
+                treemap-tier artefacts. Other view modes own their own
+                spatial language and don't read tier/scale. Wrapper is
+                pointer-events: none so drag-pan flows through the gaps;
+                individual controls opt back in. */}
+            {viewMode === "treemap" ? (
+              <div style={FLOATING_CONTEXT_BAR} role="toolbar" aria-label="Code Universe controls">
+                <span style={FLOATING_GROUP}>
+                  <TierBreadcrumb />
+                </span>
+                <span style={FLOATING_DIVIDER} aria-hidden />
+                <span style={{ ...SCALE_CHIP, ...FLOATING_GROUP_INLINE }}>
+                  <span style={{ color: color.text2 }}>scale</span>
+                  <span style={{ fontVariantNumeric: "tabular-nums", color: color.text0, fontWeight: font.weight.semibold }}>
+                    {scale.toFixed(2)}
+                  </span>
+                </span>
+                <span style={{ ...KIND_CHIP, ...FLOATING_GROUP_INLINE }}>{tier.visibleKind}</span>
+              </div>
+            ) : null}
+
+            {/* View-mode switcher — icon button at top-right of the
+                viewport. Opens the ViewModePicker popup below itself,
+                anchored to the right edge. */}
+            <div style={VIEW_MODE_TRIGGER_WRAP}>
+              <ViewModeDropdown />
+            </div>
+
+            {activeView}
+          </div>
+
+          {prefs.rightCollapsed ? null : (
+            <>
+              <Divider onPointerDown={onDragRight} />
+              <div
+                style={{
+                  width: prefs.rightW,
+                  flexShrink: 0,
+                  height: "100%",
+                  background: color.bg1,
                 }}
-                onDismiss={() => mindMapStore.close()}
-              />
-            </div>
-          ) : null}
-          {viewMode === "chord" && chordLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <ChordView
-                layout={chordLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => {
-                  entityStore.selectEntity(id);
-                  // Clicking a leaf in the chord view jumps to the
-                  // mind-map on that entity — lets the user pivot from
-                  // "overall coupling" into "who touches this one".
-                  mindMapStore.openOn(id);
-                  viewModeStore.setMode("mindmap");
-                }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "matrix" && matrixLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <MatrixView
-                layout={matrixLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => {
-                  entityStore.selectEntity(id);
-                  mindMapStore.openOn(id);
-                  viewModeStore.setMode("mindmap");
-                }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "quadrant" && quadrantLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <QuadrantView
-                layout={quadrantLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "arc-cycles" && arcLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <ArcView
-                layout={arcLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("mindmap"); mindMapStore.openOn(id); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "embedding" && embeddingLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <EmbeddingMapView
-                layout={embeddingLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "blast" && blastLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <BlastView
-                layout={blastLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onToggleDirection={() => setBlastDirection(d => d === "blast" ? "fix" : "blast")}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "arch-layers" && archLayerLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <ArchLayerView
-                layout={archLayerLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "debt-history" && debtChartLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <DebtChartView
-                layout={debtChartLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "refactor-terrain" && refactorTerrainLayout ? (
-            <div style={OVERLAY_STYLE}>
-              <RefactorTerrainView
-                layout={refactorTerrainLayout}
-                width={viewportSize.w}
-                height={viewportSize.h}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "cycle-genesis" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <CycleGenesisView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "smell-history" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <SmellHistoryView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "arch-drift" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <ArchDriftView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "cochange" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <CoChangeView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "refactor-sim" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <RefactorSimView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "start-here" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <StartHereView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "pathfinder" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <PathfinderView
-                graph={graph}
-                selectedId={selectedId ?? undefined}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "neighborhood" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <NeighborhoodView
-                graph={graph}
-                selectedId={selectedId ?? undefined}
-                onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("neighborhood"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "author-territory" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <AuthorTerritoryView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "service-topo" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <ServiceTopoView
-                graph={graph}
-                onFocusEntity={id => { entityStore.selectEntity(id); mindMapStore.openOn(id); viewModeStore.setMode("mindmap"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
-          {viewMode === "galaxy-3d" && graph ? (
-            <div style={OVERLAY_STYLE}>
-              <Galaxy3DView
-                graph={graph}
-                selectedId={selectedId ?? undefined}
-                onFocusEntity={id => { entityStore.selectEntity(id); viewModeStore.setMode("galaxy-3d"); }}
-                onDismiss={() => entityStore.selectEntity(null)}
-              />
-            </div>
-          ) : null}
+              >
+                <Inspector />
+              </div>
+            </>
+          )}
         </div>
 
-        {prefs.rightCollapsed ? null : (
-          <>
-            <Divider onPointerDown={onDragRight} />
-            <div
-              style={{
-                width: prefs.rightW,
-                flexShrink: 0,
-                height: "100%",
-                background: color.bg1,
-              }}
-            >
-              <Inspector />
-            </div>
-          </>
-        )}
+        <HoverTooltip />
       </div>
-
-      <HoverTooltip />
-    </div>
+    </ViewContextProvider>
   );
 }
 
@@ -1048,19 +626,6 @@ const OVERLAY_STYLE: CSSProperties = {
   justifyContent: "stretch",
 };
 
-const LOADING_STYLE: CSSProperties = {
-  position: "absolute",
-  inset: 0,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: space[2],
-  color: color.text2,
-  fontSize: font.size.md,
-  fontStyle: "italic",
-  letterSpacing: font.letter.wide,
-};
-
 const FLOATING_CONTEXT_BAR: CSSProperties = {
   position: "absolute",
   top: 12,
@@ -1132,8 +697,6 @@ const VIEW_MODE_BTN_ICON_SLOT: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
-  // Pinned color so the grid glyph stays a neutral "handle" instead of
-  // tracking the button's color on hover / open (was going near-black).
   color: color.text2,
 };
 
@@ -1167,9 +730,6 @@ const VIEW_MODE_ICON_BTN_OPEN: CSSProperties = {
   borderColor: color.borderStrong,
 };
 
-// ViewModePicker owns its own card chrome (symtip-style border + shadow)
-// so the dropdown wrapper only needs to position + lift it. Padding/
-// background/border would double up and clash.
 const VIEW_MODE_POPUP_STYLE: CSSProperties = {
   position: "absolute",
   top: "100%",

@@ -6,6 +6,7 @@ import {
   setSelectedSymbol,
   setWorkspaceGraph,
 } from "@quanta/code-universe";
+import { getDefaultRepoScanRoot } from "./scan-defaults";
 
 // Code-universe ↔ legacy scene-store bridge.
 // --------------------------------------------------------------------
@@ -20,8 +21,6 @@ import {
 // would otherwise sit on MOCK_GRAPH forever. We kick the scan here
 // once at boot so v2 gets real data regardless of tab activation.
 
-const BOOT_REPO_PATH =
-  "/Users/songmin/Documents/code-new/quanta-ide";
 const BOOT_REPO_EXTS = [".ts", ".tsx"];
 const BOOT_REPO_MAX = 8_000;
 
@@ -77,14 +76,15 @@ export function installCodeUniverseBridge(): () => void {
   // `sceneStore.setGraph` lands. Failures (plugin not registered,
   // path missing) fall through to MOCK_GRAPH without blocking boot.
   if (!sceneStore.getState().graph) {
+    const scanRoot = getDefaultRepoScanRoot();
     void loadRepoGraph({
-      path: BOOT_REPO_PATH,
+      path: scanRoot,
       extensions: BOOT_REPO_EXTS,
       maxFiles: BOOT_REPO_MAX,
     })
       .then(result => {
         if (sceneStore.getState().graph) return; // v1 raced us — keep its graph
-        sceneStore.setRepoRoot(BOOT_REPO_PATH);
+        sceneStore.setRepoRoot(scanRoot);
         sceneStore.setGraph(result.graph);
       })
       .catch(() => {

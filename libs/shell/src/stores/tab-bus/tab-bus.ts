@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
+import type { TabApp } from "@quanta/shell-contract";
 
-export type TabApp = "new-tab" | "agent" | "pr" | "ide" | "workspace" | "scenario" | "reviews" | "policy" | "settings" | "demo";
+export type { TabApp };
 
 export interface OpenTabRequest {
   id: number;

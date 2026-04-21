@@ -36,6 +36,7 @@ describe("shell-contract type-level tests", () => {
     expectTypeOf<"scenario">().toMatchTypeOf<AppKind>();
     expectTypeOf<"reviews">().toMatchTypeOf<AppKind>();
     expectTypeOf<"settings">().toMatchTypeOf<AppKind>();
+    expectTypeOf<"code-city">().toMatchTypeOf<AppKind>();
     expectTypeOf<"home">().toMatchTypeOf<AppKind>();
   });
 

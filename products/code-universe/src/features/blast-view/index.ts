@@ -1,4 +1,5 @@
 export { BlastView } from "./ui/BlastView";
+export { blastViewDescriptor } from "./view";
 export { buildBlastLayout } from "./model/build-blast-layout";
 export type {
   BlastLayout,

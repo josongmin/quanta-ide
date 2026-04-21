@@ -11,6 +11,10 @@ const isTauri = Boolean(process.env.TAURI_ENV_PLATFORM);
 export default defineConfig({
   base: isTauri ? "/" : "/ide/",
   cacheDir: path.join(os.homedir(), ".cache", "quanta-ide", "vite", "p0-ide-v2"),
+  // Boot-time repo scan default: monorepo root (parent of p0-ide-v2). Override with `VITE_REPO_SCAN_ROOT`.
+  define: {
+    __DEFAULT_REPO_SCAN_ROOT__: JSON.stringify(path.resolve(__dirname, "..")),
+  },
   plugins: [react(), repoScannerPlugin(), perfLoggerPlugin(), gitHistoryPlugin()],
   resolve: {
     alias: {
@@ -40,6 +44,7 @@ export default defineConfig({
       "@quanta/app-home": path.resolve(__dirname, "packages/app-home/src"),
       "@quanta/app-policy": path.resolve(__dirname, "packages/app-policy/src"),
       "@quanta/app-demo": path.resolve(__dirname, "packages/app-demo/src"),
+      "@quanta/app-code-city": path.resolve(__dirname, "packages/app-code-city/src"),
     },
   },
   server: { port: 5174, strictPort: true },

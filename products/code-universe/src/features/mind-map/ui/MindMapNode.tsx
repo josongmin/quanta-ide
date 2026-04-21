@@ -1,24 +1,23 @@
 // MindMapNode — centre / aggregator / entity node renderer.
-// Visual language:
-//   center     — glowing rounded square with breathing halo ring.
-//   aggregator — premium capsule pill: [glyph | LABEL | count-badge].
+// Visual language — flat geometric silhouette + meaningful inner mark:
+//   center     — glowing rounded square with breathing halo ring
+//   aggregator — premium capsule pill: [glyph | LABEL | count-badge]
 //   entity     — kind-shaped silhouette with opaque white backdrop so
-//                edges are fully occluded behind the node body.
+//                edges are fully occluded behind the node body
 //
-// EntityKind → shape:
-//   universe  — three concentric rings          (◎ glyph)
-//   galaxy    — thick outer ring + center dot   (⬡ glyph)
-//   street    — pointy-top hexagon              (⊞ glyph)
-//   building  — document with folded corner     (⊟ glyph)
-//   floor     — diamond / rotated square        (◆ glyph)
-//   room      — upward triangle + ƒ mark        (ƒ glyph)
+// EntityKind → shape / inner mark (no skeumorphic overlays):
+//   universe  — rounded square with 2×2 inner tile grid    (workspace = many packages)
+//   galaxy    — rounded square with shipping-label band    (package = labeled bundle)
+//   street    — folder-tab silhouette                      (folder = universally recognised)
+//   building  — portrait rectangle with folded corner      (file = dog-ear document)
+//   floor     — diamond with 3 stacked horizontal lines    (module = block of statements)
+//   room      — circle with ƒ mark                         (function = math notation)
 //   default   — circle
 
-import { cloneElement, memo, useCallback, useEffect, useState, type KeyboardEvent, type ReactElement } from "react";
+import { memo, useCallback, useEffect, useState, type KeyboardEvent } from "react";
 import type { CSSProperties } from "react";
 
 import type { EntityKind } from "@quanta/canvas-engine";
-import { pickFileIcon } from "@quanta/ui-kit";
 
 import {
   color,
@@ -29,24 +28,6 @@ import {
   radius as radiusToken,
 } from "../../../shared/ui/tokens";
 import type { AggregatorKind, MindMapNode as MindMapNodeModel } from "../model/types";
-
-// Kinds whose label is a file name — overlay the file-type icon on the
-// geometric silhouette so a reader sees "TS / CSS / JSON / ..." at a
-// glance without losing the mind-map's shape-per-kind language.
-// `room` (function) and containers (street/galaxy/universe) keep their
-// glyph-only treatment: the label isn't a filename for those.
-const FILE_ICON_KINDS: ReadonlySet<EntityKind> = new Set<EntityKind>(["building", "floor"]);
-
-function sizeSvgIcon(icon: ReactElement, sizePx: number): ReactElement {
-  // pickFileIcon returns an <svg viewBox="0 0 16 16"> without width/height.
-  // Clone-add the dimensions so foreignObject children render at a fixed
-  // pixel size instead of collapsing to zero (SVG default for "auto").
-  return cloneElement(icon as ReactElement<Record<string, unknown>>, {
-    width: sizePx,
-    height: sizePx,
-    style: { display: "block" },
-  });
-}
 
 export interface MindMapNodeProps {
   node: MindMapNodeModel;
@@ -240,17 +221,23 @@ function MindMapNodeImpl({
     outline: "none",
   };
 
-  // Scale: drag picks it up slightly (1.08), hover bumps normally, mount
-  // grows from 60% → 100%.
+  // Mount: node grows from 35% → 100% AND counter-rotates from +55°
+  // CW into place. The group-level mm-enter spins the whole scene CCW
+  // (-135° → 0°); the satellites simultaneously untwist CW, so the
+  // composition reads as a "쉬리릭" whoosh where every symbol un-curls
+  // out of the centre as the orbit settles. Longer 620ms transition so
+  // each node finishes unfolding well into the group's settling phase.
+  // Drag picks scale up slightly (1.08), hover bumps to 1.05/1.10.
   const scaleAmt = isThisDragging
     ? 1.08
     : hovered
       ? (node.kind === "aggregator" ? 1.05 : 1.10)
-      : mounted ? 1 : 0.60;
+      : mounted ? 1 : 0.35;
+  const rotateAmt = mounted || isThisDragging ? 0 : 55;
   const innerStyle: CSSProperties = {
-    transform:       `scale(${scaleAmt})`,
+    transform:       `scale(${scaleAmt}) rotate(${rotateAmt}deg)`,
     transformOrigin: "0px 0px",
-    transition:      "transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 180ms ease-out",
+    transition:      "transform 620ms cubic-bezier(0.2, 1, 0.28, 1), filter 180ms ease-out",
     filter: isThisDragging
       ? "drop-shadow(0 10px 18px rgba(10,30,60,0.22))"
       : undefined,
@@ -295,8 +282,7 @@ function MindMapNodeImpl({
         </g>
       )}
       <g style={innerStyle}>
-        {renderShape(node, hovered || isThisDragging, ripple, hasFileIconOverlay(node))}
-        {renderFileIconOverlay(node)}
+        {renderShape(node, hovered || isThisDragging, ripple)}
       </g>
       {renderLabel(node)}
     </g>
@@ -305,57 +291,19 @@ function MindMapNodeImpl({
 
 // ── Shape renderers ──────────────────────────────────────────────────
 
-function hasFileIconOverlay(node: MindMapNodeModel): boolean {
-  if (node.kind === "aggregator") return false;
-  return !!node.entityKind && FILE_ICON_KINDS.has(node.entityKind);
-}
-
-function renderShape(node: MindMapNodeModel, hovered: boolean, ripple: boolean, iconOverlay: boolean) {
-  if (node.kind === "center")     return renderCenter(node, hovered, iconOverlay);
+function renderShape(node: MindMapNodeModel, hovered: boolean, ripple: boolean) {
+  if (node.kind === "center")     return renderCenter(node, hovered);
   if (node.kind === "aggregator") return renderAggregator(node, hovered);
-  return renderEntity(node, hovered, ripple, iconOverlay);
-}
-
-// Overlay a file-type icon (TS / TSX / JSON / CSS / MD / generic) on
-// the geometric silhouette when the node represents a file. Aggregator
-// hubs and non-file kinds (function/class/directory/workspace) are
-// skipped — the existing glyph carries the right semantics there.
-function renderFileIconOverlay(node: MindMapNodeModel) {
-  if (node.kind === "aggregator") return null;
-  if (!node.entityKind || !FILE_ICON_KINDS.has(node.entityKind)) return null;
-  // Clamp the icon so it sits inside the silhouette with breathing room —
-  // 62% of the node radius keeps the colored outline visible around it.
-  const iconPx = Math.round(node.radius * 1.24);
-  const half = iconPx / 2;
-  const icon = sizeSvgIcon(pickFileIcon(node.label), iconPx);
-  return (
-    <foreignObject
-      x={-half}
-      y={-half}
-      width={iconPx}
-      height={iconPx}
-      style={{ pointerEvents: "none", overflow: "visible" }}
-    >
-      <div
-        style={{
-          width: `${iconPx}px`,
-          height: `${iconPx}px`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {icon}
-      </div>
-    </foreignObject>
-  );
+  return renderEntity(node, hovered, ripple);
 }
 
 // Center — glowing rounded square with animated halo ring.
-// When a file icon is overlaid the face goes white with a thin tinted
-// stroke; the doc-shell icon carries the kind cue, so a heavy tinted
-// fill + inner highlight would just compete with it.
-function renderCenter(node: MindMapNodeModel, hovered: boolean, iconOverlay: boolean) {
+// Always a rounded square regardless of entity kind — this shape IS the
+// "focus" indicator, distinct from every satellite. Kind is communicated
+// by tint colour + the label tag below, and by a subtle inner mark that
+// mirrors the satellite grammar (tile grid for workspace, band for
+// package, folder tab for folder, etc.).
+function renderCenter(node: MindMapNodeModel, hovered: boolean) {
   const tint = node.entityKind ? kindColor[node.entityKind] : color.accent;
   const r    = node.radius;
 
@@ -363,9 +311,9 @@ function renderCenter(node: MindMapNodeModel, hovered: boolean, iconOverlay: boo
   // with the rest of the design system.  Entity kind is shown via face color.
   const haloTint = color.accent;
 
-  const faceFillOpacity   = iconOverlay ? 0 : (hovered ? 0.38 : 0.26);
-  const faceStrokeOpacity = iconOverlay ? 0.55 : 0.88;
-  const faceStrokeWidth   = iconOverlay ? (hovered ? 1.6 : 1.2) : (hovered ? 2.5 : 2.0);
+  const faceFillOpacity   = hovered ? 0.38 : 0.26;
+  const faceStrokeOpacity = 0.88;
+  const faceStrokeWidth   = hovered ? 2.5 : 2.0;
 
   return (
     <g filter="url(#mm-center-glow)">
@@ -386,14 +334,11 @@ function renderCenter(node: MindMapNodeModel, hovered: boolean, iconOverlay: boo
           style={{ animation: "mm-breathe 1.4s ease-in-out infinite", transformOrigin: "0px 0px" }}
         />
       )}
-      {/* Opaque white backdrop so edges don't bleed through when the face
-       *  is unfilled (icon-overlay mode). */}
-      {iconOverlay && (
-        <rect x={-r} y={-r} width={r * 2} height={r * 2}
-          rx={radiusToken.lg} ry={radiusToken.lg}
-          fill={color.bg0} stroke="none"
-        />
-      )}
+      {/* Opaque backdrop — hides edge endpoints behind the face */}
+      <rect x={-r} y={-r} width={r * 2} height={r * 2}
+        rx={radiusToken.lg} ry={radiusToken.lg}
+        fill={color.bg0} stroke="none"
+      />
       {/* Face */}
       <rect x={-r} y={-r} width={r * 2} height={r * 2}
         rx={radiusToken.lg} ry={radiusToken.lg}
@@ -402,8 +347,129 @@ function renderCenter(node: MindMapNodeModel, hovered: boolean, iconOverlay: boo
         strokeOpacity={faceStrokeOpacity}
         style={{ transition: "fill-opacity 160ms ease-out, stroke-width 160ms ease-out, stroke-opacity 160ms" }}
       />
+      {/* Inner kind mark — same geometric language as the satellites
+       *  (scaled down so it reads as a quiet signifier, not a competing
+       *  symbol). Rendered inside the center's face. */}
+      {renderCenterInnerMark(node.entityKind, r, tint, hovered)}
     </g>
   );
+}
+
+// Small kind-specific mark drawn inside the center's rounded square —
+// echoes the satellite shape grammar so the centre reads as "this kind,
+// focused", not as a generic blue tile. Scale-down factor 0.48 keeps it
+// inside the face with breathing room on all sides.
+function renderCenterInnerMark(
+  kind: EntityKind | undefined,
+  r: number,
+  tint: string,
+  hovered: boolean,
+) {
+  if (!kind) return null;
+  const s   = r * 0.48; // mark half-size
+  const op  = hovered ? 0.62 : 0.44;
+  const sw  = 1.1;
+
+  if (kind === "universe") {
+    // 2×2 tile grid
+    const tile = s * 0.42;
+    const gap  = s * 0.18;
+    const tiles: Array<[number, number]> = [
+      [-tile - gap / 2, -tile - gap / 2],
+      [ gap / 2,        -tile - gap / 2],
+      [-tile - gap / 2,  gap / 2],
+      [ gap / 2,         gap / 2],
+    ];
+    return (
+      <g>
+        {tiles.map(([x, y], i) => (
+          <rect key={i}
+            x={x} y={y} width={tile} height={tile} rx={tile * 0.22} ry={tile * 0.22}
+            fill="none" stroke={tint} strokeWidth={sw} strokeOpacity={op} />
+        ))}
+      </g>
+    );
+  }
+  if (kind === "galaxy") {
+    // Rounded square with horizontal label band
+    return (
+      <g>
+        <rect x={-s} y={-s} width={s * 2} height={s * 2} rx={s * 0.2} ry={s * 0.2}
+          fill="none" stroke={tint} strokeWidth={sw} strokeOpacity={op} />
+        <line x1={-s + s * 0.15} y1={-s * 0.38} x2={s - s * 0.15} y2={-s * 0.38}
+          stroke={tint} strokeWidth={sw * 0.85} strokeOpacity={op * 0.85} />
+      </g>
+    );
+  }
+  if (kind === "street") {
+    // Folder tab silhouette
+    const w = s;
+    const hBody = s * 0.70;
+    const tabW = w * 0.55;
+    const tabH = s * 0.28;
+    const slope = tabH * 0.55;
+    const d =
+      `M ${-w} ${-hBody - tabH} ` +
+      `L ${-w + tabW} ${-hBody - tabH} ` +
+      `L ${-w + tabW + slope} ${-hBody} ` +
+      `L ${w} ${-hBody} ` +
+      `L ${w} ${hBody} ` +
+      `L ${-w} ${hBody} ` +
+      `Z`;
+    return (
+      <path d={d}
+        fill="none" stroke={tint} strokeWidth={sw} strokeOpacity={op}
+        strokeLinejoin="round" />
+    );
+  }
+  if (kind === "building") {
+    // Portrait rect with folded corner
+    const w   = s * 0.74;
+    const h   = s * 0.94;
+    const cut = w * 0.42;
+    const outline =
+      `M ${-w} ${-h} ` +
+      `L ${w - cut} ${-h} ` +
+      `L ${w} ${-h + cut} ` +
+      `L ${w} ${h} ` +
+      `L ${-w} ${h} ` +
+      `Z`;
+    return (
+      <g>
+        <path d={outline}
+          fill="none" stroke={tint} strokeWidth={sw} strokeOpacity={op}
+          strokeLinejoin="round" />
+        <line x1={w - cut} y1={-h + cut} x2={w} y2={-h + cut}
+          stroke={tint} strokeWidth={sw * 0.85} strokeOpacity={op * 0.85} />
+        <line x1={w - cut} y1={-h} x2={w - cut} y2={-h + cut}
+          stroke={tint} strokeWidth={sw * 0.85} strokeOpacity={op * 0.85} />
+      </g>
+    );
+  }
+  if (kind === "floor") {
+    // Diamond
+    const pts = `0,${-s} ${s},0 0,${s} ${-s},0`;
+    return (
+      <polygon points={pts}
+        fill="none" stroke={tint} strokeWidth={sw} strokeOpacity={op}
+        strokeLinejoin="round" />
+    );
+  }
+  if (kind === "room") {
+    // ƒ mark
+    return (
+      <text x={0} y={s * 0.18}
+        textAnchor="middle" dominantBaseline="central"
+        fontFamily={font.mono} fontSize={s * 1.9} fontWeight={font.weight.bold}
+        fontStyle="italic"
+        fill={tint} fillOpacity={op}
+        style={{ userSelect: "none" }}
+      >
+        ƒ
+      </text>
+    );
+  }
+  return null;
 }
 
 // Aggregator — premium capsule: [glyph | LABEL | count-badge].
@@ -488,7 +554,7 @@ function renderAggregator(node: MindMapNodeModel, hovered: boolean) {
 }
 
 // Entity — kind-shaped silhouette with hover ring and click ripple.
-function renderEntity(node: MindMapNodeModel, hovered: boolean, ripple: boolean, iconOverlay: boolean) {
+function renderEntity(node: MindMapNodeModel, hovered: boolean, ripple: boolean) {
   const tint = node.entityKind ? kindColor[node.entityKind] : color.text2;
   const r    = node.radius;
 
@@ -506,170 +572,223 @@ function renderEntity(node: MindMapNodeModel, hovered: boolean, ripple: boolean,
           style={{ animation: "mm-hover-ring 500ms ease-out forwards", transformOrigin: "0px 0px" }}
         />
       )}
-      {renderEntityShape(node.entityKind, r, tint, hovered, iconOverlay)}
+      {renderEntityShape(node.entityKind, r, tint, hovered)}
     </g>
   );
 }
 
 // ── Per-kind entity shape ────────────────────────────────────────────
-// Every branch renders: (1) opaque white backdrop — masks edges behind
-// the node body, (2) tinted colored fill, (3) optional inner detail.
+// Flat geometric silhouettes — each shape + inner mark carries the kind
+// meaning without skeumorphic icons. Every branch renders:
+//   (1) opaque white backdrop → masks edge endpoints behind the body,
+//   (2) tinted tint-coloured face,
+//   (3) meaningful inner mark (stacked lines / grid / fold / band / ƒ / …).
 
 function renderEntityShape(
   kind: EntityKind | undefined,
   r: number,
   tint: string,
   hovered: boolean,
-  iconOverlay: boolean,
 ) {
-  // File-icon overlay carries the language cue — drop the tint fill and
-  // the inner miniature so the doc-shell icon isn't fighting layers.
-  const fillOpacity   = iconOverlay ? 0 : (hovered ? 0.36 : 0.22);
-  const strokeWidth   = iconOverlay ? (hovered ? 1.4 : 1.0) : (hovered ? 2.0 : 1.5);
-  const strokeOpacity = iconOverlay ? (hovered ? 0.72 : 0.55) : (hovered ? 0.95 : 0.82);
+  const fillOpacity   = hovered ? 0.36 : 0.22;
+  const strokeWidth   = hovered ? 2.0  : 1.5;
+  const strokeOpacity = hovered ? 0.95 : 0.82;
+  const markOpacity   = strokeOpacity * 0.52;
+  const markWidth     = 0.95;
   const trans: CSSProperties = {
     transition: "fill-opacity 140ms, stroke-width 140ms, stroke-opacity 140ms",
   };
+  const shadow = { filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" };
 
-  // ── building → portrait rounded rectangle with concentric inner ────
-  // Same "outer form + miniature inner form" grammar as street (hex),
-  // floor (diamond), and universe (circles). Portrait proportion
-  // (0.78:1) reads as "page / document" by aspect ratio alone without
-  // needing any skeuomorphic detail; it's also clearly distinct from
-  // the center node's squarer hero tile so the two don't blur together.
+  // ── building (file) → portrait rect with folded corner + content lines
   if (kind === "building") {
-    const w   = r * 0.78;          // outer half-width
-    const h   = r;                 // outer half-height
-    const rx  = r * 0.22;          // outer corner radius
-    const wi  = w * 0.56;          // inner half-width
-    const hi  = h * 0.56;          // inner half-height
-    const rxi = Math.max(1, rx * 0.56);
+    const w   = r * 0.78;
+    const h   = r;
+    const cut = w * 0.42;
+    const outline =
+      `M ${f(-w)} ${f(-h)} ` +
+      `L ${f(w - cut)} ${f(-h)} ` +
+      `L ${f(w)} ${f(-h + cut)} ` +
+      `L ${f(w)} ${f(h)} ` +
+      `L ${f(-w)} ${f(h)} ` +
+      `Z`;
+    const foldTri =
+      `M ${f(w - cut)} ${f(-h)} ` +
+      `L ${f(w)} ${f(-h + cut)} ` +
+      `L ${f(w - cut)} ${f(-h + cut)} ` +
+      `Z`;
+    // Three stacked content lines — last is shorter to read as "end of text"
+    const linesX   = w * 0.62;
+    const shortX   = w * 0.30;
+    const lineYs: Array<[number, number]> = [
+      [-h * 0.02, linesX],
+      [ h * 0.24, linesX],
+      [ h * 0.50, shortX],
+    ];
     return (
       <g>
-        {/* Backdrop — opaque white so edges are occluded behind the chip */}
-        <rect x={-w} y={-h} width={w * 2} height={h * 2} rx={rx} ry={rx}
-          fill={color.bg0} fillOpacity={0.96} stroke="none"
-          style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
-        {/* Tinted face */}
-        <rect x={-w} y={-h} width={w * 2} height={h * 2} rx={rx} ry={rx}
+        <path d={outline} fill={color.bg0} fillOpacity={0.96} stroke="none" style={shadow} />
+        <path d={outline}
+          fill={tint} fillOpacity={fillOpacity}
+          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity}
+          strokeLinejoin="round" style={trans} />
+        {/* Fold triangle — slightly darker tint reads as dog-ear */}
+        <path d={foldTri} fill={tint} fillOpacity={hovered ? 0.30 : 0.18} stroke="none" />
+        <path d={foldTri}
+          fill="none" stroke={tint} strokeWidth={markWidth} strokeOpacity={strokeOpacity * 0.58}
+          strokeLinejoin="round" />
+        {/* Content lines */}
+        {lineYs.map(([y, x], i) => (
+          <line key={i}
+            x1={-x} y1={f(y)} x2={x} y2={f(y)}
+            stroke={tint} strokeWidth={markWidth} strokeOpacity={markOpacity}
+            strokeLinecap="round" />
+        ))}
+      </g>
+    );
+  }
+
+  // ── floor (module) → diamond with 3 stacked statement lines ─────────
+  if (kind === "floor") {
+    const pts = `0,${f(-r)} ${f(r)},0 0,${f(r)} ${f(-r)},0`;
+    // Lines are clipped to the diamond's horizontal extent at each y.
+    // Diamond half-width at y: (r - |y|).
+    const lineYs = [-r * 0.26, 0, r * 0.26];
+    return (
+      <g>
+        <polygon points={pts} fill={color.bg0} fillOpacity={0.96} stroke="none" style={shadow} />
+        <polygon points={pts}
+          fill={tint} fillOpacity={fillOpacity}
+          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity}
+          strokeLinejoin="round" style={trans} />
+        {lineYs.map((y, i) => {
+          const halfW = (r - Math.abs(y)) * 0.72;
+          return (
+            <line key={i}
+              x1={-halfW} y1={f(y)} x2={halfW} y2={f(y)}
+              stroke={tint} strokeWidth={markWidth} strokeOpacity={markOpacity}
+              strokeLinecap="round" />
+          );
+        })}
+      </g>
+    );
+  }
+
+  // ── room (function) → circle with ƒ mark ────────────────────────────
+  if (kind === "room") {
+    return (
+      <g>
+        <circle cx={0} cy={0} r={r}
+          fill={color.bg0} fillOpacity={0.96} stroke="none" style={shadow} />
+        <circle cx={0} cy={0} r={r}
           fill={tint} fillOpacity={fillOpacity}
           stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity}
           style={trans} />
-        {/* Inner miniature — skipped when a file icon will overlay it */}
-        {!iconOverlay && (
-          <rect x={-wi} y={-hi} width={wi * 2} height={hi * 2} rx={rxi} ry={rxi}
-            fill="none"
-            stroke={tint} strokeWidth={0.8}
-            strokeOpacity={strokeOpacity * 0.38} />
-        )}
-      </g>
-    );
-  }
-
-  // ── floor → module diamond with inner diamond detail ───────────────
-  if (kind === "floor") {
-    const pts  = `0,${f(-r)} ${f(r)},0 0,${f(r)} ${f(-r)},0`;
-    const ri   = r * 0.48;
-    const ptsI = `0,${f(-ri)} ${f(ri)},0 0,${f(ri)} ${f(-ri)},0`;
-    return (
-      <g>
-        <polygon points={pts} fill={color.bg0} fillOpacity={0.96} stroke="none"
-          style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
-        <polygon points={pts} fill={tint} fillOpacity={fillOpacity}
-          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity} style={trans} />
-        {!iconOverlay && (
-          <polygon points={ptsI} fill="none"
-            stroke={tint} strokeWidth={0.8} strokeOpacity={strokeOpacity * 0.38} />
-        )}
-      </g>
-    );
-  }
-
-  // ── room → function upward triangle with ƒ mark ───────────────────
-  if (kind === "room") {
-    const pts = `0,${f(-r)} ${f(r * 0.88)},${f(r * 0.76)} ${f(-r * 0.88)},${f(r * 0.76)}`;
-    return (
-      <g>
-        <polygon points={pts} fill={color.bg0} fillOpacity={0.96} stroke="none"
-          style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
-        <polygon points={pts} fill={tint} fillOpacity={fillOpacity}
-          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity}
-          strokeLinejoin="round" style={trans} />
-        <text x={0} y={f(r * 0.16)}
+        <text x={0} y={f(r * 0.14)}
           textAnchor="middle" dominantBaseline="central"
-          fontFamily={font.mono} fontSize={f(r * 0.56)} fontWeight={font.weight.bold}
-          fill={tint} fillOpacity={hovered ? 0.65 : 0.42}
+          fontFamily={font.mono} fontSize={f(r * 1.25)} fontWeight={font.weight.bold}
+          fontStyle="italic"
+          fill={tint} fillOpacity={hovered ? 0.78 : 0.58}
           style={{ userSelect: "none" }}
         >
-          {kindIcon.room}
+          ƒ
         </text>
       </g>
     );
   }
 
-  // ── street → directory pointy-top hexagon with inner ring ─────────
+  // ── street (folder) → folder-tab silhouette ─────────────────────────
   if (kind === "street") {
-    const s = 0.866;
-    const hex = (scale: number) => [
-      `0,${f(-r * scale)}`,
-      `${f(r * s * scale)},${f(-r * 0.5 * scale)}`,
-      `${f(r * s * scale)},${f(r * 0.5 * scale)}`,
-      `0,${f(r * scale)}`,
-      `${f(-r * s * scale)},${f(r * 0.5 * scale)}`,
-      `${f(-r * s * scale)},${f(-r * 0.5 * scale)}`,
-    ].join(" ");
+    const w     = r * 0.96;
+    const hBody = r * 0.78;
+    const tabW  = w * 0.52;
+    const tabH  = r * 0.26;
+    const slope = tabH * 0.55;
+    const path =
+      `M ${f(-w)} ${f(-hBody - tabH)} ` +
+      `L ${f(-w + tabW)} ${f(-hBody - tabH)} ` +
+      `L ${f(-w + tabW + slope)} ${f(-hBody)} ` +
+      `L ${f(w)} ${f(-hBody)} ` +
+      `L ${f(w)} ${f(hBody)} ` +
+      `L ${f(-w)} ${f(hBody)} ` +
+      `Z`;
     return (
       <g>
-        <polygon points={hex(1)} fill={color.bg0} fillOpacity={0.96} stroke="none"
-          style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
-        <polygon points={hex(1)} fill={tint} fillOpacity={fillOpacity}
-          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity} style={trans} />
-        <polygon points={hex(0.52)} fill="none"
-          stroke={tint} strokeWidth={0.8} strokeOpacity={strokeOpacity * 0.35} />
+        <path d={path} fill={color.bg0} fillOpacity={0.96} stroke="none" style={shadow} />
+        <path d={path}
+          fill={tint} fillOpacity={fillOpacity}
+          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity}
+          strokeLinejoin="round" style={trans} />
+        {/* Separator between tab and body — reinforces the folder grammar */}
+        <line
+          x1={f(-w + tabW + slope)} y1={f(-hBody)}
+          x2={f(w)} y2={f(-hBody)}
+          stroke={tint} strokeWidth={markWidth} strokeOpacity={markOpacity} />
       </g>
     );
   }
 
-  // ── galaxy → package: thick ring (annulus) + center dot ───────────
+  // ── galaxy (package) → rounded square with shipping-label band ──────
   if (kind === "galaxy") {
-    const rRing = r * 0.64;
-    const ringW = r * 0.42;
+    const side = r * 1.42;
+    const half = side / 2;
+    const rx   = r * 0.22;
+    const bandY1 = -half + side * 0.22;
+    const bandY2 = -half + side * 0.42;
     return (
       <g>
-        <circle cx={0} cy={0} r={r} fill={color.bg0} fillOpacity={0.96} stroke="none"
-          style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
-        <circle cx={0} cy={0} r={rRing}
-          fill="none" stroke={tint} strokeWidth={ringW} strokeOpacity={strokeOpacity}
-          style={trans} />
-        <circle cx={0} cy={0} r={r * 0.20}
-          fill={tint} fillOpacity={hovered ? 0.88 : 0.68} stroke="none" />
+        <rect x={-half} y={-half} width={side} height={side} rx={rx} ry={rx}
+          fill={color.bg0} fillOpacity={0.96} stroke="none" style={shadow} />
+        <rect x={-half} y={-half} width={side} height={side} rx={rx} ry={rx}
+          fill={tint} fillOpacity={fillOpacity}
+          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity} style={trans} />
+        {/* Horizontal shipping-tape band */}
+        <line x1={-half + rx * 0.6} y1={bandY1} x2={half - rx * 0.6} y2={bandY1}
+          stroke={tint} strokeWidth={markWidth} strokeOpacity={markOpacity} />
+        <line x1={-half + rx * 0.6} y1={bandY2} x2={half - rx * 0.6} y2={bandY2}
+          stroke={tint} strokeWidth={markWidth} strokeOpacity={markOpacity} />
+        {/* Subtle tie-in — reads as "sealed" */}
+        <line x1={0} y1={bandY1} x2={0} y2={bandY2}
+          stroke={tint} strokeWidth={markWidth * 0.85} strokeOpacity={markOpacity * 0.85} />
       </g>
     );
   }
 
-  // ── universe → workspace: three concentric rings ───────────────────
+  // ── universe (workspace) → rounded square with 2×2 inner tile grid ──
   if (kind === "universe") {
+    const side = r * 1.5;
+    const half = side / 2;
+    const rx   = r * 0.22;
+    const gap  = side * 0.09;
+    const tile = (side - gap * 3) / 2;
+    const tileRx = tile * 0.2;
+    const tilePositions: Array<[number, number]> = [
+      [-half + gap,         -half + gap],
+      [ gap / 2,            -half + gap],
+      [-half + gap,          gap / 2],
+      [ gap / 2,             gap / 2],
+    ];
     return (
       <g>
-        <circle cx={0} cy={0} r={r} fill={color.bg0} fillOpacity={0.96} stroke="none"
-          style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
-        <circle cx={0} cy={0} r={r * 0.28}
-          fill={tint} fillOpacity={hovered ? 0.82 : 0.60} stroke="none" />
-        <circle cx={0} cy={0} r={r * 0.58}
-          fill="none" stroke={tint} strokeWidth={1.5} strokeOpacity={strokeOpacity}
-          style={trans} />
-        <circle cx={0} cy={0} r={r}
-          fill="none" stroke={tint} strokeWidth={0.9} strokeOpacity={strokeOpacity * 0.58}
-          style={trans} />
+        <rect x={-half} y={-half} width={side} height={side} rx={rx} ry={rx}
+          fill={color.bg0} fillOpacity={0.96} stroke="none" style={shadow} />
+        <rect x={-half} y={-half} width={side} height={side} rx={rx} ry={rx}
+          fill={tint} fillOpacity={fillOpacity * 0.75}
+          stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity} style={trans} />
+        {tilePositions.map(([x, y], i) => (
+          <rect key={i}
+            x={x} y={y} width={tile} height={tile} rx={tileRx} ry={tileRx}
+            fill={tint} fillOpacity={hovered ? 0.40 : 0.24}
+            stroke={tint} strokeWidth={markWidth} strokeOpacity={markOpacity * 1.4} />
+        ))}
       </g>
     );
   }
 
-  // ── default → circle ───────────────────────────────────────────────
+  // ── default → circle ────────────────────────────────────────────────
   return (
     <g>
-      <circle cx={0} cy={0} r={r} fill={color.bg0} fillOpacity={0.96} stroke="none"
-        style={{ filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" }} />
+      <circle cx={0} cy={0} r={r} fill={color.bg0} fillOpacity={0.96} stroke="none" style={shadow} />
       <circle cx={0} cy={0} r={r} fill={tint} fillOpacity={fillOpacity}
         stroke={tint} strokeWidth={strokeWidth} strokeOpacity={strokeOpacity} style={trans} />
     </g>

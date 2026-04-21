@@ -26,16 +26,16 @@ import { ENTITY_DEPTH, entityStore, useEntityState } from "../../../entities/ent
 import { startCameraTween, type CameraState } from "../../../shared/lib/camera-animation";
 import { debounce, saveViewport } from "../../../shared/api/viewport-persistence";
 import { MiniMap } from "./MiniMap";
-import { useKindFilter } from "../../../features/kind-filter";
-import { useSnapshotShortcut } from "../../../features/snapshot";
-import { ColorLegend } from "../../../features/color-legend";
-import { StickiesLayer } from "../../../features/stickies";
-import { SourceOverlay } from "../../../features/source-viewer";
+import { useKindFilter } from "../../kind-filter";
+import { useSnapshotShortcut } from "../../snapshot";
+import { ColorLegend } from "../../color-legend";
+import { StickiesLayer } from "../../stickies";
+import { SourceOverlay } from "../../source-viewer";
 import { rollupEntitySignals, type EntitySignals } from "@quanta/canvas-engine";
 import {
   computeColorOverrides,
   useColorMode,
-} from "../../../features/color-mode";
+} from "../../color-mode";
 import type { SceneBadge } from "../../../shared/lib/pixi-scene";
 import {
   acquirePixiScene,

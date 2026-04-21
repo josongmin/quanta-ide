@@ -1,5 +1,6 @@
 // Author Territory — public barrel
 export { AuthorTerritoryView } from "./ui/AuthorTerritoryView";
+export { authorTerritoryViewDescriptor } from "./view";
 export type { AuthorTerritoryViewProps } from "./ui/AuthorTerritoryView";
 export { buildAuthorTerritoryLayout } from "./model/build-author-territory-layout";
 export type {

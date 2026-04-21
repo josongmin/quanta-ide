@@ -33,6 +33,7 @@ import { RULES_FEATURES } from "@quanta/app-rules/seed";
 import { SCENARIO_FEATURES } from "@quanta/app-scenario/seed";
 import { POLICY_FEATURES } from "@quanta/app-policy/seed";
 import { DEMO_FEATURES } from "@quanta/app-demo/seed";
+import { DASHBOARD_FEATURES } from "@quanta/app-dashboard/seed";
 
 // ---------------------------------------------------------------------------
 // Lazy app registrations — each app's Component is code-split via dynamic
@@ -68,6 +69,14 @@ appRegistry.register({
   label: "Code Universe v2",
   Component: lazy(() =>
     import("@quanta/code-universe").then((m) => ({ default: m.CodeUniverse })),
+  ),
+});
+
+appRegistry.register({
+  id: "code-city",
+  label: "Code City",
+  Component: lazy(() =>
+    import("@quanta/app-code-city").then((m) => ({ default: m.CodeCityApp })),
   ),
 });
 
@@ -167,6 +176,7 @@ registerFeatureManifests(RULES_FEATURES);
 registerFeatureManifests(SCENARIO_FEATURES);
 registerFeatureManifests(POLICY_FEATURES);
 registerFeatureManifests(DEMO_FEATURES);
+registerFeatureManifests(DASHBOARD_FEATURES);
 
 // Apply persisted feature enable/disable overrides onto the live registry.
 // Must run AFTER all manifests are registered.

@@ -1,4 +1,5 @@
 export { CoChangeView } from "./ui/CoChangeView";
+export { coChangeViewDescriptor } from "./view";
 export { buildCoChangeLayout } from "./model/build-cochange-layout";
 export type {
   CoChangeCell,

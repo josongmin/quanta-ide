@@ -1,5 +1,6 @@
 // Service Topology — public barrel
 export { ServiceTopoView } from "./ui/ServiceTopoView";
+export { serviceTopoViewDescriptor } from "./view";
 export type { ServiceTopoViewProps } from "./ui/ServiceTopoView";
 export { buildServiceTopoLayout } from "./model/build-service-topo-layout";
 export type {

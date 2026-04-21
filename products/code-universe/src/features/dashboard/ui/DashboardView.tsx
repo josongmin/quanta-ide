@@ -20,7 +20,7 @@ import { RepoHealthTab } from "./RepoHealthTab";
 import { ThisChangeTab } from "./ThisChangeTab";
 import { TeamFlowTab } from "./TeamFlowTab";
 import { GovernanceTab } from "./GovernanceTab";
-import { ConfidenceChip, bucketColor } from "./primitives";
+import { ConfidenceChip, TierChip, bucketColor } from "./primitives";
 
 // DashboardView — 4-tab metric surface.
 // --------------------------------------------------------------------
@@ -43,11 +43,11 @@ export interface DashboardViewProps {
   onDismiss?: () => void;
 }
 
-const TABS: { id: DashboardTab; label: string; caption: string; accent: string; glyph: string }[] = [
-  { id: "repo-health", label: "Repo Health",     caption: "L2 · baseline",  accent: color.accent, glyph: "◎" },
-  { id: "this-change", label: "This Change",     caption: "L3 · delta",     accent: "#e09321",    glyph: "⚡" },
-  { id: "team-flow",   label: "Team Flow",       caption: "L1 · delivery",  accent: "#22a06b",    glyph: "⧈" },
-  { id: "governance",  label: "Governance",      caption: "L5 · verdict",   accent: "#9e77ff",    glyph: "⊞" },
+const TABS: { id: DashboardTab; label: string; caption: string; accent: string }[] = [
+  { id: "repo-health", label: "Repo Health",     caption: "L2 · baseline",  accent: color.accent },
+  { id: "this-change", label: "This Change",     caption: "L3 · delta",     accent: "#e09321"    },
+  { id: "team-flow",   label: "Team Flow",       caption: "L1 · delivery",  accent: "#22a06b"    },
+  { id: "governance",  label: "Governance",      caption: "L5 · verdict",   accent: "#9e77ff"    },
 ];
 
 export const DashboardView = memo(function DashboardView(props: DashboardViewProps): ReactElement {
@@ -115,42 +115,37 @@ export const DashboardView = memo(function DashboardView(props: DashboardViewPro
     if (onFocusEntity) onFocusEntity(id);
   }, [onFocusEntity]);
 
+  const baselineTone =
+    repoHealth.baselineRisk.bucket === "low" ? "Safe"
+    : repoHealth.baselineRisk.bucket === "medium" ? "Attention"
+    : "Intervene";
+
   return (
     <div style={{ ...WRAP, width, height }}>
-      {/* Header */}
+      {/* Header — Gemini Console style: title + attached Tier chip on
+          left, verdict + close on right. Project/period controls live
+          in the filter strip below. */}
       <header style={HEADER}>
         <div style={HEADER_LEFT}>
-          <div style={TITLE_GLYPH_ROW}>
-            <span style={TITLE_GLYPH}>⎈</span>
-            <div>
-              <h1 style={TITLE}>Dashboard</h1>
-              <div style={SUBTITLE}>Repo intelligence · Flow · Verdict · all in one view</div>
-            </div>
-          </div>
+          <h1 style={TITLE}>
+            Dashboard
+            <TierChip label={`Baseline ${repoHealth.baselineRisk.score} · ${baselineTone}`} accent={bucketColor(repoHealth.baselineRisk.bucket)} />
+          </h1>
+          <div style={SUBTITLE}>Repo intelligence · Flow · Verdict · all in one view</div>
         </div>
 
         <div style={HEADER_RIGHT}>
-          {/* Baseline risk chip */}
-          <div style={BASELINE_CHIP}>
-            <span style={{ ...BASELINE_DOT, background: bucketColor(repoHealth.baselineRisk.bucket) }} />
-            <span style={BASELINE_LABEL}>BASELINE</span>
-            <span style={{ ...BASELINE_VALUE, color: bucketColor(repoHealth.baselineRisk.bucket) }}>
-              {repoHealth.baselineRisk.score}
-            </span>
-          </div>
-
           {/* Verdict stamp — clickable, jumps to governance */}
           <button
             type="button"
             onClick={() => setActive("governance")}
             style={{
               ...VERDICT_STAMP,
-              background: `linear-gradient(135deg, ${verdictAccent}1f 0%, ${verdictAccent}0a 100%)`,
-              borderColor: `${verdictAccent}66`,
+              borderColor: `${verdictAccent}55`,
               color: verdictAccent,
             }}
           >
-            <span style={{ ...VERDICT_DOT, background: verdictAccent, boxShadow: `0 0 0 3px ${verdictAccent}22` }} />
+            <span style={{ ...VERDICT_DOT, background: verdictAccent }} />
             <span style={VERDICT_LABEL}>{governance.verdict.decision}</span>
             <ConfidenceChip confidence={governance.verdict.confidence} size="sm" />
           </button>
@@ -163,7 +158,19 @@ export const DashboardView = memo(function DashboardView(props: DashboardViewPro
         </div>
       </header>
 
-      {/* Tab bar */}
+      {/* Filter strip — project + period, Gemini-style */}
+      <div style={FILTER_STRIP}>
+        <label style={FILTER_FIELD}>
+          <span style={FILTER_LABEL}>Project</span>
+          <span style={FILTER_CONTROL}>{scope.name}</span>
+        </label>
+        <label style={FILTER_FIELD}>
+          <span style={FILTER_LABEL}>Scope</span>
+          <span style={FILTER_CONTROL}>{scope.kind}</span>
+        </label>
+      </div>
+
+      {/* Tab bar — underline accent, no boxed chrome */}
       <nav style={TAB_BAR} role="tablist">
         {TABS.map((t, i) => {
           const isActive = active === t.id;
@@ -175,26 +182,20 @@ export const DashboardView = memo(function DashboardView(props: DashboardViewPro
               aria-selected={isActive}
               onClick={() => setActive(t.id)}
               onMouseEnter={e => {
-                if (!isActive) e.currentTarget.style.background = color.bg2;
+                if (!isActive) e.currentTarget.style.color = color.text0;
               }}
               onMouseLeave={e => {
-                if (!isActive) e.currentTarget.style.background = "transparent";
+                if (!isActive) e.currentTarget.style.color = color.text2;
               }}
               style={{
                 ...TAB_BTN,
-                background: isActive ? color.bg1 : "transparent",
-                borderColor: isActive ? color.border : "transparent",
-                borderBottomColor: isActive ? color.bg1 : "transparent",
                 color: isActive ? color.text0 : color.text2,
-                boxShadow: isActive ? `inset 0 2px 0 ${t.accent}` : "none",
+                boxShadow: isActive ? `inset 0 -2px 0 ${color.text0}` : "inset 0 -2px 0 transparent",
               }}
             >
-              <span style={{ ...TAB_GLYPH, color: isActive ? t.accent : color.text3 }}>{t.glyph}</span>
-              <span style={TAB_LABEL_COL}>
-                <span style={TAB_LABEL_TEXT}>{t.label}</span>
-                <span style={TAB_CAPTION}>{t.caption}</span>
-              </span>
-              <span style={{ ...TAB_KEY, color: color.text3 }}>{i + 1}</span>
+              <span style={TAB_LABEL_TEXT}>{t.label}</span>
+              <span style={TAB_CAPTION}>{t.caption}</span>
+              <span style={TAB_KEY}>{i + 1}</span>
             </button>
           );
         })}
@@ -228,7 +229,7 @@ const CONTENT_PAD_X = 32;
 const WRAP: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  background: color.bg2,
+  background: "#ffffff",
   overflow: "hidden",
   fontFamily: font.sans,
 };
@@ -236,90 +237,51 @@ const WRAP: CSSProperties = {
 const HEADER: CSSProperties = {
   flexShrink: 0,
   display: "flex",
-  alignItems: "center",
+  alignItems: "flex-start",
   justifyContent: "space-between",
   gap: space[4],
-  padding: `${space[4]}px ${CONTENT_PAD_X}px`,
-  background: color.bg1,
-  borderBottom: `1px solid ${color.border}`,
+  padding: `${space[5]}px ${CONTENT_PAD_X}px ${space[3]}px`,
+  background: "#ffffff",
 };
 
 const HEADER_LEFT: CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  gap: space[3],
+  flexDirection: "column",
+  gap: 4,
   minWidth: 0,
 };
 
 const HEADER_RIGHT: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  gap: space[3],
-};
-
-const TITLE_GLYPH_ROW: CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: space[3],
-};
-
-const TITLE_GLYPH: CSSProperties = {
-  fontSize: 24,
-  color: color.accent,
-  lineHeight: 1,
+  gap: space[2],
 };
 
 const TITLE: CSSProperties = {
   margin: 0,
-  fontSize: 20,
-  fontWeight: font.weight.semibold,
-  letterSpacing: font.letter.tight,
+  fontSize: 26,
+  fontWeight: font.weight.bold,
+  letterSpacing: -0.6,
   color: color.text0,
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 10,
 };
 
 const SUBTITLE: CSSProperties = {
-  fontSize: font.size.xs,
+  fontSize: font.size.sm,
   color: color.text2,
-  letterSpacing: font.letter.tight,
-  marginTop: 1,
-};
-
-const BASELINE_CHIP: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  gap: 6,
-  padding: "4px 10px",
-  borderRadius: radius.pill,
-  background: color.bg2,
-  border: `1px solid ${color.border}`,
-  fontSize: font.size.xs,
-};
-
-const BASELINE_DOT: CSSProperties = {
-  width: 8, height: 8, borderRadius: 999,
-};
-
-const BASELINE_LABEL: CSSProperties = {
-  fontWeight: font.weight.semibold,
-  fontSize: 9,
-  color: color.text2,
-  letterSpacing: 0.5,
-};
-
-const BASELINE_VALUE: CSSProperties = {
-  fontWeight: font.weight.bold,
-  fontSize: font.size.md,
-  fontFamily: font.mono,
-  fontVariantNumeric: "tabular-nums",
+  letterSpacing: 0,
 };
 
 const VERDICT_STAMP: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   gap: 8,
-  padding: "4px 10px 4px 8px",
+  padding: "4px 12px 4px 10px",
   border: "1px solid",
   borderRadius: radius.pill,
+  background: "#ffffff",
   cursor: "pointer",
   fontFamily: font.sans,
   transition: "transform 140ms, box-shadow 140ms",
@@ -336,11 +298,11 @@ const VERDICT_LABEL: CSSProperties = {
 };
 
 const CLOSE_BTN: CSSProperties = {
-  width: 28,
-  height: 28,
+  width: 30,
+  height: 30,
   borderRadius: radius.md,
   border: `1px solid ${color.border}`,
-  background: color.bg1,
+  background: "#ffffff",
   color: color.text1,
   fontSize: 18,
   cursor: "pointer",
@@ -348,72 +310,97 @@ const CLOSE_BTN: CSSProperties = {
   fontFamily: font.sans,
 };
 
+// Filter strip below the header. Label + value pairs rendered as
+// tiny bordered capsules, matching the Gemini "프로젝트 [Gemini API ▾]"
+// control strip. No interactivity yet — the scope is driven by the
+// canvas selection, so these are read-only badges for now.
+const FILTER_STRIP: CSSProperties = {
+  flexShrink: 0,
+  display: "flex",
+  alignItems: "center",
+  gap: space[3],
+  padding: `0 ${CONTENT_PAD_X}px ${space[3]}px`,
+  background: "#ffffff",
+};
+
+const FILTER_FIELD: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 8,
+};
+
+const FILTER_LABEL: CSSProperties = {
+  fontSize: font.size.xs,
+  color: color.text2,
+  letterSpacing: 0,
+};
+
+const FILTER_CONTROL: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  padding: "5px 12px",
+  borderRadius: radius.pill,
+  border: `1px solid ${color.border}`,
+  background: "#ffffff",
+  fontSize: font.size.sm,
+  color: color.text0,
+  fontWeight: font.weight.medium,
+  letterSpacing: 0,
+  textTransform: "capitalize",
+};
+
 const TAB_BAR: CSSProperties = {
   flexShrink: 0,
   display: "flex",
-  gap: space[1],
+  gap: space[5],
   padding: `0 ${CONTENT_PAD_X}px`,
-  background: color.bg2,
+  background: "#ffffff",
   borderBottom: `1px solid ${color.border}`,
 };
 
 const TAB_BTN: CSSProperties = {
-  display: "flex",
+  display: "inline-flex",
   alignItems: "center",
   gap: space[2],
-  padding: `${space[2] + 2}px ${space[3]}px`,
+  padding: `${space[3]}px 0`,
   marginBottom: -1,
-  border: "1px solid transparent",
-  borderTopLeftRadius: radius.md,
-  borderTopRightRadius: radius.md,
+  border: "none",
+  background: "transparent",
   cursor: "pointer",
-  transition: "background 140ms, color 140ms",
+  transition: "color 140ms, box-shadow 140ms",
   fontFamily: font.sans,
   position: "relative",
 };
 
-const TAB_GLYPH: CSSProperties = {
-  fontSize: 16,
-  lineHeight: 1,
-};
-
-const TAB_LABEL_COL: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "flex-start",
-  gap: 1,
-  lineHeight: 1.1,
-};
-
 const TAB_LABEL_TEXT: CSSProperties = {
-  fontSize: font.size.md,
+  fontSize: font.size.lg,
   fontWeight: font.weight.semibold,
-  letterSpacing: font.letter.tight,
+  letterSpacing: -0.1,
 };
 
 const TAB_CAPTION: CSSProperties = {
-  fontSize: 9.5,
+  fontSize: 10,
   color: color.text3,
-  letterSpacing: 0.3,
+  letterSpacing: 0.4,
   textTransform: "uppercase",
   fontWeight: font.weight.semibold,
+  fontFamily: font.sans,
 };
 
 const TAB_KEY: CSSProperties = {
-  marginLeft: space[2],
-  fontSize: 9,
+  fontSize: 9.5,
   fontFamily: font.mono,
-  padding: "1px 5px",
+  padding: "1px 6px",
   border: `1px solid ${color.border}`,
   borderRadius: radius.sm,
   fontWeight: font.weight.semibold,
+  color: color.text3,
 };
 
 const BODY: CSSProperties = {
   flex: 1,
   overflowY: "auto",
   overflowX: "hidden",
-  padding: `0 ${CONTENT_PAD_X}px`,
-  background: color.bg2,
-  boxShadow: `inset 0 8px 16px -10px ${color.border}`,
+  padding: `${space[5]}px ${CONTENT_PAD_X}px`,
+  background: "#ffffff",
 };

@@ -1,4 +1,5 @@
 export { ChordView } from "./ui/ChordView";
+export { chordViewDescriptor } from "./view";
 export { ChordArc } from "./ui/ChordArc";
 export { ChordEdge } from "./ui/ChordEdge";
 export { ChordLeaf } from "./ui/ChordLeaf";

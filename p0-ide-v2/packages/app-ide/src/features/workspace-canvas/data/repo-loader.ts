@@ -3,6 +3,7 @@
 // (see `./graph-source.ts`) instead of calling these helpers directly.
 // Kept exported for backwards compatibility with existing callers.
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
+import { normalizeWorkspaceGraphForDevScan } from "./normalize-dev-scan-graph";
 
 export interface LoadRepoResult {
   graph: WorkspaceGraph;
@@ -60,7 +61,8 @@ export async function loadRepoGraph(opts: LoadRepoOptions): Promise<LoadRepoResu
       throw new Error(`scan failed (${res.status}): ${body}`);
     }
     const json = await res.json() as WorkspaceGraph & { stats: LoadRepoResult["stats"] };
-    const { stats, ...graph } = json;
+    const { stats, ...raw } = json;
+    const graph = normalizeWorkspaceGraphForDevScan(raw);
     return { graph, stats };
   } catch (err) {
     logOnce("loadRepoGraph", err);

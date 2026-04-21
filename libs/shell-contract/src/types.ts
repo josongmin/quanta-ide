@@ -13,7 +13,8 @@ export type TabApp =
   | "policy"
   | "settings"
   | "dashboard"
-  | "demo";
+  | "demo"
+  | "code-city";
 
 /** Superset: every surface the shell can render, including non-tab pages. */
 export type AppKind = TabApp | "home";

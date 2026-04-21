@@ -56,7 +56,9 @@
       "@quanta/app-policy": ["packages/app-policy/src"],
       "@quanta/app-policy/*": ["packages/app-policy/src/*"],
       "@quanta/app-demo": ["packages/app-demo/src"],
-      "@quanta/app-demo/*": ["packages/app-demo/src/*"]
+      "@quanta/app-demo/*": ["packages/app-demo/src/*"],
+      "@quanta/app-code-city": ["packages/app-code-city/src"],
+      "@quanta/app-code-city/*": ["packages/app-code-city/src/*"]
     }
   },
   "include": ["src", "packages/*/src"]

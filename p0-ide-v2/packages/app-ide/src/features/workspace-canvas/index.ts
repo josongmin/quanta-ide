@@ -27,6 +27,7 @@ export { fileFactsToWorkspaceGraph } from "./data/adapters";
 export { SAMPLE_GRAPH } from "./data/sample-graph";
 export { loadRepoGraph, loadFileSource, loadFileSourceBatch } from "./data/repo-loader";
 export type { LoadRepoOptions, LoadRepoResult, LoadFileSourceOptions } from "./data/repo-loader";
+export { normalizeWorkspaceGraphForDevScan } from "./data/normalize-dev-scan-graph";
 
 // Adapter layer — plug a real engine in here without touching the UI.
 export type { GraphSource, GraphSourceDescription } from "./data/graph-source";

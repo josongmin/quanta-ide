@@ -1,23 +1,19 @@
 import { useRef, useSyncExternalStore } from "react";
 
-// View-mode store
+// View-mode store — current-mode only.
 // --------------------------------------------------------------------
-// Picks the active top-level visualisation of the Code Universe
-// canvas. Orthogonal to the tier ladder and to the mind-map overlay —
-// this is about "what SHAPE is the data", not "at what zoom" or "from
-// whose perspective".
+// The active view mode lives here. Everything else (label, glyph,
+// render component, cycle order, context eligibility, activation
+// side-effects) is owned by the view registry at
+// `./view-registry.tsx`. This file deliberately knows nothing about
+// individual modes beyond the `ViewMode` union — consumers looking for
+// metadata go through `getViewDescriptor()` / `VIEW_MODE_OPTIONS`.
 //
-// Three modes today; more will land as new aggregation views ship
-// (matrix, Sankey, force-directed, etc.). Treemap stays the default
-// because it's the containment-first view the rest of the product
-// references ("click a folder", "drill in", ancestor breadcrumbs).
-//
-// Mind-map mode works slightly differently from the others — it's an
-// OVERLAY driven by its own enable flag + centre entity (see
-// `features/mind-map/model/store.ts`). The view-mode enum still
-// includes "mindmap" so the segmented control can offer it as a
-// first-class option; switching to it just opens the overlay on the
-// current selection.
+// The `ViewMode` union is the runtime spelling of registry ids.
+// Keeping it as a hand-written literal union (rather than inferring
+// from the descriptor list) avoids a module-graph cycle between store
+// and registry and gives every consumer the ids at type-check time
+// without running any import side-effects.
 
 export type ViewMode =
   | "treemap" | "mindmap"
@@ -53,32 +49,14 @@ export const viewModeStore = {
       listeners.delete(fn);
     };
   },
+  /** Set the mode directly. Does NOT fire descriptor activate / deactivate
+   *  hooks — use `switchMode(next, ctx)` from the registry for that.
+   *  Exposed as a bare setter so URL-sync and tests can seed the store
+   *  without wiring a fake context. */
   setMode(mode: ViewMode): void {
     if (state.mode === mode) return;
     state = { mode };
     emit();
-  },
-  /** Cycle to the next mode — bound to a single keyboard shortcut for
-   *  rapid side-by-side comparison ("V" key). Order follows the
-   *  toolbar's left-to-right layout so keyboard + visual order match. */
-  cycle(): void {
-    const order: ViewMode[] = [
-      "treemap", "mindmap", "chord", "matrix",
-      "quadrant", "arc-cycles", "embedding",
-      "blast", "arch-layers", "debt-history", "refactor-terrain",
-      "cycle-genesis", "smell-history",
-      "arch-drift", "cochange",
-      "refactor-sim", "start-here",
-      "pathfinder", "neighborhood",
-      "author-territory", "service-topo",
-      "galaxy-3d",
-    ];
-    const i = order.indexOf(state.mode);
-    const next = order[(i + 1) % order.length];
-    if (next) {
-      state = { mode: next };
-      emit();
-    }
   },
   reset(): void {
     state = initial;

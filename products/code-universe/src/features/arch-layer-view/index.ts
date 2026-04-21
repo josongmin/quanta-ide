@@ -1,4 +1,5 @@
 export { ArchLayerView } from "./ui/ArchLayerView";
+export { archLayerViewDescriptor } from "./view";
 export { buildArchLayerLayout } from "./model/build-arch-layer-layout";
 export type {
   ArchLayerLayout,

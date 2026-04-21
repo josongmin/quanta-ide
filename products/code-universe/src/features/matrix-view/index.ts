@@ -1,6 +1,7 @@
 export { buildMatrixLayout } from "./model/build-matrix-layout";
 export { clusterRows } from "./lib/cluster-rows";
 export { MatrixView } from "./ui/MatrixView";
+export { matrixViewDescriptor } from "./view";
 export { MatrixCell } from "./ui/MatrixCell";
 export type {
   MatrixRow,

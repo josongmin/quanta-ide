@@ -5,4 +5,5 @@ export type {
   BuildStartHereLayoutOpts,
 } from "./model/types";
 export { StartHereView } from "./ui/StartHereView";
+export { startHereViewDescriptor } from "./view";
 export type { StartHereViewProps } from "./ui/StartHereView";
