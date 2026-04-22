@@ -1,6 +1,6 @@
 // view-palette — public barrel
 // --------------------------------------------------------------------
-// Global ⌘K / Ctrl+K modal for jumping between the 74 view modes.
+// Global ⌘⇧P / Ctrl+⇧P modal for jumping between the 74 view modes.
 // Sibling to `features/view-mode/ViewModePicker` (sidebar picker) —
 // same underlying registry, different UX surface (keyboard-first vs.
 // discovery-first).

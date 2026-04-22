@@ -1,9 +1,12 @@
 import { useEffect } from "react";
 import { viewPaletteStore } from "./store";
 
-// Global shortcut — ⌘K / Ctrl+K toggles the view palette from anywhere
-// in the product. Esc closes. "/" focuses the search input when the
-// modal is already open (editor-style quick-focus).
+// Global shortcut — ⌘⇧P / Ctrl+⇧P toggles the view palette from
+// anywhere. Uses VS Code's "command palette" convention to avoid the
+// ⌘K goto-palette collision (the entity-level command-palette feature
+// already owns ⌘K for file / symbol jumping).
+// Esc closes. "/" focuses the search input when the modal is already
+// open (editor-style quick-focus).
 //
 // Installed by CanvasShell once on mount, so the shortcut works
 // regardless of focus (unlike a keydown bound on the viewport, which
@@ -19,9 +22,11 @@ export function useViewPaletteShortcut(enabled = true): void {
     const onKeyDown = (e: KeyboardEvent): void => {
       const meta = e.metaKey || e.ctrlKey;
 
-      // ⌘K / Ctrl+K — toggle. Runs regardless of focus so the user
+      // ⌘⇧P / Ctrl+⇧P — toggle. Runs regardless of focus so the user
       // can jump here from anywhere (canvas, sidebar, inspector).
-      if (meta && e.key.toLowerCase() === "k") {
+      // Shift+P is the VS Code "command palette" standard — entity
+      // palette keeps ⌘K (goto-file).
+      if (meta && e.shiftKey && e.key.toLowerCase() === "p") {
         e.preventDefault();
         viewPaletteStore.toggle();
         return;

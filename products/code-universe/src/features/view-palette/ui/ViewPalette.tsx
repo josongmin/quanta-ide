@@ -1,4 +1,4 @@
-// ViewPalette — global ⌘K modal for jumping between view modes.
+// ViewPalette — global ⌘⇧P modal for jumping between view modes.
 // --------------------------------------------------------------------
 // Sibling to `features/view-mode/ui/ViewModePicker` (sidebar picker).
 // The picker is optimised for discovery (expanded groups, hover detail,
@@ -6,11 +6,12 @@
 // users — one input, one flat result list, Enter to jump.
 //
 // Scope: VIEW MODES ONLY. Entity / file search lives in the separate
-// `features/command-palette` feature. We deliberately do NOT import
-// from that feature — the two palettes are sibling slices.
+// `features/command-palette` feature (⌘K). We deliberately do NOT
+// import from that feature — the two palettes are sibling slices.
+// Shortcut split follows VS Code: ⌘K goto / ⌘⇧P commands.
 //
 // Wiring:
-//   - Opens via `useViewPaletteShortcut()` (⌘K / Ctrl+K).
+//   - Opens via `useViewPaletteShortcut()` (⌘⇧P / Ctrl+⇧P).
 //   - Reads all 74 descriptors from the view-mode registry and filters
 //     by context eligibility (repo / folder / file) + fuzzy token-AND
 //     search over id / label / hint / tech / usecase.
@@ -266,7 +267,7 @@ export function ViewPalette(): ReactElement | null {
         const target = cursor >= 0 ? flat[cursor] : flat[0];
         if (target) commit(target.d);
       }
-      // Esc and ⌘K are handled globally by useViewPaletteShortcut —
+      // Esc and ⌘⇧P are handled globally by useViewPaletteShortcut —
       // we don't re-handle them here so close/toggle semantics stay
       // in a single place.
     },
@@ -318,7 +319,7 @@ export function ViewPalette(): ReactElement | null {
               ? `${totalMatched}건`
               : `${listViewDescriptors().length}개 모드`}
           </span>
-          <kbd style={KBD}>⌘K</kbd>
+          <kbd style={KBD}>⌘⇧P</kbd>
         </div>
 
         <div style={SCROLL}>
