@@ -67,6 +67,25 @@ export async function loadGroundDataBatch(
 ): Promise<Record<string, GroundFileData>> {
   const out: Record<string, GroundFileData> = {};
   if (fileIds.length === 0) return out;
+  // Parity with loadGroundData: if an engine-backed GraphSource is active,
+  // prefer its per-file fetcher so sources that don't set `repoRoot` still
+  // resolve. The batch endpoint doesn't exist on those sources, so we fan
+  // out to loadFileSource — still one tick of work, no network amplification
+  // vs. the original per-card path.
+  if (activeGraphSource?.loadFileSource) {
+    const loader = activeGraphSource.loadFileSource.bind(activeGraphSource);
+    const results = await Promise.all(
+      fileIds.map(async (id) => {
+        try {
+          return [id, await loader(id)] as const;
+        } catch {
+          return [id, SAMPLE_SOURCES[id] ?? ""] as const;
+        }
+      }),
+    );
+    for (const [id, source] of results) out[id] = { source };
+    return out;
+  }
   const repoRoot = sceneStore.getState().repoRoot;
   if (repoRoot) {
     try {

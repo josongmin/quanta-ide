@@ -535,6 +535,250 @@ export function depthOfInheritance(entity: Entity): number {
   return 1 + Math.floor(Math.pow(r, 2.4) * 7);
 }
 
+// ── Entity-scoped helpers (file / folder / symbol) ─────────────────────
+
+/** Per-symbol synthesized record — mirrors what a real analyzer would
+ *  emit (name, kind, LoC, CC, visibility, callers/callees). */
+export type SymbolKind = "class" | "function" | "method" | "variable" | "interface";
+export type SymbolVisibility = "public" | "private" | "internal";
+
+export interface SynthSymbol {
+  id: string;          // fileId + "::" + name
+  name: string;
+  kind: SymbolKind;
+  visibility: SymbolVisibility;
+  loc: number;
+  line: number;        // declaration line
+  cyclomatic: number;
+  cognitive: number;
+  callers: number;
+  callees: number;
+  tests: number;       // # of tests referencing
+}
+
+const SYMBOL_NAME_POOLS: Record<SymbolKind, readonly string[]> = {
+  class:     ["Controller", "Service", "Manager", "Factory", "Repository", "Adapter", "Store", "Registry"],
+  interface: ["Config", "Options", "Result", "Event", "Payload", "State", "Props", "Handle"],
+  function:  ["parse", "render", "normalize", "dispatch", "resolve", "encode", "decode", "format"],
+  method:    ["init", "update", "handle", "build", "apply", "reduce", "emit", "reset"],
+  variable:  ["CACHE", "DEFAULTS", "LIMITS", "REGISTRY", "PALETTE", "TOKENS", "FLAGS", "VERSION"],
+};
+
+/** Synthesize symbols for a file entity. Count ~ log2(LoC) + seeded jitter,
+ *  capped at 24 for readability. */
+export function symbolsInFile(entity: Entity): SynthSymbol[] {
+  if (entity.kind !== "building" && entity.kind !== "floor") return [];
+  const loc = entity.metrics?.loc ?? 120;
+  const baseCount = Math.max(3, Math.min(24, Math.floor(Math.log2(loc + 2) * 2.4)));
+  const rng = seeded(entity.id, "sym-n");
+  const n = Math.floor(baseCount + rng() * 4);
+  const out: SynthSymbol[] = [];
+  const names = seeded(entity.id, "sym-list");
+  let line = 1;
+  for (let i = 0; i < n; i++) {
+    const r = names();
+    const kind: SymbolKind =
+      r < 0.12 ? "class" :
+      r < 0.22 ? "interface" :
+      r < 0.54 ? "function" :
+      r < 0.84 ? "method" :
+      "variable";
+    const pool = SYMBOL_NAME_POOLS[kind];
+    const basename = pool[Math.floor(names() * pool.length)]!;
+    const nameSuffix = Math.floor(names() * 99);
+    const name = kind === "variable" ? `${basename}_${nameSuffix}` : `${basename}${nameSuffix}`;
+    const visR = names();
+    const visibility: SymbolVisibility =
+      visR < 0.3 ? "public" : visR < 0.72 ? "internal" : "private";
+    const symLoc = Math.max(3, Math.floor(Math.pow(names(), 2.2) * 260 + 4));
+    const cyclomatic = 1 + Math.floor(names() * 14);
+    const cognitive = cyclomatic + Math.floor(names() * 12);
+    const callers = Math.floor(Math.pow(names(), 2) * 30);
+    const callees = Math.floor(Math.pow(names(), 1.6) * 18);
+    const tests = Math.floor(Math.pow(names(), 3) * 12);
+    out.push({
+      id: `${entity.id}::${name}`,
+      name,
+      kind,
+      visibility,
+      loc: symLoc,
+      line,
+      cyclomatic,
+      cognitive,
+      callers,
+      callees,
+      tests,
+    });
+    line += symLoc + 2;
+  }
+  return out;
+}
+
+/** Nearest-k "twin" files by synthesized similarity — structural +
+ *  co-change composite. Deterministic via id hashing. */
+export function fileTwins(entity: Entity, pool: readonly Entity[], k: number = 6): Array<{ entity: Entity; similarity: number; reason: string }> {
+  const me = hashId(entity.id);
+  const scored: Array<{ entity: Entity; similarity: number; reason: string }> = [];
+  for (const other of pool) {
+    if (other.id === entity.id) continue;
+    if (other.kind !== "building" && other.kind !== "floor") continue;
+    // Hybrid score: string-overlap on name + seeded structural + seeded co-change.
+    const nameOverlap = jaccardName(entity.name, other.name);
+    const structural = seeded(`${entity.id}↔${other.id}`, "struct")();
+    const coChange = seeded(`${entity.id}↔${other.id}`, "cc")();
+    const score = nameOverlap * 0.35 + structural * 0.35 + coChange * 0.30;
+    // Pick the dominant reason for the label.
+    const reason =
+      nameOverlap >= structural && nameOverlap >= coChange ? "이름 유사"
+      : coChange >= structural ? "co-change"
+      : "구조 유사";
+    scored.push({ entity: other, similarity: score, reason });
+  }
+  // Stable tiebreak using me-hash for determinism.
+  scored.sort((a, b) => {
+    if (b.similarity !== a.similarity) return b.similarity - a.similarity;
+    return (hashId(a.entity.id) - me) - (hashId(b.entity.id) - me);
+  });
+  return scored.slice(0, k);
+}
+
+function jaccardName(a: string, b: string): number {
+  const tokenize = (s: string) =>
+    new Set(
+      s.toLowerCase().replace(/\.[a-z]+$/, "")
+        .split(/[-._/\s]+/)
+        .filter(t => t.length > 1),
+    );
+  const A = tokenize(a);
+  const B = tokenize(b);
+  if (A.size === 0 && B.size === 0) return 0;
+  let inter = 0;
+  for (const t of A) if (B.has(t)) inter++;
+  const union = A.size + B.size - inter;
+  return union === 0 ? 0 : inter / union;
+}
+
+/** Robert C. Martin's Instability I = Ce / (Ca + Ce). 0..1. */
+export function packageInstability(
+  entity: Entity,
+  tree: { byId: ReadonlyMap<string, Entity>; childrenOf(id: string): readonly Entity[] },
+  edges?: ReadonlyArray<{ from: string; to: string }>,
+): { ca: number; ce: number; instability: number } {
+  // Collect descendant file ids.
+  const descendants = new Set<string>();
+  const stack = [entity.id];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    const e = tree.byId.get(id);
+    if (!e) continue;
+    if (e.kind === "building") descendants.add(e.id);
+    for (const c of e.childIds) stack.push(c);
+  }
+
+  if (edges) {
+    let ca = 0, ce = 0;
+    for (const { from, to } of edges) {
+      const fromIn = descendants.has(from);
+      const toIn = descendants.has(to);
+      if (fromIn && !toIn) ce++;
+      else if (!fromIn && toIn) ca++;
+    }
+    const inst = (ca + ce) === 0 ? 0 : ce / (ca + ce);
+    return { ca, ce, instability: inst };
+  }
+
+  // Fallback: seeded synth.
+  const r1 = seeded(entity.id, "inst-ca")();
+  const r2 = seeded(entity.id, "inst-ce")();
+  const ca = Math.floor(r1 * 40);
+  const ce = Math.floor(r2 * 40);
+  const inst = (ca + ce) === 0 ? 0.5 : ce / (ca + ce);
+  return { ca, ce, instability: inst };
+}
+
+/** Abstractness A = Na / Nc (abstract classes + interfaces / total).
+ *  Synthesized from entity ids since we lack AST class info. */
+export function packageAbstractness(entity: Entity): number {
+  const r = seeded(entity.id, "abs")();
+  return Math.pow(r, 1.6);
+}
+
+/** Distance from the main sequence |A + I - 1|. Low = healthy, high = "zone of pain / uselessness". */
+export function mainSequenceDistance(a: number, i: number): number {
+  return Math.abs(a + i - 1);
+}
+
+/** Package-level monthly LoC trail (12 months). */
+export function packageLocHistory(entity: Entity, months: number = 12): number[] {
+  const rng = seeded(entity.id, "pkg-loc");
+  const base = 1000 + Math.floor(rng() * 8000);
+  const out: number[] = [];
+  let val = base;
+  for (let i = 0; i < months; i++) {
+    val = Math.max(100, val + Math.floor((rng() - 0.45) * 900));
+    out.push(val);
+  }
+  return out;
+}
+
+/** Weekly churn (line-add + line-remove) history for a package. */
+export function packageChurnHistory(entity: Entity, weeks: number = 26): Array<{ add: number; del: number }> {
+  const rng = seeded(entity.id, "pkg-churn");
+  const out: Array<{ add: number; del: number }> = [];
+  for (let i = 0; i < weeks; i++) {
+    const add = Math.floor(Math.pow(rng(), 1.8) * 1400);
+    const del = Math.floor(Math.pow(rng(), 2.4) * 900);
+    out.push({ add, del });
+  }
+  return out;
+}
+
+/** Active author count per month — proxy for team size. */
+export function packageTeamHistory(entity: Entity, months: number = 12): number[] {
+  const rng = seeded(entity.id, "pkg-team");
+  const out: number[] = [];
+  for (let i = 0; i < months; i++) {
+    out.push(1 + Math.floor(Math.pow(rng(), 1.2) * 5));
+  }
+  return out;
+}
+
+/** Synthesized usage hits per file for a given symbol. Returns a map
+ *  from fileId → hit count. Most files have 0 references; a few have
+ *  concentrated usage (realistic symbol-usage skew). */
+export function symbolUsageByFile(
+  symbolId: string,
+  pool: readonly Entity[],
+): Map<string, number> {
+  const out = new Map<string, number>();
+  const rng = seeded(symbolId, "sym-usage");
+  for (const e of pool) {
+    if (e.kind !== "building" && e.kind !== "floor") continue;
+    const r = rng();
+    if (r < 0.78) continue;
+    // A small fraction get hits; of those, most low, some concentrated.
+    const hits = 1 + Math.floor(Math.pow(rng(), 2.8) * 16);
+    out.set(e.id, hits);
+  }
+  return out;
+}
+
+/** Test names referencing a symbol. */
+export function testsForSymbol(symbolId: string, count: number): string[] {
+  const pool = [
+    "parses valid input", "rejects malformed payload", "handles null selection",
+    "preserves ordering", "rolls back on error", "retries on timeout",
+    "deduplicates events", "caches warm results", "respects limits",
+    "emits telemetry", "recovers from partial state", "matches snapshot",
+  ];
+  const rng = seeded(symbolId, "sym-tests");
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(`${pool[Math.floor(rng() * pool.length)]!} #${i + 1}`);
+  }
+  return out;
+}
+
 export function synthCfg(seedStr: string): SynthCfgNode[] {
   const rng = seeded(seedStr, "cfg");
   const nNodes = 6 + Math.floor(rng() * 9);

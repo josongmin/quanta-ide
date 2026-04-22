@@ -41,7 +41,11 @@ export type ViewMode =
   | "truck-factor" | "refactoring-miner" | "review-heat" | "dora-metrics"
   | "seesoft" | "code-city-3d" | "voronoi-treemap" | "stream-graph" | "ownership-sankey"
   | "mutation-score" | "vulnerabilities" | "debt-ratio"
-  | "quality-gate" | "dit";
+  | "quality-gate" | "dit"
+  // ── entity-scoped (file / folder / symbol) ──
+  | "inner-city" | "file-gauge" | "symbol-inventory" | "file-history" | "file-twins"
+  | "package-surface" | "package-instability" | "package-evolution"
+  | "symbol-card" | "symbol-fan" | "symbol-usage-map";
 
 export interface ViewModeState {
   mode: ViewMode;
