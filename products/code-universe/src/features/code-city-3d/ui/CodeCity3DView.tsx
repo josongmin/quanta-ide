@@ -106,8 +106,9 @@ function CodeCity3DViewImpl({
   // Yaw only. Pitch stays locked at ~30° for classic isometric look.
   const [yaw, setYaw] = useState(0);
   const [idle, setIdle] = useState(true);
+  const [dragging, setDragging] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const dragRef = useRef({ active: false, x0: 0, yaw0: 0 });
+  const dragRef = useRef({ active: false, x0: 0, yaw0: 0, pointerId: -1 });
 
   useEffect(() => {
     const s = document.createElement("style");
@@ -138,31 +139,45 @@ function CodeCity3DViewImpl({
   // Translate the whole scene so the city centroid lands in the viewport.
   const bbox = useMemo(() => sceneBBox(districts), [districts]);
 
-  const handleDown = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handleDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (e.button !== 0) return;
-    dragRef.current = { active: true, x0: e.clientX, yaw0: yaw };
+    dragRef.current = {
+      active: true,
+      x0: e.clientX,
+      yaw0: yaw,
+      pointerId: e.pointerId,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
     setIdle(false);
   };
-  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
+  const handleMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const d = dragRef.current;
-    if (!d.active) return;
+    if (!d.active || e.pointerId !== d.pointerId) return;
     const delta = (e.clientX - d.x0) * 0.006;
     setYaw(d.yaw0 + delta);
   };
-  const handleUp = () => {
-    if (!dragRef.current.active) return;
-    dragRef.current.active = false;
+  const handleUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    const d = dragRef.current;
+    if (!d.active) return;
+    if (e.currentTarget.hasPointerCapture(d.pointerId)) {
+      e.currentTarget.releasePointerCapture(d.pointerId);
+    }
+    dragRef.current = { active: false, x0: 0, yaw0: 0, pointerId: -1 };
+    setDragging(false);
     // Resume ambient drift after a short grace period.
     window.setTimeout(() => setIdle(true), 900);
   };
 
   const effectiveYaw = yaw + (idle ? driftYaw : 0);
 
-  const viewportCenter = { x: width / 2, y: height / 2 };
-  const sceneOrigin = {
-    x: viewportCenter.x - (bbox.cx * COS30 - bbox.cy * COS30),
-    y: viewportCenter.y - (bbox.cx * SIN30 + bbox.cy * SIN30) * 0.5 + bbox.hMid * 0.1,
-  };
+  // bbox.cx / bbox.cy are already in projected (post-isometric) screen
+  // space — `sceneBBox` walks ground-poly points that came out of
+  // `worldIso`. Centering simply lines that midpoint up with the SVG
+  // centre; the small `hMid` nudge biases for the upward vertical
+  // extent of the tallest building.
+  const svgH = Math.max(1, height - 120);
+  const viewportCenter = { x: width / 2, y: svgH / 2 };
 
   // Flatten all tiles for depth sorting (painter's algorithm).
   const drawables = useMemo(
@@ -205,17 +220,18 @@ function CodeCity3DViewImpl({
       <div style={canvasWrapStyle}>
         <svg
           width={width}
-          height={height - 120}
-          viewBox={`0 0 ${width} ${Math.max(1, height - 120)}`}
-          onMouseDown={handleDown}
-          onMouseMove={handleMove}
-          onMouseUp={handleUp}
-          onMouseLeave={handleUp}
+          height={svgH}
+          viewBox={`0 0 ${width} ${svgH}`}
+          onPointerDown={handleDown}
+          onPointerMove={handleMove}
+          onPointerUp={handleUp}
+          onPointerCancel={handleUp}
           style={{
             width: "100%",
             height: "100%",
-            cursor: dragRef.current.active ? "grabbing" : "grab",
+            cursor: dragging ? "grabbing" : "grab",
             userSelect: "none",
+            touchAction: "none",
             background: "linear-gradient(180deg, #fafcff 0%, #eef2f8 100%)",
             borderRadius: radius.md,
             border: `1px solid ${color.border}`,
@@ -234,9 +250,12 @@ function CodeCity3DViewImpl({
           </defs>
 
           <g
+            transform={
+              `translate(${viewportCenter.x} ${viewportCenter.y - bbox.hMid * 0.1}) ` +
+              `rotate(${(effectiveYaw * 180) / Math.PI}) ` +
+              `translate(${-bbox.cx} ${-bbox.cy})`
+            }
             style={{
-              transform: `translate(${sceneOrigin.x}px, ${sceneOrigin.y}px) rotate(${effectiveYaw}rad)`,
-              transformOrigin: "0px 0px",
               transition: idle ? "transform 120ms linear" : "none",
               animation: "ccEnter 520ms cubic-bezier(0.22, 1, 0.28, 1) both",
             }}

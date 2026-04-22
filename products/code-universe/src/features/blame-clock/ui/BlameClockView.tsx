@@ -1,14 +1,20 @@
 // BlameClockView — authors × age on a circular clock face.
 // --------------------------------------------------------------------
-// Each tick is one file. Angle = deterministic hash-of-id slot (stable
-// between renders). Radial distance = age (newer → inner, older → outer).
-// Tick colour = primary author's hue.
+// Each tick is one file.
+//   • Angle  → author wedge. Authors are ordered by file count and laid
+//              around the clock (starting at 12, clockwise) so each
+//              author owns a contiguous slice. Within the slice, file
+//              sub-angle is a deterministic hash jitter.
+//   • Radius → age (newer → inner, older → outer).
+//   • Hue    → primary author (redundant with wedge, but reinforces
+//              identity when reading individual ticks).
+// The rim arcs are author labels — the dots underneath each rim segment
+// belong to that author. Radial guide rings are labelled with their age
+// bucket so radial distance has a unit, not a vibe.
 //
-// The clock face has classical ornamentation (hour marks, minute marks,
-// second hand) so it reads as an instrument at a glance. A rotating
-// "second hand" sweeps continuously (24s / rev) via requestAnimationFrame
-// so the motion is smooth and decoupled from React re-renders. Click a
-// tick to select that file; the center shows aggregate stats.
+// A second-hand sweeps continuously (24s / rev) via requestAnimationFrame
+// so the instrument feels alive without driving React re-renders. Click
+// a tick to select that file.
 
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactElement } from "react";
@@ -66,6 +72,12 @@ interface AuthorRollup {
   id: string;
   hue: number;
   count: number;
+  /** Wedge start angle (rad, screen — 12 o'clock = -π/2). */
+  startAngle: number;
+  /** Wedge end angle (rad, screen). */
+  endAngle: number;
+  /** Mid-angle for label placement. */
+  midAngle: number;
 }
 
 // ── Hue helpers ──────────────────────────────────────────────────────
@@ -97,8 +109,15 @@ function BlameClockViewImpl({ ctx }: { ctx: ViewContextValue }): ReactElement | 
     return () => cancelAnimationFrame(rafId.current);
   }, []);
 
-  const { ticks, authors, medianAge } = useMemo(() => {
-    if (!ctx.tree) return { ticks: [] as ClockTick[], authors: [] as AuthorRollup[], medianAge: 0 };
+  const { ticks, authors, medianAge, maxAge } = useMemo(() => {
+    if (!ctx.tree) {
+      return {
+        ticks: [] as ClockTick[],
+        authors: [] as AuthorRollup[],
+        medianAge: 0,
+        maxAge: 0,
+      };
+    }
 
     // Collect file entities, sort by LoC desc, keep top N to avoid visual
     // stampede on huge repos.
@@ -109,19 +128,55 @@ function BlameClockViewImpl({ ctx }: { ctx: ViewContextValue }): ReactElement | 
     files.sort((a, b) => (b.metrics?.loc ?? 0) - (a.metrics?.loc ?? 0));
     const top = files.slice(0, MAX_FILES);
 
+    // Pre-pass: tally per-author file counts so we can lay out wedges
+    // BEFORE we assign per-tick angles (each tick's angle depends on
+    // its author's wedge bounds).
+    const authorCounts = new Map<string, number>();
+    const authorOf = new Map<string, string>();
+    for (const e of top) {
+      const a = primaryAuthor(e);
+      authorOf.set(e.id, a);
+      authorCounts.set(a, (authorCounts.get(a) ?? 0) + 1);
+    }
+
+    // Authors ordered by file count descending. The largest contributor
+    // sits at 12 o'clock and we walk clockwise — same orientation as the
+    // outer rim arcs, so rim and dots tell one story.
+    const totalCount = top.length || 1;
+    let acc = -Math.PI / 2;
+    const authors: AuthorRollup[] = [...authorCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, count]) => {
+        const span = (count / totalCount) * Math.PI * 2;
+        const startAngle = acc;
+        const endAngle = acc + span;
+        acc = endAngle;
+        return {
+          id,
+          count,
+          hue: authorHue(id),
+          startAngle,
+          endAngle,
+          midAngle: (startAngle + endAngle) / 2,
+        };
+      });
+    const wedgeByAuthor = new Map(authors.map(a => [a.id, a]));
+
     // Age normalization across the sampled set, so ticks fan out across
     // the full radial range instead of bunching near the center.
     const ages = top.map(e => ageDays(e));
     const maxAge = Math.max(1, ...ages);
     const minAge = Math.min(...ages, 0);
 
-    const authorCounts = new Map<string, number>();
-
     const ticks: ClockTick[] = top.map(e => {
-      const author = primaryAuthor(e);
-      authorCounts.set(author, (authorCounts.get(author) ?? 0) + 1);
-      // Angle from hash — stable across renders and ~uniformly distributed.
-      const angle = (hashId(`${e.id}::clock-slot`) / 0xffffffff) * Math.PI * 2;
+      const author = authorOf.get(e.id) ?? primaryAuthor(e);
+      const wedge = wedgeByAuthor.get(author)!;
+      // Sub-angle inside the wedge, deterministic so it doesn't flicker
+      // between renders. 0.06..0.94 leaves a small gutter at each wedge
+      // edge so neighbouring authors stay visually separable.
+      const slot = hashId(`${e.id}::clock-slot`) / 0xffffffff;
+      const t = 0.06 + slot * 0.88;
+      const angle = wedge.startAngle + (wedge.endAngle - wedge.startAngle) * t;
       const age = ageDays(e);
       const rNorm = (age - minAge) / (maxAge - minAge || 1);
       return {
@@ -137,16 +192,12 @@ function BlameClockViewImpl({ ctx }: { ctx: ViewContextValue }): ReactElement | 
       };
     });
 
-    const authors: AuthorRollup[] = [...authorCounts.entries()]
-      .map(([id, count]) => ({ id, count, hue: authorHue(id) }))
-      .sort((a, b) => b.count - a.count);
-
     const sortedAges = [...ages].sort((a, b) => a - b);
     const median = sortedAges.length
       ? sortedAges[Math.floor(sortedAges.length / 2)] ?? 0
       : 0;
 
-    return { ticks, authors, medianAge: median };
+    return { ticks, authors, medianAge: median, maxAge };
   }, [ctx.tree]);
 
   if (!ctx.tree || ticks.length === 0) {
@@ -235,111 +286,133 @@ function BlameClockViewImpl({ ctx }: { ctx: ViewContextValue }): ReactElement | 
               fill="url(#bc-inner-glow)"
             />
 
-            {/* Radial age rings — 3 tiers */}
-            {[0.33, 0.66, 1.0].map((frac, i) => (
-              <circle
-                key={`age-${i}`}
-                cx={0} cy={0}
-                r={rInner + (rTickBand - rInner) * frac}
-                fill="none"
-                stroke={color.border}
-                strokeWidth={0.6}
-                strokeDasharray="1.2 4"
-                opacity={0.7}
-              />
-            ))}
-
-            {/* Hour ticks — 12 major */}
-            {Array.from({ length: 12 }, (_, i) => i).map(i => {
-              const a = (i / 12) * Math.PI * 2 - Math.PI / 2;
-              const x1 = Math.cos(a) * (R - 10);
-              const y1 = Math.sin(a) * (R - 10);
-              const x2 = Math.cos(a) * R;
-              const y2 = Math.sin(a) * R;
-              return (
-                <line
-                  key={`h-${i}`}
-                  x1={x1} y1={y1}
-                  x2={x2} y2={y2}
-                  stroke={color.text1}
-                  strokeWidth={i % 3 === 0 ? 1.4 : 0.9}
-                  opacity={0.7}
-                />
-              );
-            })}
-            {/* Minute ticks — 60, finer */}
-            {Array.from({ length: 60 }, (_, i) => i).map(i => {
-              if (i % 5 === 0) return null; // dupe with hour
-              const a = (i / 60) * Math.PI * 2 - Math.PI / 2;
-              const x1 = Math.cos(a) * (R - 4);
-              const y1 = Math.sin(a) * (R - 4);
-              const x2 = Math.cos(a) * R;
-              const y2 = Math.sin(a) * R;
-              return (
-                <line
-                  key={`m-${i}`}
-                  x1={x1} y1={y1}
-                  x2={x2} y2={y2}
-                  stroke={color.text3}
-                  strokeWidth={0.4}
-                  opacity={0.5}
-                />
-              );
-            })}
-            {/* Hour numerals — 12/3/6/9 */}
-            {[
-              { n: "12", a: -Math.PI / 2 },
-              { n: "3",  a: 0 },
-              { n: "6",  a: Math.PI / 2 },
-              { n: "9",  a: Math.PI },
-            ].map(({ n, a }) => (
-              <text
-                key={`num-${n}`}
-                x={Math.cos(a) * (R - 24)}
-                y={Math.sin(a) * (R - 24)}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontFamily={font.sans}
-                fontSize={10}
-                fill={color.text3}
-                opacity={0.7}
-                letterSpacing="0.14em"
-              >
-                {n}
-              </text>
-            ))}
-
-            {/* Author-hue rim — thin arcs along the outer edge proportional
-             *  to each author's file share. Reads as a cohesive chromatic
-             *  band that still explains which hue belongs to whom. */}
+            {/* Author wedges — faint sector fill, radial divider, outer
+             *  rim arc, and curved label. The wedge is the load-bearing
+             *  encoding: it groups all of an author's dots into one
+             *  contiguous slice so you can read "which dots are kim's"
+             *  by following the rim down to the centre. */}
             <g>
-              {(() => {
-                const total = authors.reduce((a, b) => a + b.count, 0) || 1;
-                let acc = -Math.PI / 2;
-                return authors.slice(0, 10).map((au, i) => {
-                  const span = (au.count / total) * Math.PI * 2;
-                  const start = acc;
-                  const end = acc + span;
-                  acc = end;
-                  const rim = R + 4;
-                  const x0 = Math.cos(start) * rim;
-                  const y0 = Math.sin(start) * rim;
-                  const x1 = Math.cos(end) * rim;
-                  const y1 = Math.sin(end) * rim;
-                  const large = span > Math.PI ? 1 : 0;
-                  return (
+              {authors.map((au, i) => {
+                const span = au.endAngle - au.startAngle;
+                const large = span > Math.PI ? 1 : 0;
+                const rim = R + 4;
+                const inner = rInner + 4;
+                // Sector path (pie slice from inner ring to outer face).
+                const xa = Math.cos(au.startAngle) * inner;
+                const ya = Math.sin(au.startAngle) * inner;
+                const xb = Math.cos(au.startAngle) * R;
+                const yb = Math.sin(au.startAngle) * R;
+                const xc = Math.cos(au.endAngle) * R;
+                const yc = Math.sin(au.endAngle) * R;
+                const xd = Math.cos(au.endAngle) * inner;
+                const yd = Math.sin(au.endAngle) * inner;
+                const sector =
+                  `M ${xa.toFixed(2)} ${ya.toFixed(2)} ` +
+                  `L ${xb.toFixed(2)} ${yb.toFixed(2)} ` +
+                  `A ${R} ${R} 0 ${large} 1 ${xc.toFixed(2)} ${yc.toFixed(2)} ` +
+                  `L ${xd.toFixed(2)} ${yd.toFixed(2)} ` +
+                  `A ${inner} ${inner} 0 ${large} 0 ${xa.toFixed(2)} ${ya.toFixed(2)} Z`;
+                // Outer rim arc (the chromatic band).
+                const x0r = Math.cos(au.startAngle) * rim;
+                const y0r = Math.sin(au.startAngle) * rim;
+                const x1r = Math.cos(au.endAngle) * rim;
+                const y1r = Math.sin(au.endAngle) * rim;
+                // Label arc — placed just outside the rim, with the
+                // label flipped on the bottom half so text never reads
+                // upside-down.
+                const labelR = rim + 14;
+                const flipped = au.midAngle > 0 && au.midAngle < Math.PI;
+                const labelStart = flipped ? au.endAngle : au.startAngle;
+                const labelEnd = flipped ? au.startAngle : au.endAngle;
+                const sweep = flipped ? 0 : 1;
+                const lx0 = Math.cos(labelStart) * labelR;
+                const ly0 = Math.sin(labelStart) * labelR;
+                const lx1 = Math.cos(labelEnd) * labelR;
+                const ly1 = Math.sin(labelEnd) * labelR;
+                const labelPath =
+                  `M ${lx0.toFixed(2)} ${ly0.toFixed(2)} ` +
+                  `A ${labelR} ${labelR} 0 ${large} ${sweep} ${lx1.toFixed(2)} ${ly1.toFixed(2)}`;
+                const labelId = `bc-label-${i}`;
+                // Wedges narrower than ~14° hide their text label.
+                const showLabel = span > 0.24;
+                return (
+                  <g key={`wedge-${au.id}-${i}`}>
                     <path
-                      key={`rim-${au.id}-${i}`}
-                      d={`M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${rim} ${rim} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`}
+                      d={sector}
+                      fill={hsl(au.hue, 60, 55, 0.07)}
+                      stroke="none"
+                    />
+                    {/* Faint divider between this wedge and the previous */}
+                    {i > 0 && (
+                      <line
+                        x1={Math.cos(au.startAngle) * inner}
+                        y1={Math.sin(au.startAngle) * inner}
+                        x2={Math.cos(au.startAngle) * R}
+                        y2={Math.sin(au.startAngle) * R}
+                        stroke={color.border}
+                        strokeWidth={0.6}
+                        opacity={0.6}
+                      />
+                    )}
+                    <path
+                      d={`M ${x0r.toFixed(2)} ${y0r.toFixed(2)} A ${rim} ${rim} 0 ${large} 1 ${x1r.toFixed(2)} ${y1r.toFixed(2)}`}
                       fill="none"
                       stroke={hsl(au.hue, 60, 55, 0.9)}
                       strokeWidth={3}
                       strokeLinecap="round"
                     />
-                  );
-                });
-              })()}
+                    {showLabel && (
+                      <>
+                        <defs>
+                          <path id={labelId} d={labelPath} />
+                        </defs>
+                        <text
+                          fontFamily={font.sans}
+                          fontSize={10}
+                          fontWeight={font.weight.semibold}
+                          letterSpacing="0.08em"
+                          fill={hsl(au.hue, 50, 38)}
+                        >
+                          <textPath href={`#${labelId}`} startOffset="50%" textAnchor="middle">
+                            {au.id}
+                          </textPath>
+                        </text>
+                      </>
+                    )}
+                  </g>
+                );
+              })}
             </g>
+
+            {/* Radial age rings — labelled with their day bucket so
+             *  radial distance has a unit. */}
+            {[0.33, 0.66, 1.0].map((frac, i) => {
+              const r = rInner + (rTickBand - rInner) * frac;
+              const days = Math.round(maxAge * frac);
+              return (
+                <g key={`age-${i}`}>
+                  <circle
+                    cx={0} cy={0}
+                    r={r}
+                    fill="none"
+                    stroke={color.border}
+                    strokeWidth={0.6}
+                    strokeDasharray="1.2 4"
+                    opacity={0.7}
+                  />
+                  <text
+                    x={4}
+                    y={-r}
+                    fontFamily={font.mono}
+                    fontSize={9}
+                    fill={color.text3}
+                    opacity={0.85}
+                  >
+                    {days}d
+                  </text>
+                </g>
+              );
+            })}
 
             {/* File ticks */}
             {ticks.map((t, i) => {
@@ -489,8 +562,9 @@ function BlameClockViewImpl({ ctx }: { ctx: ViewContextValue }): ReactElement | 
           </div>
 
           <div style={legendFooterStyle}>
-            <span style={legendCaptionStyle}>inner = recent · outer = older</span>
-            <span style={legendCaptionStyle}>color = primary author</span>
+            <span style={legendCaptionStyle}>wedge = author · width ∝ file count</span>
+            <span style={legendCaptionStyle}>radius = age (inner = recent, outer = older)</span>
+            <span style={legendCaptionStyle}>color = primary author (matches rim)</span>
           </div>
         </div>
       </div>
