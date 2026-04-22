@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 // View palette store
 // --------------------------------------------------------------------
 // Tiny open/close + query + keyboard-cursor state for the view-mode
-// command palette. Module-level so the global ⌘K / Ctrl+K shortcut can
+// command palette. Module-level so the global ⌘⇧P / Ctrl+⇧P shortcut can
 // toggle the modal from anywhere in the product without prop drilling.
 //
 // Separate from `features/command-palette/` — that one targets entities
