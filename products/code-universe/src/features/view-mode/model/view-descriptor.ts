@@ -19,7 +19,7 @@ import type { ViewMode } from "./store";
 
 export type ViewCtx = "repo" | "folder" | "file";
 
-export type ViewCategory = "explore" | "deps" | "history" | "plan" | "arch" | "metrics" | "refactor" | "quality" | "security" | "team";
+export type ViewCategory = "explore" | "deps" | "history" | "plan" | "arch" | "metrics" | "refactor" | "quality" | "security" | "team" | "ai";
 
 // ── Dispatch — the uniform side-effects any view may trigger ──────────
 

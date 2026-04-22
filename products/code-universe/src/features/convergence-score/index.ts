@@ -1,0 +1,1 @@
+export { convergenceScoreViewDescriptor } from "./view";

@@ -1,0 +1,1 @@
+export { contextCuratorViewDescriptor } from "./view";

@@ -1,0 +1,1 @@
+export { promptSimulatorViewDescriptor } from "./view";

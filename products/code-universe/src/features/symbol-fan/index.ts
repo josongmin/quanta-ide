@@ -1,0 +1,1 @@
+export { symbolFanViewDescriptor } from "./view";

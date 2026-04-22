@@ -1,0 +1,1 @@
+export { agentROIViewDescriptor } from "./view";

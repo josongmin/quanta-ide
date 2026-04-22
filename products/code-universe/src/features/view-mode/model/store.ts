@@ -45,7 +45,26 @@ export type ViewMode =
   // ── entity-scoped (file / folder / symbol) ──
   | "inner-city" | "file-gauge" | "symbol-inventory" | "file-history" | "file-twins"
   | "package-surface" | "package-instability" | "package-evolution"
-  | "symbol-card" | "symbol-fan" | "symbol-usage-map";
+  | "symbol-card" | "symbol-fan" | "symbol-usage-map"
+  // ── industry must-haves ──
+  | "problems-panel" | "dependency-health" | "structure-outline"
+  | "review-recommender" | "language-breakdown" | "devex-health"
+  | "sbom" | "xray-hotspot"
+  // ── AI token efficiency (novel — 2026) ──
+  | "token-economy" | "context-footprint" | "ai-friendliness" | "prompt-simulator"
+  // ── AI-native second wave ──
+  | "context-window-fit" | "cache-roi" | "ai-authorship" | "agent-success"
+  | "semantic-neighbors" | "hallucination-risk" | "model-router" | "verification-surface"
+  // ── AI agent observability (third wave) ──
+  | "agent-trajectory" | "tool-profile" | "turn-depth" | "blast-radius-agent"
+  | "readiness-score" | "context-rot" | "prompt-injection" | "agent-roi"
+  | "replay-theater" | "convergence-score"
+  // ── AI-native product features (task management / governance) ──
+  | "task-queue" | "task-kanban" | "task-composer" | "task-graph" | "decision-log"
+  | "context-curator" | "memory-vault" | "agent-orchestra" | "budget-console" | "audit-trail"
+  // ── AI limits awareness (2026 research-driven) ──
+  | "compounding-error" | "blind-spot" | "spec-gaming" | "skill-atrophy" | "benchmark-gap"
+  | "eval-contamination" | "model-swap-sim" | "determinism-drift" | "planning-horizon" | "stuck-pattern";
 
 export interface ViewModeState {
   mode: ViewMode;

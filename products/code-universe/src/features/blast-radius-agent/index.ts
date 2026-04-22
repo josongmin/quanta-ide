@@ -1,0 +1,1 @@
+export { blastRadiusAgentViewDescriptor } from "./view";

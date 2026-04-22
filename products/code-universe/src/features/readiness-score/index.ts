@@ -1,0 +1,1 @@
+export { readinessScoreViewDescriptor } from "./view";

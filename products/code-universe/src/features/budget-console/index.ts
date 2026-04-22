@@ -1,0 +1,1 @@
+export { budgetConsoleViewDescriptor } from "./view";

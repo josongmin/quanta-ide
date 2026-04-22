@@ -1,0 +1,1 @@
+export { packageInstabilityViewDescriptor } from "./view";

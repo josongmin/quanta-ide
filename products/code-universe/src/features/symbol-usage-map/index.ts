@@ -1,0 +1,1 @@
+export { symbolUsageMapViewDescriptor } from "./view";

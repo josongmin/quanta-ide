@@ -109,6 +109,69 @@ import { vulnerabilitiesViewDescriptor } from "../../vulnerabilities";
 import { debtRatioViewDescriptor }      from "../../debt-ratio";
 import { ditViewDescriptor }            from "../../dit";
 
+// ── Entity-scoped (file / folder / symbol) ──
+import { innerCityViewDescriptor }      from "../../inner-city";
+import { fileGaugeViewDescriptor }      from "../../file-gauge";
+import { symbolInventoryViewDescriptor } from "../../symbol-inventory";
+import { fileHistoryViewDescriptor }    from "../../file-history";
+import { fileTwinsViewDescriptor }      from "../../file-twins";
+import { packageSurfaceViewDescriptor } from "../../package-surface";
+import { packageInstabilityViewDescriptor } from "../../package-instability";
+import { packageEvolutionViewDescriptor } from "../../package-evolution";
+import { symbolCardViewDescriptor }     from "../../symbol-card";
+import { symbolFanViewDescriptor }      from "../../symbol-fan";
+import { symbolUsageMapViewDescriptor } from "../../symbol-usage-map";
+
+// ── Industry must-haves ──
+import { problemsPanelViewDescriptor }  from "../../problems-panel";
+import { structureOutlineViewDescriptor } from "../../structure-outline";
+import { languageBreakdownViewDescriptor } from "../../language-breakdown";
+import { dependencyHealthViewDescriptor } from "../../dependency-health";
+import { sbomViewDescriptor }           from "../../sbom";
+import { devExHealthViewDescriptor }    from "../../devex-health";
+import { reviewRecommenderViewDescriptor } from "../../review-recommender";
+import { xRayHotspotViewDescriptor }    from "../../xray-hotspot";
+
+// ── AI token efficiency (2026 novel) ──
+import { tokenEconomyViewDescriptor }   from "../../token-economy";
+import { contextFootprintViewDescriptor } from "../../context-footprint";
+import { aiFriendlinessViewDescriptor } from "../../ai-friendliness";
+import { promptSimulatorViewDescriptor } from "../../prompt-simulator";
+
+// ── AI-native second wave ──
+import { contextWindowFitViewDescriptor } from "../../context-window-fit";
+import { cacheROIViewDescriptor }       from "../../cache-roi";
+import { aiAuthorshipViewDescriptor }   from "../../ai-authorship";
+import { agentSuccessViewDescriptor }   from "../../agent-success";
+import { semanticNeighborsViewDescriptor } from "../../semantic-neighbors";
+import { hallucinationRiskViewDescriptor } from "../../hallucination-risk";
+import { modelRouterViewDescriptor }    from "../../model-router";
+import { verificationSurfaceViewDescriptor } from "../../verification-surface";
+
+// ── AI agent observability (third wave) ──
+import { agentTrajectoryViewDescriptor }    from "../../agent-trajectory";
+import { toolProfileViewDescriptor }        from "../../tool-profile";
+import { turnDepthViewDescriptor }          from "../../turn-depth";
+import { blastRadiusAgentViewDescriptor }   from "../../blast-radius-agent";
+import { readinessScoreViewDescriptor }     from "../../readiness-score";
+import { contextRotViewDescriptor }         from "../../context-rot";
+import { promptInjectionViewDescriptor }    from "../../prompt-injection";
+import { agentROIViewDescriptor }           from "../../agent-roi";
+import { replayTheaterViewDescriptor }      from "../../replay-theater";
+import { convergenceScoreViewDescriptor }   from "../../convergence-score";
+
+// ── AI-native product features (task management / governance) ──
+import { taskQueueViewDescriptor }          from "../../task-queue";
+import { taskKanbanViewDescriptor }         from "../../task-kanban";
+import { taskComposerViewDescriptor }       from "../../task-composer";
+import { taskGraphViewDescriptor }          from "../../task-graph";
+import { decisionLogViewDescriptor }        from "../../decision-log";
+import { contextCuratorViewDescriptor }     from "../../context-curator";
+import { memoryVaultViewDescriptor }        from "../../memory-vault";
+import { agentOrchestraViewDescriptor }     from "../../agent-orchestra";
+import { budgetConsoleViewDescriptor }      from "../../budget-console";
+import { auditTrailViewDescriptor }         from "../../audit-trail";
+
 // Canonical list — sorted by `order` so picker / cycle / dropdown all
 // agree on the sequence. The `order` field on each descriptor is the
 // single source of truth; the import order above is irrelevant.
@@ -190,6 +253,63 @@ const ALL: readonly ViewDescriptor[] = [
   vulnerabilitiesViewDescriptor,
   debtRatioViewDescriptor,
   ditViewDescriptor,
+  // ── entity-scoped ──
+  innerCityViewDescriptor,
+  fileGaugeViewDescriptor,
+  symbolInventoryViewDescriptor,
+  fileHistoryViewDescriptor,
+  fileTwinsViewDescriptor,
+  packageSurfaceViewDescriptor,
+  packageInstabilityViewDescriptor,
+  packageEvolutionViewDescriptor,
+  symbolCardViewDescriptor,
+  symbolFanViewDescriptor,
+  symbolUsageMapViewDescriptor,
+  // ── industry must-haves ──
+  problemsPanelViewDescriptor,
+  structureOutlineViewDescriptor,
+  languageBreakdownViewDescriptor,
+  dependencyHealthViewDescriptor,
+  sbomViewDescriptor,
+  devExHealthViewDescriptor,
+  reviewRecommenderViewDescriptor,
+  xRayHotspotViewDescriptor,
+  // ── AI token efficiency ──
+  tokenEconomyViewDescriptor,
+  contextFootprintViewDescriptor,
+  aiFriendlinessViewDescriptor,
+  promptSimulatorViewDescriptor,
+  // ── AI-native second wave ──
+  contextWindowFitViewDescriptor,
+  cacheROIViewDescriptor,
+  aiAuthorshipViewDescriptor,
+  agentSuccessViewDescriptor,
+  semanticNeighborsViewDescriptor,
+  hallucinationRiskViewDescriptor,
+  modelRouterViewDescriptor,
+  verificationSurfaceViewDescriptor,
+  // ── AI agent observability (third wave) ──
+  agentTrajectoryViewDescriptor,
+  toolProfileViewDescriptor,
+  turnDepthViewDescriptor,
+  blastRadiusAgentViewDescriptor,
+  readinessScoreViewDescriptor,
+  contextRotViewDescriptor,
+  promptInjectionViewDescriptor,
+  agentROIViewDescriptor,
+  replayTheaterViewDescriptor,
+  convergenceScoreViewDescriptor,
+  // ── AI-native product features ──
+  taskQueueViewDescriptor,
+  taskKanbanViewDescriptor,
+  taskComposerViewDescriptor,
+  taskGraphViewDescriptor,
+  decisionLogViewDescriptor,
+  contextCuratorViewDescriptor,
+  memoryVaultViewDescriptor,
+  agentOrchestraViewDescriptor,
+  budgetConsoleViewDescriptor,
+  auditTrailViewDescriptor,
 ];
 
 export const VIEW_DESCRIPTORS: readonly ViewDescriptor[] = [...ALL].sort(

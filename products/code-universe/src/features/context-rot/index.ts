@@ -1,0 +1,1 @@
+export { contextRotViewDescriptor } from "./view";

@@ -1,0 +1,1 @@
+export { promptInjectionViewDescriptor } from "./view";

@@ -51,6 +51,7 @@ const CATEGORY_ORDER: readonly CatMeta[] = [
   { id: "arch",     label: "아키텍처",   glyph: "⊟", accent: "#e5484d" },
   { id: "security", label: "보안",       glyph: "⚠", accent: "#d97706" },
   { id: "team",     label: "팀·오너십",   glyph: "⚐", accent: "#9e77ff" },
+  { id: "ai",       label: "AI 효율",     glyph: "✦", accent: "#7e4ed6" },
   { id: "history",  label: "이력",       glyph: "◈", accent: "#7e4ed6" },
   { id: "plan",     label: "계획",       glyph: "◆", accent: "#22a06b" },
 ];

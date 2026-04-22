@@ -1,0 +1,1 @@
+export { memoryVaultViewDescriptor } from "./view";

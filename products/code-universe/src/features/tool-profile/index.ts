@@ -1,0 +1,1 @@
+export { toolProfileViewDescriptor } from "./view";
