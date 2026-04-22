@@ -30,9 +30,9 @@ export const refactorSimViewDescriptor: ViewDescriptor = {
   tech: "의존성 그래프 변이 시뮬레이션",
   usecase:
     "실제 코드 건드리기 전 '이걸 분리하면 의존성이 어떻게 바뀌나' 확인. 팀에 리팩터링 제안할 때 before/after 근거 자료. 리스크 없는 사전 검증.",
-  category: "plan",
+  category: "refactor",
   contexts: ["repo", "folder", "file"],
   needs: { graph: true },
-  order: 160,
+  order: 470,
   Component: RefactorSimModeView,
 };

@@ -61,6 +61,6 @@ export const blastViewDescriptor: ViewDescriptor = {
   category: "deps",
   contexts: ["folder", "file"],
   needs: { tree: true, graph: true, selection: true },
-  order: 80,
+  order: 170,
   Component: BlastModeView,
 };

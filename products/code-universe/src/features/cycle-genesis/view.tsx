@@ -33,6 +33,6 @@ export const cycleGenesisViewDescriptor: ViewDescriptor = {
   category: "history",
   contexts: ["repo"],
   needs: { graph: true },
-  order: 120,
+  order: 760,
   Component: CycleGenesisModeView,
 };

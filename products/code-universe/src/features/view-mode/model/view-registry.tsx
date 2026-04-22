@@ -22,6 +22,7 @@ import {
 import type { ViewContextValue, ViewDescriptor } from "./view-descriptor";
 import type { ViewMode } from "./store";
 import { viewModeStore } from "./store";
+import { recentModesStore } from "./recent-modes";
 
 // Feature-side descriptors — each feature exposes a single exported
 // ViewDescriptor from its public barrel. Listed in picker + cycle order
@@ -51,6 +52,63 @@ import { authorTerritoryViewDescriptor } from "../../author-territory";
 import { serviceTopoViewDescriptor }    from "../../service-topo";
 import { galaxy3DViewDescriptor }       from "../../galaxy-3d";
 
+// ── 2026 expansion — metrics / refactor / time-machine / experimental ──
+import { hotspotViewDescriptor }        from "../../hotspot";
+import { hubScoreViewDescriptor }       from "../../hub-score";
+import { busFactorViewDescriptor }      from "../../bus-factor";
+import { coverageHolesViewDescriptor }  from "../../coverage-holes";
+import { layerAuditViewDescriptor }     from "../../layer-audit";
+import { apiSurfaceViewDescriptor }     from "../../api-surface";
+import { depFossilViewDescriptor }      from "../../dep-fossil";
+import { deadCodeViewDescriptor }       from "../../dead-code";
+import { moveHintViewDescriptor }       from "../../move-hint";
+import { dupeClustersViewDescriptor }   from "../../dupe-clusters";
+import { godFileViewDescriptor }        from "../../god-file";
+import { timelapseViewDescriptor }      from "../../timelapse";
+import { newSinceViewDescriptor }       from "../../new-since";
+import { strataViewDescriptor }         from "../../strata";
+import { evolutionDnaViewDescriptor }   from "../../evolution-dna";
+import { smellRadarViewDescriptor }     from "../../smell-radar";
+import { blameClockViewDescriptor }     from "../../blame-clock";
+import { heatRainfallViewDescriptor }   from "../../heat-rainfall";
+import { mitosisViewDescriptor }        from "../../mitosis";
+import { whereToViewDescriptor }        from "../../where-to";
+import { thoughtTrailViewDescriptor }   from "../../thought-trail";
+import { failureFlowViewDescriptor }    from "../../failure-flow";
+import { churnSparklineViewDescriptor } from "../../churn-sparkline";
+import { semanticDiffViewDescriptor }   from "../../semantic-diff";
+import { refactorWeatherViewDescriptor } from "../../refactor-weather";
+import { temporalCouplingViewDescriptor } from "../../temporal-coupling";
+
+// ── Industry / academia validated ──
+import { cognitiveComplexityViewDescriptor } from "../../cognitive-complexity";
+import { maintainabilityIndexViewDescriptor } from "../../maintainability-index";
+import { ckMatrixViewDescriptor }        from "../../ck-matrix";
+import { testPyramidViewDescriptor }     from "../../test-pyramid";
+import { callGraphViewDescriptor }       from "../../call-graph";
+import { controlFlowViewDescriptor }     from "../../control-flow";
+import { programSliceViewDescriptor }    from "../../program-slice";
+import { changeImpactViewDescriptor }    from "../../change-impact";
+import { bugPredictionViewDescriptor }   from "../../bug-prediction";
+import { featureEnvyViewDescriptor }     from "../../feature-envy";
+import { shotgunSurgeryViewDescriptor }  from "../../shotgun-surgery";
+import { commentAtlasViewDescriptor }    from "../../comment-atlas";
+import { truckFactorViewDescriptor }     from "../../truck-factor";
+import { refactoringMinerViewDescriptor } from "../../refactoring-miner";
+import { reviewHeatViewDescriptor }      from "../../review-heat";
+import { doraMetricsViewDescriptor }     from "../../dora-metrics";
+import { seesoftViewDescriptor }         from "../../seesoft";
+import { codeCity3DViewDescriptor }      from "../../code-city-3d";
+import { voronoiTreemapViewDescriptor }  from "../../voronoi-treemap";
+import { streamGraphViewDescriptor }     from "../../stream-graph";
+import { ownershipSankeyViewDescriptor } from "../../ownership-sankey";
+// ── Sonar-style quality dashboards ──
+import { qualityGateViewDescriptor }    from "../../quality-gate";
+import { mutationScoreViewDescriptor }  from "../../mutation-score";
+import { vulnerabilitiesViewDescriptor } from "../../vulnerabilities";
+import { debtRatioViewDescriptor }      from "../../debt-ratio";
+import { ditViewDescriptor }            from "../../dit";
+
 // Canonical list — sorted by `order` so picker / cycle / dropdown all
 // agree on the sequence. The `order` field on each descriptor is the
 // single source of truth; the import order above is irrelevant.
@@ -77,6 +135,61 @@ const ALL: readonly ViewDescriptor[] = [
   authorTerritoryViewDescriptor,
   serviceTopoViewDescriptor,
   galaxy3DViewDescriptor,
+  // ── 2026 expansion ──
+  hotspotViewDescriptor,
+  hubScoreViewDescriptor,
+  busFactorViewDescriptor,
+  coverageHolesViewDescriptor,
+  layerAuditViewDescriptor,
+  apiSurfaceViewDescriptor,
+  depFossilViewDescriptor,
+  deadCodeViewDescriptor,
+  moveHintViewDescriptor,
+  dupeClustersViewDescriptor,
+  godFileViewDescriptor,
+  timelapseViewDescriptor,
+  newSinceViewDescriptor,
+  strataViewDescriptor,
+  evolutionDnaViewDescriptor,
+  smellRadarViewDescriptor,
+  blameClockViewDescriptor,
+  heatRainfallViewDescriptor,
+  mitosisViewDescriptor,
+  whereToViewDescriptor,
+  thoughtTrailViewDescriptor,
+  failureFlowViewDescriptor,
+  churnSparklineViewDescriptor,
+  semanticDiffViewDescriptor,
+  refactorWeatherViewDescriptor,
+  temporalCouplingViewDescriptor,
+  // ── industry/academia validated ──
+  cognitiveComplexityViewDescriptor,
+  maintainabilityIndexViewDescriptor,
+  ckMatrixViewDescriptor,
+  testPyramidViewDescriptor,
+  callGraphViewDescriptor,
+  controlFlowViewDescriptor,
+  programSliceViewDescriptor,
+  changeImpactViewDescriptor,
+  bugPredictionViewDescriptor,
+  featureEnvyViewDescriptor,
+  shotgunSurgeryViewDescriptor,
+  commentAtlasViewDescriptor,
+  truckFactorViewDescriptor,
+  refactoringMinerViewDescriptor,
+  reviewHeatViewDescriptor,
+  doraMetricsViewDescriptor,
+  seesoftViewDescriptor,
+  codeCity3DViewDescriptor,
+  voronoiTreemapViewDescriptor,
+  streamGraphViewDescriptor,
+  ownershipSankeyViewDescriptor,
+  // ── Sonar-style quality dashboards ──
+  qualityGateViewDescriptor,
+  mutationScoreViewDescriptor,
+  vulnerabilitiesViewDescriptor,
+  debtRatioViewDescriptor,
+  ditViewDescriptor,
 ];
 
 export const VIEW_DESCRIPTORS: readonly ViewDescriptor[] = [...ALL].sort(
@@ -131,6 +244,8 @@ export function switchMode(next: ViewMode, ctx: ViewContextValue): void {
   getViewDescriptor(current).onDeactivate?.(ctx);
   viewModeStore.setMode(next);
   getViewDescriptor(next).onActivate?.(ctx);
+  // Record into MRU so the picker / command palette can surface "최근".
+  recentModesStore.record(next);
 }
 
 /** Cycle to the next mode in descriptor order. Wraps around. */

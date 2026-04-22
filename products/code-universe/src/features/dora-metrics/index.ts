@@ -1,0 +1,1 @@
+export { doraMetricsViewDescriptor } from "./view";

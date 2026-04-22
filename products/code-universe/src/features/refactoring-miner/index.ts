@@ -1,0 +1,1 @@
+export { refactoringMinerViewDescriptor } from "./view";

@@ -119,7 +119,6 @@ export interface MindMapViewProps {
   width: number;
   height: number;
   onFocusEntity?: (entityId: string) => void;
-  onDismiss?: () => void;
 }
 
 // ── Stagger schedule (ms) ────────────────────────────────────────────
@@ -136,6 +135,12 @@ const DELAY_SPOKE_STEP = 18;
 const DELAY_ENTITY_BASE = 220;
 const DELAY_ENTITY_STEP = 22;
 
+// Duration of the pre-mount → final-position transform transition —
+// this is what creates the visible "radiate out from center" motion
+// inside MindMapNode. Also used on re-center so persisting nodes
+// glide between orbits on the same clock.
+const RADIATE_MS = 700;
+
 // ── CSS keyframes ────────────────────────────────────────────────────
 const KEYFRAMES = `
 @keyframes mm-breathe {
@@ -151,18 +156,15 @@ const KEYFRAMES = `
   0%, 100% { stroke-opacity: 0.55; }
   50%       { stroke-opacity: 0.78; }
 }
-/* Entrance — re-plays on every re-center via key={centerId} on the
- * wrapper. A fast "쉬리릭" swing: the graph spins in ~135° CCW from
- * a small, dim scale, then uses the last third of the timeline to
- * glide smoothly into place. The two-step easing (aggressive first
- * half via the 40% → 70% keyframes, cubic-out on the rest) gives the
- * whoosh feel without overshooting the rest position. */
+/* Entrance — pure fade. The "radiate outward" motion lives on the
+ * individual nodes (see MindMapNode: groupStyle pre-mount clamps the
+ * position toward origin, the mount transition carries it to its
+ * polar resting spot). Rotating the whole SVG made the whole canvas
+ * spin at once, which read as choppy; moving the motion onto nodes
+ * lets each one spring out of the center at its own stagger beat. */
 @keyframes mm-enter {
-  0%   { opacity: 0; transform: rotate(-135deg) scale(0.60); }
-  25%  { opacity: 0.55;                                      }
-  55%  { opacity: 1;  transform: rotate(-18deg) scale(0.96); }
-  78%  { transform: rotate(6deg)   scale(1.02);              }
-  100% { opacity: 1;  transform: rotate(0deg)   scale(1);    }
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
 }
 `;
 
@@ -176,7 +178,6 @@ function MindMapViewImpl({
   width,
   height,
   onFocusEntity,
-  onDismiss,
 }: MindMapViewProps) {
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const handleHoverChange = useCallback((id: string | null) => setHoveredNodeId(id), []);
@@ -257,11 +258,6 @@ function MindMapViewImpl({
   }, []);
 
   const handleDblClick = useCallback(() => setZp(ZP_INIT), []);
-
-  const handleBackdropClick = useCallback(() => {
-    if (drag.current.moved) return;
-    onDismiss?.();
-  }, [onDismiss]);
 
   // ── Graph helpers ────────────────────────────────────────────────
   // Node positions combine the algorithmic layout (n.x / n.y) with any
@@ -401,10 +397,12 @@ function MindMapViewImpl({
         style={{ pointerEvents: "none" }}
       />
 
-      {/* Backdrop: click-outside dismiss, dbl-click zoom-reset */}
+      {/* Backdrop — transparent capture for dbl-click zoom-reset only.
+       *  No click-to-dismiss: the mind-map is a view mode, not a modal,
+       *  so a stray click on empty canvas must not tear it down. Exiting
+       *  happens via the view-mode toolbar. */}
       <rect x={0} y={0} width={width} height={height}
         fill="transparent"
-        onClick={handleBackdropClick}
       />
 
       {/* Zoom level hint (bottom-right, only when zoomed) */}
@@ -427,17 +425,14 @@ function MindMapViewImpl({
       >
         {/* Centered-content wrapper — keyed by centerId so React remounts
          *  it on every re-center, which re-plays the `mm-enter` keyframe
-         *  (fade + ~30° unrotation + scale). Rotation origin is (0,0)
-         *  within this group, which maps to the centre node's position,
-         *  so the graph swings into place around its new focus instead
-         *  of around the viewport corner. Node-level stagger (mountDelayMs)
-         *  layers on top — center first, aggregators, then entities. */}
+         *  (pure fade). The actual motion is delegated to the nodes
+         *  themselves: each one starts near (0, 0) and springs out to
+         *  its polar resting position, staggered by mountDelayMs so the
+         *  graph reads as a coordinated radiation, not a mass teleport. */}
         <g
           key={graph.centerId}
           style={{
-            animation: "mm-enter 900ms cubic-bezier(0.22, 1, 0.28, 1) both",
-            transformOrigin: "0px 0px",
-            transformBox: "fill-box",
+            animation: "mm-enter 520ms ease-out both",
           }}
         >
         {/* ── Atmosphere layer ──────────────────────────────────────────
@@ -581,7 +576,7 @@ function MindMapViewImpl({
               key={node.id}
               node={node}
               mountDelayMs={mountDelay}
-              positionTransitionMs={0}
+              positionTransitionMs={RADIATE_MS}
               onFocusEntity={onFocusEntity}
               onHoverChange={handleHoverChange}
               offsetX={off?.dx ?? 0}

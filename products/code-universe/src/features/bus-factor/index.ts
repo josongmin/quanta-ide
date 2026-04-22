@@ -1,0 +1,1 @@
+export { busFactorViewDescriptor } from "./view";

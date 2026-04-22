@@ -33,6 +33,6 @@ export const serviceTopoViewDescriptor: ViewDescriptor = {
   category: "arch",
   contexts: ["repo"],
   needs: { graph: true },
-  order: 210,
+  order: 530,
   Component: ServiceTopoModeView,
 };

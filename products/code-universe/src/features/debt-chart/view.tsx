@@ -43,9 +43,9 @@ export const debtChartViewDescriptor: ViewDescriptor = {
   tech: "순환 복잡도 + 부채 메트릭 × git 이력",
   usecase:
     "부채가 언제부터 쌓이기 시작했는지 타임라인 파악. 특정 시기 급증 원인 추적(어떤 PR/스프린트). 분기 회고 자료.",
-  category: "history",
+  category: "quality",
   contexts: ["repo"],
   needs: { graph: true },
-  order: 100,
+  order: 380,
   Component: DebtChartModeView,
 };

@@ -155,6 +155,35 @@ function mockLayout(): Galaxy3DLayout {
   return { nodes, edges, packageColorMap, center: null };
 }
 
+// ── Selection parsing ─────────────────────────────────────────────────
+//
+// Selections reach Galaxy in three shapes and we need to normalise them
+// to `{ fileId, symbolName? }` so downstream layout code can centre on
+// the file AND know which symbol (if any) to spotlight.
+//
+//   file selection:   "src/foo.ts"                    → { fileId, symbolName: null }
+//   room selection:   "room:src/foo.ts#bar@42"        → { fileId, symbolName: "bar" }
+//   symbol selection: "src/foo.ts:bar@42"             → { fileId, symbolName: "bar" }
+//
+// Earlier code tried to strip just `"#"` and missed the `"room:"` prefix,
+// so symbol clicks from the entity tree fell through to the empty state.
+function parseSelection(raw: string): { fileId: string; symbolName: string | null } {
+  // canvas-engine format first (has both `:` and `@`).
+  const decoded = decodeSymbolId(raw);
+  if (decoded) return { fileId: decoded.fileId, symbolName: decoded.name };
+
+  // Entity-tree room format: optional `room:` prefix + `fileId#name@line`.
+  let s = raw;
+  if (s.startsWith("room:")) s = s.slice("room:".length);
+  const hash = s.indexOf("#");
+  if (hash < 0) return { fileId: s, symbolName: null };
+  const fileId = s.slice(0, hash);
+  const tail   = s.slice(hash + 1);
+  const at     = tail.lastIndexOf("@");
+  const name   = at >= 0 ? tail.slice(0, at) : tail;
+  return { fileId, symbolName: name || null };
+}
+
 // ── Egocentric hub layout ─────────────────────────────────────────────
 // Same shape as MindMap: center → aggregator hubs → satellite files.
 // Buckets (callers / callees / siblings) classified from the file graph.
@@ -217,6 +246,11 @@ function buildEgocentricLayout(
   graph: WorkspaceGraph,
   centerId: string,
   expandedFileIds: ReadonlySet<string>,
+  /** When non-null, the galaxy was entered via a symbol selection. The
+   *  named symbol (on the centre file) is tagged `selected: true` in the
+   *  output so the renderer can give it a prominent, fileName-qualified
+   *  label — "the planet that represents *me*" when the user is a symbol. */
+  selectedSymbolName: string | null = null,
 ): Galaxy3DLayout | null {
   const centerFile = graph.files.find(f => f.id === centerId);
   if (!centerFile) return null;
@@ -404,8 +438,11 @@ function buildEgocentricLayout(
         // Dim the symbol color vs the parent file so file-tier stays
         // the dominant silhouette; symbols read as detail, not peers.
         const risk = (sym.riskScore ?? 0) / 100;
-        const colorHex = blendColor(risk, parentPkgHue);
-        const symRadius = 1.3 + risk * 0.8;
+        const isSelected = selectedSymbolName !== null
+          && fileId === centerId
+          && sym.name === selectedSymbolName;
+        const colorHex = isSelected ? "#f5c060" : blendColor(risk, parentPkgHue);
+        const symRadius = (isSelected ? 2.2 : 1.3) + risk * 0.8;
 
         nodes.push({
           fileId: sym.id,
@@ -420,6 +457,7 @@ function buildEgocentricLayout(
           kind: "symbol",
           parentFileId: fileId,
           symbolKind: sym.kind,
+          selected: isSelected || undefined,
         });
         visibleSymbolIds.add(sym.id);
 
@@ -529,19 +567,28 @@ export function buildGalaxy3DLayout(opts: BuildGalaxy3DLayoutOpts): Galaxy3DLayo
 
   if (!graph.files.length) return mockLayout();
 
-  const expanded: ReadonlySet<string> = expandedFileIds ?? new Set<string>();
+  const baseExpanded: ReadonlySet<string> = expandedFileIds ?? new Set<string>();
 
   if (selectedId) {
-    // Symbol selections carry either the entity-tree path
-    // `<fileId>#<symbol>` or the canonical `SymbolNode.id`
-    // `<fileId>:<name>@<line>`. Promote both to the parent fileId so
-    // the galaxy still centres on a real file instead of falling
-    // through to the empty state.
-    const decoded = decodeSymbolId(selectedId);
-    const fileId = decoded
-      ? decoded.fileId
-      : selectedId.includes("#") ? selectedId.split("#")[0]! : selectedId;
-    const ego = buildEgocentricLayout(graph, fileId, expanded);
+    // Symbol selections reach us in one of two formats:
+    //   - entity-tree room:       `room:<fileId>#<name>@<line>`
+    //   - canvas-engine symbol:   `<fileId>:<name>@<line>`
+    // Decode to `{ fileId, name?, line? }` so the galaxy can both
+    // centre on the parent file AND spotlight the selected symbol.
+    // Raw fileId selections return null for symbol info.
+    const sel = parseSelection(selectedId);
+
+    // Auto-expand the centre file when the selection is a symbol — the
+    // user implicitly asked for that symbol's neighbourhood, so the
+    // planets under it must materialise without a second gesture.
+    let expanded = baseExpanded;
+    if (sel.symbolName && !expanded.has(sel.fileId)) {
+      const next = new Set(expanded);
+      next.add(sel.fileId);
+      expanded = next;
+    }
+
+    const ego = buildEgocentricLayout(graph, sel.fileId, expanded, sel.symbolName);
     if (ego) return ego;
   }
 

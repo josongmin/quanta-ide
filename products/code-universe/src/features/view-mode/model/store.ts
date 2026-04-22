@@ -25,7 +25,23 @@ export type ViewMode =
   | "refactor-sim" | "start-here"
   | "pathfinder" | "neighborhood"
   | "author-territory" | "service-topo"
-  | "galaxy-3d";
+  | "galaxy-3d"
+  // ── 2026 expansion: metrics / refactor / time-machine / experimental ──
+  | "hotspot" | "hub-score" | "bus-factor" | "coverage-holes" | "api-surface"
+  | "layer-audit" | "dep-fossil"
+  | "dead-code" | "move-hint" | "dupe-clusters" | "god-file"
+  | "timelapse" | "new-since" | "strata" | "evolution-dna"
+  | "smell-radar" | "blame-clock" | "heat-rainfall" | "mitosis"
+  | "where-to" | "thought-trail" | "failure-flow"
+  | "churn-sparkline" | "semantic-diff" | "refactor-weather" | "temporal-coupling"
+  // ── industry/academia-validated additions ──
+  | "cognitive-complexity" | "maintainability-index" | "ck-matrix" | "test-pyramid"
+  | "call-graph" | "control-flow" | "program-slice" | "change-impact"
+  | "bug-prediction" | "feature-envy" | "shotgun-surgery" | "comment-atlas"
+  | "truck-factor" | "refactoring-miner" | "review-heat" | "dora-metrics"
+  | "seesoft" | "code-city-3d" | "voronoi-treemap" | "stream-graph" | "ownership-sankey"
+  | "mutation-score" | "vulnerabilities" | "debt-ratio"
+  | "quality-gate" | "dit";
 
 export interface ViewModeState {
   mode: ViewMode;

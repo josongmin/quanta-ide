@@ -33,6 +33,6 @@ export const galaxy3DViewDescriptor: ViewDescriptor = {
   category: "explore",
   contexts: ["repo", "folder", "file"],
   needs: { graph: true },
-  order: 220,
+  order: 60,
   Component: Galaxy3DModeView,
 };

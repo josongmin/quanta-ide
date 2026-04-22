@@ -1,0 +1,1 @@
+export { ckMatrixViewDescriptor } from "./view";

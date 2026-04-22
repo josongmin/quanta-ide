@@ -33,6 +33,6 @@ export const coChangeViewDescriptor: ViewDescriptor = {
   category: "history",
   contexts: ["repo", "folder"],
   needs: { graph: true },
-  order: 150,
+  order: 710,
   Component: CoChangeModeView,
 };

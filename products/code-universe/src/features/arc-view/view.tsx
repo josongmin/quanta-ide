@@ -53,6 +53,6 @@ export const arcViewDescriptor: ViewDescriptor = {
   category: "deps",
   contexts: ["repo", "folder"],
   needs: { tree: true, graph: true },
-  order: 60,
+  order: 160,
   Component: ArcModeView,
 };

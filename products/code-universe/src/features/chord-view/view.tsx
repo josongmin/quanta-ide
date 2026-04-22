@@ -53,6 +53,6 @@ export const chordViewDescriptor: ViewDescriptor = {
   category: "deps",
   contexts: ["repo", "folder"],
   needs: { tree: true, graph: true },
-  order: 30,
+  order: 140,
   Component: ChordModeView,
 };

@@ -1,0 +1,1 @@
+export { hotspotViewDescriptor } from "./view";

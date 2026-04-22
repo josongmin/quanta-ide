@@ -30,9 +30,9 @@ export const authorTerritoryViewDescriptor: ViewDescriptor = {
   tech: "git blame 소유권 분석",
   usecase:
     "PR 리뷰어 지정 시 누가 이 영역 담당인지 확인. 온보딩 시 도메인별 담당자 파악. 버스 팩터(한 명만 아는 영역) 위험 식별.",
-  category: "arch",
+  category: "team",
   contexts: ["repo"],
   needs: { graph: true },
-  order: 200,
+  order: 600,
   Component: AuthorTerritoryModeView,
 };

@@ -27,7 +27,23 @@ import {
   kindLabel,
   radius as radiusToken,
 } from "../../../shared/ui/tokens";
-import type { AggregatorKind, MindMapNode as MindMapNodeModel } from "../model/types";
+import type { AggregatorKind, MindMapNode as MindMapNodeModel, MindMapSymbolChip } from "../model/types";
+
+/** Glyph shown inside the representative-symbol chip under a file entity.
+ *  Same vocabulary Galaxy's hover card uses — keeps cross-view reads
+ *  consistent so a user who learns ƒ=function in one view doesn't have
+ *  to re-learn it in the other. */
+function symbolChipGlyph(kind: MindMapSymbolChip["kind"]): string {
+  switch (kind) {
+    case "class":     return "◇";
+    case "function":
+    case "method":    return "ƒ";
+    case "variable":  return "x";
+    case "parameter": return "›";
+    case "module":    return "{}";
+    default:          return "ƒ";
+  }
+}
 
 export interface MindMapNodeProps {
   node: MindMapNodeModel;
@@ -199,13 +215,26 @@ function MindMapNodeImpl({
   const interactive = node.kind === "center" || node.kind === "entity";
   const hasOffset   = offsetX !== 0 || offsetY !== 0;
 
+  // Radiate-out entrance: before the mount flips true, render the node
+  // at a fraction of its final polar position — close to the origin, but
+  // far enough to carry its starting direction. When `mounted` flips,
+  // the position transition carries it out to (fx, fy). Combined with
+  // the per-node stagger (mountDelayMs), the graph reads as a burst of
+  // nodes springing from the center along their orbits rather than a
+  // flat, simultaneous reveal.
+  const fx = node.x + offsetX;
+  const fy = node.y + offsetY;
+  const RADIATE_START = 0.14; // 14% of the way from origin to final
+  const px = mounted || isThisDragging ? fx : fx * RADIATE_START;
+  const py = mounted || isThisDragging ? fy : fy * RADIATE_START;
+
   const groupStyle: CSSProperties = {
-    transform: `translate(${node.x + offsetX}px, ${node.y + offsetY}px)`,
+    transform: `translate(${px}px, ${py}px)`,
     // No transform transition while actively dragging — the pointer must
-    // feel "glued" to the node. Re-centers and release still animate.
+    // feel "glued" to the node. Re-centers, release, and entrance all animate.
     transition: isThisDragging
       ? "opacity 280ms ease-out"
-      : `transform ${positionTransitionMs}ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 280ms ease-out`,
+      : `transform ${positionTransitionMs}ms cubic-bezier(0.22, 1, 0.28, 1), opacity 360ms ease-out`,
     opacity: mounted
       ? (anyDragging && !isThisDragging ? 0.42 : 1)
       : 0,
@@ -221,23 +250,19 @@ function MindMapNodeImpl({
     outline: "none",
   };
 
-  // Mount: node grows from 35% → 100% AND counter-rotates from +55°
-  // CW into place. The group-level mm-enter spins the whole scene CCW
-  // (-135° → 0°); the satellites simultaneously untwist CW, so the
-  // composition reads as a "쉬리릭" whoosh where every symbol un-curls
-  // out of the centre as the orbit settles. Longer 620ms transition so
-  // each node finishes unfolding well into the group's settling phase.
-  // Drag picks scale up slightly (1.08), hover bumps to 1.05/1.10.
+  // Mount: subtle scale bump (0.78 → 1) on top of the radiate-out
+  // translation. The position change is the primary entrance motion;
+  // scale only adds a light "pop" so the node doesn't read as a rigid
+  // puck sliding in. Drag → 1.08, hover → 1.05/1.10.
   const scaleAmt = isThisDragging
     ? 1.08
     : hovered
       ? (node.kind === "aggregator" ? 1.05 : 1.10)
-      : mounted ? 1 : 0.35;
-  const rotateAmt = mounted || isThisDragging ? 0 : 55;
+      : mounted ? 1 : 0.78;
   const innerStyle: CSSProperties = {
-    transform:       `scale(${scaleAmt}) rotate(${rotateAmt}deg)`,
+    transform:       `scale(${scaleAmt})`,
     transformOrigin: "0px 0px",
-    transition:      "transform 620ms cubic-bezier(0.2, 1, 0.28, 1), filter 180ms ease-out",
+    transition:      "transform 560ms cubic-bezier(0.22, 1, 0.28, 1), filter 180ms ease-out",
     filter: isThisDragging
       ? "drop-shadow(0 10px 18px rgba(10,30,60,0.22))"
       : undefined,
@@ -311,37 +336,41 @@ function renderCenter(node: MindMapNodeModel, hovered: boolean) {
   // with the rest of the design system.  Entity kind is shown via face color.
   const haloTint = color.accent;
 
-  const faceFillOpacity   = hovered ? 0.38 : 0.26;
-  const faceStrokeOpacity = 0.88;
-  const faceStrokeWidth   = hovered ? 2.5 : 2.0;
+  // Softer, more refined: tint only suggests the kind — it doesn't
+  // shout. Thinner stroke, cornier radius, gentler opacity. Hover bumps
+  // the tint enough to register without becoming saturated.
+  const faceFillOpacity   = hovered ? 0.22 : 0.13;
+  const faceStrokeOpacity = hovered ? 0.82 : 0.60;
+  const faceStrokeWidth   = hovered ? 1.6 : 1.2;
+  const rxFace = Math.max(radiusToken.lg, r * 0.28);
 
   return (
     <g filter="url(#mm-center-glow)">
       {/* Outer breathing halo — always accent (selected-state indicator) */}
-      <circle cx={0} cy={0} r={r + 18}
-        fill="none" stroke={haloTint} strokeWidth={1.8}
-        style={{ transformOrigin: "0px 0px", animation: "mm-breathe 2.8s ease-in-out infinite", opacity: 0.42 }}
+      <circle cx={0} cy={0} r={r + 20}
+        fill="none" stroke={haloTint} strokeWidth={1.2}
+        style={{ transformOrigin: "0px 0px", animation: "mm-breathe 2.8s ease-in-out infinite", opacity: 0.36 }}
       />
       {/* Static inner ring for depth */}
-      <circle cx={0} cy={0} r={r + 8}
-        fill="none" stroke={haloTint} strokeWidth={0.8} strokeOpacity={0.18}
+      <circle cx={0} cy={0} r={r + 9}
+        fill="none" stroke={haloTint} strokeWidth={0.6} strokeOpacity={0.14}
         style={{ transformOrigin: "0px 0px" }}
       />
       {hovered && (
         <circle cx={0} cy={0} r={r + 7}
-          fill="none" stroke={haloTint} strokeWidth={2}
-          strokeOpacity={0.65}
+          fill="none" stroke={haloTint} strokeWidth={1.4}
+          strokeOpacity={0.52}
           style={{ animation: "mm-breathe 1.4s ease-in-out infinite", transformOrigin: "0px 0px" }}
         />
       )}
       {/* Opaque backdrop — hides edge endpoints behind the face */}
       <rect x={-r} y={-r} width={r * 2} height={r * 2}
-        rx={radiusToken.lg} ry={radiusToken.lg}
+        rx={rxFace} ry={rxFace}
         fill={color.bg0} stroke="none"
       />
-      {/* Face */}
+      {/* Face — soft tint with a thin kind-colored outline */}
       <rect x={-r} y={-r} width={r * 2} height={r * 2}
-        rx={radiusToken.lg} ry={radiusToken.lg}
+        rx={rxFace} ry={rxFace}
         fill={tint} fillOpacity={faceFillOpacity}
         stroke={tint} strokeWidth={faceStrokeWidth}
         strokeOpacity={faceStrokeOpacity}
@@ -500,25 +529,14 @@ function renderAggregator(node: MindMapNodeModel, hovered: boolean) {
         fill={color.bg0} fillOpacity={0.96} stroke="none"
         style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.10))" }}
       />
-      {/* Tinted fill */}
+      {/* Tinted fill — soft so the pill reads as a hint, not a button */}
       <rect x={-w / 2} y={-h / 2} width={w} height={h}
         rx={rx} ry={rx}
-        fill={accent} fillOpacity={hovered ? 0.16 : 0.09}
-        stroke={accent} strokeWidth={hovered ? 1.6 : 1.2}
-        strokeOpacity={hovered ? 0.92 : 0.65}
+        fill={accent} fillOpacity={hovered ? 0.12 : 0.06}
+        stroke={accent} strokeWidth={hovered ? 1.3 : 1.0}
+        strokeOpacity={hovered ? 0.80 : 0.48}
         style={{ transition: "fill-opacity 140ms ease-out, stroke-opacity 140ms ease-out" }}
       />
-      {/* Top-highlight for depth */}
-      <rect x={-w / 2 + 2} y={-h / 2 + 1.5} width={w - 4} height={h / 2 - 2}
-        rx={rx - 1} ry={rx - 1}
-        fill="white" fillOpacity={hovered ? 0.10 : 0.06} stroke="none"
-        style={{ pointerEvents: "none" }}
-      />
-      {/* Segment dividers */}
-      <line x1={glyphX + 10} y1={-h / 2 + 5} x2={glyphX + 10} y2={h / 2 - 5}
-        stroke={accent} strokeOpacity={0.28} strokeWidth={1} />
-      <line x1={badgeX - 10} y1={-h / 2 + 5} x2={badgeX - 10} y2={h / 2 - 5}
-        stroke={accent} strokeOpacity={0.28} strokeWidth={1} />
       {/* Category glyph */}
       <text x={glyphX} y={0.5}
         textAnchor="middle" dominantBaseline="central"
@@ -590,15 +608,18 @@ function renderEntityShape(
   tint: string,
   hovered: boolean,
 ) {
-  const fillOpacity   = hovered ? 0.36 : 0.22;
-  const strokeWidth   = hovered ? 2.0  : 1.5;
-  const strokeOpacity = hovered ? 0.95 : 0.82;
-  const markOpacity   = strokeOpacity * 0.52;
-  const markWidth     = 0.95;
+  // Refined palette: hollow silhouettes with a soft tint hint. Thin
+  // stroke + low fill opacity reads as "material paper" rather than
+  // a flat sticker. Hover bumps both slightly — never to saturated.
+  const fillOpacity   = hovered ? 0.18 : 0.09;
+  const strokeWidth   = hovered ? 1.5  : 1.1;
+  const strokeOpacity = hovered ? 0.82 : 0.62;
+  const markOpacity   = strokeOpacity * 0.58;
+  const markWidth     = 0.9;
   const trans: CSSProperties = {
     transition: "fill-opacity 140ms, stroke-width 140ms, stroke-opacity 140ms",
   };
-  const shadow = { filter: "drop-shadow(0 2px 5px rgba(0,0,0,0.09))" };
+  const shadow = { filter: "drop-shadow(0 2px 6px rgba(15, 23, 42, 0.06))" };
 
   // ── building (file) → portrait rect with folded corner + content lines
   if (kind === "building") {
@@ -828,9 +849,20 @@ function renderLabel(node: MindMapNodeModel) {
     );
   }
 
-  // Entity — name + kind type tag
+  // Entity — name + kind type tag + (for files) representative symbols
   const boxW  = Math.max(node.radius * 4, 96);
   const ekind = node.entityKind;
+  const kindTagY = below + nameSize + 6;
+  // Symbol chip strip sits one row below the kind tag. Rendered via
+  // foreignObject so flex-wrap + ellipsis do the hard layout work that
+  // raw SVG <text> can't handle cleanly.
+  const chips = node.symbolPreview ?? [];
+  const chipOverflow = chips.length > 0 && node.symbolTotal && node.symbolTotal > chips.length
+    ? node.symbolTotal - chips.length
+    : 0;
+  const chipsY  = kindTagY + font.size.xxs + 6;
+  const chipsH  = 20;
+  const chipsW  = Math.max(boxW, 110);
   return (
     <g>
       <foreignObject
@@ -853,7 +885,7 @@ function renderLabel(node: MindMapNodeModel) {
         </div>
       </foreignObject>
       {ekind && (
-        <text x={0} y={below + nameSize + 6}
+        <text x={0} y={kindTagY}
           textAnchor="middle" dominantBaseline="hanging"
           fontFamily={font.sans} fontSize={font.size.xxs} fontWeight={font.weight.regular}
           fill={kindColor[ekind]} fillOpacity={0.72} letterSpacing="0.08em"
@@ -861,6 +893,49 @@ function renderLabel(node: MindMapNodeModel) {
         >
           {kindIcon[ekind]} {kindLabel[ekind].toUpperCase()}
         </text>
+      )}
+      {chips.length > 0 && (
+        <foreignObject
+          x={-chipsW / 2} y={chipsY}
+          width={chipsW} height={chipsH}
+          style={{ overflow: "visible", pointerEvents: "none" }}
+        >
+          <div style={{
+            display: "flex", flexWrap: "nowrap",
+            justifyContent: "center", alignItems: "center",
+            gap: 4,
+            fontFamily: font.mono ?? font.sans,
+            fontSize: 9.5,
+            lineHeight: 1.2,
+            color: color.text2,
+            userSelect: "none",
+          }}>
+            {chips.map(c => (
+              <span key={c.id} style={{
+                display: "inline-flex", alignItems: "center", gap: 2,
+                padding: "1px 5px",
+                background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: 3,
+                maxWidth: 72,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }} title={`${c.kind} · ${c.name}`}>
+                <span style={{ color: color.text1, fontWeight: 600 }}>{symbolChipGlyph(c.kind)}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.name}</span>
+              </span>
+            ))}
+            {chipOverflow > 0 && (
+              <span style={{
+                color: color.text3 ?? color.text2,
+                fontSize: 9,
+              }}>
+                +{chipOverflow}
+              </span>
+            )}
+          </div>
+        </foreignObject>
       )}
     </g>
   );

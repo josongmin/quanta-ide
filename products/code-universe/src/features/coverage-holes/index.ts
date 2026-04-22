@@ -1,0 +1,1 @@
+export { coverageHolesViewDescriptor } from "./view";

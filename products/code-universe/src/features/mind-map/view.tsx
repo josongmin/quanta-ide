@@ -11,6 +11,7 @@ import type {
   ViewContextValue,
   ViewDescriptor,
 } from "../view-mode/model/view-descriptor";
+import { entityStore } from "../../entities/entity";
 import { MindMapView } from "./ui/MindMapView";
 import { buildMindMap } from "./model/build-mind-map";
 import { mindMapStore, useMindMapState } from "./model/store";
@@ -61,10 +62,15 @@ function MindMapModeView({ ctx }: { ctx: ViewContextValue }): ReactElement | nul
       width={ctx.viewportSize.w}
       height={ctx.viewportSize.h}
       onFocusEntity={id => {
-        ctx.dispatch.selectEntity(id);
+        // Mind-map re-center is semantically a drill-in (same as an
+        // Explorer row click): commit the anchor AND move selection so
+        // the Explorer reveals the new file's ancestor chain and the
+        // Inspector swaps with it. `selectEntity` alone only moves the
+        // selection — the LeftPanel reveals off `anchorId ?? selectedId`,
+        // so a stale anchor would keep the tree pointing at the old file.
+        entityStore.setAnchor(id);
         mindMapStore.openOn(id);
       }}
-      onDismiss={() => mindMapStore.close()}
     />
   );
 }
@@ -80,7 +86,7 @@ export const mindMapViewDescriptor: ViewDescriptor = {
   category: "explore",
   contexts: ["repo", "folder", "file"],
   needs: { tree: true, graph: true },
-  order: 20,
+  order: 40,
   onActivate(ctx) {
     // Always open on *something* — empty mind-maps read as a bug even
     // when they're technically correct. Prefer selection → anchor → root.

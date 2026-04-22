@@ -1,0 +1,1 @@
+export { hubScoreViewDescriptor } from "./view";

@@ -50,9 +50,9 @@ export const quadrantViewDescriptor: ViewDescriptor = {
   tech: "git churn × 순환 복잡도(CC)",
   usecase:
     "'자주 바뀌면서 복잡한' 파일 = 리팩터링 1순위. 스프린트 계획 시 기술 부채 우선순위 정량화. 안정 파일 vs 위험 파일 분류.",
-  category: "plan",
+  category: "metrics",
   contexts: ["repo", "folder"],
   needs: { tree: true, graph: true },
-  order: 50,
+  order: 210,
   Component: QuadrantModeView,
 };

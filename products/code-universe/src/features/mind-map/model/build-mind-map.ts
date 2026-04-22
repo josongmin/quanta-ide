@@ -2,8 +2,10 @@ import type {
   Entity,
   EntityTree,
   FileEdge,
+  SymbolNode,
   WorkspaceGraph,
 } from "@quanta/canvas-engine";
+import { encodeSymbolId } from "@quanta/canvas-engine";
 import { fileDisplayName } from "../../../shared/lib/file-ext";
 import type {
   AggregatorKind,
@@ -11,6 +13,7 @@ import type {
   MindMapEdge,
   MindMapGraph,
   MindMapNode,
+  MindMapSymbolChip,
 } from "./types";
 
 // build-mind-map
@@ -68,6 +71,12 @@ const CENTER_RADIUS = 32;
 const AGGREGATOR_RADIUS = 22;
 const ENTITY_RADIUS_BASE = 16;
 const ENTITY_RADIUS_GAIN = 10; // → range 16..26 over weight ∈ [0,1]
+
+/** Max symbols rendered as chips under an entity. Anything past this
+ *  collapses into a "+N" overflow in the renderer. 3 is enough to read
+ *  the file's flavour without the chip strip blowing out the node's
+ *  vertical space. */
+const SYMBOL_PREVIEW_CAP = 3;
 
 // ── Angular priority ─────────────────────────────────────────────────
 // Preferred order around the clock — `parent-dir` anchors the 12-o'clock
@@ -216,14 +225,24 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
   // collisions + apparently-disconnected edges).
   const seenEntityIds = new Set<string>();
 
-  // Centre node at origin.
+  // Pre-bucket graph.symbolNodes so the entity emission loop below can
+  // attach a tiny `symbolPreview` strip to each file-kind bucket entry
+  // in O(1). Sorted by (callers+callees) desc so the preview hints at
+  // the most-connected symbols inside that file.
+  const symbolsByFile = indexSymbolsByFile(graph);
+
+  // Centre node at origin. Room centres ("this function is me") get a
+  // file-qualified sublabel — a bare function name is ambiguous across
+  // files, and the whole point of centering on a symbol is to read "I
+  // am myFn inside tokens.ts".
+  const centreSublabel = centreLabelContext(tree, centre);
   const centreNode: MindMapNode = {
     id: centre.id,
     kind: "center",
     entityId: centre.id,
     entityKind: centre.kind,
     label: fileDisplayName(centre),
-    sublabel: centre.path || undefined,
+    sublabel: centreSublabel,
     x: 0,
     y: 0,
     angle: 0,
@@ -305,6 +324,18 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
       const x = Math.cos(angle) * distance;
       const y = Math.sin(angle) * distance;
       const nodeId = entity.id;
+      // Attach a representative-symbols strip for file-kind entities
+      // ("building" in the entity-tree vocabulary). Other kinds don't
+      // have symbols to preview — folders/packages/rooms skip cleanly.
+      let symbolPreview: readonly MindMapSymbolChip[] | undefined;
+      let symbolTotal: number | undefined;
+      if (entity.kind === "building") {
+        const syms = symbolsByFile.get(entity.id);
+        if (syms && syms.length > 0) {
+          symbolTotal = syms.length;
+          symbolPreview = syms.slice(0, SYMBOL_PREVIEW_CAP).map(toSymbolChip);
+        }
+      }
       const entityNode: MindMapNode = {
         id: nodeId,
         kind: "entity",
@@ -318,6 +349,8 @@ export function buildMindMap(opts: BuildMindMapOpts): MindMapGraph {
         distance,
         radius: ENTITY_RADIUS_BASE + ENTITY_RADIUS_GAIN * clamp01(weight),
         weight,
+        symbolPreview,
+        symbolTotal,
       };
       nodes.push(entityNode);
       edges.push({
@@ -383,9 +416,15 @@ function nodeAabb(n: MindMapNode): { rx: number; ry: number; cy: number } {
   }
   // Entity: shape (height ≈ 2*radius) + label below (≈ 16 px)
   const labelW = n.label.length * 6.3;
-  const rx = Math.max(n.radius, labelW / 2) + 4;
+  // Chip strip adds ~18 px of vertical budget when present. Without the
+  // bump, chips from neighbouring entities render on top of each other
+  // and the strip becomes unreadable. Width also expands slightly so
+  // the collision pass respects chip real estate, not just label text.
+  const chipStripExtra = n.symbolPreview && n.symbolPreview.length > 0 ? 18 : 0;
+  const chipStripW = n.symbolPreview && n.symbolPreview.length > 0 ? 110 : 0;
+  const rx = Math.max(n.radius, labelW / 2, chipStripW / 2) + 4;
   const topExtent    = n.radius + 4;
-  const bottomExtent = n.radius + 22; // includes label band below shape
+  const bottomExtent = n.radius + 22 + chipStripExtra;
   const ry = (topExtent + bottomExtent) / 2;
   const cy = n.y + (bottomExtent - topExtent) / 2;
   return { rx, ry, cy };
@@ -569,6 +608,16 @@ function collectBuckets(
       const callees = collectEdgePeers(graph.fileEdges, tree, centre.id, "out");
       out.set("callers", callers);
       out.set("callees", callees);
+    } else if (centre.kind === "room") {
+      // Symbol-centred mind-map. `fileEdges` are file-grain and so can't
+      // answer "who calls *this function*". Use the canvas-engine symbol
+      // graph: graph.symbolEdges connect SymbolNode.ids, and each room
+      // entity maps 1:1 to a SymbolNode via (fileId, name, line). Peers
+      // resolve back to room entities so the mind-map stays in the
+      // entity-tree keyspace and re-centring works like any other click.
+      const { callers, callees } = collectSymbolEdgePeers(graph, tree, centre);
+      out.set("callers", callers);
+      out.set("callees", callees);
     }
   } else if (centre.kind === "street" || centre.kind === "galaxy") {
     // Roll file-edges up to the centre's kind. An edge A→B becomes a
@@ -601,6 +650,120 @@ function collectEdgePeers(
     if (!seen.has(peer.id)) seen.set(peer.id, peer);
   }
   return [...seen.values()];
+}
+
+// ── Symbol preview indexing ──────────────────────────────────────────
+
+function indexSymbolsByFile(graph: WorkspaceGraph): Map<string, SymbolNode[]> {
+  const out = new Map<string, SymbolNode[]>();
+  const syms = graph.symbolNodes;
+  if (!syms || syms.length === 0) return out;
+  for (const s of syms) {
+    const arr = out.get(s.fileId) ?? [];
+    arr.push(s);
+    out.set(s.fileId, arr);
+  }
+  // Sort each file's symbols by total connections desc so the preview
+  // surfaces the most-connected functions first. Tie-break by line so
+  // identical connection counts render in source order.
+  for (const arr of out.values()) {
+    arr.sort((a, b) => {
+      const ac = (a.callers ?? 0) + (a.callees ?? 0);
+      const bc = (b.callers ?? 0) + (b.callees ?? 0);
+      if (bc !== ac) return bc - ac;
+      return a.line - b.line;
+    });
+  }
+  return out;
+}
+
+function toSymbolChip(s: SymbolNode): MindMapSymbolChip {
+  return { id: s.id, name: s.name, kind: s.kind };
+}
+
+// ── Centre context label ─────────────────────────────────────────────
+
+/** Second line under the centre node. For a room centre we swap the raw
+ *  `path` (noisy: `fileId#fn@42`) for a human-friendly "in <fileName>"
+ *  so the "me" planet carries its file context. Other kinds keep the
+ *  path — it's the usual breadcrumb. */
+function centreLabelContext(tree: EntityTree, centre: Entity): string | undefined {
+  if (centre.kind === "room") {
+    // room.parentId → floor; floor.parentId → building (the file).
+    const floor = centre.parentId ? tree.byId.get(centre.parentId) : null;
+    const building = floor?.parentId ? tree.byId.get(floor.parentId) : null;
+    if (building) return `in ${fileDisplayName(building)}`;
+  }
+  return centre.path || undefined;
+}
+
+// ── Room ↔ Symbol id bridging ────────────────────────────────────────
+//
+// Two id shapes point at the same function — we own the translation so
+// mind-map consumers never leak either format to each other:
+//   room entity:  "room:<fileId>#<name>@<line>"   (tree.byId key)
+//   symbol node:  "<fileId>:<name>@<line>"         (encodeSymbolId)
+//
+// Room `entity.path` already stores the "<fileId>#<name>@<line>" tail, so
+// splitting on `#` + `@` recovers the tuple without re-parsing the id.
+
+function roomToSymbolId(room: Entity): string | null {
+  if (room.kind !== "room") return null;
+  const path = room.path;
+  const hash = path.indexOf("#");
+  if (hash < 0) return null;
+  const fileId = path.slice(0, hash);
+  const tail = path.slice(hash + 1);
+  const at = tail.lastIndexOf("@");
+  if (at < 0) return null;
+  const name = tail.slice(0, at);
+  const line = Number(tail.slice(at + 1));
+  if (!Number.isFinite(line)) return null;
+  return encodeSymbolId(fileId, name, line);
+}
+
+/** Build a once-per-centre index of symbol-id → room entity so we can
+ *  resolve graph.symbolEdges peers back to tree nodes in O(1). Scanning
+ *  the full tree every time we need a peer would be O(n × m); the index
+ *  trades one pass for O(1) lookups during the caller/callee sweep. */
+function indexRoomsBySymbolId(tree: EntityTree): Map<string, Entity> {
+  const out = new Map<string, Entity>();
+  for (const entity of tree.byId.values()) {
+    if (entity.kind !== "room") continue;
+    const sid = roomToSymbolId(entity);
+    if (sid) out.set(sid, entity);
+  }
+  return out;
+}
+
+/** Symbol-grain callers/callees — for room-kind centres. Uses
+ *  `graph.symbolEdges` (absent ⇒ empty buckets; the caller-pair force
+ *  in Pass 4 will still emit the hubs so zero is visible). */
+function collectSymbolEdgePeers(
+  graph: WorkspaceGraph,
+  tree: EntityTree,
+  centre: Entity,
+): { callers: Entity[]; callees: Entity[] } {
+  const edges = graph.symbolEdges;
+  if (!edges || edges.length === 0) return { callers: [], callees: [] };
+  const centreSid = roomToSymbolId(centre);
+  if (!centreSid) return { callers: [], callees: [] };
+
+  const roomBySid = indexRoomsBySymbolId(tree);
+  const inPeers = new Map<string, Entity>();
+  const outPeers = new Map<string, Entity>();
+
+  for (const edge of edges) {
+    if (edge.from === edge.to) continue;
+    if (edge.to === centreSid) {
+      const peer = roomBySid.get(edge.from);
+      if (peer && !inPeers.has(peer.id)) inPeers.set(peer.id, peer);
+    } else if (edge.from === centreSid) {
+      const peer = roomBySid.get(edge.to);
+      if (peer && !outPeers.has(peer.id)) outPeers.set(peer.id, peer);
+    }
+  }
+  return { callers: [...inPeers.values()], callees: [...outPeers.values()] };
 }
 
 /** Roll file-level edges up to the centre's kind for container centres. */

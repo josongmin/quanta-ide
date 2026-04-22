@@ -94,7 +94,7 @@ export const universeViewDescriptor: ViewDescriptor = {
   category: "explore",
   contexts: ["repo", "folder", "file"],
   needs: { tree: true, graph: true },
-  order: 10,
+  order: 20,
   overlay: "base",
   Component: UniverseView,
 };

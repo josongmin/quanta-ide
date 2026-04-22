@@ -457,41 +457,70 @@ function Galaxy3DViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Galax
       nodeMap.set(node.fileId, node);
 
       // Shape per kind:
-      //   center = icosahedron (20 faces, prominent silhouette)
-      //   hub    = geodesic icosphere rendered as WIREFRAME — hubs are
-      //            semantic aggregators ("CALLERS", "SIBLINGS"), not
-      //            real files, so they read as a translucent cage
-      //            around empty space instead of a solid gem.
-      //   symbol = tetrahedron (lowest tier silhouette)
-      //   file   = dodecahedron (default)
+      //   center = white wireframe CUBE. The filled polyhedron used to
+      //            paint the gold glyph ("★") nearly black against
+      //            similar-hued satellite files, so the target was hard
+      //            to locate. A bright white cage reads as "this is the
+      //            axis of the scene" from any camera angle.
+      //   hub    = faceted icosahedron rendered as WIREFRAME — the
+      //            aggregator cage ("CALLERS", "SIBLINGS"). detail=1
+      //            keeps it clearly polygonal (80 triangles) rather
+      //            than the smooth geodesic at detail=2.
+      //   symbol (selected) = prominent dodecahedron (the "me" planet)
+      //   symbol (other)    = tetrahedron, hidden mesh
+      //   file              = dodecahedron, hidden mesh
       let geo: THREE.BufferGeometry;
       if (node.kind === "center") {
-        geo = new THREE.IcosahedronGeometry(node.radius, 0);
+        const side = node.radius * 1.7;
+        geo = new THREE.BoxGeometry(side, side, side);
       } else if (node.kind === "hub") {
-        geo = new THREE.IcosahedronGeometry(node.radius * 1.35, 2);
+        geo = new THREE.IcosahedronGeometry(node.radius * 1.35, 1);
       } else if (node.kind === "symbol") {
-        geo = new THREE.TetrahedronGeometry(node.radius, 0);
+        geo = node.selected
+          ? new THREE.DodecahedronGeometry(node.radius, 0)
+          : new THREE.TetrahedronGeometry(node.radius, 0);
       } else {
         geo = new THREE.DodecahedronGeometry(node.radius, 0);
       }
-      const mat = node.kind === "hub"
-        ? new THREE.MeshPhongMaterial({
-            // Wireframe-only; no fill means the hub reads as a
-            // geodesic cage ("this is an abstract bucket, not a file").
-            // depthWrite:false so the lines don't occlude the satellites
-            // sitting behind the hub in world space.
-            color: node.colorInt, emissive: node.colorInt,
-            emissiveIntensity: 0.55,
-            wireframe: true, wireframeLinewidth: 1,
-            transparent: true, opacity: 0.55,
-            depthWrite: false,
-          })
-        : new THREE.MeshPhongMaterial({
-            color: node.colorInt, emissive: node.colorInt,
-            emissiveIntensity: 0.38, shininess: 110, specular: 0xffffff,
-            flatShading: true,
-            transparent: true, opacity: 1,
-          });
+      let mat: THREE.Material;
+      if (node.kind === "center") {
+        // White wireframe cube — no fill, no emissive colour, so every
+        // edge paints crisply over the starfield background.
+        mat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          wireframe: true,
+          transparent: true, opacity: 0.92,
+          depthWrite: false,
+        });
+      } else if (node.kind === "hub") {
+        mat = new THREE.MeshPhongMaterial({
+          // Wireframe-only; no fill means the hub reads as a geodesic
+          // cage ("abstract bucket, not a file"). depthWrite:false so
+          // the lines don't occlude satellites sitting behind the hub.
+          color: node.colorInt, emissive: node.colorInt,
+          emissiveIntensity: 0.55,
+          wireframe: true, wireframeLinewidth: 1,
+          transparent: true, opacity: 0.55,
+          depthWrite: false,
+        });
+      } else if (node.kind === "symbol" && node.selected) {
+        // "Me" planet — solid filled gem with strong emissive gold glow.
+        // Fill (not wireframe) distinguishes it from the aggregator
+        // cages; gold hue ties it visually to the centre cube family.
+        mat = new THREE.MeshPhongMaterial({
+          color: node.colorInt, emissive: node.colorInt,
+          emissiveIntensity: 0.65, shininess: 140, specular: 0xffffff,
+          flatShading: true,
+          transparent: true, opacity: 1,
+        });
+      } else {
+        mat = new THREE.MeshPhongMaterial({
+          color: node.colorInt, emissive: node.colorInt,
+          emissiveIntensity: 0.38, shininess: 110, specular: 0xffffff,
+          flatShading: true,
+          transparent: true, opacity: 1,
+        });
+      }
       const mesh = new THREE.Mesh(geo, mat);
 
       // Animation origin per node. Three sources, in priority order:
@@ -542,13 +571,13 @@ function Galaxy3DViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Galax
         Math.random() * Math.PI,
         Math.random() * Math.PI,
       );
-      // Only the centre ("본인 별") and hubs render as 3D meshes. Satellite
-      // files and symbols rely on their HTML label (glyph + name) so the
-      // scene stays text-forward — the label's coloured glyph is the
-      // emblem standing in for the gem. Mesh stays in the array with
-      // position tracked so raycasting, whoosh animation, and label
-      // follow still work; only rendering is suppressed.
-      if (node.kind !== "center" && node.kind !== "hub") {
+      // Only the centre ("본인 별"), hubs, and the symbol-the-user-selected
+      // render as 3D meshes. Satellite files and other symbols rely on
+      // their HTML label (glyph + name) so the scene stays text-forward.
+      // The selected symbol gets a mesh so the "me" planet reads as a
+      // real body in the scene, not just another label.
+      const isSelectedSymbolNode = node.kind === "symbol" && node.selected === true;
+      if (node.kind !== "center" && node.kind !== "hub" && !isSelectedSymbolNode) {
         mesh.visible = false;
       }
       scene.add(mesh);
@@ -560,10 +589,11 @@ function Galaxy3DViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Galax
       const el = document.createElement("div");
       el.className = "galaxy-label";
       const isSym = node.kind === "symbol";
+      const isSelectedSym = node.kind === "symbol" && node.selected === true;
       const isInteractive = node.kind === "file" || node.kind === "center" || node.kind === "symbol";
       el.style.cssText = `
         position:absolute; user-select:none;
-        font-family:${font.sans}; font-size:${isSym ? "9px" : "10px"};
+        font-family:${font.sans}; font-size:${isSelectedSym ? "11px" : isSym ? "9px" : "10px"};
         color:rgba(200,220,255,0.80);
         white-space:nowrap; text-shadow:0 1px 3px rgba(0,0,0,0.9);
         transition:opacity 80ms; display:inline-flex; align-items:center; gap:5px;
@@ -572,12 +602,30 @@ function Galaxy3DViewImpl({ graph, selectedId, onFocusEntity, onDismiss }: Galax
       iconSpan.textContent = fileGlyph(node);
       iconSpan.style.cssText = `
         color: #${node.colorInt.toString(16).padStart(6, "0")};
-        font-weight: 700; font-size: ${isSym ? "10px" : "11px"};
+        font-weight: 700; font-size: ${isSelectedSym ? "12px" : isSym ? "10px" : "11px"};
         text-shadow: 0 0 6px currentColor, 0 1px 2px rgba(0,0,0,0.9);
         opacity: 0.95;
       `;
       const nameSpan = document.createElement("span");
       nameSpan.textContent = node.fileName;
+      if (isSelectedSym) {
+        // "me" planet needs its file context — a bare symbol name is
+        // ambiguous across files, and this is the label that represents
+        // the user's own selection in the scene.
+        nameSpan.style.fontWeight = "700";
+        nameSpan.style.color = "rgba(255,224,140,1)";
+        const fileTag = document.createElement("span");
+        const parentFile = node.parentFileId
+          ? graph.files.find(f => f.id === node.parentFileId)?.name
+          : null;
+        fileTag.textContent = parentFile ? ` · ${parentFile}` : "";
+        fileTag.style.cssText = `
+          color: rgba(180, 200, 230, 0.65);
+          font-weight: 400;
+          margin-left: 2px;
+        `;
+        nameSpan.appendChild(fileTag);
+      }
       if (isInteractive) {
         // Filename itself is a click target — clicking the name (not
         // just the tiny "→" pill) plays the wormhole and drills into
@@ -1286,6 +1334,10 @@ interface HoverData {
   callees: FileNode[];
   siblings: FileNode[];
   symbols: WsSymbolNode[];
+  /** fileId → symbols declared there, sorted by (callers+callees) desc.
+   *  Feeds the per-row symbol strip in ConxList — "what's actually
+   *  inside this connected file" without drilling in. */
+  symsByFile: Map<string, WsSymbolNode[]>;
   accentHex: string;
 }
 
@@ -1295,6 +1347,23 @@ function buildHoverData(fileId: string, graph: WorkspaceGraph, layout: Galaxy3DL
 
   const fileById = new Map(graph.files.map(f => [f.id, f]));
   const dir = parentPath(fileId);
+
+  // fileId → symbols declared in that file, pre-sorted by connection
+  // count. ConxList renders a tiny strip under each bucket row so you
+  // can see "this file matters because it holds useFoo(), renderBar(),
+  // …" without drilling in. Building it once here beats re-filtering
+  // graph.symbolNodes per row.
+  const symsByFile = new Map<string, WsSymbolNode[]>();
+  for (const s of graph.symbolNodes ?? []) {
+    const arr = symsByFile.get(s.fileId) ?? [];
+    arr.push(s);
+    symsByFile.set(s.fileId, arr);
+  }
+  for (const arr of symsByFile.values()) {
+    arr.sort((a, b) =>
+      ((b.callers ?? 0) + (b.callees ?? 0)) - ((a.callers ?? 0) + (a.callees ?? 0)),
+    );
+  }
 
   const callerIds = new Set<string>();
   const calleeIds = new Set<string>();
@@ -1327,7 +1396,7 @@ function buildHoverData(fileId: string, graph: WorkspaceGraph, layout: Galaxy3DL
   const ln = layout.nodes.find(n => n.fileId === fileId);
   const accentHex = ln ? intToHex(ln.colorInt) : "#6aa8e0";
 
-  return { file, callers, callees, siblings, symbols, accentHex };
+  return { file, callers, callees, siblings, symbols, symsByFile, accentHex };
 }
 
 // Dark-symtip palette — the galaxy canvas is near-black, so the card
@@ -1358,7 +1427,7 @@ function HoverThumbnail({
 }) {
   const data = buildHoverData(info.fileId, graph, layout);
   if (!data) return null;
-  const { file, callers, callees, siblings, symbols } = data;
+  const { file, callers, callees, siblings, symbols, symsByFile } = data;
 
   const CARD_W = 320;
   const CARD_MAX_H = 520;
@@ -1451,10 +1520,18 @@ function HoverThumbnail({
           borderBottom: `1px solid ${HT_HAIRLINE}`,
         }}>
           {callers.length > 0 && (
-            <ConxList label="CALLERS" arrow="←" items={callers.slice(0, 4)} totalN={callers.length} />
+            <ConxList
+              label="CALLERS" arrow="←"
+              items={callers.slice(0, 4)} totalN={callers.length}
+              symsByFile={symsByFile}
+            />
           )}
           {callees.length > 0 && (
-            <ConxList label="CALLEES" arrow="→" items={callees.slice(0, 4)} totalN={callees.length} />
+            <ConxList
+              label="CALLEES" arrow="→"
+              items={callees.slice(0, 4)} totalN={callees.length}
+              symsByFile={symsByFile}
+            />
           )}
         </div>
       )}
@@ -1611,51 +1688,94 @@ function SectionLabel({ text, count }: { text: string; count?: number }) {
 }
 
 function ConxList({
-  label, arrow, items, totalN,
+  label, arrow, items, totalN, symsByFile,
 }: {
   label: string; arrow: string; items: FileNode[]; totalN: number;
+  symsByFile: Map<string, WsSymbolNode[]>;
 }) {
+  // Representative-symbols cap per row — enough to hint at what's
+  // inside the file without turning the card into a wall of chips.
+  const SYM_CHIPS_PER_ROW = 3;
   return (
     <div>
       <SectionLabel
         text={arrow === "←" ? `${arrow} ${label}` : `${label} ${arrow}`}
         count={totalN}
       />
-      <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 1 }}>
-        {items.map(f => (
-          <div key={f.id} style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "2px 4px",
-            fontSize: 11,
-            color: HT_FG,
-            borderRadius: 3,
-            fontFamily: font.mono,
-          }}>
-            <span style={{
-              color: HT_FG_MUTED, width: 12, textAlign: "center", fontSize: 10,
-            }}>
-              {fileGlyphFromName(f.name)}
-            </span>
-            <span style={{
-              flex: 1, minWidth: 0, whiteSpace: "nowrap",
-              overflow: "hidden", textOverflow: "ellipsis",
-            }}>
-              {f.name}
-            </span>
-            {f.riskScore >= 0.5 && (
-              <span style={{
-                fontSize: 9,
-                color: f.riskScore < 0.66
-                  ? "rgba(230, 180, 100, 0.85)"
-                  : "rgba(235, 130, 130, 0.92)",
-                fontWeight: 600,
-                fontVariantNumeric: "tabular-nums",
+      <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 4 }}>
+        {items.map(f => {
+          const fileSyms = symsByFile.get(f.id) ?? [];
+          const shown = fileSyms.slice(0, SYM_CHIPS_PER_ROW);
+          const rest  = fileSyms.length - shown.length;
+          return (
+            <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "2px 4px",
+                fontSize: 11,
+                color: HT_FG,
+                borderRadius: 3,
+                fontFamily: font.mono,
               }}>
-                {Math.round(f.riskScore * 100)}
-              </span>
-            )}
-          </div>
-        ))}
+                <span style={{
+                  color: HT_FG_MUTED, width: 12, textAlign: "center", fontSize: 10,
+                }}>
+                  {fileGlyphFromName(f.name)}
+                </span>
+                <span style={{
+                  flex: 1, minWidth: 0, whiteSpace: "nowrap",
+                  overflow: "hidden", textOverflow: "ellipsis",
+                }}>
+                  {f.name}
+                </span>
+                {f.riskScore >= 0.5 && (
+                  <span style={{
+                    fontSize: 9,
+                    color: f.riskScore < 0.66
+                      ? "rgba(230, 180, 100, 0.85)"
+                      : "rgba(235, 130, 130, 0.92)",
+                    fontWeight: 600,
+                    fontVariantNumeric: "tabular-nums",
+                  }}>
+                    {Math.round(f.riskScore * 100)}
+                  </span>
+                )}
+              </div>
+              {shown.length > 0 && (
+                <div style={{
+                  display: "flex", flexWrap: "wrap", gap: 3,
+                  paddingLeft: 18,
+                }}>
+                  {shown.map(s => (
+                    <span key={s.id} style={{
+                      display: "inline-flex", alignItems: "center", gap: 3,
+                      padding: "1px 5px",
+                      fontSize: 9.5,
+                      color: HT_FG_MUTED,
+                      background: HT_BG_CHIP,
+                      border: `1px solid ${HT_BORDER_SOFT}`,
+                      borderRadius: 3,
+                      fontFamily: font.mono,
+                      lineHeight: 1.3,
+                    }} title={`${s.kind} · line ${s.line}`}>
+                      <span style={{ color: HT_FG, fontWeight: 600 }}>{symbolGlyph(s.kind)}</span>
+                      <span style={{ maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {s.name}
+                      </span>
+                    </span>
+                  ))}
+                  {rest > 0 && (
+                    <span style={{
+                      fontSize: 9, color: HT_FG_DEAD, alignSelf: "center",
+                    }}>
+                      +{rest}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
         {totalN > items.length && (
           <div style={{
             fontSize: 10, color: HT_FG_DEAD, paddingLeft: 18, marginTop: 1,

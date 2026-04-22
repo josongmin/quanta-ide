@@ -1,4 +1,14 @@
-import type { EntityKind } from "@quanta/canvas-engine";
+import type { EntityKind, SymbolNodeKind } from "@quanta/canvas-engine";
+
+/** Representative symbol preview attached to an entity node — a tiny
+ *  "what's inside this file" strip that renders under the node's label.
+ *  Answers "why does THIS file show up in my callers?" without a drill-in. */
+export interface MindMapSymbolChip {
+  /** Stable id for React keying. Usually the canvas-engine SymbolNode.id. */
+  id: string;
+  name: string;
+  kind: SymbolNodeKind;
+}
 
 // Mind-map types
 // --------------------------------------------------------------------
@@ -73,6 +83,13 @@ export interface MindMapNode {
    *  always carry weight 1 (they're the backbone); entities get a
    *  fraction based on edge count / churn / LOC weight. */
   weight: number;
+  /** Entity-only: top-N representative symbols inside this file. Renderer
+   *  paints them as chips below the label so "file X is in the bucket
+   *  because it holds functions Y, Z, ..." reads without a drill-in. */
+  symbolPreview?: readonly MindMapSymbolChip[];
+  /** Entity-only: total symbols in this file, so the renderer can append
+   *  "+N" when `symbolPreview` was truncated. */
+  symbolTotal?: number;
 }
 
 /** One drawable edge. Two kinds:

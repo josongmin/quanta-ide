@@ -44,9 +44,9 @@ export const refactorTerrainViewDescriptor: ViewDescriptor = {
   tech: "복잡도 × churn ROI 스코어링",
   usecase:
     "리팩터링 우선순위를 ROI 기준으로 정량화. 스프린트에 리팩터링 티켓 넣을 때 근거 자료. '감으로 고르기' 대신 데이터 기반 결정.",
-  category: "plan",
+  category: "refactor",
   contexts: ["repo", "folder"],
   needs: { tree: true, graph: true },
-  order: 110,
+  order: 460,
   Component: RefactorTerrainModeView,
 };

@@ -30,9 +30,10 @@ import {
 import { LeftPanel } from "../../left-panel";
 import { Inspector } from "../../inspector";
 import { NavHistoryButtons } from "../../../features/nav-history";
-import { ColorModePicker } from "../../../features/color-mode";
+import { ViewPalette, useViewPaletteShortcut } from "../../../features/view-palette";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { IconLayoutGrid, IconSidebarLeft, IconSidebarRight } from "../../../shared/ui/icons";
+import { ViewTransition, VIEW_TRANSITION_KEYFRAMES } from "./ViewTransition";
 
 // CanvasShell — top-level Code Universe widget.
 //
@@ -101,6 +102,11 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
   const { tier, scale, zoomBy } = useTierSwitch();
   const tree = useEntityState(s => s.tree);
   const graph = useWorkspaceGraph();
+
+  // ⌘K / Ctrl+K — view-palette quick-jump. Installed once the shell is
+  // alive so the shortcut works regardless of focus. The palette itself
+  // is mounted at the bottom of this tree and reads store state.
+  useViewPaletteShortcut();
 
   const [prefs, setPrefs] = useState<PanelPrefs>(loadPrefs);
   useEffect(() => {
@@ -252,6 +258,7 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
 
   return (
     <ViewContextProvider value={ctxValue}>
+      <style>{VIEW_TRANSITION_KEYFRAMES}</style>
       <div data-product="code-universe" style={ROOT_STYLE}>
         <header style={HEADER_STYLE}>
           <div style={HEADER_GROUP}>
@@ -271,12 +278,11 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
             <SelectedPath />
           </div>
 
-          {/* Right cluster: shell chrome only (color mode + inspector
-              toggle). Code-Universe-specific controls (view mode, tier,
-              scale, kind) live in the floating overlay inside the
-              viewport below. */}
+          {/* Right cluster: shell chrome only (inspector toggle).
+              Code-Universe-specific controls (view mode, tier, scale,
+              kind) live in the floating overlay inside the viewport
+              below. */}
           <div style={HEADER_GROUP}>
-            <ColorModePicker />
             <IconToggle
               onClick={() => setPrefs(p => ({ ...p, rightCollapsed: !p.rightCollapsed }))}
               active={!prefs.rightCollapsed}
@@ -343,7 +349,11 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
               <ViewModeDropdown />
             </div>
 
-            {activeView}
+            {/* Shell-level crossfade — when viewMode flips we keep the
+                outgoing view mounted briefly so its exit overlaps the
+                incoming view's entrance. Keyed by mode, so rapid
+                switches pre-empt any in-flight transition cleanly. */}
+            <ViewTransition mode={viewMode}>{activeView}</ViewTransition>
           </div>
 
           {prefs.rightCollapsed ? null : (
@@ -364,6 +374,12 @@ export function CanvasShell({ tabId }: CanvasShellProps = {}): ReactElement {
         </div>
 
         <HoverTooltip />
+
+        {/* Global view-mode command palette. Mounted at shell root so
+            ⌘K opens a full-viewport modal over everything else. Uses
+            fixed positioning (not React portal) — one branch of the
+            tree, but visually detached via CSS. */}
+        <ViewPalette />
       </div>
     </ViewContextProvider>
   );
@@ -535,26 +551,24 @@ const PATH_SEP: CSSProperties = {
   padding: "0 4px",
 };
 
-const PATH_LEAF: CSSProperties = {
-  color: color.text0,
-  fontWeight: font.weight.semibold,
+const PATH_SEG: CSSProperties = {
+  background: "transparent",
+  border: "none",
+  padding: 0,
+  margin: 0,
+  cursor: "pointer",
+  color: color.text1,
+  fontFamily: "inherit",
+  fontSize: "inherit",
+  letterSpacing: "inherit",
+  lineHeight: "inherit",
+  transition: `color ${transition.fast}`,
 };
 
-const PATH_KIND_PILL: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  padding: "1px 6px",
-  marginRight: space[2],
-  fontFamily: font.family,
-  fontSize: 10,
+const PATH_SEG_LEAF: CSSProperties = {
+  ...PATH_SEG,
+  color: color.text0,
   fontWeight: font.weight.semibold,
-  letterSpacing: 0.3,
-  textTransform: "uppercase",
-  color: color.text2,
-  background: color.bg2,
-  border: `1px solid ${color.border}`,
-  borderRadius: radius.sm,
-  flexShrink: 0,
 };
 
 const PRODUCT_NAME: CSSProperties = {
@@ -742,6 +756,9 @@ const VIEW_MODE_POPUP_STYLE: CSSProperties = {
 // entity in the shell header. Shell chrome should say *what* you are
 // looking at; view-mode/tier/scale chips belong to the Code Universe
 // content area and moved to the floating overlay below.
+//
+// Each path segment is a button that jumps selection to the matching
+// ancestor entity, so the header doubles as a navigable breadcrumb.
 function SelectedPath(): ReactElement {
   const selectedId = useEntityState(s => s.interaction.selectedId);
   const anchorId   = useEntityState(s => s.interaction.anchorId);
@@ -750,7 +767,7 @@ function SelectedPath(): ReactElement {
   const contextId = anchorId ?? selectedId;
   const entity = contextId ? tree?.byId.get(contextId) : undefined;
 
-  if (!entity) {
+  if (!entity || !tree) {
     return (
       <span style={PATH_MUTED} title="No selection — Workspace root">
         Workspace · 파일을 선택하세요
@@ -760,22 +777,59 @@ function SelectedPath(): ReactElement {
 
   const rawPath = entity.path || entity.name;
   const parts = rawPath.split("/").filter(Boolean);
-  const leaf = parts.length > 0 ? parts[parts.length - 1] : rawPath;
-  const head = parts.slice(0, -1);
+
+  // ancestorsOf returns [self, parent, …, universe-root]. Reverse and
+  // drop the universe root so the remaining list aligns one-to-one
+  // with the path segments. If a mismatch sneaks in (unlikely), fall
+  // back to non-clickable spans for that segment.
+  const chain = tree.ancestorsOf(entity.id).slice().reverse().filter(e => e.kind !== "universe");
 
   return (
     <span style={PATH_MONO} title={rawPath}>
-      <span style={PATH_KIND_PILL}>{entity.kind}</span>
-      {head.map((seg, i) => (
-        <span key={i}>
-          <span>{seg}</span>
-          <span style={PATH_SEP}>/</span>
-        </span>
-      ))}
-      <span style={PATH_LEAF}>{leaf}</span>
+      {parts.map((seg, i) => {
+        const isLeaf = i === parts.length - 1;
+        const target = chain[i];
+        const segStyle: CSSProperties = isLeaf ? PATH_SEG_LEAF : PATH_SEG;
+        return (
+          <span key={i}>
+            {target ? (
+              <button
+                type="button"
+                onClick={() => entityStore.selectEntity(target.id)}
+                style={segStyle}
+                title={target.path || target.name}
+                onMouseEnter={e => { e.currentTarget.style.color = color.accent; }}
+                onMouseLeave={e => { e.currentTarget.style.color = isLeaf ? color.text0 : color.text1; }}
+              >
+                {seg}
+              </button>
+            ) : (
+              <span style={segStyle}>{seg}</span>
+            )}
+            {isLeaf ? null : <span style={PATH_SEP}>/</span>}
+          </span>
+        );
+      })}
     </span>
   );
 }
+
+// Category accent palette — mirrors ViewModePicker's CATEGORY_ORDER so the
+// trigger dot visually reflects which "section" the current mode belongs
+// to. Kept inline (8 entries) so the trigger button never pulls the whole
+// picker file as a hard dep.
+const CATEGORY_ACCENT: Record<string, string> = {
+  explore:  "#0d99ff",
+  deps:     "#e09321",
+  metrics:  "#2563eb",
+  quality:  "#22a06b",
+  refactor: "#f76b15",
+  arch:     "#e5484d",
+  security: "#d97706",
+  team:     "#9e77ff",
+  history:  "#7e4ed6",
+  plan:     "#22a06b",
+};
 
 function ViewModeDropdown(): ReactElement {
   const mode = useViewMode(s => s.mode);
@@ -813,6 +867,8 @@ function ViewModeDropdown(): ReactElement {
   }, [open]);
 
   const label = VIEW_MODE_OPTIONS.find(o => o.value === mode)?.label ?? "Universe";
+  const categoryAccent =
+    CATEGORY_ACCENT[getViewDescriptor(mode).category] ?? color.accent;
 
   return (
     <div ref={ref} style={{ position: "relative" }}>
@@ -838,6 +894,18 @@ function ViewModeDropdown(): ReactElement {
         <span style={VIEW_MODE_BTN_ICON_SLOT}>
           <IconLayoutGrid size={14} />
         </span>
+        <span
+          aria-hidden
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: "50%",
+            background: categoryAccent,
+            boxShadow: `0 0 0 3px ${categoryAccent}26`,
+            flexShrink: 0,
+            transition: `background ${transition.base}, box-shadow ${transition.base}`,
+          }}
+        />
         <span style={VIEW_MODE_BTN_GLYPH}>{VIEW_GLYPH[mode]}</span>
         <span style={VIEW_MODE_BTN_LABEL}>{label}</span>
         <span style={VIEW_MODE_BTN_CHEVRON}>▾</span>

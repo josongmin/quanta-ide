@@ -57,6 +57,6 @@ export const matrixViewDescriptor: ViewDescriptor = {
   category: "deps",
   contexts: ["repo", "folder"],
   needs: { tree: true, graph: true },
-  order: 40,
+  order: 150,
   Component: MatrixModeView,
 };

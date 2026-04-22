@@ -1,0 +1,1 @@
+export { maintainabilityIndexViewDescriptor } from "./view";

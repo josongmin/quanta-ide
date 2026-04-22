@@ -52,6 +52,6 @@ export const embeddingViewDescriptor: ViewDescriptor = {
   category: "explore",
   contexts: ["repo", "folder", "file"],
   needs: { tree: true, graph: true },
-  order: 70,
+  order: 50,
   Component: EmbeddingModeView,
 };

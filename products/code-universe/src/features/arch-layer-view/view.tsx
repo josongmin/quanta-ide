@@ -46,6 +46,6 @@ export const archLayerViewDescriptor: ViewDescriptor = {
   category: "arch",
   contexts: ["repo"],
   needs: { graph: true },
-  order: 90,
+  order: 500,
   Component: ArchLayerModeView,
 };

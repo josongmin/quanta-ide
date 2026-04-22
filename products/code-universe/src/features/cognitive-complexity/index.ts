@@ -1,0 +1,1 @@
+export { cognitiveComplexityViewDescriptor } from "./view";

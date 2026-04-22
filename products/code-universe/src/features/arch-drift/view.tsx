@@ -33,6 +33,6 @@ export const archDriftViewDescriptor: ViewDescriptor = {
   category: "history",
   contexts: ["repo"],
   needs: { graph: true },
-  order: 140,
+  order: 780,
   Component: ArchDriftModeView,
 };

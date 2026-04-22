@@ -1,0 +1,1 @@
+export { depFossilViewDescriptor } from "./view";

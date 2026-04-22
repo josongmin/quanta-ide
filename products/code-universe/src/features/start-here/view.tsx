@@ -30,9 +30,9 @@ export const startHereViewDescriptor: ViewDescriptor = {
   tech: "의존성 PageRank + 진입점 중심성",
   usecase:
     "새 팀원 온보딩 시 '여기서부터 보세요' 가이드. 낯선 레포 코드리뷰 전 핵심 파일 파악. '이 코드베이스의 핵심이 뭐야?'에 대한 빠른 답.",
-  category: "plan",
+  category: "explore",
   contexts: ["repo", "folder", "file"],
   needs: { graph: true },
-  order: 170,
+  order: 70,
   Component: StartHereModeView,
 };

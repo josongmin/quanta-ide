@@ -27,6 +27,11 @@ export interface Galaxy3DNode {
   parentFileId?: string;
   /** Symbol-only. Drives the glyph (ƒ / {} / ◇ / …) shown in the label. */
   symbolKind?: SymbolNodeKind;
+  /** Symbol-only. True for the symbol the user selected in the tree —
+   *  the renderer promotes the label to "symbolName · fileName" so the
+   *  "me" planet carries its file context (symbols aren't unique across
+   *  files, so the bare name can be ambiguous). */
+  selected?: boolean;
 }
 
 export interface Galaxy3DEdge {

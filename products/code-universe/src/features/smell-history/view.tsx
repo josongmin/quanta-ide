@@ -33,6 +33,6 @@ export const smellHistoryViewDescriptor: ViewDescriptor = {
   category: "history",
   contexts: ["repo"],
   needs: { graph: true },
-  order: 130,
+  order: 770,
   Component: SmellHistoryModeView,
 };
