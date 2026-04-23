@@ -47,5 +47,86 @@ export const archLayerViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { graph: true },
   order: 500,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input",
+    "policy-control"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-architecture",
+      "scope": "repo",
+      "intent": "verify"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "module"
+    ],
+    "intents": [
+      "verify",
+      "diagnose"
+    ],
+    "subdomain": "layer-compliance",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "platform"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "direct-action",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "auditable",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "layer-audit",
+      "service-topo",
+      "package-instability"
+    ],
+    "keywords": [
+      "layer",
+      "boundary",
+      "import",
+      "fsd",
+      "violation"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor",
+      "policy-audit"
+    ],
+    "evidenceClass": "auditable",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related",
+    "attach-to-policy-check"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "architecture"
+  },
   Component: ArchLayerModeView,
 };

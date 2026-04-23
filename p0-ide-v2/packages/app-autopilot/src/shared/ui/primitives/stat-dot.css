@@ -1,0 +1,48 @@
+.ap-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-subtle);
+  flex-shrink: 0;
+}
+.ap-dot--accent {
+  background: var(--accent);
+}
+.ap-dot--success {
+  background: var(--success);
+}
+.ap-dot--warn {
+  background: var(--warn);
+}
+.ap-dot--danger {
+  background: var(--danger);
+}
+.ap-dot--muted {
+  background: var(--fg-dead);
+}
+.ap-dot--purple {
+  background: var(--accent-purple);
+}
+.ap-dot--pulse {
+  position: relative;
+}
+.ap-dot--pulse::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: inherit;
+  opacity: 0;
+  animation: ap-dot-pulse 1.8s cubic-bezier(0.3, 0, 0.2, 1) infinite;
+}
+@keyframes ap-dot-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.65;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}

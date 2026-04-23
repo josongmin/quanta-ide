@@ -23,6 +23,7 @@ export type {
   SettingFieldContribution,
   StatusContribution,
   FeatureManifest,
+  FeatureAnalysisMetadata,
 } from "./feature-types";
 
 export type { ShortcutBinding } from "./shortcut-types";

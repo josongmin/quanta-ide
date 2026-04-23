@@ -11,6 +11,7 @@ import {
   Home,
   Inbox,
   LayoutGrid,
+  Orbit,
   Plus,
   Rocket,
   Search,
@@ -26,7 +27,7 @@ import "./topbar.css";
 /** Show floating title when tab is this narrow (px), or when the label is truncated. */
 const TAB_TITLE_TIP_NARROW_PX = 128;
 
-export type AppKind = "home" | "new-tab" | "ide" | "workspace" | "universe" | "code-city" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo";
+export type AppKind = "home" | "new-tab" | "analysis-catalog" | "ide" | "workspace" | "universe" | "code-city" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo" | "autopilot";
 export interface Tab { id: string; app: AppKind; label: string; }
 
 const TAB_ICON_SIZE = 13;
@@ -35,6 +36,7 @@ const TAB_ICON_STROKE = 1.8;
 const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   home:        () => <Home            size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   "new-tab":   () => <Home            size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
+  "analysis-catalog": () => <Search          size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   ide:         () => <Code2           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   workspace:   () => <LayoutGrid      size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   universe:    () => <LayoutGrid      size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
@@ -47,6 +49,7 @@ const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   settings:    () => <Settings        size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   dashboard:   () => <Gauge           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   demo:        () => <Rocket          size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
+  autopilot:   () => <Orbit           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
 };
 
 interface TopbarProps {

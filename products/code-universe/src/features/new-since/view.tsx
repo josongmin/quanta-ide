@@ -23,5 +23,79 @@ export const newSinceViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder"],
   needs: { tree: true },
   order: 660,
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-evolution",
+      "scope": "folder",
+      "intent": "verify"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "verify",
+      "explore"
+    ],
+    "subdomain": "new-since",
+    "personas": [
+      "developer",
+      "reviewer",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "direct-action",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "informational"
+    },
+    "related": [
+      "timelapse",
+      "smell-history",
+      "cycle-genesis"
+    ],
+    "keywords": [
+      "new",
+      "since",
+      "delta",
+      "review",
+      "changed"
+    ]
+  },
+  decision:   {
+    "grade": "informational",
+    "supports": [],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "open-view",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "code-intel"
+  },
   Component: NewSinceModeView,
 };

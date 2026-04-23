@@ -1,0 +1,92 @@
+.ap-wi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-bottom: var(--space-7);
+}
+.ap-wi__table {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  overflow: hidden;
+}
+.ap-wi__thead {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 2.4fr) 130px 160px 80px minmax(0, 1fr) 80px;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3h);
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+.ap-wi__list { list-style: none; margin: 0; padding: 0; }
+.ap-wi__row {
+  appearance: none;
+  display: grid;
+  grid-template-columns: 140px minmax(0, 2.4fr) 130px 160px 80px minmax(0, 1fr) 80px;
+  gap: var(--space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2h) var(--space-3h);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: background 120ms ease;
+}
+.ap-wi__list li:last-child .ap-wi__row { border-bottom: none; }
+.ap-wi__row:hover { background: var(--bg-hover); }
+.ap-wi__cell { min-width: 0; font-size: var(--fs-sm); }
+.ap-wi__cell--status {
+  display: inline-flex; align-items: center; gap: var(--space-1h);
+}
+.ap-wi__status-label {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ap-wi__title {
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ap-wi__desc {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.ap-wi__cell--class {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ap-wi__cell--goal {
+  color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ap-wi__cell--time {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+.ap-wi__muted { color: var(--fg-subtle); }

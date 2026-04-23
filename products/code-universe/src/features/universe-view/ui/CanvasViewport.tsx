@@ -15,6 +15,7 @@ import type {
   Rect,
   WorkspaceGraph,
 } from "@quanta/canvas-engine";
+import { worldViewportRect } from "@quanta/canvas-engine";
 import {
   DEFAULT_TIER_LADDER,
   rollupEdges,
@@ -24,6 +25,7 @@ import {
 } from "../../../entities/tier";
 import { ENTITY_DEPTH, entityStore, useEntityState } from "../../../entities/entity";
 import { startCameraTween, type CameraState } from "../../../shared/lib/camera-animation";
+import { clampCamera } from "../../../shared/lib/camera-clamp";
 import { debounce, saveViewport } from "../../../shared/api/viewport-persistence";
 import { MiniMap } from "./MiniMap";
 import { useKindFilter } from "../../kind-filter";
@@ -31,6 +33,7 @@ import { useSnapshotShortcut } from "../../snapshot";
 import { ColorLegend } from "../../color-legend";
 import { StickiesLayer } from "../../stickies";
 import { SourceOverlay } from "../../source-viewer";
+import { openEditor } from "../../source-viewer/model/editor-target";
 import { rollupEntitySignals, type EntitySignals } from "@quanta/canvas-engine";
 import {
   computeColorOverrides,
@@ -70,6 +73,7 @@ const DRILL_FIT_PAD = 72;
 const MIN_SCALE = 0.005;
 const MAX_SCALE = 80;
 const KEY_ZOOM_FACTOR = 1.2;
+
 
 interface Props {
   tree: EntityTree;
@@ -121,16 +125,60 @@ export function CanvasViewport({
   useSnapshotShortcut(canvasRef);
   const sceneRef = useRef<PixiScene | null>(null);
 
-  const [camera, setCameraState] = useState<CameraState>(
+  const [camera, setCameraRaw] = useState<CameraState>(
     () => initialCamera ?? { tx: 0, ty: 0, scale: 1 },
+  );
+  // Clamp every camera update so the world stays at least partly
+  // visible. Wrapping the setter here means pan, zoom, and tween paths
+  // all pick up the clamp with zero call-site churn — critical for
+  // tween frames which fire ~60/s and would otherwise fight the
+  // clamp.
+  const boundsRef = useRef<Rect>(layout.totalBounds);
+  boundsRef.current = layout.totalBounds;
+  const sizeRef = useRef({ w: width, h: height });
+  sizeRef.current = { w: width, h: height };
+  const setCameraState = useCallback(
+    (next: CameraState | ((prev: CameraState) => CameraState)) => {
+      setCameraRaw((prev) => {
+        const resolved = typeof next === "function" ? next(prev) : next;
+        return clampCamera(
+          resolved,
+          boundsRef.current,
+          sizeRef.current.w,
+          sizeRef.current.h,
+        );
+      });
+    },
+    [],
   );
   const cameraRef = useRef(camera);
   cameraRef.current = camera;
   const tweenRef = useRef<{ cancel(): void } | null>(null);
-  const baseVisibleEntities = useMemo<readonly Entity[]>(
+  // Viewport culling — cuts the visible-entity list from O(kind total)
+  // down to O(viewport-intersecting) before it enters the focus /
+  // edge-rollup / scene-frame pipeline downstream. For a 50k-file repo
+  // at Galaxy tier the tier kind count stays a constant handful, but
+  // at Building tier the spatial filter drops array length by 100-500×,
+  // turning React memo+filter work from "noticeable" into "invisible".
+  //
+  // Rect is expanded by 20% on each axis so small pans don't constantly
+  // re-memo: a pan that shifts the viewport by less than the margin
+  // keeps the same entity set, so downstream memos hold their cache.
+  // Off-screen selection/anchor rendering is handled separately by the
+  // scene; culling only governs the "tile floor" at the active kind.
+  const CULL_MARGIN = 0.2;
+  const allByKind = useMemo<readonly Entity[]>(
     () => tree.byKind(tier.visibleKind),
     [tree, tier.visibleKind],
   );
+  const baseVisibleEntities = useMemo<readonly Entity[]>(() => {
+    if (allByKind.length === 0) return allByKind;
+    const vp = worldViewportRect(camera, width, height);
+    const mx = vp.w * CULL_MARGIN;
+    const my = vp.h * CULL_MARGIN;
+    const expanded: Rect = { x: vp.x - mx, y: vp.y - my, w: vp.w + mx * 2, h: vp.h + my * 2 };
+    return layout.spatialIndex.filterEntities(allByKind, expanded);
+  }, [allByKind, camera, width, height, layout]);
   const baseTierEdges = useMemo<readonly TierEdge[]>(
     // Apply the tier's own edge policy — high-level tiers (universe,
     // galaxy) filter to severe-only so the picture stays legible;
@@ -140,7 +188,7 @@ export function CanvasViewport({
     () => rollupEdges(tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy),
     [tree, graph.fileEdges, tier.visibleKind, tier.edgePolicy],
   );
-  const { hoveredId, selectedId, focusMode, anchorId, expandedFolderId, locateId } = useEntityState(s => s.interaction);
+  const { hoveredId, selectedId, anchorId, expandedFolderId, locateId } = useEntityState(s => s.interaction);
 
   // Adaptive focus filter — the rule the rest of the product hangs
   // off. Three regimes, picked by comparing anchor depth to the
@@ -161,66 +209,15 @@ export function CanvasViewport({
   // adjacency snapshot. Returns null in overview mode / when no anchor
   // has been committed; callers fall through to the base sets.
   //
-  // Same-tier anchor uses TRANSITIVE CLOSURE (BFS), not 1-hop ego —
-  // user asked for "연결된 건 다 나오게". That means direct + indirect
-  // deps all render at full opacity; the dim spotlight visual is
-  // retired (see the spotlightIds wiring below). Higher-tier anchor
-  // keeps the subtree filter (workspace → everything under it).
-  const focusedSet = useMemo<ReadonlySet<string> | null>(() => {
-    if (focusMode !== "neighborhood" || !anchorId) return null;
-    const anchor = tree.byId.get(anchorId);
-    if (!anchor) return null;
-    const tierDepth = ENTITY_DEPTH[tier.visibleKind];
-    const anchorDepth = ENTITY_DEPTH[anchor.kind];
-    if (tierDepth === anchorDepth) {
-      // Build an undirected adjacency from tier edges, then BFS from
-      // the anchor. Adjacency is O(V+E); BFS O(V+E). Visible tiers
-      // have |V| ≤ a few thousand, so this is cheap per anchor flip.
-      const adj = new Map<string, string[]>();
-      for (const edge of baseTierEdges) {
-        (adj.get(edge.fromId) ?? adj.set(edge.fromId, []).get(edge.fromId)!).push(edge.toId);
-        (adj.get(edge.toId) ?? adj.set(edge.toId, []).get(edge.toId)!).push(edge.fromId);
-      }
-      const reachable = new Set<string>([anchorId]);
-      const q: string[] = [anchorId];
-      while (q.length > 0) {
-        const id = q.shift()!;
-        const nbrs = adj.get(id);
-        if (!nbrs) continue;
-        for (const n of nbrs) {
-          if (reachable.has(n)) continue;
-          reachable.add(n);
-          q.push(n);
-        }
-      }
-      // Siblings — every entity sharing the anchor's parent is folded
-      // in as an implicit dependency. Co-located files are almost
-      // always edited together and show up as a cluster in the
-      // mental model even when the static import graph misses them
-      // (runtime wiring, re-exports, types). Without this the canvas
-      // collapses to one card for a leaf with no imports, which
-      // reads as broken.
-      const parentId = anchor.parentId;
-      if (parentId !== null) {
-        for (const e of baseVisibleEntities) {
-          if (e.parentId === parentId) reachable.add(e.id);
-        }
-      }
-      return reachable;
-    }
-    if (tierDepth > anchorDepth) {
-      const set = new Set<string>();
-      for (const e of baseVisibleEntities) {
-        for (const a of tree.ancestorsOf(e.id)) {
-          if (a.id === anchorId) { set.add(e.id); break; }
-        }
-      }
-      return set;
-    }
-    // tierDepth < anchorDepth — pin the anchor's ancestor at this tier.
-    const ancestorAtTier = [...tree.ancestorsOf(anchorId)].find(a => a.kind === tier.visibleKind);
-    return ancestorAtTier ? new Set<string>([ancestorAtTier.id]) : new Set<string>();
-  }, [focusMode, anchorId, tree, tier.visibleKind, baseTierEdges, baseVisibleEntities]);
+  // Scope filter retired — clicking an entity no longer narrows the
+  // canvas to its subtree / neighbourhood. The canonical map stays
+  // intact across every nav so a click is pure navigation (camera
+  // moves, selection highlights), not a filter. Anchor / focusMode
+  // state is still tracked by `entityStore` for downstream UI
+  // (inspector, pulse ring, breadcrumb) but no longer reshapes the
+  // visible set here. Kept the useMemo signature as a stable null
+  // so downstream branches simplify to the base path.
+  const focusedSet = useMemo<ReadonlySet<string> | null>(() => null, []);
 
   const focusedVisibleEntities = useMemo<readonly Entity[] | null>(() => {
     if (!focusedSet) return null;
@@ -385,31 +382,31 @@ export function CanvasViewport({
     didInitialFit.current = true;
   }, [visibleEntities, layout, cameraForRect, initialCamera]);
 
-  // Auto-fit ONLY on explicit navigation — i.e. the anchor changed.
-  // That covers Explorer click, drill-in, Inspector drill/focus
-  // buttons. Tier crossings driven by wheel pinch do NOT change the
-  // anchor, so camera stays put for the user-controlled zoom. Without
-  // this, a Explorer click can land the scope offscreen (user picks
-  // build.ts → filter narrows to one card → camera still at overview
-  // pose → blank viewport, "아무것도 안나옴"). We tween, not snap, so
-  // the navigation reads as a visible motion.
+  // Anchor change → camera flies to the anchor's own rect (not to
+  // the old scope-filtered visibleEntities). With the scope filter
+  // retired, "navigate" means "put this specific entity in frame";
+  // fitting to visibleEntities would just re-fit the whole world on
+  // every click. Drill-in + Inspector "show in canvas" land here.
   const prevAnchorRef = useRef<string | null>(anchorId);
   useEffect(() => {
     if (prevAnchorRef.current === anchorId) return;
     prevAnchorRef.current = anchorId;
     if (!didInitialFit.current) return; // initial-fit still owns mount
-    if (visibleEntities.length === 0) return;
-    const bounds = unionRects(visibleEntities, layout);
-    if (!bounds) return;
-    tweenTo(cameraForRect(bounds), 260);
-  }, [anchorId, visibleEntities, layout, cameraForRect, tweenTo]);
+    if (!anchorId) return;
+    const rect = layout.rects.get(anchorId);
+    if (!rect) return;
+    tweenTo(cameraForRect(rect));
+  }, [anchorId, layout, cameraForRect, tweenTo]);
 
   useEffect(() => () => cancelTween(), [cancelTween]);
 
-  // Locate — pan to an entity on tree-hover (scale-preserving). Fires
-  // when `locateId` transitions from null → id after a 350 ms pause in
-  // the Explorer tree. Skipped when: entity is not in the current visible
-  // set (wrong tier / filtered out), or it already fills the viewport.
+  // Locate — pan to an entity on tree-hover / tree-click (scale-
+  // preserving). Fires when `locateId` transitions from null → id
+  // after a 350 ms pause in the Explorer tree, or immediately on
+  // Explorer click. The layout carries rects for every tier so we
+  // pan even when the entity's kind doesn't match the active tier —
+  // the user sees the ancestor container that holds their pick, not
+  // a blank viewport.
   const prevLocateRef = useRef<string | null>(null);
   useEffect(() => {
     if (prevLocateRef.current === locateId) return;
@@ -417,7 +414,6 @@ export function CanvasViewport({
     if (!locateId) return;
     const rect = layout.rects.get(locateId);
     if (!rect) return;
-    if (!visibleEntities.some(e => e.id === locateId)) return;
     const cur = cameraRef.current;
     const sl = rect.x * cur.scale + cur.tx;
     const st = rect.y * cur.scale + cur.ty;
@@ -427,12 +423,12 @@ export function CanvasViewport({
     if (sl > pad && st > pad && sr < width - pad && sb < height - pad) return;
     const cx = rect.x + rect.w / 2;
     const cy = rect.y + rect.h / 2;
-    tweenTo({ tx: width / 2 - cx * cur.scale, ty: height / 2 - cy * cur.scale, scale: cur.scale }, 300);
+    tweenTo({ tx: width / 2 - cx * cur.scale, ty: height / 2 - cy * cur.scale, scale: cur.scale });
   }, [locateId, layout, visibleEntities, width, height, tweenTo]);
 
   // Anchor pulse — fire an expanding ring on the entity card after the
-  // fly-to tween settles (~260 ms). Delayed so the ring lands on a
-  // stable screen position rather than chasing a moving camera.
+  // fly-to tween settles. Delayed so the ring lands on a stable
+  // screen position rather than chasing a moving camera.
   const [pulseKey, setPulseKey] = useState(0);
   const [pulseAnchorId, setPulseAnchorId] = useState<string | null>(null);
   const prevAnchorForPulse = useRef<string | null>(anchorId);
@@ -471,14 +467,14 @@ export function CanvasViewport({
       // Slightly smaller pad than drill-in — inline expansion wants
       // the folder to dominate but keeps a slice of peers visible as
       // thumbnail context.
-      tweenTo(cameraForRect(rect, 48), 320);
+      tweenTo(cameraForRect(rect, 48));
     } else {
       // Collapse — fit back to the base sibling set so the user sees
       // where the folder lived in context.
       if (visibleEntities.length === 0) return;
       const bounds = unionRects(visibleEntities, layout);
       if (!bounds) return;
-      tweenTo(cameraForRect(bounds), 260);
+      tweenTo(cameraForRect(bounds));
     }
   }, [expandedFolderId, layout, cameraForRect, tweenTo, visibleEntities]);
 
@@ -511,7 +507,17 @@ export function CanvasViewport({
     (entity: Entity) => {
       const rect = layout.rects.get(entity.id);
       if (!rect) return;
-      tweenTo(cameraForRect(rect, 24), 240);
+      // Buildings are leaves in the ladder — dblclick means "open this
+      // file for reading/editing", not "drill another tier down".
+      // Skip the camera tween here: the overlay centres itself over
+      // the viewport, so moving the camera underneath would just make
+      // the background jump while the user is focused on the editor.
+      if (entity.kind === "building") {
+        entityStore.selectEntity(entity.id);
+        openEditor(entity.id);
+        return;
+      }
+      tweenTo(cameraForRect(rect, 24));
       const idx = DEFAULT_TIER_LADDER.findIndex(t => t.name === tier.name);
       const innerSpec = DEFAULT_TIER_LADDER[idx + 1];
       if (
@@ -519,17 +525,14 @@ export function CanvasViewport({
         entity.childIds.length > 0 &&
         ENTITY_DEPTH[entity.kind] < ENTITY_DEPTH[innerSpec.visibleKind]
       ) {
-        // Commit the drilled-into entity as the scope anchor BEFORE
-        // the tier flip — the canvas's subtree filter picks it up on
-        // the next render and only this entity's descendants appear
-        // at the new tier. Without this the flip would show every
-        // sibling entity's children, defeating the point of drilling.
-        entityStore.setAnchor(entity.id);
+        // Higher-tier drill: select the entity and flip the tier one
+        // rung deeper. Anchor is no longer used to filter (scope
+        // filter is retired) — selection alone is enough for the
+        // inspector / highlight seam.
+        entityStore.selectEntity(entity.id);
         queueMicrotask(() => tierStore.jumpToTier(innerSpec.name));
       } else {
-        // Leaf or same-depth drill — still commit the anchor so the
-        // ego filter re-centers on this entity.
-        entityStore.setAnchor(entity.id);
+        entityStore.selectEntity(entity.id);
       }
     },
     [tier.name, layout, cameraForRect, tweenTo],
@@ -562,10 +565,22 @@ export function CanvasViewport({
         ty: cy - worldY * nextScale,
         scale: nextScale,
       });
-      tierStore.setScale(nextScale);
     },
     [cancelTween],
   );
+
+  // Tier store mirrors the actual camera scale — every update path
+  // (wheel zoom, drag pan, initial-fit, drill-in tween, saved-
+  // viewport restore) flows through `setCameraState`, so syncing in
+  // a single effect covers them all. Without this, a saved viewport
+  // loaded at galaxy scale would keep rendering the building tier
+  // because `tierStore` was initialised with the default 0.1 and
+  // never heard about the restored camera ("Galaxy/Street 적용 안 됨"
+  // report — initial scale was already in galaxy band but tier HUD
+  // still said building).
+  useEffect(() => {
+    tierStore.setScale(camera.scale);
+  }, [camera.scale]);
   const onZoomAt = zoomAt;
   const onWheelPan = useCallback(
     (dx: number, dy: number) => {
@@ -919,13 +934,8 @@ export function CanvasViewport({
       )}
       <SourceOverlay
         tree={tree}
-        layout={layout}
-        camera={camera}
-        tier={tier}
         viewportWidth={width}
         viewportHeight={height}
-        selectedId={selectedId}
-        onSelect={onEntityClick}
       />
       <StickiesLayer
         layout={layout}
@@ -943,14 +953,11 @@ export function CanvasViewport({
           // Single click — tween onto the target so the jump reads as
           // a move, not a teleport. Drag uses onDragPan (snap).
           const cur = cameraRef.current;
-          tweenTo(
-            {
-              tx: width / 2 - worldX * cur.scale,
-              ty: height / 2 - worldY * cur.scale,
-              scale: cur.scale,
-            },
-            240,
-          );
+          tweenTo({
+            tx: width / 2 - worldX * cur.scale,
+            ty: height / 2 - worldY * cur.scale,
+            scale: cur.scale,
+          });
         }}
         onDragPan={(worldX, worldY) => {
           // Drag — snap camera 1:1 with cursor so MiniMap interaction

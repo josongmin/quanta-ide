@@ -1,0 +1,62 @@
+.ap-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+  min-width: 0;
+}
+.ap-input__label {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+.ap-input__field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: 0 var(--space-2h);
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+.ap-input--sm .ap-input__field { height: 26px; }
+.ap-input--md .ap-input__field { height: 32px; }
+.ap-input__field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.ap-input.is-error .ap-input__field {
+  border-color: var(--danger);
+}
+.ap-input__lead,
+.ap-input__trail {
+  color: var(--fg-subtle);
+  display: inline-flex;
+}
+.ap-input__native {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  letter-spacing: -0.002em;
+  min-width: 0;
+  padding: 0;
+}
+.ap-input.is-mono .ap-input__native {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.ap-input__native::placeholder {
+  color: var(--fg-subtle);
+}
+.ap-input__hint {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  letter-spacing: 0.02em;
+}
+.ap-input__hint.is-error { color: var(--danger); }

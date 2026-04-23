@@ -14,7 +14,9 @@ export type TabApp =
   | "settings"
   | "dashboard"
   | "demo"
-  | "code-city";
+  | "code-city"
+  | "analysis-catalog"
+  | "autopilot";
 
 /** Superset: every surface the shell can render, including non-tab pages. */
 export type AppKind = TabApp | "home";

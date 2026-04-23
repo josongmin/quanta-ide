@@ -8,6 +8,8 @@ export type {
 } from "@quanta/canvas-engine";
 export {
   DEFAULT_TIER_LADDER,
-  resolveTierByScale,
+  resolveTierByApparentSize,
+  apparentPxFor,
+  scaleForApparentPx,
   rollupEdges,
 } from "@quanta/canvas-engine";

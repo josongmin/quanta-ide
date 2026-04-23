@@ -1,23 +1,33 @@
-// AnalyzePanel — SOTA redesign
+// AnalyzePanel — editorial-minimal redesign
 // ---------------------------------------------------------------
-// Entity preview card (with live metrics) + bento-grid of question
-// cards grouped by category. Each question card carries a glyph,
-// a short English tag, and a metric badge when the graph can
-// answer the question at-a-glance ("12 callers", "47 blast").
+// Aligned with the Inspector's overall design language: uppercase
+// section labels, hairline-divided stat cells, flat row lists. No
+// preview card (the Inspector hero already names the entity), no
+// per-category accent colors (monochrome + accent blue on hover),
+// no bento grid with gradients.
 //
-// Categories:
-//   관계 (Relations) — what uses/used by/blast
-//   구조 (Structure) — coupling / cycles / layer violations
-//   우선순위 (Priorities) — risk hotspots / refactor ROI
-//
-// Visual language:
-//   soft gradient cards, per-category accent, staggered fade-in,
-//   hover lift, glyph-first iconography. No emojis (카드 좌측 stripe
-//   metaphor intentionally avoided — accent lives in glyph/dot).
+// Layout:
+//   ┌ STAT GRID ─────────────────────────────────────┐
+//   │ files · LoC · callers · callees · internal · risk│
+//   ├────────────────────────────────────────────────┤
+//   │ 관계   Relations                               │
+//   │   ← Callers                              12 FILES│
+//   │   → Callees                               8 FILES│
+//   │   ◈ Blast radius                          47 REACHABLE│
+//   ├────────────────────────────────────────────────┤
+//   │ 구조   Structure                               │
+//   │   ⬡ Package coupling     Chord view             │
+//   │   ⟳ Cycles here          Arc diagram            │
+//   │   ⊟ Layer violations                             │
+//   ├────────────────────────────────────────────────┤
+//   │ 우선순위 Priorities                            │
+//   │   ◆ Risk hotspots        Churn × Risk            │
+//   │   ⚡ Refactor priority   ROI-ranked              │
+//   └────────────────────────────────────────────────┘
 
-import { useMemo, useState, type CSSProperties, type ReactElement } from "react";
+import { useMemo, type CSSProperties, type ReactElement } from "react";
 import type { Entity, EntityTree, WorkspaceGraph } from "@quanta/canvas-engine";
-import { color, font, kindIcon, kindLabel, radius, space, transition } from "../../../shared/ui/tokens";
+import { color, font, space, transition } from "../../../shared/ui/tokens";
 import { QUESTIONS, applyQuestion, isQuestionApplicable, type QuestionId } from "../model/questions";
 
 interface AnalyzePanelProps {
@@ -42,7 +52,6 @@ function computeMetrics(entity: Entity, tree: EntityTree, graph: WorkspaceGraph 
   const empty: Metrics = { callers: 0, callees: 0, blast: 0, loc: 0, risk: 0, fileCount: 0, internalEdges: 0 };
   if (!graph) return empty;
 
-  // Collect building descendants (or self if building)
   const relevant = new Set<string>();
   const walk = (id: string): void => {
     const e = tree.byId.get(id);
@@ -62,7 +71,6 @@ function computeMetrics(entity: Entity, tree: EntityTree, graph: WorkspaceGraph 
     else if (toIn)   callers++;
   }
 
-  // Transitive blast (up to 3 hops of inbound fan-in)
   const visited = new Set<string>(relevant);
   let frontier: string[] = [...relevant];
   for (let hop = 0; hop < 3 && frontier.length > 0; hop++) {
@@ -87,13 +95,12 @@ function computeMetrics(entity: Entity, tree: EntityTree, graph: WorkspaceGraph 
   return { callers, callees, blast, loc, risk, fileCount: files.length, internalEdges };
 }
 
-// ── Question meta (decoration only; IDs still come from ./questions) ──
+// ── Question meta (decoration; IDs still from ./questions) ────────────
 
 interface QMeta {
   id: QuestionId;
   glyph: string;
   tag: string;
-  size: "sm" | "lg";
   metric?: keyof Metrics;
   metricUnit?: string;
 }
@@ -102,7 +109,6 @@ interface CatDef {
   id: string;
   ko: string;
   en: string;
-  accent: string;
   questions: readonly QMeta[];
 }
 
@@ -110,50 +116,47 @@ const CATS: readonly CatDef[] = [
   {
     id: "relations",
     ko: "관계",
-    en: "RELATIONS",
-    accent: "#0d99ff",
+    en: "Relations",
     questions: [
-      { id: "what-uses-this",     glyph: "←", tag: "Callers",  size: "sm", metric: "callers", metricUnit: "files" },
-      { id: "what-does-this-use", glyph: "→", tag: "Callees",  size: "sm", metric: "callees", metricUnit: "files" },
-      { id: "blast-radius",       glyph: "◈", tag: "Blast",    size: "lg", metric: "blast",   metricUnit: "reachable" },
+      { id: "what-uses-this",     glyph: "←", tag: "Callers / fan-in",     metric: "callers", metricUnit: "files" },
+      { id: "what-does-this-use", glyph: "→", tag: "Callees / fan-out",    metric: "callees", metricUnit: "files" },
+      { id: "blast-radius",       glyph: "◈", tag: "Blast radius",         metric: "blast",   metricUnit: "reachable" },
     ],
   },
   {
     id: "structure",
     ko: "구조",
-    en: "STRUCTURE",
-    accent: "#e09321",
+    en: "Structure",
     questions: [
-      { id: "package-coupling",    glyph: "⬡", tag: "Chord",  size: "sm" },
-      { id: "cycles-here",         glyph: "⟳", tag: "Arc",    size: "sm" },
-      { id: "what-layers-violate", glyph: "⊟", tag: "Layers", size: "lg" },
+      { id: "package-coupling",    glyph: "⬡", tag: "Chord view" },
+      { id: "cycles-here",         glyph: "⟳", tag: "Arc diagram" },
+      { id: "what-layers-violate", glyph: "⊟", tag: "Layer dependencies" },
     ],
   },
   {
     id: "priorities",
     ko: "우선순위",
-    en: "PRIORITIES",
-    accent: "#9e77ff",
+    en: "Priorities",
     questions: [
-      { id: "risk-hotspots",      glyph: "◆", tag: "Quadrant", size: "sm" },
-      { id: "refactor-priority",  glyph: "⚡", tag: "ROI",      size: "sm" },
+      { id: "risk-hotspots",      glyph: "◆", tag: "Churn × Risk 2×2" },
+      { id: "refactor-priority",  glyph: "⚡", tag: "ROI-ranked refactor" },
     ],
   },
 ];
 
 const QMAP = new Map(QUESTIONS.map(q => [q.id, q]));
 
-// ── Risk palette ───────────────────────────────────────────────────────
-
-function riskTone(r: number): { fg: string; bg: string; label: string } {
-  if (r >= 70) return { fg: "#c42b30", bg: "rgba(229,72,77,0.10)", label: "high" };
-  if (r >= 40) return { fg: "#a76a0e", bg: "rgba(224,147,33,0.10)", label: "med"  };
-  return            { fg: "#1e7f50", bg: "rgba(34,160,107,0.10)",  label: "low"  };
+function abbrevNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
 }
 
-function abbrevNum(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
+function riskColor(r: number): string {
+  if (r >= 70) return color.danger;
+  if (r >= 40) return color.warn;
+  if (r > 0)   return color.success;
+  return color.text2;
 }
 
 // ── Styles ─────────────────────────────────────────────────────────────
@@ -161,221 +164,164 @@ function abbrevNum(n: number): string {
 const ROOT: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: space[5],
-  padding: `${space[2]}px ${space[4]}px ${space[4]}px`,
+  borderBottom: `1px solid ${color.border}`,
 };
 
-const SECTION_HEADER: CSSProperties = {
-  display: "flex", alignItems: "baseline", gap: space[2],
-  marginBottom: space[2],
-};
-
-const CAT_DOT_BASE: CSSProperties = {
-  width: 8, height: 8, borderRadius: 999,
-  flexShrink: 0,
-  alignSelf: "center",
-};
-
-const CAT_KO: CSSProperties = {
-  fontSize: font.size.md,
-  fontWeight: font.weight.semibold,
-  color: color.text0,
-  letterSpacing: font.letter.tight,
-};
-
-const CAT_EN: CSSProperties = {
-  fontSize: 9,
-  fontWeight: font.weight.semibold,
-  color: color.text3,
-  letterSpacing: 0.15,
-  textTransform: "uppercase",
-};
-
-const CAT_LINE: CSSProperties = {
-  flex: 1, height: 1,
-  background: `linear-gradient(90deg, ${color.border}, transparent)`,
-};
-
-const GRID: CSSProperties = {
+// Stat grid — 3 cols × 2 rows, hairline dividers (same idiom as
+// Inspector.Metrics / TopBadgeStrip). Two rows keep values readable
+// at 320px panel width; grouping is size/health on top, edge counts
+// on bottom. No card chrome.
+const STAT_GRID: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gap: space[2],
-};
-
-// Entity preview card — top of panel
-
-const PREVIEW_CARD: CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: space[3],
+  gridTemplateColumns: "repeat(3, 1fr)",
   padding: `${space[3]}px ${space[4]}px`,
-  borderRadius: radius.lg + 4,
-  background: `linear-gradient(135deg, rgba(13,153,255,0.06) 0%, rgba(13,153,255,0.01) 100%)`,
-  border: `1px solid ${color.border}`,
-  position: "relative",
-  overflow: "hidden",
+  borderBottom: `1px solid ${color.border}`,
 };
 
-const PREVIEW_TOP: CSSProperties = {
-  display: "flex", alignItems: "center", gap: space[2],
-};
-
-const PREVIEW_GLYPH: CSSProperties = {
-  width: 30, height: 30,
-  display: "flex", alignItems: "center", justifyContent: "center",
-  borderRadius: 8,
-  background: color.bg1,
-  border: `1px solid ${color.border}`,
-  fontSize: 16,
-  color: color.accent,
-  flexShrink: 0,
-  fontFamily: font.sans,
-};
-
-const PREVIEW_NAME: CSSProperties = {
-  fontSize: font.size.lg,
-  fontWeight: font.weight.semibold,
-  color: color.text0,
-  letterSpacing: font.letter.tight,
-  lineHeight: 1.2,
-  overflow: "hidden",
-  textOverflow: "ellipsis",
-  whiteSpace: "nowrap",
-};
-
-const PREVIEW_KIND: CSSProperties = {
-  fontSize: 9,
-  fontWeight: font.weight.semibold,
-  color: color.text3,
-  letterSpacing: 0.2,
-  textTransform: "uppercase",
-  marginTop: 1,
-};
-
-const STAT_ROW: CSSProperties = {
-  display: "flex",
-  gap: space[3],
-  flexWrap: "wrap",
-};
-
-const STAT: CSSProperties = {
+const STAT_CELL_BASE: CSSProperties = {
   display: "flex",
   flexDirection: "column",
-  gap: 1,
-  minWidth: 52,
+  gap: 2,
+  minWidth: 0,
+  padding: `${space[2]}px ${space[2]}px`,
 };
 
-const STAT_NUM: CSSProperties = {
+const STAT_VAL: CSSProperties = {
   fontSize: font.size.xl,
   fontWeight: font.weight.semibold,
   color: color.text0,
-  fontFamily: font.mono,
-  letterSpacing: -0.2,
+  fontVariantNumeric: "tabular-nums",
+  letterSpacing: font.letter.tight,
   lineHeight: 1,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
-const STAT_LABEL: CSSProperties = {
-  fontSize: 9,
+const STAT_KEY: CSSProperties = {
+  fontSize: font.size.xxs,
   fontWeight: font.weight.medium,
   color: color.text2,
-  letterSpacing: 0.15,
+  letterSpacing: font.letter.ultra,
   textTransform: "uppercase",
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
-// Question card
-
-const CARD_BASE: CSSProperties = {
+// Question sub-section
+const GROUP: CSSProperties = {
   display: "flex",
   flexDirection: "column",
+  padding: `${space[3]}px ${space[4]}px ${space[3]}px`,
+  borderBottom: `1px solid ${color.border}`,
+};
+
+const GROUP_HEADER: CSSProperties = {
+  display: "flex",
+  alignItems: "baseline",
   gap: space[2],
-  padding: `${space[3]}px ${space[3]}px`,
-  background: color.bg1,
-  border: `1px solid ${color.border}`,
-  borderRadius: radius.lg + 2,
-  textAlign: "left",
-  fontFamily: font.sans,
-  cursor: "pointer",
-  transition: `transform ${transition.fast}, box-shadow ${transition.fast}, border-color ${transition.fast}, background ${transition.fast}`,
-  color: color.text0,
-  position: "relative",
-  overflow: "hidden",
+  marginBottom: space[2],
+  userSelect: "none",
 };
 
-const CARD_TOP_ROW: CSSProperties = {
-  display: "flex", alignItems: "center", justifyContent: "space-between",
-  gap: space[2],
-};
-
-const CARD_GLYPH_BASE: CSSProperties = {
-  width: 26, height: 26,
-  display: "flex", alignItems: "center", justifyContent: "center",
-  borderRadius: 7,
-  fontSize: 15,
+const GROUP_KO: CSSProperties = {
+  fontSize: font.size.xxs,
   fontWeight: font.weight.semibold,
-  flexShrink: 0,
-  transition: transition.fast,
-};
-
-const CARD_TAG: CSSProperties = {
-  fontSize: 8.5,
-  fontWeight: font.weight.semibold,
-  color: color.text3,
-  letterSpacing: 0.2,
+  letterSpacing: font.letter.ultra,
   textTransform: "uppercase",
-  padding: "1px 5px",
-  border: `1px solid ${color.border}`,
-  borderRadius: 999,
-  fontFamily: font.mono,
-  flexShrink: 0,
+  color: color.text1,
 };
 
-const CARD_LABEL: CSSProperties = {
-  fontSize: font.size.md + 1,
-  fontWeight: font.weight.semibold,
+const GROUP_EN: CSSProperties = {
+  fontSize: font.size.xxs,
+  fontWeight: font.weight.medium,
+  color: color.text3,
+  letterSpacing: font.letter.ultra,
+  textTransform: "uppercase",
+};
+
+// Row button — flat hairline rows. Hover paints the bg (color.hover).
+const ROW_BASE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: space[2],
+  padding: `6px ${space[2]}px`,
+  background: "transparent",
+  border: "none",
+  borderRadius: 4,
+  cursor: "pointer",
+  textAlign: "left",
+  width: "100%",
+  transition: `background ${transition.fast}, color ${transition.fast}`,
+  fontFamily: font.sans,
+  color: color.text0,
+};
+
+const ROW_GLYPH: CSSProperties = {
+  width: 16,
+  height: 16,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 13,
+  color: color.text2,
+  flexShrink: 0,
+  lineHeight: 1,
+  transition: `color ${transition.fast}`,
+};
+
+const ROW_BODY: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  display: "flex",
+  flexDirection: "column",
+  gap: 1,
+};
+
+const ROW_TITLE: CSSProperties = {
+  fontSize: font.size.md,
+  fontWeight: font.weight.medium,
   color: color.text0,
   letterSpacing: font.letter.tight,
-  lineHeight: 1.25,
+  lineHeight: 1.3,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
-const CARD_HINT: CSSProperties = {
-  fontSize: 10,
-  fontWeight: font.weight.regular,
+const ROW_HINT: CSSProperties = {
+  fontSize: font.size.xs,
   color: color.text2,
-  lineHeight: 1.35,
-  letterSpacing: -0.01,
+  letterSpacing: 0,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis",
 };
 
-const CARD_METRIC_ROW: CSSProperties = {
-  display: "flex", alignItems: "baseline", gap: 4,
-  marginTop: space[1],
-};
-
-const CARD_METRIC_NUM: CSSProperties = {
-  fontSize: font.size.lg,
+const ROW_METRIC_NUM: CSSProperties = {
+  fontSize: font.size.md,
   fontWeight: font.weight.semibold,
-  fontFamily: font.mono,
-  letterSpacing: -0.2,
-  lineHeight: 1,
+  color: color.text0,
+  fontVariantNumeric: "tabular-nums",
+  letterSpacing: font.letter.tight,
+  flexShrink: 0,
 };
 
-const CARD_METRIC_UNIT: CSSProperties = {
-  fontSize: 9,
+const ROW_METRIC_UNIT: CSSProperties = {
+  fontSize: font.size.xxs,
   fontWeight: font.weight.medium,
   color: color.text2,
-  letterSpacing: 0.15,
+  letterSpacing: font.letter.ultra,
   textTransform: "uppercase",
+  marginLeft: 3,
+  flexShrink: 0,
 };
 
 // ── Component ──────────────────────────────────────────────────────────
 
 export function AnalyzePanel({ entity, tree, graph }: AnalyzePanelProps): ReactElement {
   const metrics = useMemo(() => computeMetrics(entity, tree, graph), [entity, tree, graph]);
-  const [hovered, setHovered] = useState<QuestionId | null>(null);
-
-  const risk = riskTone(metrics.risk);
-  const breadcrumbPath = entity.path || entity.name;
-
-  let cardIdx = 0;
 
   return (
     <section
@@ -383,163 +329,114 @@ export function AnalyzePanel({ entity, tree, graph }: AnalyzePanelProps): ReactE
       data-inspector-state="ready"
       style={ROOT}
     >
-      {/* Entity preview card */}
-      <div style={PREVIEW_CARD}>
-        <div style={PREVIEW_TOP}>
-          <div style={PREVIEW_GLYPH}>{kindIcon[entity.kind]}</div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={PREVIEW_NAME} title={entity.name}>{entity.name}</div>
-            <div style={PREVIEW_KIND}>{kindLabel[entity.kind]}</div>
-          </div>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 4,
-            padding: "3px 8px",
-            borderRadius: 999,
-            background: risk.bg,
-            color: risk.fg,
-            fontSize: 9,
-            fontWeight: font.weight.semibold,
-            letterSpacing: 0.15,
-            textTransform: "uppercase",
-            fontFamily: font.sans,
-          }}>
-            <span style={{ width: 5, height: 5, borderRadius: 999, background: risk.fg }} />
-            risk {metrics.risk}
-          </div>
-        </div>
-        <div style={STAT_ROW}>
-          <Stat num={metrics.fileCount} label="files" />
-          <Stat num={abbrevNum(metrics.loc)} label="LoC" />
-          <Stat num={metrics.callers} label="callers" tone={color.accent} />
-          <Stat num={metrics.callees} label="callees" tone="#22a06b" />
-          <Stat num={metrics.internalEdges} label="internal" />
-        </div>
-        {entity.path ? (
-          <div style={{
-            fontSize: 10,
-            fontFamily: font.mono,
-            color: color.text2,
-            letterSpacing: -0.1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-            title={breadcrumbPath}
-          >
-            {breadcrumbPath}
-          </div>
-        ) : null}
+      {/* Stat grid — 3 cols × 2 rows.
+          Row 1: files · LoC · risk   (size + health)
+          Row 2: callers · callees · internal  (edge counts) */}
+      <div style={STAT_GRID}>
+        <StatCell num={metrics.fileCount}        label="files"    pos="tl" />
+        <StatCell num={abbrevNum(metrics.loc)}   label="LoC"      pos="tc" />
+        <StatCell num={metrics.risk}             label="risk"     pos="tr" tone={riskColor(metrics.risk)} />
+        <StatCell num={metrics.callers}          label="callers"  pos="bl" tone={metrics.callers > 0 ? color.accent : undefined} />
+        <StatCell num={metrics.callees}          label="callees"  pos="bc" tone={metrics.callees > 0 ? color.success : undefined} />
+        <StatCell num={metrics.internalEdges}    label="internal" pos="br" />
       </div>
 
-      {/* Category sections */}
-      {CATS.map(cat => (
-        <div key={cat.id} style={{ display: "flex", flexDirection: "column" }}>
-          <div style={SECTION_HEADER}>
-            <span style={{ ...CAT_DOT_BASE, background: cat.accent }} />
-            <span style={CAT_KO}>{cat.ko}</span>
-            <span style={CAT_EN}>{cat.en}</span>
-            <span style={CAT_LINE} />
-          </div>
+      {/* Question groups */}
+      {CATS.map((cat, catIdx) => {
+        const isLast = catIdx === CATS.length - 1;
+        return (
+          <div
+            key={cat.id}
+            style={{ ...GROUP, borderBottom: isLast ? "none" : `1px solid ${color.border}` }}
+          >
+            <div style={GROUP_HEADER}>
+              <span style={GROUP_KO}>{cat.ko}</span>
+              <span style={GROUP_EN}>{cat.en}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {cat.questions.map(qmeta => {
+                const q = QMAP.get(qmeta.id);
+                if (!q) return null;
+                const applicable = isQuestionApplicable(q, entity.kind);
+                const metricVal = qmeta.metric ? (metrics[qmeta.metric] as number) : undefined;
+                const showMetric = metricVal !== undefined && metricVal > 0;
 
-          <div style={GRID}>
-            {cat.questions.map((qmeta) => {
-              const q = QMAP.get(qmeta.id);
-              if (!q) return null;
-              const applicable = isQuestionApplicable(q, entity.kind);
-              const isHover    = hovered === qmeta.id;
-              const metricVal  = qmeta.metric ? metrics[qmeta.metric] as number : undefined;
-              const fadeDelay  = cardIdx * 30;
-              cardIdx++;
-
-              return (
-                <button
-                  key={q.id}
-                  type="button"
-                  disabled={!applicable}
-                  onClick={() => applyQuestion(q.id, entity, tree)}
-                  onMouseEnter={() => applicable && setHovered(qmeta.id)}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{
-                    ...CARD_BASE,
-                    gridColumn: qmeta.size === "lg" ? "1 / -1" : "auto",
-                    background: applicable && isHover
-                      ? `linear-gradient(135deg, ${cat.accent}14 0%, ${cat.accent}04 100%)`
-                      : color.bg1,
-                    borderColor: applicable && isHover ? `${cat.accent}66` : color.border,
-                    transform: applicable && isHover ? "translateY(-2px)" : "translateY(0)",
-                    boxShadow: applicable && isHover
-                      ? `0 6px 16px ${cat.accent}22`
-                      : "none",
-                    opacity: applicable ? 1 : 0.4,
-                    cursor: applicable ? "pointer" : "not-allowed",
-                    animation: `analyze-card-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) ${fadeDelay}ms backwards`,
-                  }}
-                  data-question-id={q.id}
-                  data-question-state={applicable ? "ready" : "not-applicable"}
-                  title={applicable ? q.hint : `${q.hint} — not applicable to ${entity.kind}`}
-                >
-                  {/* Corner accent bar */}
-                  <span style={{
-                    position: "absolute",
-                    top: 0, left: 0,
-                    width: isHover && applicable ? 3 : 0,
-                    height: "100%",
-                    background: cat.accent,
-                    transition: `width ${transition.fast}`,
-                  }} />
-
-                  <div style={CARD_TOP_ROW}>
-                    <div style={{
-                      ...CARD_GLYPH_BASE,
-                      background: applicable && isHover ? cat.accent : `${cat.accent}18`,
-                      color: applicable && isHover ? "#ffffff" : cat.accent,
-                      border: `1px solid ${applicable && isHover ? cat.accent : `${cat.accent}33`}`,
-                    }}>
-                      {qmeta.glyph}
-                    </div>
-                    <span style={CARD_TAG}>{qmeta.tag}</span>
-                  </div>
-
-                  <div>
-                    <div style={CARD_LABEL}>{q.label}</div>
-                    <div style={{ ...CARD_HINT, marginTop: 2 }}>
-                      {q.hint.split(" — ")[0]}
-                    </div>
-                  </div>
-
-                  {metricVal !== undefined && metricVal > 0 && (
-                    <div style={CARD_METRIC_ROW}>
-                      <span style={{ ...CARD_METRIC_NUM, color: cat.accent }}>
-                        {abbrevNum(metricVal)}
+                return (
+                  <button
+                    key={q.id}
+                    type="button"
+                    disabled={!applicable}
+                    onClick={() => applyQuestion(q.id, entity, tree)}
+                    onMouseEnter={e => {
+                      if (!applicable) return;
+                      e.currentTarget.style.background = color.hover;
+                      const g = e.currentTarget.querySelector("[data-row-glyph]") as HTMLElement | null;
+                      if (g) g.style.color = color.accent;
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = "transparent";
+                      const g = e.currentTarget.querySelector("[data-row-glyph]") as HTMLElement | null;
+                      if (g) g.style.color = color.text2;
+                    }}
+                    style={{
+                      ...ROW_BASE,
+                      opacity: applicable ? 1 : 0.45,
+                      cursor: applicable ? "pointer" : "not-allowed",
+                    }}
+                    data-question-id={q.id}
+                    data-question-state={applicable ? "ready" : "not-applicable"}
+                    title={applicable ? q.hint : `${q.hint} — not applicable to ${entity.kind}`}
+                  >
+                    <span data-row-glyph style={ROW_GLYPH}>{qmeta.glyph}</span>
+                    <span style={ROW_BODY}>
+                      <span style={ROW_TITLE}>{q.label}</span>
+                      <span style={ROW_HINT}>{qmeta.tag}</span>
+                    </span>
+                    {showMetric ? (
+                      <span style={{ display: "inline-flex", alignItems: "baseline", flexShrink: 0 }}>
+                        <span style={ROW_METRIC_NUM}>{abbrevNum(metricVal!)}</span>
+                        {qmeta.metricUnit ? <span style={ROW_METRIC_UNIT}>{qmeta.metricUnit}</span> : null}
                       </span>
-                      <span style={CARD_METRIC_UNIT}>{qmeta.metricUnit}</span>
-                    </div>
-                  )}
-                </button>
-              );
-            })}
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
-
-      {/* Keyframes for card entrance */}
-      <style>{`
-        @keyframes analyze-card-in {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+        );
+      })}
     </section>
   );
 }
 
-// ── Helper: stat pill ──────────────────────────────────────────────────
+// ── Helper: stat cell ──────────────────────────────────────────────────
 
-function Stat({ num, label, tone }: { num: number | string; label: string; tone?: string }): ReactElement {
+// Position in the 3×2 grid: t=top row, b=bottom row; l/c/r = left/center/right col.
+type CellPos = "tl" | "tc" | "tr" | "bl" | "bc" | "br";
+
+function StatCell({
+  num,
+  label,
+  pos,
+  tone,
+}: {
+  num: number | string;
+  label: string;
+  pos: CellPos;
+  tone?: string;
+}): ReactElement {
+  const isRight  = pos === "tr" || pos === "br";
+  const isBottom = pos === "bl" || pos === "bc" || pos === "br";
   return (
-    <div style={STAT}>
-      <span style={{ ...STAT_NUM, color: tone ?? color.text0 }}>{num}</span>
-      <span style={STAT_LABEL}>{label}</span>
+    <div
+      style={{
+        ...STAT_CELL_BASE,
+        borderRight:  isRight  ? "none" : `1px solid ${color.border}`,
+        borderBottom: isBottom ? "none" : `1px solid ${color.border}`,
+      }}
+    >
+      <span style={{ ...STAT_VAL, color: tone ?? color.text0 }}>{num}</span>
+      <span style={STAT_KEY}>{label}</span>
     </div>
   );
 }

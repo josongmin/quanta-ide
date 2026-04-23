@@ -34,6 +34,8 @@ import { SCENARIO_FEATURES } from "@quanta/app-scenario/seed";
 import { POLICY_FEATURES } from "@quanta/app-policy/seed";
 import { DEMO_FEATURES } from "@quanta/app-demo/seed";
 import { DASHBOARD_FEATURES } from "@quanta/app-dashboard/seed";
+import { HOME_FEATURES } from "@quanta/app-home/seed";
+import { AUTOPILOT_FEATURES } from "@quanta/app-autopilot/seed";
 
 // ---------------------------------------------------------------------------
 // Lazy app registrations — each app's Component is code-split via dynamic
@@ -161,10 +163,26 @@ appRegistry.register({
 });
 
 appRegistry.register({
+  id: "analysis-catalog",
+  label: "Analysis Catalog",
+  Component: lazy(() =>
+    import("@quanta/app-home").then((m) => ({ default: m.AnalysisCatalogApp })),
+  ),
+});
+
+appRegistry.register({
   id: "demo",
   label: "Try demo",
   Component: lazy(() =>
     import("@quanta/app-demo").then((m) => ({ default: m.DemoApp })),
+  ),
+});
+
+appRegistry.register({
+  id: "autopilot",
+  label: "Autopilot",
+  Component: lazy(() =>
+    import("@quanta/app-autopilot").then((m) => ({ default: m.AutopilotApp })),
   ),
 });
 
@@ -177,6 +195,8 @@ registerFeatureManifests(SCENARIO_FEATURES);
 registerFeatureManifests(POLICY_FEATURES);
 registerFeatureManifests(DEMO_FEATURES);
 registerFeatureManifests(DASHBOARD_FEATURES);
+registerFeatureManifests(HOME_FEATURES);
+registerFeatureManifests(AUTOPILOT_FEATURES);
 
 // Apply persisted feature enable/disable overrides onto the live registry.
 // Must run AFTER all manifests are registered.

@@ -1,0 +1,109 @@
+.ap-proof-badge {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  column-gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3) var(--space-3h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  min-width: 0;
+}
+.ap-proof-badge--skip {
+  background: var(--bg-success-subtle);
+  border-color: var(--border-success-subtle);
+}
+.ap-proof-badge--skim {
+  background: var(--bg-accent-subtle);
+  border-color: var(--border-accent-subtle);
+}
+.ap-proof-badge--review {
+  background: var(--bg);
+  border-color: var(--border-strong);
+}
+.ap-proof-badge--focus {
+  background: var(--bg-warn-subtle);
+  border-color: var(--border-warn-subtle);
+}
+.ap-proof-badge__icon {
+  color: var(--fg-muted);
+}
+.ap-proof-badge--skip .ap-proof-badge__icon { color: var(--success); }
+.ap-proof-badge--skim .ap-proof-badge__icon { color: var(--accent); }
+.ap-proof-badge--focus .ap-proof-badge__icon { color: var(--warn); }
+
+.ap-proof-badge__body { min-width: 0; }
+.ap-proof-badge__title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  letter-spacing: -0.005em;
+}
+.ap-proof-badge__sub {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  margin-top: 2px;
+  letter-spacing: -0.002em;
+}
+.ap-proof-badge__computed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: 3px var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+.ap-proof-badge__computed.is-warn {
+  background: var(--bg-warn-subtle);
+  border-color: var(--border-warn-subtle);
+  color: var(--warn);
+}
+.ap-proof-badge__computed-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+.ap-proof-badge__computed.is-warn .ap-proof-badge__computed-dot {
+  background: var(--warn);
+}
+
+/* chip variant */
+.ap-proof-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 20px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: -0.002em;
+}
+.ap-proof-chip--skip {
+  color: var(--success);
+  border-color: var(--border-success-subtle);
+  background: var(--bg-success-subtle);
+}
+.ap-proof-chip--skim {
+  color: var(--accent);
+  border-color: var(--border-accent-subtle);
+  background: var(--bg-accent-subtle);
+}
+.ap-proof-chip--review {
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+.ap-proof-chip--focus {
+  color: var(--warn);
+  border-color: var(--border-warn-subtle);
+  background: var(--bg-warn-subtle);
+}

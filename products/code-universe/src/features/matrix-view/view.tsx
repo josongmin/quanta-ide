@@ -58,5 +58,84 @@ export const matrixViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder"],
   needs: { tree: true, graph: true },
   order: 150,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-architecture",
+      "scope": "folder",
+      "intent": "verify"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "package"
+    ],
+    "intents": [
+      "verify",
+      "diagnose"
+    ],
+    "subdomain": "design-structure-matrix",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "platform"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "direct-action",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "chord",
+      "pathfinder",
+      "layer-audit"
+    ],
+    "keywords": [
+      "matrix",
+      "dsm",
+      "dependency",
+      "cell",
+      "cycle"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor",
+      "policy-audit"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "architecture"
+  },
   Component: MatrixModeView,
 };

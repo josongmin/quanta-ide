@@ -1,0 +1,54 @@
+.ap-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 20px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: -0.002em;
+  white-space: nowrap;
+  line-height: 1;
+}
+.ap-chip--mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+.ap-chip__lead {
+  display: inline-flex;
+  align-items: center;
+  margin-left: -2px;
+}
+
+.ap-chip--neutral {
+  /* already default */
+}
+.ap-chip--accent {
+  background: var(--bg-accent-subtle);
+  border-color: var(--border-accent-subtle);
+  color: var(--accent);
+}
+.ap-chip--success {
+  background: var(--bg-success-subtle);
+  border-color: var(--border-success-subtle);
+  color: var(--success);
+}
+.ap-chip--warn {
+  background: var(--bg-warn-subtle);
+  border-color: var(--border-warn-subtle);
+  color: var(--warn);
+}
+.ap-chip--danger {
+  background: var(--bg-danger-subtle);
+  border-color: var(--border-danger-subtle);
+  color: var(--danger);
+}
+.ap-chip--muted {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--fg-subtle);
+}

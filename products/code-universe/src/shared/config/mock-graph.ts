@@ -37,10 +37,13 @@ function file(spec: FileSpec): FileNode {
     archViolations: spec.signals?.archViolations ?? 0,
     cpxMax: spec.signals?.cpxMax ?? Math.max(0, ...(spec.fns ?? []).map(f => f.cpx)),
   };
+  const layer = spec.layer ?? "domain";
+  const ext = layer === "ui" ? ".tsx" : ".ts";
+  const basename = spec.id.split("/").pop() ?? spec.id;
   return {
     id:    spec.id,
-    name:  spec.id.split("/").pop() ?? spec.id,
-    layer: spec.layer ?? "domain",
+    name:  basename + ext,
+    layer,
     riskScore: spec.riskScore,
     loc:   spec.loc,
     signals: sig,
@@ -98,7 +101,7 @@ const FILES: FileNode[] = [
 
   // ── canvas-engine tier ───────────────────────────────────────────────────
   file({ id: "canvas-engine/tier/ladder", loc: 80,  riskScore: 15, layer: "domain",
-    fns: [{ name: "resolveTierByScale", start: 20, end: 50, cpx: 3 }] }),
+    fns: [{ name: "resolveTierByApparentSize", start: 20, end: 50, cpx: 3 }] }),
   file({ id: "canvas-engine/tier/rollup", loc: 140, riskScore: 20, layer: "domain",
     fns: [{ name: "rollupEdges",         start: 15, end: 60,  cpx: 2 },
           { name: "makeAncestorResolver", start: 65, end: 100, cpx: 3 }] }),

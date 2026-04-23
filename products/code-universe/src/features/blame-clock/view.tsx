@@ -28,5 +28,80 @@ export const blameClockViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder"],
   needs: { tree: true },
   order: 800,
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-ownership-team",
+      "scope": "repo",
+      "intent": "explain"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "explain",
+      "diagnose"
+    ],
+    "subdomain": "ownership-clock",
+    "personas": [
+      "developer",
+      "manager",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "explain",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "informational"
+    },
+    "related": [
+      "evolution-dna",
+      "heat-rainfall",
+      "temporal-coupling"
+    ],
+    "keywords": [
+      "blame",
+      "clock",
+      "author",
+      "age",
+      "ownership"
+    ]
+  },
+  decision:   {
+    "grade": "informational",
+    "supports": [],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "open-view",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "ownership"
+  },
   Component: BlameClockModeView,
 };

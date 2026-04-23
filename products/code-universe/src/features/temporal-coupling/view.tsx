@@ -22,13 +22,89 @@ export const temporalCouplingViewDescriptor: ViewDescriptor = {
   id: "temporal-coupling",
   label: "Coupling",
   glyph: "♬",
-  hint: "시간적 결합 — 동시 변경 코드를 chord로"
-,
+  hint: "시간적 결합 — 동시 변경 코드를 chord로",
   tech: "co-change × 악보 스타일 시각화",
   usecase: "항상 같이 바뀌는 파일 묶음 식별. 숨은 커플링을 음표 리듬으로 인지.",
   category: "history",
   contexts: ["repo", "folder"],
   needs: { tree: true },
   order: 720,
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-evolution",
+      "scope": "folder",
+      "intent": "explain"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "diagnose",
+      "explore", "explain"
+    ],
+    "subdomain": "temporal-coupling",
+    "personas": [
+      "developer",
+      "reviewer",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "triage",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "heat-rainfall",
+      "cycle-genesis",
+      "smell-history"
+    ],
+    "keywords": [
+      "temporal",
+      "coupling",
+      "co-change",
+      "chord",
+      "history"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "code-intel"
+  },
   Component: TemporalCouplingModeView,
 };

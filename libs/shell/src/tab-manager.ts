@@ -97,6 +97,7 @@ export function useTabManager(initialTabs: TabDescriptor[]) {
       setTabs((prev) => {
         const partial: TabDescriptor = { id, app: req.app, label: req.label };
         const slug = ensureSlug(partial, prev);
+        writeHash({ slug, path: req.route?.path ?? [], query: req.route?.query ?? {} }, "push");
         return [...prev, { ...partial, slug }];
       });
       setActiveId(id);

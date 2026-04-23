@@ -103,42 +103,87 @@ const theme = EditorView.theme(
 interface Props {
   fileId: string;
   source: string;
+  /** When true the viewer becomes a real editor — cursor, keymap, edits. */
+  editable?: boolean;
+  /** Fires on every keystroke while `editable`. In-memory only (no save). */
+  onChange?: (next: string) => void;
 }
 
-export function SourceEditor({ fileId, source }: Props): ReactElement {
+export function SourceEditor({ fileId, source, editable = false, onChange }: Props): ReactElement {
   const extensions = useMemo(
     () => [
-      theme,
+      editable ? editableTheme : theme,
       EditorView.lineWrapping,
-      EditorState.readOnly.of(true),
-      EditorView.editable.of(false),
+      ...(editable ? [] : [EditorState.readOnly.of(true), EditorView.editable.of(false)]),
       indentUnit.of("  "),
       EditorView.contentAttributes.of({ style: "tab-size: 2" }),
       languageFor(fileId),
       syntaxHighlighting(highlight, { fallback: true }),
     ],
-    [fileId],
+    [fileId, editable],
   );
 
   return (
     <CodeMirror
       value={source}
       extensions={extensions}
-      readOnly
-      editable={false}
+      readOnly={!editable}
+      editable={editable}
+      onChange={onChange}
       basicSetup={{
         lineNumbers: true,
         foldGutter: false,
         highlightActiveLine: true,
         highlightActiveLineGutter: true,
         autocompletion: false,
-        searchKeymap: false,
-        bracketMatching: false,
-        closeBrackets: false,
-        dropCursor: false,
+        searchKeymap: editable,
+        bracketMatching: editable,
+        closeBrackets: editable,
+        dropCursor: editable,
         allowMultipleSelections: false,
       }}
       style={{ height: "100%", width: "100%" }}
     />
   );
 }
+
+const editableTheme = EditorView.theme(
+  {
+    "&": {
+      height: "100%",
+      width: "100%",
+      fontSize: `${font.size.md}px`,
+      fontFamily: font.mono,
+      backgroundColor: "transparent",
+      color: color.text0,
+    },
+    "&.cm-focused": { outline: "none" },
+    ".cm-scroller": {
+      fontFamily: font.mono,
+      lineHeight: "1.55",
+      overflow: "auto",
+    },
+    ".cm-content": {
+      padding: "6px 0",
+      caretColor: color.text0,
+    },
+    ".cm-line": { padding: "0 10px" },
+    ".cm-gutters": {
+      backgroundColor: "transparent",
+      borderRight: `1px solid ${color.borderSoft}`,
+      color: color.text3,
+      fontFamily: font.mono,
+      fontSize: `${font.size.sm}px`,
+      paddingRight: "2px",
+    },
+    ".cm-lineNumbers .cm-gutterElement": {
+      padding: "0 6px 0 10px",
+      minWidth: "2ch",
+    },
+    ".cm-activeLine": { backgroundColor: "rgba(10, 10, 10, 0.035)" },
+    ".cm-activeLineGutter": { backgroundColor: "transparent", color: color.text1 },
+    ".cm-selectionBackground, ::selection": { backgroundColor: "rgba(10, 10, 10, 0.10)" },
+    "&.cm-focused .cm-selectionBackground": { backgroundColor: "rgba(10, 10, 10, 0.18)" },
+  },
+  { dark: false },
+);

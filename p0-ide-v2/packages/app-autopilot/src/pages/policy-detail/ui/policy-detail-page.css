@@ -1,0 +1,121 @@
+.ap-pold {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-bottom: var(--space-7);
+}
+.ap-pold__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  margin-bottom: var(--space-1h);
+}
+.ap-pold__meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
+.ap-pold__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ap-pold__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.ap-pold__zones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ap-pold__zone {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 1fr;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-2h) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+.ap-pold__zone--read_only {
+  border-color: var(--border-danger-subtle);
+  background: var(--bg-danger-subtle);
+}
+.ap-pold__zone--approval_required {
+  border-color: var(--border-warn-subtle);
+  background: var(--bg-warn-subtle);
+}
+.ap-pold__zone-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+.ap-pold__zone--read_only .ap-pold__zone-mode { color: var(--danger); }
+.ap-pold__zone--approval_required .ap-pold__zone-mode { color: var(--warn); }
+.ap-pold__zone-path {
+  font-size: var(--fs-xs);
+  color: var(--fg);
+}
+.ap-pold__zone-reason {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  line-height: var(--lh-snug);
+}
+
+.ap-pold__ops {
+  display: inline-flex;
+  gap: var(--space-1h);
+  flex-wrap: wrap;
+}
+.ap-pold__muted {
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+  font-style: italic;
+}
+
+.ap-pold__yaml {
+  margin: 0;
+  padding: var(--space-4) var(--space-4h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--fg);
+  letter-spacing: 0.01em;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.ap-pold__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding-top: var(--space-2);
+  color: var(--fg-subtle);
+  font-size: var(--fs-10);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

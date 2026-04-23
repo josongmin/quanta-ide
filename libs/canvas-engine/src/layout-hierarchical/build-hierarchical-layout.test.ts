@@ -61,16 +61,17 @@ describe("buildHierarchicalLayout", () => {
     }
   });
 
-  it("bigger files take proportionally more area within their parent", () => {
-    const tree = buildEntityTree(makeGraph(makeFile("p/tiny.ts", 10), makeFile("p/big.ts", 1000)));
+  it("bigger files get taller cards (LoC drives height within the clamp band)", () => {
+    // Within [MIN_H=120, MAX_H=600] the card height scales with LoC;
+    // past the cap the card scrolls internally. Card width is constant
+    // `FILE_CARD_W`, so taller = more area, monotonically.
+    const tree = buildEntityTree(makeGraph(makeFile("p/tiny.ts", 5), makeFile("p/big.ts", 25)));
     const layout = buildHierarchicalLayout(tree);
     const tinyRect = [...layout.rects.entries()].find(([id]) => id.endsWith("tiny.ts"))?.[1];
     const bigRect = [...layout.rects.entries()].find(([id]) => id.endsWith("big.ts"))?.[1];
     expect(tinyRect && bigRect).toBeTruthy();
-    const tinyArea = tinyRect!.w * tinyRect!.h;
-    const bigArea = bigRect!.w * bigRect!.h;
-    // Big file is 100× the loc — its area should dominate by a large margin.
-    expect(bigArea).toBeGreaterThan(tinyArea * 10);
+    expect(bigRect!.h).toBeGreaterThan(tinyRect!.h);
+    expect(bigRect!.w).toBe(tinyRect!.w); // constant file-card width
   });
 
   it("handles empty graph without crashing", () => {
@@ -81,23 +82,15 @@ describe("buildHierarchicalLayout", () => {
     expect(layout.totalBounds.h).toBeGreaterThan(0);
   });
 
-  // Regression: sibling rects used to collapse onto the parent bounds
-  // when the parent was smaller than padding*2, which stacked every
-  // child's card + label on the same position. The fix makes padding
-  // adaptive so siblings always get disjoint rects (or no rect at all
-  // when they'd be sub-pixel).
-  it("siblings never share the same rect under a cramped parent", () => {
+  // Siblings sharing a parent must occupy distinct rects. The legacy
+  // top-down packer had an adaptive-padding path for cramped parents;
+  // the bottom-up packer can't get cramped (parents size to content)
+  // but the invariant is the same: no two siblings collide.
+  it("siblings never share the same rect", () => {
     const files: FileNode[] = [];
     for (let i = 0; i < 30; i++) files.push(makeFile(`deep/pkg/dir/sub/f${i}.ts`));
     const tree = buildEntityTree(makeGraph(...files));
-    const layout = buildHierarchicalLayout(tree, {
-      rootWidth: 120,
-      rootHeight: 80,
-      padding: 24,
-    });
-    // Group by parentId — siblings with the SAME parent must not
-    // share a rect. (A single-child entity equals its parent rect,
-    // which is fine; the label stacking bug was between siblings.)
+    const layout = buildHierarchicalLayout(tree);
     const byParent = new Map<string, Map<string, string>>();
     for (const [id, entity] of tree.byId) {
       const parentId = entity.parentId ?? "__root__";
@@ -110,5 +103,19 @@ describe("buildHierarchicalLayout", () => {
       expect(prior, `sibling ${id} collides with ${prior ?? ""} under ${parentId}`).toBeUndefined();
       seen.set(key, id);
     }
+  });
+
+  // World bounds must grow with repo size — this is the v2 invariant
+  // that makes apparent-size tier thresholds scale-independent.
+  it("world grows with file count (leaf world size stays constant)", () => {
+    const smallRepo = buildEntityTree(makeGraph(makeFile("a/x.ts", 20)));
+    const largeRepo = buildEntityTree(
+      makeGraph(...Array.from({ length: 200 }, (_, i) => makeFile(`pkg${i % 10}/sub/f${i}.ts`, 20))),
+    );
+    const smallLayout = buildHierarchicalLayout(smallRepo);
+    const largeLayout = buildHierarchicalLayout(largeRepo);
+    const smallArea = smallLayout.totalBounds.w * smallLayout.totalBounds.h;
+    const largeArea = largeLayout.totalBounds.w * largeLayout.totalBounds.h;
+    expect(largeArea).toBeGreaterThan(smallArea * 50);
   });
 });

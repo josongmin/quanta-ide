@@ -34,3 +34,48 @@ export type {
   ViewCtx,
   ViewDescriptorNeeds,
 } from "./model/view-descriptor";
+
+export {
+  listAnalysisCatalogRecords,
+  getAnalysisCatalogRecord,
+  listLaunchableAnalysisRecords,
+  queryAnalysisCatalog,
+  descriptorToAnalysisRecord,
+  type AnalysisCatalogQuery,
+} from "./model/analysis-catalog";
+export type {
+  AnalysisCatalogRecord,
+  AdmissionVerdict,
+  AdmissionVerdictInput,
+  DecisionTarget,
+  EvidenceClass,
+  InsightActionHook,
+  InsightCapabilityKind,
+  InsightDecisionBinding,
+  InsightDecisionGrade,
+  InsightDomain,
+  InsightIntent,
+  InsightMaturity,
+  InsightPersona,
+  InsightScope,
+  InsightSignalProfile,
+  InsightSurface,
+  InsightWorkflowBinding,
+  InsightWorkflowStack,
+  InsightWorkflowStep,
+  PrimaryFacet,
+  ViewTaxonomy,
+  WorkflowStackId,
+} from "./model/taxonomy";
+export {
+  getWorkflowStack,
+  getWorkflowStacks,
+  suggestStacksForIntent,
+  buildAdmissionVerdict,
+  selectAgentPlanningInsights,
+  selectGateEligibleInsights,
+} from "./model";
+export type {
+  WorkflowStackQuery,
+  AgentPlanningInsightQuery,
+} from "./model";

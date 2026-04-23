@@ -132,7 +132,7 @@ function walkAndAttach(
       const entity: Entity = {
         id,
         kind,
-        name: seg,
+        name: isLast ? file.name : seg,
         path: nextPath,
         parentId,
         childIds: [],

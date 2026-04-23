@@ -45,6 +45,7 @@ export default defineConfig({
       "@quanta/app-policy": path.resolve(__dirname, "packages/app-policy/src"),
       "@quanta/app-demo": path.resolve(__dirname, "packages/app-demo/src"),
       "@quanta/app-code-city": path.resolve(__dirname, "packages/app-code-city/src"),
+      "@quanta/app-autopilot": path.resolve(__dirname, "packages/app-autopilot/src"),
     },
   },
   server: { port: 5174, strictPort: true },

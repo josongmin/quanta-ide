@@ -1,0 +1,42 @@
+.ap-rgauge {
+  position: relative;
+  --ap-rg-stop-a: var(--fg-muted);
+  --ap-rg-stop-b: var(--fg);
+}
+.ap-rgauge--good {
+  --ap-rg-stop-a: color-mix(in srgb, var(--success) 70%, transparent);
+  --ap-rg-stop-b: var(--success);
+}
+.ap-rgauge--warn {
+  --ap-rg-stop-a: color-mix(in srgb, var(--warn) 70%, transparent);
+  --ap-rg-stop-b: var(--warn);
+}
+.ap-rgauge--bad {
+  --ap-rg-stop-a: color-mix(in srgb, var(--danger) 70%, transparent);
+  --ap-rg-stop-b: var(--danger);
+}
+.ap-rgauge--accent {
+  --ap-rg-stop-a: color-mix(in srgb, var(--accent) 65%, transparent);
+  --ap-rg-stop-b: var(--accent);
+}
+
+.ap-rgauge__track {
+  stroke: var(--bg-muted);
+}
+.ap-rgauge__fill {
+  transition: stroke-dashoffset 520ms cubic-bezier(0.2, 0.9, 0.3, 1);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ap-rg-stop-b) 20%, transparent));
+}
+.ap-rgauge__target {
+  fill: var(--ap-rg-stop-b);
+  opacity: 0.8;
+}
+.ap-rgauge__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}

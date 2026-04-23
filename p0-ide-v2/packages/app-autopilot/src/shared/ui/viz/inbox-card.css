@@ -1,0 +1,123 @@
+.ap-inbox-card {
+  --card-accent: var(--fg-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+  padding: var(--space-3) var(--space-3h);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  outline: none;
+  text-align: left;
+}
+.ap-inbox-card:hover {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-sm);
+}
+.ap-inbox-card:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+  border-color: var(--accent);
+}
+.ap-inbox-card.is-active {
+  border-color: var(--fg);
+  box-shadow: var(--shadow-md);
+}
+
+.ap-inbox-card--review_needed { --card-accent: var(--accent); }
+.ap-inbox-card--abandoned { --card-accent: var(--warn); }
+.ap-inbox-card--drift_spike { --card-accent: var(--danger); }
+.ap-inbox-card--auto_run_scheduled { --card-accent: var(--accent); }
+.ap-inbox-card--new_opportunity { --card-accent: var(--accent-purple); }
+.ap-inbox-card--goal_satisfied { --card-accent: var(--success); }
+.ap-inbox-card--guarded_lane_promotion { --card-accent: var(--fg); }
+
+.ap-inbox-card__head {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ap-inbox-card__kind {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--card-accent);
+  letter-spacing: -0.002em;
+}
+.ap-inbox-card__kind-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--card-accent) 10%, transparent);
+}
+.ap-inbox-card__urgency {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  color: var(--fg-muted);
+}
+.ap-inbox-card__urgency--danger {
+  color: var(--danger);
+  border-color: var(--border-danger-subtle);
+  background: var(--bg-danger-subtle);
+}
+.ap-inbox-card__urgency--warn {
+  color: var(--warn);
+  border-color: var(--border-warn-subtle);
+  background: var(--bg-warn-subtle);
+}
+.ap-inbox-card__time {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  letter-spacing: 0.04em;
+  justify-self: end;
+}
+
+.ap-inbox-card__slots {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-3);
+  margin: 0;
+}
+.ap-inbox-card__slot {
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  padding-left: var(--space-2h);
+}
+.ap-inbox-card__slot:first-child {
+  border-left: none;
+  padding-left: 0;
+}
+.ap-inbox-card__slot dt {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  margin-bottom: var(--space-0h);
+}
+.ap-inbox-card__slot dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  line-height: var(--lh-snug);
+}
+.ap-inbox-card__next {
+  color: var(--fg);
+  font-weight: var(--fw-medium);
+}

@@ -54,5 +54,84 @@ export const chordViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder"],
   needs: { tree: true, graph: true },
   order: 140,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-architecture",
+      "scope": "repo",
+      "intent": "diagnose"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "package"
+    ],
+    "intents": [
+      "diagnose",
+      "verify"
+    ],
+    "subdomain": "dependency-chord",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "platform"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "triage",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "matrix",
+      "pathfinder",
+      "neighborhood"
+    ],
+    "keywords": [
+      "chord",
+      "dependency",
+      "coupling",
+      "bundle",
+      "packages"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related",
+    "pin-dashboard"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "architecture"
+  },
   Component: ChordModeView,
 };

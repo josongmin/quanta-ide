@@ -75,7 +75,8 @@ export function TierBreadcrumb(): ReactElement {
 }
 
 function labelFor(spec: TierSpec): string {
-  return `${spec.label ?? spec.visibleKind} — shows ${spec.visibleKind}s at zoom ${spec.downThreshold.toFixed(
-    3,
-  )}–${Number.isFinite(spec.upThreshold) ? spec.upThreshold.toFixed(3) : "∞"}`;
+  const hi = Number.isFinite(spec.maxApparentPx) ? `${spec.maxApparentPx.toFixed(0)}px` : "∞";
+  return `${spec.label ?? spec.visibleKind} — shows ${spec.visibleKind}s when a file card is ${spec.minApparentPx.toFixed(
+    0,
+  )}–${hi} tall on screen`;
 }

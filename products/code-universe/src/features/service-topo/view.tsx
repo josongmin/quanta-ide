@@ -34,5 +34,84 @@ export const serviceTopoViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { graph: true },
   order: 530,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-architecture",
+      "scope": "package",
+      "intent": "explain"
+    },
+    "scopes": [
+      "repo",
+      "package",
+      "module"
+    ],
+    "intents": [
+      "explain",
+      "diagnose"
+    ],
+    "subdomain": "service-boundaries",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "platform"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "triage",
+      "cost": "medium",
+      "latency": "interactive",
+      "determinism": "bounded",
+      "evidenceLevel": "strong",
+      "decisionGrade": "advisory"
+    },
+    "related": [
+      "arch-layers",
+      "matrix",
+      "chord",
+      "dependency-health"
+    ],
+    "keywords": [
+      "service",
+      "topology",
+      "boundary",
+      "api",
+      "dependency"
+    ]
+  },
+  decision:   {
+    "grade": "advisory",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "architecture"
+  },
   Component: ServiceTopoModeView,
 };

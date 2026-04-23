@@ -34,5 +34,84 @@ export const smellHistoryViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { graph: true },
   order: 770,
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-evolution",
+      "scope": "repo",
+      "intent": "verify"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "diagnose",
+      "verify"
+    ],
+    "subdomain": "smell-timeline",
+    "personas": [
+      "developer",
+      "reviewer",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "triage",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "cycle-genesis",
+      "heat-rainfall",
+      "temporal-coupling"
+    ],
+    "keywords": [
+      "smell",
+      "history",
+      "pattern",
+      "commit",
+      "regression"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor",
+      "policy-audit"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related",
+    "pin-dashboard"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "code-intel"
+  },
   Component: SmellHistoryModeView,
 };

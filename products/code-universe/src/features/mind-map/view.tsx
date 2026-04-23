@@ -96,5 +96,78 @@ export const mindMapViewDescriptor: ViewDescriptor = {
   onDeactivate() {
     mindMapStore.close();
   },
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "explore",
+      "scope": "file",
+      "intent": "explain"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "explain",
+      "explore"
+    ],
+    "subdomain": "symbol-neighborhood",
+    "personas": [
+      "developer",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "heuristic",
+      "actionability": "explain",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "heuristic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "informational"
+    },
+    "related": [
+      "pathfinder",
+      "neighborhood",
+      "symbol-card"
+    ],
+    "keywords": [
+      "mind",
+      "map",
+      "symbol",
+      "call",
+      "dependency"
+    ]
+  },
+  decision:   {
+    "grade": "informational",
+    "supports": [],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "open-view",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "platform"
+  },
   Component: MindMapModeView,
 };

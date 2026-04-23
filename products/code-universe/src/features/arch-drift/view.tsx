@@ -34,5 +34,84 @@ export const archDriftViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { graph: true },
   order: 780,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-evolution",
+      "scope": "repo",
+      "intent": "diagnose"
+    },
+    "scopes": [
+      "repo",
+      "project",
+      "module"
+    ],
+    "intents": [
+      "diagnose",
+      "verify"
+    ],
+    "subdomain": "architecture-drift",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "manager"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "triage",
+      "cost": "medium",
+      "latency": "interactive",
+      "determinism": "bounded",
+      "evidenceLevel": "strong",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "arch-layers",
+      "cycle-genesis",
+      "smell-history"
+    ],
+    "keywords": [
+      "drift",
+      "baseline",
+      "architecture",
+      "diff",
+      "change"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor",
+      "policy-audit"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "architecture"
+  },
   Component: ArchDriftModeView,
 };

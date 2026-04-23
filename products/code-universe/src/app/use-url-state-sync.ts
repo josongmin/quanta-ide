@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { useTabRoute } from "@quanta/shell-contract";
 import { entityStore } from "../entities/entity";
 import { tierStore, DEFAULT_TIER_LADDER } from "../entities/tier";
-import { viewModeStore, type ViewMode } from "../features/view-mode";
+import { isKnownViewMode, viewModeStore, type ViewMode } from "../features/view-mode";
 
 // URL state sync
 // --------------------------------------------------------------------
@@ -16,18 +16,6 @@ import { viewModeStore, type ViewMode } from "../features/view-mode";
 // Direction 1: URL → stores (on mount, and on external hash changes).
 // Direction 2: stores → URL (on every store emit, as replaceState so
 //   canvas clicks don't pollute browser history).
-
-const VIEW_MODES: ReadonlySet<string> = new Set<ViewMode>([
-  "treemap", "mindmap", "chord", "matrix",
-  "quadrant", "arc-cycles", "embedding",
-  "blast", "arch-layers", "debt-history", "refactor-terrain",
-  "cycle-genesis", "smell-history",
-  "arch-drift", "cochange",
-  "refactor-sim", "start-here",
-  "pathfinder", "neighborhood",
-  "author-territory", "service-topo",
-  "galaxy-3d",
-]);
 
 const DEFAULT_MODE: ViewMode = "treemap";
 
@@ -51,7 +39,7 @@ export function useCodeUniverseUrlSync(): void {
   // Direction 1: URL → stores.
   useEffect(() => {
     const modeQ = query.mode;
-    if (modeQ && VIEW_MODES.has(modeQ)) {
+    if (modeQ && isKnownViewMode(modeQ)) {
       if (echoRef.current.mode !== modeQ) viewModeStore.setMode(modeQ as ViewMode);
     } else if (!modeQ && viewModeStore.getState().mode !== DEFAULT_MODE) {
       // Mode key removed from URL (e.g. back/forward to a URL without it)

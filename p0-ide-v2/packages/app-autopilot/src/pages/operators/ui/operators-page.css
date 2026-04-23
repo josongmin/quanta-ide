@@ -1,0 +1,108 @@
+.ap-ops {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-bottom: var(--space-7);
+}
+.ap-ops__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: var(--space-3);
+}
+.ap-ops__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color 140ms ease;
+}
+.ap-ops__card:hover {
+  border-color: var(--border-strong);
+}
+.ap-ops__card--phase-2 {
+  opacity: 0.78;
+}
+.ap-ops__card--disabled,
+.ap-ops__card--experimental {
+  background: var(--bg-subtle);
+}
+.ap-ops__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.ap-ops__title {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+.ap-ops__tag {
+  margin: 0 0 var(--space-1);
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  line-height: var(--lh-normal);
+}
+
+.ap-ops__kv {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  row-gap: var(--space-1h);
+  column-gap: var(--space-3);
+  margin: 0;
+}
+.ap-ops__kv dt {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  align-self: center;
+}
+.ap-ops__kv dd {
+  margin: 0;
+}
+.ap-ops__ops,
+.ap-ops__risks {
+  display: inline-flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.ap-ops__mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--fg);
+  letter-spacing: 0.02em;
+}
+.ap-ops__muted {
+  color: var(--fg-subtle);
+  font-style: italic;
+  font-size: var(--fs-xs);
+}
+.ap-ops__foot {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--border);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.ap-ops__card.is-clickable {
+  cursor: pointer;
+}
+.ap-ops__card.is-clickable:hover {
+  box-shadow: var(--shadow-sm);
+}
+.ap-ops__card.is-clickable:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}

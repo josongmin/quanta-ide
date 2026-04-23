@@ -10,7 +10,6 @@ import {
   kindColor,
   kindLabel,
   radius,
-  shadow,
   space,
   transition,
 } from "../../../shared/ui/tokens";
@@ -86,7 +85,7 @@ function LoadedInspector({ entity, tree }: { entity: Entity; tree: EntityTree })
       <div style={SCROLL_STYLE}>
         <Crumbs ancestors={ancestors} />
 
-        <div style={{ padding: `${space[3]}px ${space[4]}px ${space[4]}px` }}>
+        <div style={HERO_STYLE}>
           <div style={{ display: "flex", alignItems: "center", gap: space[2] }}>
             <KindBadge entityKind={entity.kind} />
             {children.length > 0 ? (
@@ -144,6 +143,8 @@ function LoadedInspector({ entity, tree }: { entity: Entity; tree: EntityTree })
 }
 
 function KindBadge({ entityKind }: { entityKind: Entity["kind"] }): ReactElement {
+  // IDE `.pill` — soft tinted fill only (no outer border), matching
+  // `.hero__risk-pill` / `.pill--conf-high`.
   const c = kindColor[entityKind];
   return (
     <span
@@ -153,16 +154,16 @@ function KindBadge({ entityKind }: { entityKind: Entity["kind"] }): ReactElement
         gap: 4,
         fontSize: font.size.xxs,
         fontWeight: font.weight.semibold,
-        letterSpacing: font.letter.ultra,
+        letterSpacing: 0,
         textTransform: "uppercase",
         color: c,
-        padding: "3px 8px",
+        padding: `1px ${space[2]}px`,
         borderRadius: radius.pill,
         background: tintBg(c, 0.1),
-        border: `1px solid ${tintBg(c, 0.2)}`,
+        lineHeight: 1.5,
       }}
     >
-      <span style={{ width: 6, height: 6, borderRadius: radius.pill, background: c }} />
+      <span style={{ width: 5, height: 5, borderRadius: radius.pill, background: c }} />
       {kindLabel[entityKind]}
     </span>
   );
@@ -200,25 +201,61 @@ function Crumbs({ ancestors }: { ancestors: Entity[] }): ReactElement | null {
   );
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }): ReactElement {
+function Section({
+  title,
+  count,
+  children,
+}: {
+  title: string;
+  /** Optional right-aligned count pill (IDE `.insp__section-count` style). */
+  count?: number;
+  children: ReactNode;
+}): ReactElement {
   return (
-    <section style={{ padding: `${space[3]}px ${space[4]}px`, borderTop: `1px solid ${color.border}` }}>
-      <div
-        style={{
-          fontSize: font.size.xxs,
-          fontWeight: font.weight.semibold,
-          letterSpacing: font.letter.ultra,
-          textTransform: "uppercase",
-          color: color.text2,
-          marginBottom: space[2],
-        }}
-      >
-        {title}
-      </div>
-      {children}
+    <section style={SECTION_STYLE}>
+      <header style={SECTION_HEADER_STYLE}>
+        <span style={SECTION_LABEL_STYLE}>{title}</span>
+        {count !== undefined ? <span style={SECTION_COUNT_STYLE}>{count}</span> : null}
+      </header>
+      <div style={SECTION_BODY_STYLE}>{children}</div>
     </section>
   );
 }
+
+const SECTION_STYLE: CSSProperties = {
+  borderBottom: `1px solid ${color.border}`,
+};
+
+const SECTION_HEADER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: space[1],
+  padding: `${space[3]}px ${space[4]}px ${space[1]}px`,
+  userSelect: "none",
+};
+
+const SECTION_LABEL_STYLE: CSSProperties = {
+  fontSize: font.size.xs,
+  fontWeight: font.weight.semibold,
+  letterSpacing: font.letter.ultra,
+  textTransform: "uppercase",
+  color: color.text1,
+};
+
+const SECTION_COUNT_STYLE: CSSProperties = {
+  background: color.bg3,
+  color: color.text2,
+  padding: `1px ${space[1]}px`,
+  borderRadius: radius.pill,
+  fontSize: font.size.xxs,
+  fontWeight: font.weight.semibold,
+  letterSpacing: 0,
+  textTransform: "none",
+};
+
+const SECTION_BODY_STYLE: CSSProperties = {
+  padding: `${space[1]}px ${space[4]}px ${space[4]}px`,
+};
 
 function Metrics({ entity }: { entity: Entity }): ReactElement | null {
   const m = entity.metrics;
@@ -229,31 +266,64 @@ function Metrics({ entity }: { entity: Entity }): ReactElement | null {
   if (m.fileCount !== undefined) rows.push({ label: "Files", value: m.fileCount.toLocaleString() });
   if (m.childCount !== undefined) rows.push({ label: "Children", value: m.childCount.toLocaleString() });
   if (rows.length === 0) return null;
+  // 3-column hero__metrics grid — cells separated by hairlines, no
+  // per-cell chrome. Matches IDE FileInspectorHero layout.
+  const cols = 3;
   return (
     <Section title="Metrics">
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space[2] }}>
-        {rows.map(r => (
-          <div
-            key={r.label}
-            style={{
-              padding: `${space[2]}px ${space[3]}px`,
-              background: color.bg2,
-              borderRadius: radius.md,
-              border: `1px solid ${color.borderSoft}`,
-            }}
-          >
-            <div style={{ fontSize: font.size.xxs, color: color.text2, fontWeight: font.weight.medium, letterSpacing: font.letter.ultra, textTransform: "uppercase" }}>
-              {r.label}
+      <div style={METRICS_GRID_STYLE}>
+        {rows.map((r, i) => {
+          const isLastCol = (i + 1) % cols === 0;
+          const isInTopRow = i < cols;
+          const totalRows = Math.ceil(rows.length / cols);
+          const isInLastRow = Math.floor(i / cols) === totalRows - 1;
+          return (
+            <div
+              key={r.label}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 2,
+                padding: `${space[2]}px ${space[3]}px`,
+                paddingLeft: i % cols === 0 ? 0 : space[3],
+                paddingRight: isLastCol ? 0 : space[3],
+                borderRight: isLastCol ? "none" : `1px solid ${color.border}`,
+                borderBottom: isInLastRow ? "none" : `1px solid ${color.border}`,
+                paddingTop: isInTopRow ? 0 : space[2],
+                paddingBottom: isInLastRow ? 0 : space[2],
+              }}
+            >
+              <span style={METRIC_VAL_STYLE}>{r.value}</span>
+              <span style={METRIC_KEY_STYLE}>{r.label}</span>
             </div>
-            <div style={{ fontSize: font.size.xl, fontWeight: font.weight.semibold, color: color.text0, fontVariantNumeric: "tabular-nums", letterSpacing: font.letter.tight, marginTop: 2 }}>
-              {r.value}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </Section>
   );
 }
+
+const METRICS_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+};
+
+const METRIC_VAL_STYLE: CSSProperties = {
+  fontSize: font.size.xl,
+  fontWeight: font.weight.semibold,
+  color: color.text0,
+  fontVariantNumeric: "tabular-nums",
+  letterSpacing: font.letter.tight,
+  lineHeight: 1,
+};
+
+const METRIC_KEY_STYLE: CSSProperties = {
+  fontSize: font.size.xxs,
+  fontWeight: font.weight.medium,
+  color: color.text2,
+  letterSpacing: font.letter.ultra,
+  textTransform: "uppercase",
+};
 
 // Dependencies
 // --------------------------------------------------------------------
@@ -287,11 +357,11 @@ function Dependencies({
   const outRefs = outbound.reduce((n, e) => n + e.count, 0);
   const total = inbound.length + outbound.length;
   return (
-    <Section title={`Dependencies · ${total}`}>
+    <Section title="Dependencies" count={total}>
       <div style={{ display: "flex", flexDirection: "column", gap: space[3] }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: space[2] }}>
-          <DepStat direction="in" count={inbound.length} refs={inRefs} />
-          <DepStat direction="out" count={outbound.length} refs={outRefs} />
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+          <DepStat direction="in" count={inbound.length} refs={inRefs} withDivider />
+          <DepStat direction="out" count={outbound.length} refs={outRefs} withDivider={false} />
         </div>
         {total > 0 && total <= 96 ? (
           <DepRadial inbound={inbound} outbound={outbound} tree={tree} />
@@ -321,10 +391,13 @@ function DepStat({
   direction,
   count,
   refs,
+  withDivider,
 }: {
   direction: "in" | "out";
   count: number;
   refs: number;
+  /** Right-edge hairline — matches IDE's `.hero__stat` border-right. */
+  withDivider: boolean;
 }): ReactElement {
   const dirColor = direction === "in" ? color.success : color.accent;
   const Icon = direction === "in" ? IconArrowIn : IconArrowOut;
@@ -332,60 +405,58 @@ function DepStat({
   return (
     <div
       style={{
-        position: "relative",
-        padding: `${space[3]}px ${space[3]}px ${space[2]}px`,
-        borderRadius: radius.md,
-        background: color.bg2,
-        border: `1px solid ${color.borderSoft}`,
-        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        gap: 2,
+        padding: `0 ${space[3]}px`,
+        paddingLeft: direction === "in" ? 0 : space[3],
+        paddingRight: withDivider ? space[3] : 0,
+        borderRight: withDivider ? `1px solid ${color.border}` : "none",
       }}
     >
       <div
         style={{
-          position: "absolute",
-          inset: "0 0 auto 0",
-          height: 2,
-          background: dirColor,
-        }}
-      />
-      <div
-        style={{
           display: "inline-flex",
-          alignItems: "center",
-          gap: 4,
-          color: dirColor,
+          alignItems: "baseline",
+          gap: 6,
+        }}
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", color: dirColor }}>
+          <Icon size={10} />
+        </span>
+        <span
+          style={{
+            fontSize: font.size.xl,
+            fontWeight: font.weight.semibold,
+            color: color.text0,
+            fontVariantNumeric: "tabular-nums",
+            letterSpacing: font.letter.tight,
+            lineHeight: 1,
+          }}
+        >
+          {count}
+        </span>
+        <span
+          style={{
+            fontSize: font.size.xs,
+            color: color.text3,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          · {refs} {refs === 1 ? "ref" : "refs"}
+        </span>
+      </div>
+      <span
+        style={{
           fontSize: font.size.xxs,
-          fontWeight: font.weight.semibold,
+          fontWeight: font.weight.medium,
+          color: color.text2,
           letterSpacing: font.letter.ultra,
           textTransform: "uppercase",
         }}
       >
-        <Icon size={10} />
         {label}
-      </div>
-      <div
-        style={{
-          marginTop: 4,
-          fontSize: font.size.display,
-          fontWeight: font.weight.semibold,
-          color: color.text0,
-          fontVariantNumeric: "tabular-nums",
-          letterSpacing: font.letter.tight,
-          lineHeight: 1,
-        }}
-      >
-        {count}
-      </div>
-      <div
-        style={{
-          marginTop: 2,
-          fontSize: font.size.xs,
-          color: color.text2,
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {refs} {refs === 1 ? "ref" : "refs"}
-      </div>
+      </span>
     </div>
   );
 }
@@ -435,10 +506,7 @@ function DepRadial({
   return (
     <div
       style={{
-        padding: space[2],
-        borderRadius: radius.md,
-        background: color.bg2,
-        border: `1px solid ${color.borderSoft}`,
+        padding: `${space[2]}px 0`,
         display: "flex",
         justifyContent: "center",
       }}
@@ -642,7 +710,7 @@ function ChildrenList({ entity, tree }: { entity: Entity; tree: EntityTree }): R
   const MAX = 20;
   const shown = kids.slice(0, MAX);
   return (
-    <Section title={`Children · ${kids.length}`}>
+    <Section title="Children" count={kids.length}>
       <div style={{ display: "flex", flexDirection: "column" }}>
         {shown.map(c => (
           <button
@@ -811,65 +879,73 @@ function EngineeringMetrics({ entity }: { entity: Entity }): ReactElement | null
 }
 
 function TopBadgeStrip(): ReactElement {
+  // 4-cell hero-style KPI strip. Cells share hairline dividers with
+  // no per-cell border/fill (see IDE `.hero__stat`). Values render as
+  // "—" until the git/CI pipeline populates them.
   return (
     <div
       data-inspector-badges="top"
       style={{
         display: "grid",
         gridTemplateColumns: `repeat(${TOP_BADGES.length}, 1fr)`,
-        gap: space[2],
       }}
     >
-      {TOP_BADGES.map(b => (
-        <div
-          key={b.key}
-          data-badge-key={b.key}
-          data-badge-state="pending"
-          style={{
-            padding: `${space[2]}px ${space[2]}px`,
-            borderRadius: radius.md,
-            background: color.bg2,
-            border: `1px dashed ${color.border}`,
-            display: "flex",
-            flexDirection: "column",
-            gap: 2,
-            minWidth: 0,
-          }}
-        >
+      {TOP_BADGES.map((b, i) => {
+        const isLast = i === TOP_BADGES.length - 1;
+        return (
           <div
+            key={b.key}
+            data-badge-key={b.key}
+            data-badge-state="pending"
             style={{
-              fontSize: font.size.xxs,
-              fontWeight: font.weight.semibold,
-              letterSpacing: font.letter.ultra,
-              textTransform: "uppercase",
-              color: color.text2,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+              padding: `0 ${space[2]}px`,
+              paddingLeft: i === 0 ? 0 : space[2],
+              paddingRight: isLast ? 0 : space[2],
+              borderRight: isLast ? "none" : `1px solid ${color.border}`,
+              minWidth: 0,
             }}
           >
-            {b.label}
+            <div
+              aria-label="no data yet"
+              style={{
+                fontSize: font.size.xl,
+                fontWeight: font.weight.semibold,
+                color: color.text3,
+                fontVariantNumeric: "tabular-nums",
+                letterSpacing: font.letter.tight,
+                lineHeight: 1,
+              }}
+            >
+              —
+            </div>
+            <div
+              style={{
+                fontSize: font.size.xxs,
+                fontWeight: font.weight.medium,
+                letterSpacing: font.letter.ultra,
+                textTransform: "uppercase",
+                color: color.text2,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {b.label}
+            </div>
           </div>
-          <div
-            aria-label="no data yet"
-            style={{
-              fontSize: font.size.xl,
-              fontWeight: font.weight.semibold,
-              color: color.text3,
-              fontVariantNumeric: "tabular-nums",
-              letterSpacing: font.letter.tight,
-              lineHeight: 1,
-            }}
-          >
-            —
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
 
 function MetricGroupBlock({ group }: { group: MetricGroup }): ReactElement {
+  // Grouped rollup — borderless rows with hairline dividers between
+  // them (IDE `.rsig__row` / `.sub` pattern). The caption above the
+  // group names both the bucket and the data source in one line.
   return (
     <div data-metric-group={group.key}>
       <div
@@ -895,27 +971,17 @@ function MetricGroupBlock({ group }: { group: MetricGroup }): ReactElement {
           style={{
             fontSize: font.size.xxs,
             color: color.text3,
-            fontStyle: "italic",
-            letterSpacing: font.letter.tight,
+            letterSpacing: 0,
             textTransform: "none",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
           }}
         >
-          data source: {group.source}
+          {group.source}
         </span>
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          borderRadius: radius.md,
-          background: color.bg2,
-          border: `1px solid ${color.borderSoft}`,
-          overflow: "hidden",
-        }}
-      >
+      <div style={{ display: "flex", flexDirection: "column" }}>
         {group.fields.map((field, i) => (
           <div
             key={field.key}
@@ -926,15 +992,18 @@ function MetricGroupBlock({ group }: { group: MetricGroup }): ReactElement {
               alignItems: "center",
               justifyContent: "space-between",
               gap: space[2],
-              padding: `6px ${space[3]}px`,
-              borderTop: i === 0 ? "none" : `1px solid ${color.borderSoft}`,
+              padding: `6px 0`,
+              borderBottom:
+                i === group.fields.length - 1
+                  ? "none"
+                  : `1px solid ${color.border}`,
             }}
           >
             <span
               style={{
                 fontSize: font.size.sm,
                 color: color.text1,
-                letterSpacing: font.letter.tight,
+                letterSpacing: 0,
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 whiteSpace: "nowrap",
@@ -1052,32 +1121,31 @@ function ExternalDependencies({ entity }: { entity: Entity }): ReactElement | nu
 }
 
 function ExternalDepBucket({ category }: { category: ExternalDepCategory }): ReactElement {
+  // Flat row — mirrors IDE `.rsig__row` shape (subtle bg, rounded-sm,
+  // label + detail). No dashed chrome; the empty state is carried
+  // by the "0" count + muted "no entries yet" caption instead.
   return (
     <div
       data-dep-bucket={category.key}
       data-dep-bucket-state="empty"
       style={{
-        padding: `${space[2]}px ${space[3]}px`,
-        borderRadius: radius.md,
+        display: "flex",
+        alignItems: "center",
+        gap: space[2],
+        padding: `${space[2]}px ${space[2]}px`,
         background: color.bg2,
-        border: `1px dashed ${color.border}`,
+        borderRadius: radius.sm,
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          gap: space[2],
-          marginBottom: 2,
-        }}
-      >
+      <div style={{ display: "flex", flexDirection: "column", gap: 1, flex: 1, minWidth: 0 }}>
         <span
           style={{
-            fontSize: font.size.xxs,
-            fontWeight: font.weight.semibold,
-            letterSpacing: font.letter.ultra,
-            textTransform: "uppercase",
-            color: color.text1,
+            fontSize: font.size.xs,
+            fontWeight: font.weight.medium,
+            color: color.text0,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }}
         >
           {category.title}
@@ -1085,38 +1153,30 @@ function ExternalDepBucket({ category }: { category: ExternalDepCategory }): Rea
         <span
           style={{
             fontSize: font.size.xxs,
-            color: color.text3,
-            fontFamily: font.mono,
-            letterSpacing: font.letter.tight,
+            color: color.text2,
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
+            lineHeight: 1.3,
           }}
         >
-          {category.hint}
-        </span>
-        <span
-          style={{
-            marginLeft: "auto",
-            fontSize: font.size.xxs,
-            color: color.text3,
-            fontVariantNumeric: "tabular-nums",
-            fontWeight: font.weight.medium,
-          }}
-        >
-          0
+          {category.hint} · no entries yet
         </span>
       </div>
-      <div
+      <span
         style={{
-          fontSize: font.size.sm,
-          color: color.text3,
-          fontStyle: "italic",
-          letterSpacing: font.letter.tight,
+          fontSize: font.size.xxs,
+          color: color.text2,
+          fontVariantNumeric: "tabular-nums",
+          fontWeight: font.weight.semibold,
+          padding: `1px ${space[1]}px`,
+          borderRadius: radius.pill,
+          background: color.bg3,
+          flexShrink: 0,
         }}
       >
-        no entries yet
-      </div>
+        0
+      </span>
     </div>
   );
 }
@@ -1193,24 +1253,25 @@ function relationRow(): CSSProperties {
   };
 }
 
+// IDE `.btn` base — compact sm-size pill matching the inspector
+// action-bar vocabulary (Apply / Dismiss / View details in FileFixSection).
+// Buttons size to their own content; the close icon is its own square.
 function buttonPrimary(): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: `6px ${space[3]}px`,
+    padding: `${space[1]}px ${space[3]}px`,
     background: color.accent,
     color: "white",
     border: `1px solid ${color.accent}`,
-    borderRadius: radius.md,
-    fontSize: font.size.md,
-    fontFamily: font.family,
+    borderRadius: radius.sm,
+    fontSize: font.size.sm,
+    fontFamily: font.sans,
     fontWeight: font.weight.medium,
-    letterSpacing: font.letter.tight,
+    letterSpacing: 0,
     cursor: "pointer",
-    transition: `background ${transition.fast}`,
-    flex: 1,
-    justifyContent: "center",
+    transition: `filter ${transition.fast}`,
   };
 }
 
@@ -1219,19 +1280,17 @@ function buttonSecondary(): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    padding: `6px ${space[3]}px`,
+    padding: `${space[1]}px ${space[3]}px`,
     background: color.bg1,
-    color: color.text0,
+    color: color.text1,
     border: `1px solid ${color.border}`,
-    borderRadius: radius.md,
-    fontSize: font.size.md,
-    fontFamily: font.family,
+    borderRadius: radius.sm,
+    fontSize: font.size.sm,
+    fontFamily: font.sans,
     fontWeight: font.weight.medium,
-    letterSpacing: font.letter.tight,
+    letterSpacing: 0,
     cursor: "pointer",
-    transition: `background ${transition.fast}, border-color ${transition.fast}`,
-    flex: 1,
-    justifyContent: "center",
+    transition: `background ${transition.fast}, color ${transition.fast}`,
   };
 }
 
@@ -1240,15 +1299,16 @@ function buttonGhost(): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
     background: "transparent",
     color: color.text2,
-    border: `1px solid transparent`,
-    borderRadius: radius.md,
+    border: "1px solid transparent",
+    borderRadius: radius.sm,
     cursor: "pointer",
     transition: `background ${transition.fast}, color ${transition.fast}`,
     flexShrink: 0,
+    marginLeft: "auto",
   };
 }
 
@@ -1259,6 +1319,11 @@ const PANEL_STYLE: CSSProperties = {
   background: color.bg1,
 };
 
+const HERO_STYLE: CSSProperties = {
+  padding: `${space[3]}px ${space[4]}px ${space[3]}px`,
+  borderBottom: `1px solid ${color.border}`,
+};
+
 const SCROLL_STYLE: CSSProperties = {
   flex: 1,
   overflow: "auto",
@@ -1266,8 +1331,9 @@ const SCROLL_STYLE: CSSProperties = {
 
 const FOOTER_STYLE: CSSProperties = {
   display: "flex",
+  alignItems: "center",
   gap: space[2],
-  padding: space[3],
+  padding: `${space[2]}px ${space[3]}px`,
   borderTop: `1px solid ${color.border}`,
   background: color.bg1,
   flexShrink: 0,
@@ -1275,13 +1341,13 @@ const FOOTER_STYLE: CSSProperties = {
 
 const TITLE_STYLE: CSSProperties = {
   margin: `${space[2]}px 0 4px`,
-  fontSize: font.size.xxl,
+  fontSize: font.size.xl,
   fontWeight: font.weight.semibold,
   color: color.text0,
   letterSpacing: font.letter.tight,
-  lineHeight: 1.25,
+  lineHeight: 1.2,
   overflowWrap: "anywhere",
-  fontFamily: font.family,
+  fontFamily: font.mono,
 };
 
 const PATH_STYLE: CSSProperties = {
@@ -1297,10 +1363,12 @@ const PATH_STYLE: CSSProperties = {
 const META_PILL: CSSProperties = {
   fontSize: font.size.xxs,
   color: color.text2,
-  fontWeight: font.weight.medium,
-  padding: "2px 7px",
+  fontWeight: font.weight.semibold,
+  padding: `1px ${space[2]}px`,
   borderRadius: radius.pill,
-  background: color.bg2,
+  background: color.bg3,
+  lineHeight: 1.5,
+  letterSpacing: 0,
 };
 
 const FOCUS_PILL: CSSProperties = {
@@ -1310,11 +1378,11 @@ const FOCUS_PILL: CSSProperties = {
   marginLeft: "auto",
   fontSize: font.size.xxs,
   fontWeight: font.weight.semibold,
-  letterSpacing: font.letter.ultra,
+  letterSpacing: 0,
   textTransform: "uppercase",
-  padding: "3px 8px",
+  padding: `1px ${space[2]}px`,
   borderRadius: radius.pill,
-  background: color.accent,
-  color: "white",
-  boxShadow: shadow.sm,
+  background: tintBg(color.accent, 0.12),
+  color: color.accent,
+  lineHeight: 1.5,
 };

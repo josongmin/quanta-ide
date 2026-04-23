@@ -1,0 +1,86 @@
+.ap-ladder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+  min-width: 0;
+}
+.ap-ladder__head {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.ap-ladder__tag {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  color: var(--accent-fg);
+  background: var(--fg);
+}
+.ap-ladder__tag--observe { background: var(--fg-subtle); }
+.ap-ladder__tag--assist { background: var(--accent); }
+.ap-ladder__tag--execute { background: var(--fg); }
+
+.ap-ladder__title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+.ap-ladder__verb {
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+}
+.ap-ladder__rail {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+}
+.ap-ladder__step {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-muted);
+  transition: background 180ms ease;
+}
+.ap-ladder__step.is-filled {
+  background: var(--fg-subtle);
+}
+.ap-ladder__step.is-filled.ap-ladder__step--observe { background: var(--fg-subtle); }
+.ap-ladder__step.is-filled.ap-ladder__step--assist { background: var(--accent); }
+.ap-ladder__step.is-filled.ap-ladder__step--execute { background: var(--fg); }
+.ap-ladder__step.is-current {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+/* chip variant */
+.ap-ladder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  height: 20px;
+  padding: 0 var(--space-2) 0 0;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+.ap-ladder-chip__tag {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.06em;
+  padding: 0 var(--space-1h);
+  color: #fff;
+  background: var(--fg);
+  border-radius: var(--radius-pill);
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+}
+.ap-ladder-chip--observe .ap-ladder-chip__tag { background: var(--fg-subtle); }
+.ap-ladder-chip--assist .ap-ladder-chip__tag { background: var(--accent); color: var(--accent-fg); }
+.ap-ladder-chip--execute .ap-ladder-chip__tag { background: var(--fg); color: var(--bg); }

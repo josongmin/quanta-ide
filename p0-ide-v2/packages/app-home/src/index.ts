@@ -1,2 +1,2 @@
-export { HomeApp, NewTabApp } from "./App";
-export { homeDescriptor, newTabDescriptor } from "./descriptor";
+export { HomeApp, NewTabApp, AnalysisCatalogApp } from "./App";
+export { homeDescriptor, newTabDescriptor, analysisCatalogDescriptor } from "./descriptor";

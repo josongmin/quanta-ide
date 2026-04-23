@@ -32,5 +32,85 @@ export const layerAuditViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { tree: true, graph: true },
   order: 510,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input",
+    "policy-control"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-architecture",
+      "scope": "policy",
+      "intent": "verify"
+    },
+    "scopes": [
+      "repo",
+      "policy",
+      "module"
+    ],
+    "intents": [
+      "verify",
+      "govern"
+    ],
+    "subdomain": "layer-audit",
+    "personas": [
+      "security",
+      "platform",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "direct-action",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "auditable",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "arch-layers",
+      "service-topo",
+      "dependency-health"
+    ],
+    "keywords": [
+      "layer",
+      "audit",
+      "dependency",
+      "policy",
+      "boundary"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "policy-audit",
+      "refactor"
+    ],
+    "evidenceClass": "auditable",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "attach-to-policy-check"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "architecture"
+  },
   Component: LayerAuditModeView,
 };

@@ -183,19 +183,6 @@
   gap: var(--space-1h);
   flex-shrink: 0;
 }
-.agent-page__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 9px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
-  border: 1px solid var(--border);
-  font-size: var(--fs-xs);
-  color: var(--fg-muted);
-  font-family: var(--font-sans);
-}
-.agent-page__chip svg { color: var(--fg-subtle); }
 .agent-page__chip-dot {
   width: 6px;
   height: 6px;

@@ -1,1 +1,1 @@
-export { tabBus, useTabBus, type TabApp, type OpenTabRequest } from "./tab-bus";
+export { tabBus, useTabBus, type TabApp, type OpenTabRequest, type OpenTabRoute } from "./tab-bus";

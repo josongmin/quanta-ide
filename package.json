@@ -14,8 +14,9 @@
     "typecheck": "pnpm -r --filter './libs/*' --filter './products/*' typecheck && pnpm --filter quanta-ide-v2 typecheck",
     "lint": "pnpm --filter quanta-ide-v2 lint",
     "test": "pnpm -r --workspace-concurrency=1 --no-bail test",
-    "validate": "pnpm typecheck && pnpm lint && pnpm test",
-    "e2e": "pnpm --filter quanta-ide-v2 e2e"
+    "validate": "pnpm typecheck && pnpm check:catalog && pnpm lint && pnpm test",
+    "e2e": "pnpm --filter quanta-ide-v2 e2e",
+    "check:catalog": "pnpm --filter @quanta/code-universe check:catalog"
   },
   "devDependencies": {
     "typescript": "^5.7.2"

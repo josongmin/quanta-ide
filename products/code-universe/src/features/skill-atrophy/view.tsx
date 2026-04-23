@@ -1,10 +1,8 @@
-// SkillAtrophy view descriptor — per-developer AI-reliance trends.
+// SkillAtrophy view descriptor — developer over-reliance on AI assistance.
 // --------------------------------------------------------------------
-// Reference: Microsoft Research / CMU 2025 "Critical Thinking Atrophy
-// in AI-Assisted Coding"; Stanford HCI on developer skills; ACM Queue
-// 2024 "The Two-Edged Sword of AI Pair Programming". Tracks 12-week
-// trend of AI-assisted ratio rising while human-only LoC falls —
-// signals over-reliance that warrants team-health intervention.
+// Reference: Microsoft Research / CMU 2025 on critical-thinking atrophy
+// in AI-assisted knowledge work; Stanford HCI developer skill studies;
+// ACM Queue 2024 on AI pair-programming trade-offs.
 
 import type { ReactElement } from "react";
 import type {
@@ -29,5 +27,48 @@ export const skillAtrophyViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { tree: true },
   order: 1040,
+  capabilityKinds: ["view", "decision-input", "policy-control"],
+  taxonomy: {
+    primary: {
+      domain: "se-ownership-team",
+      scope: "team",
+      intent: "govern",
+    },
+    scopes: ["team", "repo"],
+    intents: ["govern", "diagnose", "optimize"],
+    subdomain: "human-skill-health",
+    personas: ["manager", "tech-lead"],
+    surfaces: ["view", "tab", "dashboard-card"],
+    maturity: "advanced",
+    signal: {
+      dataFreshness: "snapshot",
+      confidence: "estimated",
+      actionability: "triage",
+      cost: "low",
+      latency: "interactive",
+      determinism: "bounded",
+      evidenceLevel: "weak",
+      decisionGrade: "triage",
+    },
+    related: ["review-burden", "ai-authorship", "devex-health"],
+    keywords: ["skill", "atrophy", "overreliance", "team", "health"],
+  },
+  decision: {
+    grade: "triage",
+    supports: ["policy-audit", "escalate-review"],
+    evidenceClass: "weak",
+    failClosedEligible: false,
+    humanReviewRequired: true,
+  },
+  actions: ["open-tab", "pin-dashboard", "attach-to-policy-check"],
+  workflow: {
+    canBeAutoSuggested: true,
+    canBeAutoAttached: false,
+    requiresOrderedExecution: false,
+  },
+  quality: {
+    maturity: "advanced",
+    owner: "platform",
+  },
   Component: SkillAtrophyModeView,
 };

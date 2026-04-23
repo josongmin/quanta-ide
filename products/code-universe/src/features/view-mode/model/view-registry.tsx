@@ -171,6 +171,35 @@ import { memoryVaultViewDescriptor }        from "../../memory-vault";
 import { agentOrchestraViewDescriptor }     from "../../agent-orchestra";
 import { budgetConsoleViewDescriptor }      from "../../budget-console";
 import { auditTrailViewDescriptor }         from "../../audit-trail";
+import { catalogAdminViewDescriptor }       from "../../catalog-admin";
+
+// ── AI limits awareness (2026 research-driven) ──
+import { compoundingErrorViewDescriptor }   from "../../compounding-error";
+import { blindSpotViewDescriptor }          from "../../blind-spot";
+import { specGamingViewDescriptor }         from "../../spec-gaming";
+import { skillAtrophyViewDescriptor }       from "../../skill-atrophy";
+import { benchmarkGapViewDescriptor }       from "../../benchmark-gap";
+import { evalContaminationViewDescriptor }  from "../../eval-contamination";
+import { modelSwapSimViewDescriptor }       from "../../model-swap-sim";
+import { determinismDriftViewDescriptor }   from "../../determinism-drift";
+import { planningHorizonViewDescriptor }    from "../../planning-horizon";
+import { stuckPatternViewDescriptor }       from "../../stuck-pattern";
+
+// ── AI interpretability + composability (2026 frontier) ──
+import { attentionMapViewDescriptor }       from "../../attention-map";
+import { thinkingBudgetViewDescriptor }     from "../../thinking-budget";
+import { uncertaintyMapViewDescriptor }     from "../../uncertainty-map";
+import { counterfactualViewDescriptor }     from "../../counterfactual";
+import { contextShapeViewDescriptor }       from "../../context-shape";
+import { skillLibraryViewDescriptor }       from "../../skill-library";
+import { anticipateViewDescriptor }         from "../../anticipate";
+import { redTeamViewDescriptor }            from "../../red-team";
+import { trajectoryDecomposeViewDescriptor } from "../../trajectory-decompose";
+import { contextWasteViewDescriptor }       from "../../context-waste";
+import { diffEvidenceViewDescriptor }       from "../../diff-evidence";
+import { agentabilityViewDescriptor }       from "../../agentability";
+import { messageCodeMismatchViewDescriptor } from "../../message-code-mismatch";
+import { reviewBurdenViewDescriptor }       from "../../review-burden";
 
 // Canonical list — sorted by `order` so picker / cycle / dropdown all
 // agree on the sequence. The `order` field on each descriptor is the
@@ -310,6 +339,34 @@ const ALL: readonly ViewDescriptor[] = [
   agentOrchestraViewDescriptor,
   budgetConsoleViewDescriptor,
   auditTrailViewDescriptor,
+  catalogAdminViewDescriptor,
+  // ── AI limits awareness ──
+  compoundingErrorViewDescriptor,
+  blindSpotViewDescriptor,
+  specGamingViewDescriptor,
+  skillAtrophyViewDescriptor,
+  benchmarkGapViewDescriptor,
+  evalContaminationViewDescriptor,
+  modelSwapSimViewDescriptor,
+  determinismDriftViewDescriptor,
+  planningHorizonViewDescriptor,
+  stuckPatternViewDescriptor,
+  // ── AI runtime reliability + trust ──
+  trajectoryDecomposeViewDescriptor,
+  contextWasteViewDescriptor,
+  diffEvidenceViewDescriptor,
+  agentabilityViewDescriptor,
+  messageCodeMismatchViewDescriptor,
+  reviewBurdenViewDescriptor,
+  // ── AI interpretability + composability ──
+  attentionMapViewDescriptor,
+  thinkingBudgetViewDescriptor,
+  uncertaintyMapViewDescriptor,
+  counterfactualViewDescriptor,
+  contextShapeViewDescriptor,
+  skillLibraryViewDescriptor,
+  anticipateViewDescriptor,
+  redTeamViewDescriptor,
 ];
 
 export const VIEW_DESCRIPTORS: readonly ViewDescriptor[] = [...ALL].sort(

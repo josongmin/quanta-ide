@@ -30,12 +30,16 @@ function UniverseView({ ctx }: { ctx: ViewContextValue }): ReactElement | null {
       ctx.tree
         ? buildHierarchicalLayout(ctx.tree, {
             weight: makeWeightFn(ctx.tree, weightMode),
-            // Sibling gutter / outer padding matched so a card's gap to
-            // its neighbour reads the same as its gap to the parent's
-            // edge — inner rows otherwise look cramped relative to the
-            // rim. See CanvasShell's original comment for full context.
-            gap: 32,
-            padding: 32,
+            // Tight packing — previous gap/padding of 32 left siblings
+            // so far apart at building tier that each file read as a
+            // thin sliver floating in empty space ("스샷보면 너무 멀어서
+            // 선으로 보임"). At typical LoC distributions card widths
+            // are already <40 world units so a 32-unit gap is ~100% of
+            // the card itself. Drop to a small gap + a moderate outer
+            // padding so the hierarchy still reads (parent labels need
+            // breathing room) but sibling cards pack as a dense cluster.
+            gap: 4,
+            padding: 12,
           })
         : null,
     [ctx.tree, weightMode],
@@ -95,6 +99,44 @@ export const universeViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder", "file"],
   needs: { tree: true, graph: true },
   order: 20,
+  capabilityKinds: ["view"],
+  taxonomy: {
+    primary: { domain: "explore", scope: "repo", intent: "explore" },
+    scopes: ["repo", "package", "folder"],
+    intents: ["explore", "explain"],
+    subdomain: "treemap-overview",
+    personas: ["developer", "tech-lead", "manager"],
+    surfaces: ["view", "tab", "dashboard-card"],
+    maturity: "core",
+    signal: {
+      dataFreshness: "snapshot",
+      confidence: "measured",
+      actionability: "explain",
+      cost: "low",
+      latency: "interactive",
+      determinism: "deterministic",
+      evidenceLevel: "strong",
+      decisionGrade: "informational",
+    },
+    keywords: ["treemap", "overview", "hierarchy", "loc", "universe"],
+  },
+  decision: {
+    grade: "informational",
+    supports: [],
+    evidenceClass: "strong",
+    failClosedEligible: false,
+    humanReviewRequired: false,
+  },
+  actions: ["open-tab", "compare-related", "pin-dashboard"],
+  workflow: {
+    canBeAutoSuggested: true,
+    canBeAutoAttached: false,
+    requiresOrderedExecution: false,
+  },
+  quality: {
+    maturity: "core",
+    owner: "code-intel",
+  },
   overlay: "base",
   Component: UniverseView,
 };

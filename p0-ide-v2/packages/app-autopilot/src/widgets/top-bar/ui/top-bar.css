@@ -1,0 +1,169 @@
+/* Autopilot top-bar — dashboard-style header + horizontal tab navigation.
+   Replaces the left-side NavRail. Full-width within the centered shell. */
+
+.ap-topbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.ap-topbar__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-2h);
+}
+
+.ap-topbar__hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.ap-topbar__title {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2h);
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--fg);
+}
+
+.ap-topbar__sub {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  line-height: var(--lh-relaxed);
+}
+
+.ap-topbar__filters {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-6) var(--space-3);
+}
+
+.ap-topbar__filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ap-topbar__filter-k {
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  letter-spacing: 0;
+}
+
+.ap-topbar__filter-v {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  font-weight: var(--fw-medium);
+  text-transform: capitalize;
+}
+
+.ap-topbar__tabs {
+  display: flex;
+  gap: var(--space-5);
+  padding: 0 var(--space-6);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ap-topbar__tabs::-webkit-scrollbar { display: none; }
+
+.ap-topbar__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) 0;
+  margin-bottom: -1px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--fg-muted);
+  font-family: inherit;
+  position: relative;
+  transition: color 140ms ease, box-shadow 140ms ease;
+  white-space: nowrap;
+  box-shadow: inset 0 -2px 0 transparent;
+}
+
+.ap-topbar__tab:hover {
+  color: var(--fg);
+}
+
+.ap-topbar__tab.is-active {
+  color: var(--fg);
+  box-shadow: inset 0 -2px 0 var(--fg);
+}
+
+.ap-topbar__tab-label {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
+}
+
+.ap-topbar__tab-caption {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-subtle);
+}
+
+.ap-topbar__tab-key,
+.ap-topbar__tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-subtle);
+  background: var(--bg);
+}
+
+.ap-topbar__tab-count {
+  color: var(--accent);
+  border-color: var(--border-accent-subtle);
+  background: var(--bg-accent-subtle);
+}
+
+.ap-topbar__tab.is-active .ap-topbar__tab-caption {
+  color: var(--fg-muted);
+}
+.ap-topbar__tab.is-active .ap-topbar__tab-key {
+  color: var(--fg);
+  border-color: var(--border-strong);
+}
+
+@media (max-width: 860px) {
+  .ap-topbar__hero,
+  .ap-topbar__filters,
+  .ap-topbar__tabs {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
+  }
+  .ap-topbar__title { font-size: 22px; }
+  .ap-topbar__tab-label { font-size: var(--fs-md); }
+}

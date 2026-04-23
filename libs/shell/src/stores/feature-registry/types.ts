@@ -13,6 +13,29 @@ export type FeatureState = "active" | "disabled" | "error";
 
 export type FeatureBadge = "new" | "beta" | "deprecated" | "experimental";
 
+
+export interface FeatureAnalysisMetadata {
+  kind?: "analysis-view" | "workflow" | "external";
+  primary?: {
+    domain: string;
+    scope: string;
+    intent: string;
+  };
+  domains?: readonly string[];
+  scopes?: readonly string[];
+  intents?: readonly string[];
+  subdomain?: string;
+  decisionGrade?: string;
+  decisionTargets?: readonly string[];
+  evidenceClass?: string;
+  capabilityKinds?: readonly string[];
+  actions?: readonly string[];
+  maturity?: string;
+  hygieneDebt?: boolean;
+  tabTitle?: string;
+  commandId?: string;
+}
+
 export interface CommandContribution {
   id: string;
   title: string;
@@ -54,6 +77,7 @@ export interface FeatureManifest {
   shortcuts?: readonly ShortcutContribution[];
   settings?: readonly SettingFieldContribution[];
   status?: StatusContribution;
+  analysis?: FeatureAnalysisMetadata;
   primary?: {
     tileLabel: string;
     tileHint?: string;

@@ -102,12 +102,6 @@ export function AgentChatArea({
             }}
             disabled={streaming}
           />
-          <div className="agent-page__composer-tag">
-            <span>Composer 2</span>
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </div>
           <button type="button" className="agent-page__send" onClick={onSend} disabled={streaming || !input.trim()} aria-label="Send">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
               <path d="M5 12h14M13 5l7 7-7 7" />

@@ -1,23 +1,44 @@
 import { useRef, useSyncExternalStore } from "react";
 import type { TierLadder, TierSpec } from "./types";
-import { DEFAULT_TIER_LADDER, resolveTierByScale } from "./types";
+import {
+  DEFAULT_TIER_LADDER,
+  resolveTierByApparentSize,
+  scaleForApparentPx,
+} from "./types";
+import { LEAF_WORLD_WIDTH } from "@quanta/canvas-engine";
 
-// Tier store
+// Tier store (apparent-size based)
 // --------------------------------------------------------------------
-// Owns the current zoom state for the canvas (scale + resolved tier)
-// and exposes the ladder the product uses. Hysteresis handled here:
-// a scale change only flips the active tier if the new scale crosses
-// the OTHER side's threshold — direct threshold compare per frame
-// would ping-pong at the band boundary.
+// Owns the current zoom state for the canvas: ladder + camera scale +
+// leaf-world-size + resolved tier. Hysteresis is baked in — a scale
+// change only flips the active tier if the new scale crosses the
+// OTHER side's apparent-px threshold. Direct threshold compare per
+// frame would ping-pong at the band boundary.
+//
+// `leafWorldSize` is the reference constant used to convert camera
+// scale into an apparent-pixel value for the leaf card. It defaults
+// to `LEAF_WORLD_WIDTH` (exported by the engine) — the same constant
+// the bottom-up layout uses to size leaves. Keeping one value lets
+// the resolver stay scale-invariant across repo sizes.
 
 export interface TierState {
   ladder: TierLadder;
   scale: number;
+  leafWorldSize: number;
   activeTier: TierSpec;
 }
 
-function buildInitial(ladder: TierLadder = DEFAULT_TIER_LADDER, scale = 0.1): TierState {
-  return { ladder, scale, activeTier: resolveTierByScale(ladder, scale) };
+function buildInitial(
+  ladder: TierLadder = DEFAULT_TIER_LADDER,
+  scale = 0.1,
+  leafWorldSize = LEAF_WORLD_WIDTH,
+): TierState {
+  return {
+    ladder,
+    scale,
+    leafWorldSize,
+    activeTier: resolveTierByApparentSize(ladder, leafWorldSize, scale),
+  };
 }
 
 let state: TierState = buildInitial();
@@ -25,6 +46,10 @@ const listeners = new Set<() => void>();
 
 function emit(): void {
   for (const l of [...listeners]) l();
+}
+
+function withinBand(spec: TierSpec, apparentPx: number): boolean {
+  return apparentPx >= spec.minApparentPx && apparentPx < spec.maxApparentPx;
 }
 
 export const tierStore = {
@@ -37,32 +62,49 @@ export const tierStore = {
       listeners.delete(fn);
     };
   },
-  /** Drive the scale from the viewport for the HUD readout only —
-   *  the active tier does NOT auto-flip on scale changes any more.
-   *
-   *  Historical reason: this store used to resolve tier from scale
-   *  (threshold hysteresis) so pinching the canvas would cross tiers
-   *  for you. In practice users pinched slightly to zoom, stumbled
-   *  across a threshold, tier flipped, the scope filter reset, and
-   *  the canvas "went crazy" mid-gesture (see the 2026-04-21 bug
-   *  report). Tier is now always an explicit navigation — Explorer
-   *  click, drill-in, breadcrumb. Pinch is pure camera zoom. */
+  /** Drive the scale from the viewport AND auto-flip the active tier
+   *  when the camera crosses the current tier's apparent-px band edge.
+   *  Hysteresis — re-resolve only when the scale drives the leaf card
+   *  OUT of the current band — keeps the tier stable while the user
+   *  zooms inside its range. */
   setScale(nextScale: number): void {
     if (nextScale === state.scale) return;
-    state = { ...state, scale: nextScale };
+    const apparentPx = state.leafWorldSize * nextScale;
+    const cur = state.activeTier;
+    const nextTier = withinBand(cur, apparentPx)
+      ? cur
+      : resolveTierByApparentSize(state.ladder, state.leafWorldSize, nextScale);
+    state = { ...state, scale: nextScale, activeTier: nextTier };
+    emit();
+  },
+  /** Update the reference leaf world size. Normally a fresh layout
+   *  keeps the same constant (`LEAF_WORLD_WIDTH`), but exposing the
+   *  setter lets future work (e.g. per-language leaf sizing) drive it
+   *  without a store rewrite. Re-resolves the active tier against the
+   *  current scale so the HUD flips immediately if the leaf shrank. */
+  setLeafWorldSize(next: number): void {
+    if (!Number.isFinite(next) || next <= 0) return;
+    if (next === state.leafWorldSize) return;
+    state = {
+      ...state,
+      leafWorldSize: next,
+      activeTier: resolveTierByApparentSize(state.ladder, next, state.scale),
+    };
     emit();
   },
   /** Force-jump to a named tier (breadcrumb click, keyboard shortcut,
-   *  Explorer selection, drill-in). Sets the active tier explicitly;
-   *  scale goes to the tier's midpoint so the HUD scale readout
-   *  tracks something sensible even though no hysteresis applies. */
+   *  Explorer selection, drill-in). Seeds `state.scale` with the
+   *  camera scale that lands the leaf card in the MIDDLE of the
+   *  target tier's apparent-px band — gives the tier some breathing
+   *  room before the next user gesture flips it again. */
   jumpToTier(name: TierSpec["name"]): void {
     const spec = state.ladder.find(t => t.name === name);
     if (!spec) return;
-    const mid = Number.isFinite(spec.upThreshold)
-      ? (spec.downThreshold + spec.upThreshold) / 2
-      : spec.downThreshold * 1.5;
-    state = { ...state, scale: mid, activeTier: spec };
+    const midPx = Number.isFinite(spec.maxApparentPx)
+      ? (spec.minApparentPx + spec.maxApparentPx) / 2
+      : spec.minApparentPx * 1.5;
+    const nextScale = scaleForApparentPx(state.leafWorldSize, midPx);
+    state = { ...state, scale: nextScale, activeTier: spec };
     emit();
   },
   reset(): void {

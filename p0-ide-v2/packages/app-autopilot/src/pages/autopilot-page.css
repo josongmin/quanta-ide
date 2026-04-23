@@ -1,0 +1,283 @@
+/* Root layout for the autopilot app. */
+
+.ap-app {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.ap-app__shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1440px;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ap-app__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ap-app__stage {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-5) var(--space-6);
+  background: var(--bg);
+}
+.ap-app__stage--dense {
+  padding: var(--space-3h) var(--space-4);
+}
+
+.ap-app__topline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+  height: 44px;
+}
+.ap-app__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+}
+.ap-app__crumb-item {
+  display: inline-flex;
+  align-items: center;
+}
+.ap-app__crumb-item--now {
+  color: var(--fg);
+  font-weight: var(--fw-medium);
+}
+.ap-app__crumb-sep {
+  color: var(--fg-subtle);
+  opacity: 0.5;
+}
+.ap-app__topline-sep {
+  flex: 1;
+}
+.ap-app__topline-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+/* Shared narrow-width utility. The ARE surfaces are editorial-dense — a narrow column. */
+.ap-container {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.ap-container--wide {
+  max-width: 1280px;
+}
+.ap-container--narrow {
+  max-width: 880px;
+}
+
+/* Card primitive — used by many pages. */
+.ap-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.ap-card--tight {
+  padding: var(--space-3);
+}
+.ap-card--muted {
+  background: var(--bg-subtle);
+}
+.ap-card__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2h);
+  margin-bottom: var(--space-2h);
+}
+.ap-card__title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  letter-spacing: -0.005em;
+}
+.ap-card__eyebrow {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--fg-subtle);
+}
+.ap-card__grow {
+  flex: 1;
+}
+
+/* Mono meta used for paths, ids. */
+.ap-mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+}
+
+/* Two-column stacked detail head (title + meta / actions). */
+.ap-detail-head {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+  margin-bottom: var(--space-5);
+}
+.ap-detail-head__text {
+  flex: 1;
+  min-width: 0;
+}
+.ap-detail-head__title {
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  letter-spacing: -0.012em;
+  line-height: var(--lh-tight);
+  margin: 0;
+}
+.ap-detail-head__sub {
+  margin-top: var(--space-1h);
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  line-height: var(--lh-normal);
+}
+.ap-detail-head__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* Two-column detail grid (main + side). */
+.ap-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--space-5);
+  align-items: start;
+}
+.ap-detail-grid--wide-aside {
+  grid-template-columns: minmax(0, 1fr) 380px;
+}
+
+/* Kv list. */
+.ap-kv {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  row-gap: var(--space-2);
+  column-gap: var(--space-3);
+  margin: 0;
+}
+.ap-kv dt {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  align-self: center;
+}
+.ap-kv dd {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--fg);
+}
+
+/* Segmented control (filters). */
+.ap-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle);
+}
+.ap-seg__btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0 var(--space-2h);
+  height: 24px;
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+.ap-seg__btn:hover { color: var(--fg); background: var(--bg-hover); }
+.ap-seg__btn.is-active {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Tables — list rows. */
+.ap-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  padding: var(--space-2h) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  transition: background 120ms ease;
+  cursor: pointer;
+}
+.ap-row:last-child { border-bottom: none; }
+.ap-row:hover { background: var(--bg-hover); }
+.ap-row.is-active { background: var(--bg-selected); }
+
+/* Utility */
+.ap-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-7) var(--space-4);
+  color: var(--fg-subtle);
+  text-align: center;
+}
+.ap-empty__title {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-muted);
+}
+.ap-empty__sub {
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+  max-width: 360px;
+  line-height: var(--lh-normal);
+}
+
+/* Link-like button. */
+.ap-linklike {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  padding: 0;
+}
+.ap-linklike:hover { text-decoration: underline; }

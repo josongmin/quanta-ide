@@ -63,16 +63,26 @@ export const uiBus = {
     emit();
   },
 
-  /** Toggle the settings page. Pass explicit `open` to force a state. */
+  /** Toggle the settings page. Pass explicit `open` to force a state.
+   *  Opening settings closes the peer dashboard overlay — Shell.tsx
+   *  would otherwise keep showing settings over dashboard and the
+   *  dashboard button would look active with no content switch. */
   toggleSettings: (open?: boolean): void => {
-    state = { ...state, settingsOpen: open ?? !state.settingsOpen };
+    const next = open ?? !state.settingsOpen;
+    state = next
+      ? { ...state, settingsOpen: true, dashboardOpen: false }
+      : { ...state, settingsOpen: false };
     emit();
   },
 
   /** Toggle the dashboard overlay. Peer to settings — surfaces the
-   *  aggregated 5-layer metrics view without opening a tab. */
+   *  aggregated 5-layer metrics view without opening a tab. Opening
+   *  closes settings (see `toggleSettings` for the reverse). */
   toggleDashboard: (open?: boolean): void => {
-    state = { ...state, dashboardOpen: open ?? !state.dashboardOpen };
+    const next = open ?? !state.dashboardOpen;
+    state = next
+      ? { ...state, dashboardOpen: true, settingsOpen: false }
+      : { ...state, dashboardOpen: false };
     emit();
   },
 

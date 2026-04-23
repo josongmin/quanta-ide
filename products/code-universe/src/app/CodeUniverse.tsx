@@ -9,6 +9,7 @@ import {
 } from "../shared/api/graph-source";
 import { MOCK_GRAPH } from "../shared/config/mock-graph";
 import { CanvasShell } from "../widgets/canvas-shell";
+import { viewModeStore } from "../features/view-mode";
 import { loadViewport } from "../shared/api/viewport-persistence";
 import { useCodeUniverseUrlSync } from "./use-url-state-sync";
 import {
@@ -24,6 +25,7 @@ import {
 import { ToastHost } from "../features/toast";
 import { useStickyShortcut } from "../features/stickies";
 import { ensureA11yStyles } from "../shared/ui/a11y-styles";
+import { consumeUniverseLaunch } from "./universe-launch";
 
 // CodeUniverse
 // --------------------------------------------------------------------
@@ -83,6 +85,20 @@ export function CodeUniverse(props: CodeUniverseProps): ReactElement {
     const urlQuery = parseHash().query;
     const urlHasViewState = !!(urlQuery.mode || urlQuery.tier || urlQuery.sel);
     if (urlHasViewState) return;
+
+    const launch = consumeUniverseLaunch();
+    if (launch) {
+      if (launch.tier) {
+        const tierSpec = DEFAULT_TIER_LADDER.find(t => t.name === launch.tier);
+        if (tierSpec) tierStore.jumpToTier(tierSpec.name);
+      }
+      if (launch.selectedId && tree.byId.has(launch.selectedId)) {
+        entityStore.selectEntity(launch.selectedId);
+      }
+      if (launch.mode) viewModeStore.setMode(launch.mode);
+      return;
+    }
+
     const saved = loadViewport(props.tabId);
     if (saved) {
       // Tier: restore only if the saved name still maps to a spec.

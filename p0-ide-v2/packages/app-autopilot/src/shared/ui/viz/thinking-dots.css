@@ -1,0 +1,18 @@
+.ap-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ap-thinking__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ap-thinking-bounce 1.4s ease-in-out infinite;
+}
+.ap-thinking__dot:nth-child(2) { animation-delay: 0.18s; }
+.ap-thinking__dot:nth-child(3) { animation-delay: 0.36s; }
+@keyframes ap-thinking-bounce {
+  0%, 80%, 100% { opacity: 0.35; transform: scale(0.6); }
+  40% { opacity: 1; transform: scale(1); }
+}

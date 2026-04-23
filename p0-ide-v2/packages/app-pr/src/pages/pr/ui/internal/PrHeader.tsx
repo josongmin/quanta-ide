@@ -1,6 +1,7 @@
 import { cn } from "@quanta/ui-kit/lib";
 import type { Mode, Finding, ReviewComment } from "@quanta/app-pr/entities/pr";
 import { RiskGauge } from "../../lib/RiskGauge";
+import { PrAreChip } from "./PrAreChip";
 import {
   IconComment,
   IconClose,
@@ -95,6 +96,7 @@ export function PrHeader({
           {activePr.files} files · <span className="pr-page__add">+{activePr.added}</span>{" "}
           <span className="pr-page__rm">-{activePr.removed}</span>
         </span>
+        <PrAreChip prNumber={activePr.number} />
         {activePr.labels.map((l) => (
           <span key={l} className="pr-page__label">
             {l}

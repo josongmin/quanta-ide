@@ -108,9 +108,8 @@ export function useAgentChat() {
       ),
     );
 
-    const response = pickResponse(text);
     setTimeout(() => {
-      streamResponse(activeSessionId, response);
+      streamResponse(activeSessionId, pickResponse(text));
     }, 100);
   }, [input, streaming, activeSessionId, streamResponse]);
 

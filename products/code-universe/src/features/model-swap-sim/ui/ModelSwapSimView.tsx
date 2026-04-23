@@ -16,7 +16,6 @@ import type { Entity } from "@quanta/canvas-engine";
 import type { ViewContextValue } from "../../view-mode/model/view-descriptor";
 import { color, font, radius, shadow, space, transition } from "../../../shared/ui/tokens";
 import {
-  AI_TASK_KINDS,
   modelSwapSim,
   type AIModel,
   type AITaskKind,
@@ -586,6 +585,14 @@ const sidebar: CSSProperties = {
   borderRadius: radius.md,
   display: "flex",
   flexDirection: "column",
+};
+
+const sidebarHead: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  padding: `${space[3]}px ${space[4]}px`,
+  borderBottom: `1px solid ${color.border}`,
 };
 
 const listStyle: CSSProperties = {

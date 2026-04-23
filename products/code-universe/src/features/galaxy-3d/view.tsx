@@ -34,5 +34,79 @@ export const galaxy3DViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder", "file"],
   needs: { graph: true },
   order: 60,
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "explore",
+      "scope": "folder",
+      "intent": "explore"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "explore",
+      "diagnose"
+    ],
+    "subdomain": "3d-galaxy",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "manager"
+    ],
+    "surfaces": [
+      "view",
+      "tab"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "heuristic",
+      "actionability": "explain",
+      "cost": "medium",
+      "latency": "interactive",
+      "determinism": "heuristic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "informational"
+    },
+    "related": [
+      "embedding",
+      "code-city-3d",
+      "package-surface"
+    ],
+    "keywords": [
+      "galaxy",
+      "3d",
+      "cluster",
+      "embedding",
+      "space"
+    ]
+  },
+  decision:   {
+    "grade": "informational",
+    "supports": [],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "open-view",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "code-intel"
+  },
   Component: Galaxy3DModeView,
 };

@@ -3,28 +3,28 @@ import type { LodLevel } from "../view/types";
 import type { LodRendererKind } from "../lod/lod-config";
 import type { EdgeLayer, EdgeSeverity } from "../graph/types";
 
-// TierSpec
+// TierSpec (apparent-size bands)
 // --------------------------------------------------------------------
-// Contract bundling everything that distinguishes one zoom tier from
-// another: which entity kind is the "main" unit, which renderer paints
-// it, what edge policy applies, and the zoom thresholds that activate
-// the tier.
+// Each tier owns a pixel-size band. The active tier is picked by
+// asking: "how big is ONE leaf (file card) on screen right now?" —
+// `leafWorldSize × cameraScale = apparentPx`. The tier whose band
+// contains that apparent-pixel value is the one the scene renders.
 //
-// Relationship to the existing `LodTierConfig`:
-//   - The legacy LOD ladder (`ground`/`street`/`city`/…) targets file
-//     rendering at different zooms — same FileNode, different chrome.
-//   - `TierSpec` targets the NEW presentation where each tier has its
-//     own entity kind. Scale math (upThreshold/downThreshold) is the
-//     same; the extra fields (`visibleKind`, `edgePolicy`) are what
-//     drives the per-tier scene projection and rollup.
-//   - A product is free to pick one ladder or the other. The legacy
-//     workspace-canvas uses LodTierConfig; code-universe uses
-//     TierSpec.
+// Why pixel bands instead of raw camera scale:
+//   - With bottom-up layout (see `build-hierarchical-layout.ts`) the
+//     world grows with the repo, but the leaf-card world size stays
+//     constant. "File card is 40px on screen" means the same thing
+//     on a 10-file repo and a 50,000-file repo, so the tier feels
+//     consistent across repo sizes without per-repo retuning.
+//   - The bands describe *legibility*: below 4px a card is a dot
+//     (Universe), between 60–400px the label reads (Building), past
+//     that the inside structure is worth showing (Floor/Room).
 //
-// Renderer dispatch still goes through `canvas-pixi`'s renderer
-// registry keyed by `rendererKind`. A tier's renderer reads the
-// tier's projected scene (Entity list + tier-local edges) instead of
-// the full `WorkspaceGraph`.
+// The ladder is inner → outer (highest apparent-px band last). The
+// resolver walks outer → inner so the first tier whose `minPx` is
+// reached wins. Hysteresis (stay inside the current band until it's
+// crossed out) lives in the consumer store, not here.
+
 export interface TierEdgePolicy {
   /** Per-layer visibility. Missing layer = default (visible). */
   layers?: Partial<Record<EdgeLayer, boolean>>;
@@ -44,10 +44,13 @@ export interface TierSpec {
   /** Keyed into `canvas-pixi`'s renderer registry. */
   rendererKind: LodRendererKind;
 
-  /** Zoom thresholds. Entering: scale >= upThreshold. Exiting (hysteresis):
-   *  scale < downThreshold. Same semantics as the legacy ladder. */
-  upThreshold: number;
-  downThreshold: number;
+  /** Apparent-size band lower bound in CSS pixels (inclusive). Once
+   *  `leafWorldSize × cameraScale` reaches this, the tier activates. */
+  minApparentPx: number;
+  /** Apparent-size band upper bound in CSS pixels (exclusive). When
+   *  the apparent size crosses above, the next tier takes over. Set to
+   *  `Number.POSITIVE_INFINITY` for the innermost tier. */
+  maxApparentPx: number;
 
   /** Tier-local edge rules. `undefined` means "inherit from the
    *  tier above" — the tier ladder resolves this. */
@@ -58,8 +61,8 @@ export interface TierSpec {
 }
 
 /**
- * Ordered ladder, outermost first. The consumer (zoom-to-tier logic)
- * walks the array linearly — it does NOT binary-search by threshold
- * because the ladder is short (≤8) and the linear scan is inlinable.
+ * Ordered ladder, outermost first (smallest apparent-px band first).
+ * Inner tiers have higher `minApparentPx` — as the camera zooms in,
+ * the leaf card grows on screen and the active tier walks inward.
  */
 export type TierLadder = readonly TierSpec[];

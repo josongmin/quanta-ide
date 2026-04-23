@@ -38,5 +38,80 @@ export const packageSurfaceViewDescriptor: ViewDescriptor = {
   contexts: ["folder"],
   needs: { tree: true, selection: true },
   order: 92,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "explore",
+      "scope": "package",
+      "intent": "explore"
+    },
+    "scopes": [
+      "package",
+      "folder",
+      "module"
+    ],
+    "intents": [
+      "explore",
+      "explain"
+    ],
+    "subdomain": "package-treemap",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "manager"
+    ],
+    "surfaces": [
+      "view",
+      "tab"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "heuristic",
+      "actionability": "explain",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "heuristic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "informational"
+    },
+    "related": [
+      "embedding",
+      "package-instability",
+      "mindmap"
+    ],
+    "keywords": [
+      "package",
+      "surface",
+      "treemap",
+      "risk",
+      "files"
+    ]
+  },
+  decision:   {
+    "grade": "informational",
+    "supports": [],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "open-view",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "platform"
+  },
   Component: PackageSurfaceModeView,
 };

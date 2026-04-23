@@ -24,7 +24,7 @@ export function AgentPage() {
         rightOpen={chat.rightOpen}
         messagesEndRef={chat.messagesEndRef}
         onInputChange={chat.setInput}
-        onSend={chat.handleSend}
+        onSend={() => chat.handleSend()}
         onToggleRight={() => chat.setRightOpen((v) => !v)}
       />
 

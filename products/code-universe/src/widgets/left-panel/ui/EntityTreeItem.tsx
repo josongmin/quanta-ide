@@ -9,7 +9,6 @@ import {
 import { pickFileIcon } from "@quanta/ui-kit/ui/icons";
 import type { Entity, EntityTree } from "@quanta/canvas-engine";
 import { entityStore, useEntityState } from "../../../entities/entity";
-import { DEFAULT_TIER_LADDER, tierStore } from "../../../entities/tier";
 import { fileDisplayName, inferFileExt } from "../../../shared/lib/file-ext";
 import { color, font, radius, space, transition } from "../../../shared/ui/tokens";
 import { expansionStore, useIsExpanded } from "../model/expansion-store";
@@ -84,18 +83,16 @@ export function EntityTreeItem({ entity, tree, depth }: Props): ReactElement {
   }, []);
 
   const onClickRow = useCallback(() => {
-    // Explorer click is a deliberate navigation — treat it like a
-    // drill-in. `setAnchor` commits the scope, moves selection, and
-    // flips focus on so the canvas narrows to this entity's
-    // dependencies (same-tier) or its subtree (higher-tier anchor).
-    // Packages / folders work as overview slots: clicking a galaxy
-    // puts the anchor there and the canvas shows "everything under
-    // this package", replacing the old fixed-tier overview without
-    // losing the bird's-eye mode.
-    entityStore.setAnchor(entity.id);
-    const spec = DEFAULT_TIER_LADDER.find(t => t.visibleKind === entity.kind);
-    if (spec) tierStore.jumpToTier(spec.name);
-  }, [entity.id, entity.kind]);
+    // Explorer click is now pure navigation — select the entity
+    // (so Inspector + canvas highlight follow) and pan the camera to
+    // its position, but do NOT filter the canvas or force a tier
+    // jump. The scope filter was retired: a click reveals where an
+    // entity *lives* on the map, not a reshaped subtree-only view.
+    // Zoom is a separate axis controlled by pinch/wheel; the user
+    // picks the reading distance, not the click target.
+    entityStore.selectEntity(entity.id);
+    entityStore.locateEntity(entity.id);
+  }, [entity.id]);
   const onMouseEnter = useCallback(() => {
     entityStore.hoverEntity(entity.id);
     // After a short pause, ask the canvas to pan to this entity if it's

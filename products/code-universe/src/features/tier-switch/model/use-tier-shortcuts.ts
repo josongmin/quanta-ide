@@ -6,9 +6,9 @@ import { entityStore } from "../../../entities/entity";
 // --------------------------------------------------------------------
 // Power-user navigation without touching the mouse.
 //
-//   ⌘/Ctrl + ]         drill IN one tier (building → floor → room …)
-//   ⌘/Ctrl + [         drill OUT one tier (room → floor → building …)
-//   ⌘/Ctrl + 1..6      jump to tier N directly (1 = universe, 6 = room)
+//   ⌘/Ctrl + ]         drill IN one tier (universe → galaxy → street → building)
+//   ⌘/Ctrl + [         drill OUT one tier (building → street → galaxy → universe)
+//   ⌘/Ctrl + 1..4      jump to tier N directly (1 = universe, 4 = building)
 //
 // Installed at orchestrator level so the bindings work regardless of
 // which sub-widget has focus. We ignore the keystroke when the focus
@@ -39,7 +39,7 @@ export function useTierShortcuts(enabled = true): void {
       // Cmd+1..6 → tier 1-indexed by depth. `e.key === "1"` only fires
       // on the main number row / non-US layouts where digits map
       // straightforwardly; we guard for exact single-digit strings.
-      if (key.length === 1 && key >= "1" && key <= "6") {
+      if (key.length === 1 && key >= "1" && key <= "4") {
         const idx = parseInt(key, 10) - 1;
         const spec = DEFAULT_TIER_LADDER[idx];
         if (spec) {

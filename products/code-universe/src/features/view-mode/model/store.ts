@@ -62,9 +62,16 @@ export type ViewMode =
   // ── AI-native product features (task management / governance) ──
   | "task-queue" | "task-kanban" | "task-composer" | "task-graph" | "decision-log"
   | "context-curator" | "memory-vault" | "agent-orchestra" | "budget-console" | "audit-trail"
+  | "catalog-admin"
   // ── AI limits awareness (2026 research-driven) ──
   | "compounding-error" | "blind-spot" | "spec-gaming" | "skill-atrophy" | "benchmark-gap"
-  | "eval-contamination" | "model-swap-sim" | "determinism-drift" | "planning-horizon" | "stuck-pattern";
+  | "eval-contamination" | "model-swap-sim" | "determinism-drift" | "planning-horizon" | "stuck-pattern"
+  // ── AI runtime reliability + trust (2026 frontier) ──
+  | "trajectory-decompose" | "context-waste" | "diff-evidence" | "agentability"
+  | "message-code-mismatch" | "review-burden"
+  // ── AI interpretability + composability (2026 frontier) ──
+  | "attention-map" | "thinking-budget" | "uncertainty-map" | "counterfactual"
+  | "context-shape" | "skill-library" | "anticipate" | "red-team";
 
 export interface ViewModeState {
   mode: ViewMode;

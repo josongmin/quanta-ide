@@ -21,7 +21,13 @@ export interface TweenHandle {
   cancel(): void;
 }
 
-const DEFAULT_DURATION_MS = 320;
+// Single source of truth for all canvas navigation tweens (drill-in,
+// anchor change, locate, expand/collapse, minimap jump, Cmd+0 fit).
+// Fixed — never distance-scaled — so arrival time feels identical
+// whether the target is on-screen or across the workspace. 240ms is
+// the "fast-travel" sweet spot with easeOutCubic: snappy on entry,
+// quick deceleration, no jarring cut-off.
+export const NAV_DURATION_MS = 240;
 
 /**
  * Kick off an ease-out-cubic tween from `from` to `to`, calling
@@ -32,7 +38,7 @@ export function startCameraTween(
   from: CameraState,
   to: CameraState,
   onUpdate: (c: CameraState) => void,
-  durationMs: number = DEFAULT_DURATION_MS,
+  durationMs: number = NAV_DURATION_MS,
 ): TweenHandle {
   let rafId: number | null = null;
   let cancelled = false;

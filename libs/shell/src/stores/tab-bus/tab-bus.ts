@@ -3,10 +3,16 @@ import type { TabApp } from "@quanta/shell-contract";
 
 export type { TabApp };
 
+export interface OpenTabRoute {
+  path?: string[];
+  query?: Record<string, string>;
+}
+
 export interface OpenTabRequest {
   id: number;
   app: TabApp;
   label: string;
+  route?: OpenTabRoute;
 }
 
 interface TabBusState {
@@ -29,9 +35,9 @@ export const tabBus = {
       listeners.delete(l);
     };
   },
-  open(app: TabApp, label: string) {
+  open(app: TabApp, label: string, options?: { route?: OpenTabRoute }) {
     counter += 1;
-    state = { pending: { id: counter, app, label } };
+    state = { pending: { id: counter, app, label, route: options?.route } };
     emit();
   },
   consume() {

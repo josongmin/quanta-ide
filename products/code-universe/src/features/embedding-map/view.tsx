@@ -53,5 +53,81 @@ export const embeddingViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder", "file"],
   needs: { tree: true, graph: true },
   order: 50,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "explore",
+      "scope": "folder",
+      "intent": "diagnose"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "explore",
+      "diagnose"
+    ],
+    "subdomain": "structural-embedding",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "manager"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "heuristic",
+      "actionability": "explain",
+      "cost": "medium",
+      "latency": "interactive",
+      "determinism": "heuristic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "informational"
+    },
+    "related": [
+      "galaxy-3d",
+      "package-surface",
+      "file-twins"
+    ],
+    "keywords": [
+      "embedding",
+      "clustering",
+      "umap",
+      "similarity",
+      "layout"
+    ]
+  },
+  decision:   {
+    "grade": "informational",
+    "supports": [],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "open-view",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "code-intel"
+  },
   Component: EmbeddingModeView,
 };

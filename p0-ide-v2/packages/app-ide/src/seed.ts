@@ -1,6 +1,66 @@
 import type { FeatureManifest } from "@quanta/shell-contract";
 import { focusStore } from "@quanta/app-ide/stores/focus-store";
 import { tabBus } from "@quanta/shell/stores/tab-bus";
+import {
+  listLaunchableAnalysisRecords,
+  primeUniverseLaunch,
+  type AnalysisCatalogRecord,
+} from "@quanta/code-universe";
+
+
+function openUniverseView(mode: AnalysisCatalogRecord["id"], label: string): void {
+  primeUniverseLaunch({ mode });
+  tabBus.open("universe", label);
+}
+
+function domainTitle(domain: string): string {
+  return domain
+    .split("-")
+    .map((part) => part === "ai" ? "AI" : part === "se" ? "SE" : part[0]?.toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function analysisFeatureFromRecord(record: AnalysisCatalogRecord): FeatureManifest {
+  const commandId = record.launch.commandId ?? `universe.${record.id}`;
+  const tabTitle = record.launch.tabTitle ?? `${domainTitle(record.taxonomy.primary.domain)} · ${record.shortLabel}`;
+  return {
+    id: `universe-${record.id}`,
+    title: record.title,
+    description: record.summary,
+    category: "intelligence",
+    visibility: "user",
+    version: record.quality.maturity === "core" ? "1.0.0" : "0.1.0",
+    badge: record.hygieneDebt ? "experimental" : record.quality.maturity === "core" ? undefined : "new",
+    analysis: {
+      kind: "analysis-view",
+      primary: record.taxonomy.primary,
+      domains: record.taxonomy.domains,
+      scopes: record.taxonomy.scopes,
+      intents: record.taxonomy.intents,
+      subdomain: record.taxonomy.subdomain,
+      decisionGrade: record.decision.grade,
+      decisionTargets: record.decision.supports,
+      evidenceClass: record.decision.evidenceClass ?? record.taxonomy.signal.evidenceLevel,
+      capabilityKinds: record.capabilityKinds,
+      actions: record.actions,
+      maturity: record.quality.maturity,
+      hygieneDebt: record.hygieneDebt,
+      tabTitle,
+      commandId,
+    },
+    commands: [
+      {
+        id: commandId,
+        title: `Open ${record.title}`,
+        description: record.usecase,
+        run: () => openUniverseView(record.id, tabTitle),
+      },
+    ],
+  };
+}
+
+const UNIVERSE_ANALYSIS_FEATURES: readonly FeatureManifest[] =
+  listLaunchableAnalysisRecords().map(analysisFeatureFromRecord);
 
 /**
  * IDE app feature manifests.
@@ -148,7 +208,7 @@ export const IDE_FEATURES: readonly FeatureManifest[] = [
     primary: {
       tileLabel: "Code Universe",
       tileHint: "⌘⇧O",
-      tileRun: () => tabBus.open("workspace", "Code Universe"),
+      tileRun: () => tabBus.open("universe", "Code Universe"),
     },
   },
   {
@@ -171,6 +231,7 @@ export const IDE_FEATURES: readonly FeatureManifest[] = [
       },
     ],
   },
+  ...UNIVERSE_ANALYSIS_FEATURES,
   {
     id: "security-rules",
     title: "Security Rules",

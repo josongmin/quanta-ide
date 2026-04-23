@@ -35,5 +35,81 @@ export const pathfinderViewDescriptor: ViewDescriptor = {
   contexts: ["file"],
   needs: { tree: true, graph: true, selection: true },
   order: 180,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-architecture",
+      "scope": "file",
+      "intent": "explain"
+    },
+    "scopes": [
+      "file",
+      "folder",
+      "repo"
+    ],
+    "intents": [
+      "explain",
+      "diagnose"
+    ],
+    "subdomain": "dependency-path",
+    "personas": [
+      "developer",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "explain",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "advisory"
+    },
+    "related": [
+      "mindmap",
+      "neighborhood",
+      "matrix"
+    ],
+    "keywords": [
+      "path",
+      "dependency",
+      "bfs",
+      "trace",
+      "file"
+    ]
+  },
+  decision:   {
+    "grade": "advisory",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "architecture"
+  },
   Component: PathfinderModeView,
 };

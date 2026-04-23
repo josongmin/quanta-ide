@@ -6,7 +6,9 @@ export type {
 } from "./model/types";
 export {
   DEFAULT_TIER_LADDER,
-  resolveTierByScale,
+  resolveTierByApparentSize,
+  apparentPxFor,
+  scaleForApparentPx,
   rollupEdges,
 } from "./model/types";
 export {

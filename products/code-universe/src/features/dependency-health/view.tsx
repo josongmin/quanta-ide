@@ -32,5 +32,86 @@ export const dependencyHealthViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { tree: true },
   order: 570,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input",
+    "policy-control"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-quality",
+      "scope": "package",
+      "intent": "verify"
+    },
+    "scopes": [
+      "repo",
+      "package",
+      "module"
+    ],
+    "intents": [
+      "verify",
+      "diagnose"
+    ],
+    "subdomain": "dependency-health",
+    "personas": [
+      "developer",
+      "platform",
+      "security"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "direct-action",
+      "cost": "medium",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "auditable",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "package-instability",
+      "dep-fossil",
+      "sbom"
+    ],
+    "keywords": [
+      "dependency",
+      "health",
+      "vuln",
+      "license",
+      "update"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "policy-audit",
+      "refactor"
+    ],
+    "evidenceClass": "auditable",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related",
+    "pin-dashboard"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "quality"
+  },
   Component: DependencyHealthModeView,
 };

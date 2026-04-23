@@ -40,5 +40,83 @@ export const packageEvolutionViewDescriptor: ViewDescriptor = {
   contexts: ["folder"],
   needs: { tree: true, selection: true },
   order: 820,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-evolution",
+      "scope": "folder",
+      "intent": "explore"
+    },
+    "scopes": [
+      "folder",
+      "package",
+      "repo"
+    ],
+    "intents": [
+      "explore",
+      "diagnose"
+    ],
+    "subdomain": "package-growth",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "manager"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "explain",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "bounded",
+      "evidenceLevel": "strong",
+      "decisionGrade": "advisory"
+    },
+    "related": [
+      "timelapse",
+      "new-since",
+      "evolution-dna"
+    ],
+    "keywords": [
+      "package",
+      "evolution",
+      "churn",
+      "team",
+      "growth"
+    ]
+  },
+  decision:   {
+    "grade": "advisory",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "code-intel"
+  },
   Component: PackageEvolutionModeView,
 };

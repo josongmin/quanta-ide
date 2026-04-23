@@ -34,5 +34,84 @@ export const cycleGenesisViewDescriptor: ViewDescriptor = {
   contexts: ["repo"],
   needs: { graph: true },
   order: 760,
+  capabilityKinds:   [
+    "view",
+    "decision-input",
+    "policy-control"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-refactor-change",
+      "scope": "repo",
+      "intent": "diagnose"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "file"
+    ],
+    "intents": [
+      "diagnose",
+      "verify"
+    ],
+    "subdomain": "cycle-genesis",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "manager"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "triage",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "smell-history",
+      "arch-drift",
+      "temporal-coupling"
+    ],
+    "keywords": [
+      "cycle",
+      "genesis",
+      "scc",
+      "blame",
+      "refactor"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related",
+    "attach-to-policy-check"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "architecture"
+  },
   Component: CycleGenesisModeView,
 };

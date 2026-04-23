@@ -1,32 +1,33 @@
 import type { TierLadder, TierSpec } from "./types";
 
 // Default ladder for the Code Universe presentation.
-//
-// Thresholds are cloned from the legacy `LOD_TIERS` (lod-config.ts)
-// because the user's zoom muscle memory should not change when they
-// switch between legacy workspace-canvas and the new code-universe.
-// Any retuning happens here, not at renderer sites — the app reads
-// thresholds from the ladder, not from magic numbers.
+// --------------------------------------------------------------------
+// Bands are apparent pixel sizes of ONE leaf (file card) on screen.
+// Reference constant: `LEAF_WORLD_WIDTH` (= `FILE_CARD_W` = 560 world
+// units). The resolver computes `apparentPx = LEAF_WORLD_WIDTH ×
+// cameraScale`, then picks the band containing that value. Because
+// the leaf world size is fixed, the tier feels the same on a 10-file
+// repo and a 50,000-file repo — repo size changes world size, not
+// leaf size.
 //
 // `visibleKind` is what distinguishes each tier:
 //   - universe:   the workspace as a single constellation of galaxies
 //   - galaxy:     packages (one tile per top-level dir)
 //   - street:     directories inside a package (treemap within galaxy tile)
-//   - building:   files (one card per file, with blame + source preview)
-//   - floor:      classes/modules inside a file (function groups)
-//   - room:       individual functions (deep inspection + edit)
+//   - building:   files (one card per file)
+//   - floor:      classes/modules inside a file (function blocks)
+//   - room:       individual functions (body + call edges)
 //
-// Edge policy defaults progressively: universe shows only
-// safety+impact at high severity (sparse, legible); floor/room show
-// everything (the user asked for detail). Individual tiers can
-// override via their `edgePolicy` field.
+// Edge policy tightens progressively outward: at Universe only
+// safety-critical edges read (anything else is noise at that density);
+// at Room everything is on because the reader is inspecting source.
 
 const UNIVERSE: TierSpec = {
   name: "universe",
   visibleKind: "universe",
   rendererKind: "supercluster",
-  upThreshold: 0.015,
-  downThreshold: 0.008,
+  minApparentPx: 0,
+  maxApparentPx: 4,
   edgePolicy: { minSeverity: "critical" },
   label: "Universe",
 };
@@ -35,8 +36,8 @@ const GALAXY: TierSpec = {
   name: "supergalaxy",
   visibleKind: "galaxy",
   rendererKind: "cluster",
-  upThreshold: 0.07,
-  downThreshold: 0.015,
+  minApparentPx: 4,
+  maxApparentPx: 20,
   edgePolicy: { minSeverity: "high" },
   label: "Galaxy",
 };
@@ -45,8 +46,8 @@ const STREET: TierSpec = {
   name: "galaxy",
   visibleKind: "street",
   rendererKind: "galaxy",
-  upThreshold: 0.10,
-  downThreshold: 0.07,
+  minApparentPx: 20,
+  maxApparentPx: 80,
   edgePolicy: { minSeverity: "high", layers: { structural: false, flow: false } },
   label: "Street",
 };
@@ -55,8 +56,8 @@ const BUILDING: TierSpec = {
   name: "city",
   visibleKind: "building",
   rendererKind: "city",
-  upThreshold: 0.13,
-  downThreshold: 0.10,
+  minApparentPx: 80,
+  maxApparentPx: 400,
   edgePolicy: { minSeverity: "medium", layers: { flow: false } },
   label: "Building",
 };
@@ -65,8 +66,8 @@ const FLOOR: TierSpec = {
   name: "street",
   visibleKind: "floor",
   rendererKind: "street",
-  upThreshold: 0.70,
-  downThreshold: 0.13,
+  minApparentPx: 400,
+  maxApparentPx: 1600,
   edgePolicy: { minSeverity: "low" },
   label: "Floor",
 };
@@ -75,8 +76,8 @@ const ROOM: TierSpec = {
   name: "ground",
   visibleKind: "room",
   rendererKind: "ground",
-  upThreshold: Number.POSITIVE_INFINITY,
-  downThreshold: 0.70,
+  minApparentPx: 1600,
+  maxApparentPx: Number.POSITIVE_INFINITY,
   edgePolicy: { minSeverity: "low" },
   label: "Room",
 };
@@ -91,27 +92,45 @@ export const DEFAULT_TIER_LADDER: TierLadder = [
 ];
 
 /**
- * Look up a tier by the active viewport scale. Walks the ladder
- * inner → outer (room → universe) and returns the first tier whose
- * band contains `scale` (scale >= downThreshold). The innermost
- * tier's `upThreshold` is `+Infinity`, so any high scale falls into
- * it. Hysteresis is the caller's job (feed `currentTier` back in
- * and only switch when the *other* side's threshold is crossed).
+ * Look up the tier whose apparent-pixel band contains the current
+ * leaf-card apparent size. Walks the ladder inner → outer and returns
+ * the first tier whose `minApparentPx` is satisfied.
+ *
+ * @param ladder          The tier ladder (outermost first).
+ * @param leafWorldSize   World-space size of a leaf (file card). Constant
+ *                        across a session — pass `LEAF_WORLD_WIDTH` from
+ *                        the layout module.
+ * @param cameraScale     Current camera pixels-per-world-unit.
  */
-export function resolveTierByScale(
+export function resolveTierByApparentSize(
   ladder: TierLadder,
-  scale: number,
+  leafWorldSize: number,
+  cameraScale: number,
 ): TierSpec {
-  // Inner-first walk — each band is [downThreshold, upThreshold),
-  // and the innermost tier's down is the highest, so the first tier
-  // whose down <= scale is the correct pick.
+  const apparentPx = leafWorldSize * cameraScale;
+  // Inner-first walk: innermost tier's `minApparentPx` is the largest,
+  // so the first tier whose bound is reached is the correct pick.
   for (let i = ladder.length - 1; i >= 0; i--) {
     const spec = ladder[i];
     if (!spec) continue;
-    if (scale >= spec.downThreshold) return spec;
+    if (apparentPx >= spec.minApparentPx) return spec;
   }
-  // Fallback: outermost tier. Covers pathological zero/negative scale.
   const first = ladder[0];
   if (!first) throw new Error("empty tier ladder");
   return first;
+}
+
+/** Compute the apparent pixel size for a given leaf world size and
+ *  camera scale. Exposed for callers that need to show the current
+ *  apparent size in UI (debug HUD, tooltip). */
+export function apparentPxFor(leafWorldSize: number, cameraScale: number): number {
+  return leafWorldSize * cameraScale;
+}
+
+/** Inverse of `apparentPxFor` — given a target apparent pixel value,
+ *  return the camera scale that produces it. Used by `jumpToTier` to
+ *  seed a sensible camera scale when snapping to a named tier. */
+export function scaleForApparentPx(leafWorldSize: number, apparentPx: number): number {
+  if (leafWorldSize <= 0) return 1;
+  return apparentPx / leafWorldSize;
 }

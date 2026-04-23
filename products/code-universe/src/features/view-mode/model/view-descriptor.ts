@@ -14,6 +14,14 @@ import type { ReactElement } from "react";
 import type { WorkspaceGraph } from "@quanta/canvas-engine";
 import type { EntityTree } from "../../../entities/entity";
 import type { ViewMode } from "./store";
+import type {
+  InsightActionHook,
+  InsightCapabilityKind,
+  InsightDecisionBinding,
+  InsightQualityBinding,
+  InsightWorkflowBinding,
+  ViewTaxonomy,
+} from "./taxonomy";
 
 // ── Categorisation + eligibility ──────────────────────────────────────
 
@@ -79,8 +87,20 @@ export interface ViewDescriptor {
   tech: string;
   /** Longer "when to reach for this" copy shown in the picker detail. */
   usecase: string;
-  /** Picker grouping. */
+  /** Picker grouping. Kept for backwards-compatible UI buckets. */
   category: ViewCategory;
+  /** Canonical product classification. New decision-critical views must provide this. */
+  taxonomy?: ViewTaxonomy;
+  /** Capability graph tags consumed by catalog/workflow/admission surfaces. */
+  capabilityKinds?: readonly InsightCapabilityKind[];
+  /** Decision targets this view can support. */
+  decision?: InsightDecisionBinding;
+  /** Runtime actions this insight can attach to. */
+  actions?: readonly InsightActionHook[];
+  /** Workflow-stack attachment metadata. */
+  workflow?: InsightWorkflowBinding;
+  /** Ownership/lifecycle metadata for catalog admin. */
+  quality?: InsightQualityBinding;
   /** Contexts where this mode is useful. Picker filters by current ctx. */
   contexts: readonly ViewCtx[];
   /** Data dependencies. */

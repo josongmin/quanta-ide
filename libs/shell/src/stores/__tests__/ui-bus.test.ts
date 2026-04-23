@@ -102,6 +102,32 @@ describe("uiBus", () => {
     expect(bus.get().settingsOpen).toBe(false);
   });
 
+  it("opening settings closes an open dashboard (peer overlays are mutually exclusive)", async () => {
+    const bus = await freshBus();
+    bus.toggleDashboard(true);
+    expect(bus.get().dashboardOpen).toBe(true);
+    bus.toggleSettings(true);
+    expect(bus.get().settingsOpen).toBe(true);
+    expect(bus.get().dashboardOpen).toBe(false);
+  });
+
+  it("opening dashboard closes open settings (peer overlays are mutually exclusive)", async () => {
+    const bus = await freshBus();
+    bus.toggleSettings(true);
+    expect(bus.get().settingsOpen).toBe(true);
+    bus.toggleDashboard(true);
+    expect(bus.get().dashboardOpen).toBe(true);
+    expect(bus.get().settingsOpen).toBe(false);
+  });
+
+  it("closing settings does not touch dashboard state", async () => {
+    const bus = await freshBus();
+    bus.toggleDashboard(true);
+    bus.toggleSettings(false);
+    expect(bus.get().dashboardOpen).toBe(true);
+    expect(bus.get().settingsOpen).toBe(false);
+  });
+
   it("selectFeature sets the selectedFeatureId", async () => {
     const bus = await freshBus();
     expect(bus.get().selectedFeatureId).toBeUndefined();

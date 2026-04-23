@@ -38,5 +38,84 @@ export const packageInstabilityViewDescriptor: ViewDescriptor = {
   contexts: ["folder"],
   needs: { tree: true, selection: true },
   order: 540,
+
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-refactor-change",
+      "scope": "package",
+      "intent": "diagnose"
+    },
+    "scopes": [
+      "package",
+      "repo",
+      "folder"
+    ],
+    "intents": [
+      "diagnose",
+      "optimize"
+    ],
+    "subdomain": "instability",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "platform"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "triage",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "deterministic",
+      "evidenceLevel": "strong",
+      "decisionGrade": "triage"
+    },
+    "related": [
+      "service-topo",
+      "package-evolution",
+      "chord"
+    ],
+    "keywords": [
+      "instability",
+      "abstractness",
+      "martin",
+      "refactor",
+      "package"
+    ]
+  },
+  decision:   {
+    "grade": "triage",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related",
+    "pin-dashboard"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "architecture"
+  },
   Component: PackageInstabilityModeView,
 };

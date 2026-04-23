@@ -23,5 +23,81 @@ export const evolutionDnaViewDescriptor: ViewDescriptor = {
   contexts: ["file"],
   needs: { tree: true, selection: true },
   order: 680,
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-evolution",
+      "scope": "file",
+      "intent": "explain"
+    },
+    "scopes": [
+      "file",
+      "folder",
+      "repo"
+    ],
+    "intents": [
+      "explain",
+      "diagnose"
+    ],
+    "subdomain": "file-evolution-dna",
+    "personas": [
+      "developer",
+      "reviewer",
+      "tech-lead"
+    ],
+    "surfaces": [
+      "view",
+      "tab"
+    ],
+    "maturity": "advanced",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "explain",
+      "cost": "medium",
+      "latency": "interactive",
+      "determinism": "bounded",
+      "evidenceLevel": "strong",
+      "decisionGrade": "advisory"
+    },
+    "related": [
+      "blame-clock",
+      "smell-history",
+      "temporal-coupling"
+    ],
+    "keywords": [
+      "dna",
+      "blame",
+      "commit",
+      "evolution",
+      "file"
+    ]
+  },
+  decision:   {
+    "grade": "advisory",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": false,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "advanced",
+    "owner": "code-intel"
+  },
   Component: EvolutionDnaModeView,
 };

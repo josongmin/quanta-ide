@@ -1,0 +1,148 @@
+import type { ProofArtifact } from "../model/types";
+import { hoursAgo } from "@quanta/app-autopilot/shared/lib";
+
+export const PROOFS: readonly ProofArtifact[] = [
+  {
+    id: "proof_005_billing_cycle",
+    runId: "run_005_billing_cycle",
+    workItemId: "work_billing_cycle_001",
+    operatorId: "refactor",
+    goalLinks: ["goal_billing_structural_health"],
+    opportunityLinks: [],
+    changedFiles: [
+      "services/billing/src/domain/ports/OrderResolver.ts",
+      "services/billing/src/infra/order-resolver.ts",
+      "services/billing/src/orchestrator.ts",
+      "services/billing/src/application/pricing-flow.ts",
+      "services/billing/src/application/refund-flow.ts",
+      "services/billing/src/index.ts",
+    ],
+    validations: [
+      { kind: "typecheck", status: "pass", summary: "tsc --noEmit" },
+      { kind: "lint", status: "pass", summary: "eslint — 0 errors, 0 warnings" },
+      { kind: "tests", status: "pass", summary: "412/412 passed (services/billing)" },
+      { kind: "api_diff", status: "pass", summary: "No public surface changes" },
+      { kind: "rule_diff", status: "pass", summary: "No new architecture rule violations" },
+      { kind: "metric_delta", status: "pass", summary: "dependency_cycles 3→2; god_class_burden 42→40" },
+    ],
+    metricDiffs: [
+      { metric: "dependency_cycles", before: 3, after: 2, delta: -1 },
+      { metric: "god_class_burden", before: 42, after: 40, delta: -2 },
+    ],
+    apiDiff: { changed: false, details: [] },
+    ruleDiff: {
+      newViolations: 0,
+      resolvedViolations: 0,
+      details: ["orchestrator.ts no longer imports infra/order-resolver directly"],
+    },
+    risk: {
+      tier: "medium",
+      reasons: [
+        "Touches orchestrator.ts — fan-in 37",
+        "6 callsites redirected",
+        "Inversion introduces new port; runtime equivalence asserted by tests",
+      ],
+      confidence: 0.82,
+    },
+    uncertainties: [
+      "No integration test covers refund-flow's interaction with new OrderResolver injection",
+    ],
+    reviewerRecommendation: {
+      kind: "review",
+      rationale:
+        "Bounded structural refactor with strong proof. Review because orchestrator fan-in is high and 1 uncertainty remains.",
+      suggestedReviewerKinds: ["domain_owner:payments", "senior_refactor_reviewer"],
+    },
+    createdAt: hoursAgo(1),
+    inputSnapshotId: "snap_2026_04_23_argon_main",
+    outputSnapshotId: "snap_run_005_post",
+    metricVersionSet: { dependency_cycles: "2.1.0", god_class_burden: "1.4.2" },
+    computedBy: "metric_engine",
+    reproducibilityHash: "sha256:a92f8c…b31d",
+  },
+  {
+    id: "proof_004_pricing_tests",
+    runId: "run_004_pricing_test_backfill",
+    workItemId: "work_test_backfill_001",
+    operatorId: "test_generation",
+    goalLinks: ["goal_test_resilience"],
+    opportunityLinks: ["opp_missing_tests_pricing"],
+    changedFiles: [
+      "services/pricing/test/unit/tier-rounding.test.ts",
+      "services/pricing/test/fixtures/tier-cases.ts",
+    ],
+    validations: [
+      { kind: "typecheck", status: "pass", summary: "tsc --noEmit" },
+      { kind: "lint", status: "pass", summary: "eslint clean" },
+      { kind: "tests", status: "pass", summary: "14/14 new tests pass; no existing regression" },
+      { kind: "metric_delta", status: "pass", summary: "coverage 0.78 → 0.79" },
+    ],
+    metricDiffs: [{ metric: "coverage", before: 0.78, after: 0.79, delta: 0.01 }],
+    risk: {
+      tier: "low",
+      reasons: ["test-only change", "no production code touched", "mechanical fixture generation"],
+      confidence: 0.96,
+    },
+    uncertainties: [],
+    reviewerRecommendation: {
+      kind: "skip",
+      rationale:
+        "Test-only. Proof complete. No public surface change. Safe-production profile permits auto-merge.",
+      suggestedReviewerKinds: [],
+    },
+    createdAt: hoursAgo(10),
+    inputSnapshotId: "snap_2026_04_22_argon_main",
+    outputSnapshotId: "snap_run_004_post",
+    metricVersionSet: { coverage: "1.1.0" },
+    computedBy: "metric_engine",
+    reproducibilityHash: "sha256:11e0d2…7f4a",
+  },
+  {
+    id: "proof_002_dashboard_layer",
+    runId: "run_002_dashboard_layer",
+    workItemId: "work_repo_arch_002",
+    operatorId: "rule_repair",
+    goalLinks: ["goal_repo_arch_conformance"],
+    opportunityLinks: ["opp_dashboard_layer_leak"],
+    changedFiles: [
+      "apps/dashboard/src/features/billing/BillingChart.tsx",
+      "apps/dashboard/src/features/billing/BillingSummary.tsx",
+      "apps/dashboard/src/features/billing/RefundList.tsx",
+      "apps/dashboard/src/features/billing/InvoiceRow.tsx",
+    ],
+    validations: [
+      { kind: "typecheck", status: "pass", summary: "tsc --noEmit" },
+      { kind: "lint", status: "pass", summary: "eslint clean" },
+      { kind: "tests", status: "pass", summary: "all dashboard tests pass" },
+      { kind: "rule_diff", status: "pass", summary: "4 layer_violations resolved, 0 introduced" },
+    ],
+    metricDiffs: [{ metric: "layer_violations", before: 19, after: 15, delta: -4 }],
+    ruleDiff: {
+      newViolations: 0,
+      resolvedViolations: 4,
+      details: [
+        "BillingChart.tsx: routed through @argon/dashboard-adapters",
+        "BillingSummary.tsx: routed through @argon/dashboard-adapters",
+        "RefundList.tsx: routed through @argon/dashboard-adapters",
+        "InvoiceRow.tsx: routed through @argon/dashboard-adapters",
+      ],
+    },
+    risk: {
+      tier: "low",
+      reasons: ["Mechanical import rewrite", "No behavior change", "All callsites covered by tests"],
+      confidence: 0.98,
+    },
+    uncertainties: [],
+    reviewerRecommendation: {
+      kind: "skip",
+      rationale: "Mechanical rewrite. Rule-diff shows 4 resolved / 0 new. No ambiguity.",
+      suggestedReviewerKinds: [],
+    },
+    createdAt: hoursAgo(34),
+    inputSnapshotId: "snap_2026_04_22_argon_main",
+    outputSnapshotId: "snap_run_002_post",
+    metricVersionSet: { layer_violations: "3.0.0" },
+    computedBy: "metric_engine",
+    reproducibilityHash: "sha256:5c8e41…a019",
+  },
+];

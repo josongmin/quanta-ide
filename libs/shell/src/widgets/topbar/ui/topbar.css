@@ -64,13 +64,13 @@
   transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 .topbar__home:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-hover);
   color: var(--fg);
 }
 .topbar__home.is-active {
   color: var(--fg);
   background: var(--bg);
-  box-shadow: 0 0 0 1px var(--topbar-border), 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 0 0 1px var(--topbar-border), var(--shadow-sm);
 }
 .topbar__home.is-active:hover {
   background: var(--bg);
@@ -123,33 +123,28 @@
 }
 
 .topbar__tab:not(.is-active) {
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  background: transparent;
 }
 
 .topbar__tab:not(.is-active):hover {
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  background: var(--bg-hover);
   color: var(--fg-muted);
 }
 
 /* Active tab — "lifted chip" (Linear/Arc-style):
-   hairline outer border + 1px inner top highlight (light source from
-   above) + soft drop shadow. Reads as gently elevated off the chrome
-   rather than outlined. */
+   hairline outer border + soft drop shadow. Reads as gently elevated off
+   the chrome rather than outlined. */
 .topbar__tab.is-active {
   background: var(--bg);
   color: var(--fg);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--bg) 60%, #ffffff),
-    0 0 0 1px color-mix(in srgb, var(--topbar-border) 90%, var(--fg)),
-    0 1px 1px rgba(15, 23, 42, 0.04),
-    0 2px 6px rgba(15, 23, 42, 0.06);
+    0 0 0 1px var(--border-strong),
+    var(--shadow-sm);
 }
 [data-theme="dark"] .topbar__tab.is-active {
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 0 0 1px color-mix(in srgb, var(--topbar-border) 85%, var(--fg)),
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 4px 10px rgba(0, 0, 0, 0.25);
+    0 0 0 1px var(--border-strong),
+    var(--shadow-md);
 }
 
 /* Width transitions only while a tab is animating closed (inline flex on that button) */
@@ -177,7 +172,7 @@
 .is-close-settling .topbar__tab,
 .is-close-settling .topbar__tab:hover {
   color: var(--fg-subtle);
-  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  background: transparent;
 }
 .is-close-settling .topbar__tab-close {
   opacity: 0;
@@ -263,7 +258,7 @@
   transition: background 0.12s ease, color 0.12s ease;
 }
 .topbar__tab-add:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-hover);
   color: var(--fg);
 }
 
@@ -297,7 +292,7 @@
 [data-theme="dark"] .topbar-tab-tooltip {
   background: var(--tooltip-bg);
   color: var(--tooltip-fg);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-md);
 }
 
 /* ── Right cluster (profile) + fixed utilities ───────────────────── */
@@ -336,13 +331,13 @@
   transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 .topbar__icon-btn:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: var(--bg-hover);
   color: var(--fg);
 }
 .topbar__icon-btn.is-active {
   color: var(--fg);
   background: var(--bg);
-  box-shadow: 0 0 0 1px var(--topbar-border), 0 1px 2px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 0 0 1px var(--topbar-border), var(--shadow-sm);
 }
 .topbar__icon-btn.is-active:hover {
   background: var(--bg);

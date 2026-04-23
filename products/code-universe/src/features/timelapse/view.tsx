@@ -23,5 +23,82 @@ export const timelapseViewDescriptor: ViewDescriptor = {
   contexts: ["repo", "folder"],
   needs: { tree: true },
   order: 650,
+  capabilityKinds:   [
+    "view",
+    "decision-input"
+  ],
+  taxonomy:   {
+    "primary": {
+      "domain": "se-evolution",
+      "scope": "repo",
+      "intent": "explore"
+    },
+    "scopes": [
+      "repo",
+      "folder",
+      "project"
+    ],
+    "intents": [
+      "explore",
+      "diagnose"
+    ],
+    "subdomain": "commit-timelapse",
+    "personas": [
+      "developer",
+      "tech-lead",
+      "manager"
+    ],
+    "surfaces": [
+      "view",
+      "tab",
+      "dashboard-card"
+    ],
+    "maturity": "core",
+    "signal": {
+      "dataFreshness": "snapshot",
+      "confidence": "measured",
+      "actionability": "explain",
+      "cost": "low",
+      "latency": "interactive",
+      "determinism": "bounded",
+      "evidenceLevel": "strong",
+      "decisionGrade": "advisory"
+    },
+    "related": [
+      "new-since",
+      "package-evolution",
+      "heat-rainfall"
+    ],
+    "keywords": [
+      "timelapse",
+      "commit",
+      "history",
+      "activity",
+      "season"
+    ]
+  },
+  decision:   {
+    "grade": "advisory",
+    "supports": [
+      "refactor"
+    ],
+    "evidenceClass": "strong",
+    "failClosedEligible": false,
+    "humanReviewRequired": false
+  },
+  actions:   [
+    "open-tab",
+    "run-analysis",
+    "compare-related"
+  ],
+  workflow:   {
+    "canBeAutoSuggested": true,
+    "canBeAutoAttached": false,
+    "requiresOrderedExecution": false
+  },
+  quality:   {
+    "maturity": "core",
+    "owner": "code-intel"
+  },
   Component: TimelapseModeView,
 };

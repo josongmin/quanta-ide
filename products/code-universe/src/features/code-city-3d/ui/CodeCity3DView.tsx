@@ -108,7 +108,18 @@ function CodeCity3DViewImpl({
   const [idle, setIdle] = useState(true);
   const [dragging, setDragging] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const dragRef = useRef({ active: false, x0: 0, yaw0: 0, pointerId: -1 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [userZoom, setUserZoom] = useState(1);
+  const dragRef = useRef({
+    active: false,
+    mode: "rotate" as "rotate" | "pan",
+    x0: 0,
+    y0: 0,
+    yaw0: 0,
+    panX0: 0,
+    panY0: 0,
+    pointerId: -1,
+  });
 
   useEffect(() => {
     const s = document.createElement("style");
@@ -140,11 +151,16 @@ function CodeCity3DViewImpl({
   const bbox = useMemo(() => sceneBBox(districts), [districts]);
 
   const handleDown = (e: React.PointerEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.button !== 1) return;
+    const isPan = e.button === 1 || e.shiftKey || e.metaKey || e.altKey;
     dragRef.current = {
       active: true,
+      mode: isPan ? "pan" : "rotate",
       x0: e.clientX,
+      y0: e.clientY,
       yaw0: yaw,
+      panX0: pan.x,
+      panY0: pan.y,
       pointerId: e.pointerId,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -154,8 +170,15 @@ function CodeCity3DViewImpl({
   const handleMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const d = dragRef.current;
     if (!d.active || e.pointerId !== d.pointerId) return;
-    const delta = (e.clientX - d.x0) * 0.006;
-    setYaw(d.yaw0 + delta);
+    if (d.mode === "pan") {
+      setPan({
+        x: d.panX0 + (e.clientX - d.x0),
+        y: d.panY0 + (e.clientY - d.y0),
+      });
+    } else {
+      const delta = (e.clientX - d.x0) * 0.006;
+      setYaw(d.yaw0 + delta);
+    }
   };
   const handleUp = (e: React.PointerEvent<SVGSVGElement>) => {
     const d = dragRef.current;
@@ -163,21 +186,55 @@ function CodeCity3DViewImpl({
     if (e.currentTarget.hasPointerCapture(d.pointerId)) {
       e.currentTarget.releasePointerCapture(d.pointerId);
     }
-    dragRef.current = { active: false, x0: 0, yaw0: 0, pointerId: -1 };
+    dragRef.current = {
+      active: false,
+      mode: "rotate",
+      x0: 0,
+      y0: 0,
+      yaw0: 0,
+      panX0: 0,
+      panY0: 0,
+      pointerId: -1,
+    };
     setDragging(false);
     // Resume ambient drift after a short grace period.
     window.setTimeout(() => setIdle(true), 900);
   };
+  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    setUserZoom(z => {
+      const next = z * Math.pow(0.998, e.deltaY);
+      return Math.max(0.35, Math.min(3, next));
+    });
+    setIdle(false);
+    window.setTimeout(() => setIdle(true), 900);
+  };
+  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    // Reset camera when double-clicking empty space (not on a building).
+    const target = e.target as Element | null;
+    if (target && target.closest("[data-cc-building='1']")) return;
+    setYaw(0);
+    setPan({ x: 0, y: 0 });
+    setUserZoom(1);
+  };
 
   const effectiveYaw = yaw + (idle ? driftYaw : 0);
 
-  // bbox.cx / bbox.cy are already in projected (post-isometric) screen
-  // space — `sceneBBox` walks ground-poly points that came out of
-  // `worldIso`. Centering simply lines that midpoint up with the SVG
-  // centre; the small `hMid` nudge biases for the upward vertical
-  // extent of the tallest building.
+  // bbox.cx / bbox.cy are in projected (post-isometric) screen space.
+  // `sceneBBox` now walks every building vertex, so the midpoint lands
+  // on the true visual centroid of the skyline (not just the ground).
   const svgH = Math.max(1, height - 120);
   const viewportCenter = { x: width / 2, y: svgH / 2 };
+
+  // Auto-fit scale so the city always sits comfortably inside the viewport.
+  // Capped at 1.4 to prevent tiny scenes from ballooning.
+  const PADDING = 72;
+  const fitScale = useMemo(() => {
+    if (bbox.w <= 0 || bbox.h <= 0) return 1;
+    const availW = Math.max(1, width - PADDING * 2);
+    const availH = Math.max(1, svgH - PADDING * 2);
+    return Math.min(1.4, Math.min(availW / bbox.w, availH / bbox.h));
+  }, [bbox.w, bbox.h, width, svgH]);
 
   // Flatten all tiles for depth sorting (painter's algorithm).
   const drawables = useMemo(
@@ -198,7 +255,7 @@ function CodeCity3DViewImpl({
         <div>
           <div style={titleStyle}>Code City</div>
           <div style={subtitleStyle}>
-            Wettel & Lanza VISSOFT 2007 · drag to rotate
+            Wettel & Lanza VISSOFT 2007 · drag to rotate · ⇧/⌥-drag to pan · wheel to zoom · dbl-click to reset
           </div>
         </div>
         <div style={legendStyle}>
@@ -226,13 +283,16 @@ function CodeCity3DViewImpl({
           onPointerMove={handleMove}
           onPointerUp={handleUp}
           onPointerCancel={handleUp}
+          onWheel={handleWheel}
+          onDoubleClick={handleDoubleClick}
           style={{
             width: "100%",
             height: "100%",
             cursor: dragging ? "grabbing" : "grab",
             userSelect: "none",
             touchAction: "none",
-            background: "linear-gradient(180deg, #fafcff 0%, #eef2f8 100%)",
+            background:
+              "radial-gradient(ellipse at 50% 28%, #ffffff 0%, #f3f6fb 55%, #e6ebf3 100%)",
             borderRadius: radius.md,
             border: `1px solid ${color.border}`,
           }}
@@ -251,7 +311,8 @@ function CodeCity3DViewImpl({
 
           <g
             transform={
-              `translate(${viewportCenter.x} ${viewportCenter.y - bbox.hMid * 0.1}) ` +
+              `translate(${viewportCenter.x + pan.x} ${viewportCenter.y + pan.y}) ` +
+              `scale(${fitScale * userZoom}) ` +
               `rotate(${(effectiveYaw * 180) / Math.PI}) ` +
               `translate(${-bbox.cx} ${-bbox.cy})`
             }
@@ -362,17 +423,19 @@ function BuildingMesh({
     ? color.text1
     : "rgba(20, 30, 45, 0.12)";
   const strokeWidth = selected ? 1.5 : hovered ? 1.1 : 0.7;
+  const roofHighlight = shadeHex(building.topFill, 0.08);
   return (
     <g
+      data-cc-building="1"
       style={{
         cursor: "pointer",
         animation: "ccRise 640ms cubic-bezier(0.22, 1, 0.28, 1) both",
         animationDelay: `${Math.min(200 + index * 4, 620)}ms`,
         filter: selected
-          ? `drop-shadow(0 4px 10px rgba(13,153,255,0.35))`
+          ? `drop-shadow(0 6px 14px rgba(13,153,255,0.40))`
           : hovered
-          ? "drop-shadow(0 3px 7px rgba(20,30,45,0.18))"
-          : "none",
+          ? "drop-shadow(0 4px 10px rgba(20,30,45,0.22))"
+          : "drop-shadow(0 1px 1.5px rgba(20,30,45,0.10))",
         transition: "filter 180ms ease-out",
       }}
       onMouseEnter={() => onHover(building.id)}
@@ -386,6 +449,7 @@ function BuildingMesh({
         ry={building.shadowRx * 0.35}
         fill="url(#cc-shadow)"
       />
+      {/* Right (darkest) façade */}
       <polygon
         points={building.rightPoly.map(p => p.join(",")).join(" ")}
         fill={building.shade}
@@ -393,6 +457,18 @@ function BuildingMesh({
         strokeWidth={strokeWidth}
         strokeLinejoin="round"
       />
+      {building.floorLinesRight.map((ln, i) => (
+        <line
+          key={`fr-${i}`}
+          x1={ln[0][0]}
+          y1={ln[0][1]}
+          x2={ln[1][0]}
+          y2={ln[1][1]}
+          stroke="rgba(10, 18, 30, 0.16)"
+          strokeWidth={0.4}
+        />
+      ))}
+      {/* Left (mid) façade */}
       <polygon
         points={building.leftPoly.map(p => p.join(",")).join(" ")}
         fill={building.fill}
@@ -400,11 +476,30 @@ function BuildingMesh({
         strokeWidth={strokeWidth}
         strokeLinejoin="round"
       />
+      {building.floorLinesLeft.map((ln, i) => (
+        <line
+          key={`fl-${i}`}
+          x1={ln[0][0]}
+          y1={ln[0][1]}
+          x2={ln[1][0]}
+          y2={ln[1][1]}
+          stroke="rgba(10, 18, 30, 0.10)"
+          strokeWidth={0.4}
+        />
+      ))}
+      {/* Top face + parapet inset (roof highlight) */}
       <polygon
         points={building.topPoly.map(p => p.join(",")).join(" ")}
         fill={building.topFill}
         stroke={strokeColor}
         strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+      <polygon
+        points={building.topInset.map(p => p.join(",")).join(" ")}
+        fill={roofHighlight}
+        stroke="rgba(255,255,255,0.28)"
+        strokeWidth={0.35}
         strokeLinejoin="round"
       />
     </g>
@@ -442,6 +537,7 @@ function HoverCard({ b }: { b: Building | null }) {
 // ── Build layout ──────────────────────────────────────────────────────
 type EnrichedDistrict = District;
 
+type Line2 = [[number, number], [number, number]];
 type EnrichedBuilding = Building & {
   topPoly: [number, number][];
   leftPoly: [number, number][];
@@ -449,6 +545,9 @@ type EnrichedBuilding = Building & {
   shadowCx: number;
   shadowCy: number;
   shadowRx: number;
+  floorLinesLeft: Line2[];
+  floorLinesRight: Line2[];
+  topInset: [number, number][];
 };
 
 function buildCity(tree: EntityTree): EnrichedDistrict[] {
@@ -538,8 +637,8 @@ function buildCity(tree: EntityTree): EnrichedDistrict[] {
         height: h,
         base,
         fill: baseFill,
-        shade: shadeHex(baseFill, -0.18),
-        topFill: shadeHex(baseFill, 0.14),
+        shade: shadeHex(baseFill, -0.26),
+        topFill: shadeHex(baseFill, 0.20),
       });
     });
 
@@ -609,6 +708,36 @@ function enrichBuilding(
   const leftPoly: [number, number][] = [g1, g4, t4, t1];
   const rightPoly: [number, number][] = [g4, g3, t3, t4];
 
+  // Floor dividers: subtle horizontal bands on the two visible façades.
+  // Floor count scales with building height; clamped so skinny & tall
+  // towers don't explode the draw count.
+  const floors = Math.max(2, Math.min(14, Math.round(b.height / 18)));
+  const lerp2 = (a: [number, number], c: [number, number], f: number): [number, number] => [
+    a[0] + (c[0] - a[0]) * f,
+    a[1] + (c[1] - a[1]) * f,
+  ];
+  const floorLinesLeft: Line2[] = [];
+  const floorLinesRight: Line2[] = [];
+  for (let k = 1; k < floors; k++) {
+    const f = k / floors;
+    floorLinesLeft.push([lerp2(g1, t1, f), lerp2(g4, t4, f)]);
+    floorLinesRight.push([lerp2(g3, t3, f), lerp2(g4, t4, f)]);
+  }
+
+  // Rooftop inset — a small parapet-like inner quad, ~12% in on each side,
+  // drawn as a lighter polygon on the top face for a crisper roof silhouette.
+  const insetPad = halfBase * 0.2;
+  const ix1 = cxWorld - (halfBase - insetPad);
+  const ix2 = cxWorld + (halfBase - insetPad);
+  const iy1 = cyWorld - (halfBase - insetPad);
+  const iy2 = cyWorld + (halfBase - insetPad);
+  const topInset: [number, number][] = [
+    worldIso(ix1, iy1, b.height),
+    worldIso(ix2, iy1, b.height),
+    worldIso(ix2, iy2, b.height),
+    worldIso(ix1, iy2, b.height),
+  ];
+
   const shadow = worldIso(cxWorld, cyWorld, 0);
   return {
     ...b,
@@ -618,6 +747,9 @@ function enrichBuilding(
     shadowCx: shadow[0],
     shadowCy: shadow[1] + 2,
     shadowRx: halfBase * 1.4,
+    floorLinesLeft,
+    floorLinesRight,
+    topInset,
   };
 }
 
@@ -664,28 +796,33 @@ function findDistrictParent(entity: Entity, tree: EntityTree): Entity {
 }
 
 function sceneBBox(districts: EnrichedDistrict[]) {
-  let xs: number[] = [];
-  let ys: number[] = [];
-  let maxH = 0;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  const consume = (x: number, y: number) => {
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  };
   for (const d of districts) {
-    for (const c of d.groundPoly.split(" ")) {
-      const [x, y] = c.split(",").map(Number) as [number, number];
-      xs.push(x);
-      ys.push(y);
+    for (const pair of d.groundPoly.split(" ")) {
+      const [x, y] = pair.split(",").map(Number) as [number, number];
+      consume(x, y);
     }
     for (const b of d.enrichedBuildings) {
-      maxH = Math.max(maxH, b.height);
+      for (const [x, y] of b.topPoly) consume(x, y);
+      for (const [x, y] of b.leftPoly) consume(x, y);
+      for (const [x, y] of b.rightPoly) consume(x, y);
     }
   }
-  if (xs.length === 0) return { cx: 0, cy: 0, hMid: 0 };
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  if (!isFinite(minX)) return { cx: 0, cy: 0, w: 0, h: 0 };
   return {
     cx: (minX + maxX) / 2,
     cy: (minY + maxY) / 2,
-    hMid: maxH / 2,
+    w: maxX - minX,
+    h: maxY - minY,
   };
 }
 
