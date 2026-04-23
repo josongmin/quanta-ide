@@ -340,11 +340,20 @@ export class PixiScene {
    *  UNDER edges so they read as background context rather than
    *  competing with the edge graph. */
   private ancestorGfx: Graphics | null = null;
-  /** Sticky breadcrumb-chip backgrounds + kind icons. Sits ABOVE
-   *  `rectGfx` (and below `labelLayer` so the chip label lands on
-   *  top of the chip fill) so the chip row always wins z-order
-   *  against any card that happens to be at the viewport edge. */
+  /** Sticky breadcrumb-chip backgrounds + kind icons. Parented to
+   *  `chipLayer` so the bg, icons, and chip labels sit TOGETHER on
+   *  the top-most layer — a card at the viewport top-left (entity
+   *  primary label from `drawLabels`) cannot bleed through the chip
+   *  row and cause "breadcrumb overlaid on filename" overlap. */
   private chipGfx: Graphics | null = null;
+  /** Top-most container holding the sticky breadcrumb chips (bg +
+   *  icons on `chipGfx`, labels parented here directly). Kept as the
+   *  LAST child of `content` so chips always paint above
+   *  `labelLayer`. Without this layer split, new entity labels
+   *  appended to `labelLayer` in `drawLabels` climb above the chip
+   *  text and you see both breadcrumb and filename at the same
+   *  pixel — the "UebugSection.tsx over SetupSection.tsx" bug. */
+  private chipLayer: Container | null = null;
   /** Soft drop-shadows under every entity card, plus the accent glow
    *  that wraps the selected card. Separate Graphics so we can keep
    *  the rect layer clean (one fill + stroke per card) while still
@@ -473,21 +482,24 @@ export class PixiScene {
     const rectGfx = new Graphics();
     const chipGfx = new Graphics();
     const labelLayer = new Container();
-    // Order matters: ancestor frames (background context) → card
-    // shadows (elevation under the cards) → edges → rects → chips →
-    // labels. Shadow sits under edges so edge lines draw cleanly
-    // without cutting through the shadow halo. Chips sit ABOVE rects
-    // so the sticky breadcrumb row always wins z-order over cards
-    // that happen to be at the viewport edge; labelLayer stays topmost
-    // so chip text lands on top of the chip fill.
+    const chipLayer = new Container();
+    chipLayer.addChild(chipGfx);
+    // Order: ancestor frames (background context) → shadows → edges →
+    // rects → entity labels → chip layer (TOP-MOST). Chip bg + chip
+    // labels share one container above `labelLayer` so a card at the
+    // viewport top-left can never bleed through the sticky breadcrumb
+    // row. Parenting chip bg and chip text together also removes the
+    // per-frame `setChildIndex` hack the old layout needed to fight
+    // `drawLabels` appending fresh entity labels after chip text.
     content.addChild(ancestorGfx);
     content.addChild(shadowGfx);
     content.addChild(edgeGfx);
     content.addChild(rectGfx);
-    content.addChild(chipGfx);
     content.addChild(labelLayer);
+    content.addChild(chipLayer);
     this.ancestorGfx = ancestorGfx;
     this.chipGfx = chipGfx;
+    this.chipLayer = chipLayer;
     this.shadowGfx = shadowGfx;
     this.bgGfx = bgGfx;
     this.world = world;
@@ -662,7 +674,11 @@ export class PixiScene {
   private drawAncestorFrames(frame: SceneFrame): void {
     const g = this.ancestorGfx;
     const cg = this.chipGfx;
-    const layer = this.labelLayer;
+    // Chip text parents into `chipLayer` (alongside chipGfx). Keeping
+    // bg + text on the same top-most container means the chip row
+    // always paints above entity labels; `labelLayer` is no longer
+    // involved so the old `setChildIndex(t, ...)` hack is gone.
+    const layer = this.chipLayer;
     if (!g || !cg || !layer) return;
     g.clear();
     cg.clear();
@@ -769,10 +785,6 @@ export class PixiScene {
           1,
         );
         t.position.set(chipXWorld + padX + iconSize + iconGap, chipYWorld + 3 * invS);
-        // Force chip text to the top of the label layer on every
-        // frame — rect labels added later in `drawLabels` would
-        // otherwise win the z-order and cover the breadcrumb.
-        layer.setChildIndex(t, layer.children.length - 1);
         used.add(af.id);
 
         // Screen-space hit rect. Sticky positioning means
@@ -1086,6 +1098,7 @@ export class PixiScene {
     this.rectGfx = null;
     this.ancestorGfx = null;
     this.chipGfx = null;
+    this.chipLayer = null;
     this.edgeGfx = null;
     this.labelLayer = null;
     if (app) {
@@ -1855,12 +1868,59 @@ export class PixiScene {
       // makes room for it to the left of the primary name.
       // Primary name sits at the top padding; secondary drops below.
       const nameTopPx = 6;
+
+      // Acquire + measure the LoC badge FIRST (if applicable). Its
+      // screen-px width tells primary how much right-side runway to
+      // leave. Without this, primary's truncation uses only
+      // `LABEL_RIGHT_PAD_PX` (8 px), which is narrower than a typical
+      // 3-digit badge (~20 px) — primary then spills into the badge's
+      // area and you see `FileName.tsx82` stuck together on the card.
+      const locN = entity.metrics?.loc;
+      const wantLocBadge = locN !== undefined && locN > 0 && screenW >= 120;
+      let lt: Text | null = null;
+      let locBadgeReservePx = LABEL_RIGHT_PAD_PX;
+      if (wantLocBadge) {
+        const locText = compactNum(locN);
+        let existing = this.locBadgeLabels.get(entity.id);
+        if (!existing) {
+          const pooled = this.locBadgeLabelPool.pop();
+          if (pooled) {
+            if (pooled.text !== locText) pooled.text = locText;
+            existing = pooled;
+          } else {
+            existing = new Text({
+              text: locText,
+              style: new TextStyle({
+                fontFamily: "'Inter Tight', system-ui, sans-serif",
+                fontSize: 11,
+                fontWeight: "500",
+                fill: pixiColor.textSubtle,
+                letterSpacing: 0,
+              }),
+            });
+          }
+          layer.addChild(existing);
+          this.locBadgeLabels.set(entity.id, existing);
+        } else if (existing.text !== locText) {
+          existing.text = locText;
+        }
+        lt = existing;
+        // Measure at scale=1 so `width` is in glyph-pixels (= screen
+        // px when the label is later rendered at invS in world space).
+        lt.scale.set(1);
+        // 12 px: badge's own right inset from card edge.
+        //  6 px: minimum gap between primary's end and badge's start.
+        const LOC_BADGE_INSET_PX = 12;
+        const LOC_BADGE_GAP_PX = 6;
+        locBadgeReservePx = lt.width + LOC_BADGE_INSET_PX + LOC_BADGE_GAP_PX;
+      }
+
       // Screen-pixel width available for the label inside the card —
       // bounds truncation. The earlier bug ("onBlur / typingSpeed /
       // start" stacked on one card) came from labels spilling past
       // their own rect into neighbour rects at medium zoom, because
       // the render path set `.text = entity.name` with no width gate.
-      const availLabelPx = screenW - leftPadPx - LABEL_RIGHT_PAD_PX;
+      const availLabelPx = Math.max(0, screenW - leftPadPx - locBadgeReservePx);
 
       // Primary: entity name — 13 screen-px, semibold, near-black.
       let t = this.labels.get(entity.id);
@@ -1900,36 +1960,10 @@ export class PixiScene {
       usedPrimary.add(entity.id);
       budget--;
 
-      // LoC badge at the card's top-right. Matches v1
-      // CityNodeRenderer's header layout — a small, muted count on
-      // the opposite side of the filename. Medium-weight, not bold,
-      // so it's readable without competing with the name.
-      const locN = entity.metrics?.loc;
-      if (locN !== undefined && locN > 0 && screenW >= 120 && budget > 0) {
-        const locText = compactNum(locN);
-        let lt = this.locBadgeLabels.get(entity.id);
-        if (!lt) {
-          const pooled = this.locBadgeLabelPool.pop();
-          if (pooled) {
-            if (pooled.text !== locText) pooled.text = locText;
-            lt = pooled;
-          } else {
-            lt = new Text({
-              text: locText,
-              style: new TextStyle({
-                fontFamily: "'Inter Tight', system-ui, sans-serif",
-                fontSize: 11,
-                fontWeight: "500",
-                fill: pixiColor.textSubtle,
-                letterSpacing: 0,
-              }),
-            });
-          }
-          layer.addChild(lt);
-          this.locBadgeLabels.set(entity.id, lt);
-        } else if (lt.text !== locText) {
-          lt.text = locText;
-        }
+      // Now draw the LoC badge at the card's top-right — same pool
+      // object we measured above. Matches v1 CityNodeRenderer's header
+      // layout: small muted count opposite the filename.
+      if (wantLocBadge && lt && budget > 0) {
         // LoC badge mirrors primary-label dim rules: thumbnail beats
         // spotlight beats full. At street+ tier thumb alpha is 0, so
         // the badge is effectively hidden (we still set the alpha
