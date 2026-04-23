@@ -74,6 +74,15 @@ const MIN_SCALE = 0.005;
 const MAX_SCALE = 80;
 const KEY_ZOOM_FACTOR = 1.2;
 
+// WebKit-only pinch event (not in lib.dom.d.ts). Fires on macOS Safari
+// / WKWebView (Tauri) for trackpad pinch since Chromium-style
+// `wheel + ctrlKey` synthesis is not guaranteed there.
+interface GestureEvent extends UIEvent {
+  readonly scale: number;
+  readonly clientX: number;
+  readonly clientY: number;
+}
+
 
 interface Props {
   tree: EntityTree;
@@ -713,6 +722,48 @@ export function CanvasViewport({
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // WebKit gesture events — macOS Tauri (WKWebView) dispatches trackpad
+  // pinch ONLY as `gesturestart/change/end`; it does NOT synthesise the
+  // `wheel + ctrlKey` form Chromium uses. Without this the wheel path
+  // handles ctrl+scroll and zoom buttons but trackpad pinch silently
+  // does nothing. `e.scale` is cumulative since gesturestart (1.0 →
+  // grows pinching-out / shrinks pinching-in), so we feed increments
+  // (current/prev) through the same `zoomAt` as the wheel path.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let lastScale = 1;
+    const onGestureStart = (e: Event) => {
+      const g = e as GestureEvent;
+      e.preventDefault();
+      lastScale = g.scale || 1;
+    };
+    const onGestureChange = (e: Event) => {
+      const g = e as GestureEvent;
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const cx = g.clientX - rect.left;
+      const cy = g.clientY - rect.top;
+      const cur = g.scale || lastScale;
+      if (lastScale > 0 && cur !== lastScale) {
+        wheelCbRef.current.zoomAt(cx, cy, cur / lastScale);
+      }
+      lastScale = cur;
+    };
+    const onGestureEnd = (e: Event) => {
+      e.preventDefault();
+      lastScale = 1;
+    };
+    el.addEventListener("gesturestart", onGestureStart);
+    el.addEventListener("gesturechange", onGestureChange);
+    el.addEventListener("gestureend", onGestureEnd);
+    return () => {
+      el.removeEventListener("gesturestart", onGestureStart);
+      el.removeEventListener("gesturechange", onGestureChange);
+      el.removeEventListener("gestureend", onGestureEnd);
+    };
   }, []);
 
   // Static-analysis rollup: per-entity aggregated signals (riskMax,
