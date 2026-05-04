@@ -38,7 +38,7 @@
     "@quanta/ui-kit": "workspace:*",
     "@remixicon/react": "^4.9.0",
     "@tabler/icons-react": "^3.41.1",
-    "@tauri-apps/api": "^2.10.1",
+    "@tauri-apps/api": "^2.11.0",
     "@uiw/react-codemirror": "^4.25.9",
     "boring-avatars": "^2.0.4",
     "elkjs": "^0.9.3",
