@@ -1,0 +1,317 @@
+/* ══════════════════════════════════════════════════════════════
+   flags-pane.css — Feature-flag interaction map inspector
+   Karnaugh-style truth-table grid over 2^N flag combinations.
+   Tokens-only; matches inspector-chrome vocabulary.
+   ══════════════════════════════════════════════════════════════ */
+
+.flags-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+  width: 100%;
+  height: auto;
+}
+
+.flags-pane__empty {
+  padding: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+  text-align: center;
+}
+
+/* ── Head stats row ── */
+.flags-pane__head {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2h);
+  margin-bottom: var(--space-1);
+}
+.flags-pane__stat {
+  padding: var(--space-2h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.flags-pane__stat-v {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-1);
+}
+.flags-pane__stat-v--bad { color: var(--danger); }
+.flags-pane__stat-sub {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--fg-subtle);
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.flags-pane__stat-k {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: var(--space-1);
+}
+
+/* ── Flag chips row ── */
+.flags-pane__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1h);
+}
+.flags-pane__chip {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: var(--space-1) var(--space-2);
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.flags-pane__chip:hover { background: var(--bg-hover); }
+.flags-pane__chip.is-on {
+  background: var(--bg);
+  color: var(--fg);
+  border-color: color-mix(in srgb, var(--fg) 32%, var(--border));
+}
+.flags-pane__chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-subtle);
+  flex-shrink: 0;
+}
+.flags-pane__chip.is-on .flags-pane__chip-dot { background: var(--fg); }
+.flags-pane__chip-label {
+  font-weight: var(--fw-medium);
+  color: inherit;
+}
+.flags-pane__chip-stage {
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--bg-subtle);
+  color: var(--fg-subtle);
+}
+.flags-pane__chip-stage--prod {
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+}
+.flags-pane__chip-stage--canary {
+  background: var(--bg-warn-subtle, var(--bg-subtle));
+  color: var(--warn, #d08700);
+}
+.flags-pane__chip-stage--dev {
+  background: var(--bg-accent-subtle, var(--bg-subtle));
+  color: var(--fg-muted);
+}
+.flags-pane__chip-stage--deprecated {
+  background: var(--bg-danger-subtle);
+  color: var(--danger);
+}
+.flags-pane__chip-owner {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+}
+
+/* ── Karnaugh-style combo grid ── */
+.flags-pane__grid {
+  display: grid;
+  gap: 3px;
+  padding: var(--space-1);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.flags-pane__cell {
+  appearance: none;
+  position: relative;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto 1fr;
+  gap: 2px;
+  align-items: center;
+  min-height: 48px;
+  padding: var(--space-1) var(--space-1h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  transition: border-color 0.1s ease, transform 0.06s ease;
+}
+.flags-pane__cell:hover {
+  border-color: color-mix(in srgb, var(--fg) 28%, var(--border));
+}
+.flags-pane__cell.is-active {
+  border-color: var(--fg);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fg) 40%, transparent);
+}
+.flags-pane__cell.is-selected {
+  border-color: color-mix(in srgb, var(--fg) 50%, var(--border));
+  background: var(--bg-hover);
+}
+.flags-pane__cell.is-active.is-selected {
+  background: var(--bg-hover);
+}
+
+/* Risk red-overlay tint — absolute layer under content. */
+.flags-pane__cell-risk {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.flags-pane__cell-bits {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  color: var(--fg-muted);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  z-index: 1;
+}
+.flags-pane__cell-dot {
+  grid-column: 2;
+  grid-row: 1;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  justify-self: end;
+  z-index: 1;
+}
+.flags-pane__cell-dot--covered   { background: color-mix(in srgb, var(--accent, #35a34a) 80%, transparent); }
+.flags-pane__cell-dot--partial   { background: var(--warn, #d08700); }
+.flags-pane__cell-dot--uncovered { background: var(--danger); }
+
+.flags-pane__cell-risk-n {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  align-self: end;
+  justify-self: end;
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+  z-index: 1;
+}
+
+/* Dead combo — diagonal stripes + low opacity, no risk tint. */
+.flags-pane__cell--dead {
+  cursor: pointer;
+  opacity: 0.55;
+  background:
+    repeating-linear-gradient(
+      45deg,
+      var(--bg-muted) 0 6px,
+      var(--bg-subtle) 6px 12px
+    );
+}
+.flags-pane__cell--dead .flags-pane__cell-bits { color: var(--fg-subtle); }
+
+/* ── Selected-cell detail panel ── */
+.flags-pane__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+  padding: var(--space-2) var(--space-2h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.flags-pane__detail-empty {
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+}
+.flags-pane__detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.flags-pane__detail-bits {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.1em;
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.flags-pane__detail-cov {
+  padding: 1px var(--space-1h);
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.flags-pane__detail-cov--covered   { background: var(--bg-success-subtle, var(--bg-subtle)); color: var(--fg-muted); }
+.flags-pane__detail-cov--partial   { background: var(--bg-warn-subtle, var(--bg-subtle));    color: var(--warn, #d08700); }
+.flags-pane__detail-cov--uncovered { background: var(--bg-danger-subtle);                    color: var(--danger); }
+.flags-pane__detail-dead {
+  padding: 1px var(--space-1h);
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--bg-muted);
+  color: var(--fg-subtle);
+}
+.flags-pane__detail-count {
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.flags-pane__detail-note {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  font-style: italic;
+}
+
+/* ── Active-line chips ── */
+.flags-pane__lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.flags-pane__line-chip {
+  padding: 1px var(--space-1h);
+  background: var(--bg-muted);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.flags-pane__line-more {
+  padding: 1px var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Summary footnote ── */
+.flags-pane__foot {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}

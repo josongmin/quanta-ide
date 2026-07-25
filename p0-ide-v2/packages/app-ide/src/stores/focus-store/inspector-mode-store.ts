@@ -1,4 +1,32 @@
-export type InspectorMode = "overview" | "flow" | "blast" | "incidents" | "behavior" | "ownership";
+export type InspectorMode =
+  | "overview"
+  | "flow"
+  | "blast"
+  | "incidents"
+  | "behavior"
+  | "ownership"
+  | "request"
+  | "authz"
+  | "config"
+  | "cve"
+  | "observability"
+  | "transaction"
+  | "idempotency"
+  | "context"
+  | "test-impact"
+  | "flags"
+  | "concurrency"
+  | "replay"
+  | "refactor-sim"
+  | "knowledge"
+  | "test-intel"
+  | "service-mesh"
+  | "error-flow"
+  | "rollout"
+  | "intent-gap"
+  | "collab"
+  | "eval-bench"
+  | "token-radar";
 
 export interface InspectorModeState {
   mode: InspectorMode;

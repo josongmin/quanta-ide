@@ -1,0 +1,416 @@
+/* ── Concurrency / Race Risk Map — BEM prefix `concur-pane__` ── */
+
+.concur-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+}
+
+/* ── Head stats (mirrors blast-pane__head) ── */
+.concur-pane__head {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2h);
+}
+.concur-pane__stat {
+  padding: var(--space-2h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.concur-pane__stat-v {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-1);
+}
+.concur-pane__stat-v--bad {
+  color: var(--danger);
+}
+.concur-pane__stat-sep {
+  color: var(--fg-subtle);
+  font-weight: var(--fw-normal);
+  margin: 0 2px;
+}
+.concur-pane__stat-k {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.concur-pane__pips {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  margin-top: var(--space-0h);
+}
+.concur-pane__pip {
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.02em;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  font-variant-numeric: tabular-nums;
+}
+.concur-pane__pip--high {
+  color: var(--text-inverse);
+  background: var(--danger);
+}
+.concur-pane__pip--mid {
+  color: var(--fg);
+  background: var(--bg-warn-subtle);
+  border: 1px solid var(--border-warn-subtle);
+}
+.concur-pane__pip--low {
+  color: var(--fg-muted);
+  background: var(--bg-muted);
+}
+
+/* ── Body: timeline + inset DAG ── */
+.concur-pane__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 200px;
+  gap: var(--space-3);
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .concur-pane__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.concur-pane__timeline {
+  min-width: 0;
+  padding: var(--space-2);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+
+/* ── Swimlane SVG ── */
+.concur-pane__svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+}
+.concur-pane__lane-label {
+  fill: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+.concur-pane__lane-kind {
+  fill: var(--fg-subtle);
+  font-family: var(--font-sans);
+  font-size: var(--fs-9);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.concur-pane__lane-glyph {
+  fill: var(--fg-muted);
+  font-size: var(--fs-xs);
+}
+.concur-pane__baseline {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.concur-pane__lock-rect {
+  fill-opacity: 0.15;
+  stroke: currentColor;
+  stroke-opacity: 0.25;
+  stroke-width: 1;
+}
+.concur-pane__lock-name {
+  fill: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  font-variant-numeric: tabular-nums;
+}
+
+.concur-pane__access {
+  cursor: pointer;
+}
+.concur-pane__access circle {
+  transition: stroke-width 0.12s ease, r 0.12s ease;
+}
+.concur-pane__access.is-read circle {
+  fill: none;
+  stroke: var(--fg-muted);
+  stroke-width: 1.5;
+}
+.concur-pane__access.is-write circle {
+  fill: var(--fg);
+  stroke: var(--fg);
+  stroke-width: 1;
+}
+.concur-pane__access.in-race.is-read circle {
+  stroke: var(--danger);
+}
+.concur-pane__access.in-race.is-write circle {
+  fill: var(--danger);
+  stroke: var(--danger);
+}
+.concur-pane__access.is-highlight circle {
+  stroke-width: 2.5;
+}
+.concur-pane__line {
+  fill: var(--fg-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  font-variant-numeric: tabular-nums;
+}
+
+.concur-pane__arc {
+  stroke: var(--danger);
+  stroke-dasharray: 4 3;
+  stroke-width: 1.5;
+  fill: none;
+  opacity: 0.7;
+  transition: opacity 0.12s ease, stroke-width 0.12s ease;
+}
+.concur-pane__arc--mid {
+  opacity: 0.55;
+}
+.concur-pane__arc--low {
+  opacity: 0.4;
+}
+.concur-pane__arc.is-highlight {
+  opacity: 1;
+  stroke-width: 2;
+}
+
+.concur-pane__legend {
+  display: inline-flex;
+  gap: var(--space-3);
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding-left: var(--space-2);
+}
+.concur-pane__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.concur-pane__legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.concur-pane__legend-dot.is-read {
+  background: transparent;
+  border: 1.5px solid var(--fg-muted);
+}
+.concur-pane__legend-dot.is-write {
+  background: var(--fg);
+}
+.concur-pane__legend-arc {
+  width: 18px;
+  height: 6px;
+  border-top: 1.5px dashed var(--danger);
+  display: inline-block;
+}
+
+/* ── Inset: lock-order DAG ── */
+.concur-pane__inset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+  padding: var(--space-2);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.concur-pane__inset-title {
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-subtle);
+}
+.concur-pane__dag {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.concur-pane__dag--empty {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+.concur-pane__dag-empty {
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.concur-pane__dag-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+}
+.concur-pane__dag-node circle {
+  fill: var(--bg);
+  stroke: var(--fg-muted);
+  stroke-width: 1.25;
+}
+.concur-pane__dag-node text {
+  fill: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  font-variant-numeric: tabular-nums;
+}
+.concur-pane__dag-edge {
+  fill: none;
+  stroke: var(--fg-muted);
+  stroke-width: 1.25;
+}
+.concur-pane__dag-edge.is-cycle {
+  stroke: var(--danger);
+  stroke-width: 1.75;
+}
+.concur-pane__arrow-head {
+  fill: var(--fg-muted);
+}
+.concur-pane__arrow-head.is-danger {
+  fill: var(--danger);
+}
+
+.concur-pane__alert {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-1h) var(--space-2);
+  background: var(--bg-danger-subtle);
+  border: 1px solid var(--border-danger-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+}
+.concur-pane__alert-label {
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.concur-pane__alert-chain {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  word-break: break-all;
+}
+
+/* ── Race list ── */
+.concur-pane__races {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.concur-pane__race-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr) auto;
+  gap: var(--space-2h);
+  align-items: center;
+  padding: var(--space-1h) var(--space-2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.12s ease;
+}
+.concur-pane__race-row:hover,
+.concur-pane__race-row:focus-visible {
+  background: var(--bg-hover);
+}
+.concur-pane__race-row.is-selected {
+  background: var(--bg-selected);
+}
+.concur-pane__race-res {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.concur-pane__race-lines {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+}
+.concur-pane__race-swap {
+  color: var(--fg-subtle);
+}
+.concur-pane__race-reason {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Footer ── */
+.concur-pane__foot {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  font-style: italic;
+}
+.concur-pane__mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+}
+
+/* ── Empty ── */
+.concur-pane--empty {
+  padding: var(--space-4h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+.concur-pane__empty-body {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+.concur-pane__empty-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+.concur-pane__empty-hint {
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+}

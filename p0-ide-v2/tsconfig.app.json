@@ -60,7 +60,11 @@
       "@quanta/app-code-city": ["packages/app-code-city/src"],
       "@quanta/app-code-city/*": ["packages/app-code-city/src/*"],
       "@quanta/app-autopilot": ["packages/app-autopilot/src"],
-      "@quanta/app-autopilot/*": ["packages/app-autopilot/src/*"]
+      "@quanta/app-autopilot/*": ["packages/app-autopilot/src/*"],
+      "@quanta/app-token-radar": ["packages/app-token-radar/src"],
+      "@quanta/app-token-radar/*": ["packages/app-token-radar/src/*"],
+      "@quanta/app-ai-ops": ["packages/app-ai-ops/src"],
+      "@quanta/app-ai-ops/*": ["packages/app-ai-ops/src/*"]
     }
   },
   "include": ["src", "packages/*/src"]

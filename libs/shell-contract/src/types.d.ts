@@ -1,6 +1,6 @@
 import type { ComponentType, ReactNode } from "react";
 /** App identifiers corresponding to tab-bus TabApp. */
-export type TabApp = "new-tab" | "agent" | "pr" | "ide" | "workspace" | "universe" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo" | "code-city" | "analysis-catalog" | "autopilot";
+export type TabApp = "new-tab" | "agent" | "pr" | "ide" | "workspace" | "universe" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo" | "code-city" | "analysis-catalog" | "autopilot" | "token-radar" | "ai-ops";
 /** Superset: every surface the shell can render, including non-tab pages. */
 export type AppKind = TabApp | "home";
 /** Serialisable tab descriptor stored by the shell tab manager. */

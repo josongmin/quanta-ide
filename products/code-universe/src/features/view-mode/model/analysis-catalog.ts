@@ -1,5 +1,5 @@
 import type { ViewCategory } from "./view-descriptor";
-import { listViewDescriptors } from "./view-registry";
+import { listAllViewDescriptors, listViewDescriptors } from "./view-registry";
 import type { ViewMode } from "./store";
 import type {
   AnalysisCatalogRecord,
@@ -169,7 +169,11 @@ export function descriptorToAnalysisRecord(d: ReturnType<typeof listViewDescript
 }
 
 export function listAnalysisCatalogRecords(): AnalysisCatalogRecord[] {
-  return listViewDescriptors().map(descriptorToAnalysisRecord);
+  // Catalog covers EVERY descriptor — workspace (Code Universe picker) +
+  // runtime (AI Ops tab). The picker only surfaces workspace; the
+  // catalog surfaces both so admission / agent planner / search can
+  // reason over all 150+ records.
+  return listAllViewDescriptors().map(descriptorToAnalysisRecord);
 }
 
 export function getAnalysisCatalogRecord(id: ViewMode): AnalysisCatalogRecord | undefined {

@@ -1,7 +1,8 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import BoringAvatar from "boring-avatars";
 import {
+  Activity,
   Bot,
   Building2,
   Code2,
@@ -13,6 +14,7 @@ import {
   LayoutGrid,
   Orbit,
   Plus,
+  Radar,
   Rocket,
   Search,
   Settings,
@@ -27,7 +29,7 @@ import "./topbar.css";
 /** Show floating title when tab is this narrow (px), or when the label is truncated. */
 const TAB_TITLE_TIP_NARROW_PX = 128;
 
-export type AppKind = "home" | "new-tab" | "analysis-catalog" | "ide" | "workspace" | "universe" | "code-city" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo" | "autopilot";
+export type AppKind = "home" | "new-tab" | "analysis-catalog" | "ide" | "workspace" | "universe" | "code-city" | "agent" | "pr" | "scenario" | "reviews" | "policy" | "settings" | "dashboard" | "demo" | "autopilot" | "token-radar" | "ai-ops";
 export interface Tab { id: string; app: AppKind; label: string; }
 
 const TAB_ICON_SIZE = 13;
@@ -50,6 +52,8 @@ const TAB_ICON_REGISTRY: Record<AppKind, () => ReactNode> = {
   dashboard:   () => <Gauge           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   demo:        () => <Rocket          size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
   autopilot:   () => <Orbit           size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
+  "token-radar": () => <Radar         size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
+  "ai-ops":      () => <Activity      size={TAB_ICON_SIZE} strokeWidth={TAB_ICON_STROKE} aria-hidden />,
 };
 
 interface TopbarProps {
@@ -87,6 +91,42 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
     onToggleHome();
   };
   const { stripRef, onStripMouseLeave, beginCloseTab, tabChrome } = useWorkspaceTabStrip(onClose);
+
+  // Track which tab IDs are freshly opened so CSS can play the entrance
+  // animation exactly once per new tab (not on every re-render).
+  const seenTabIdsRef = useRef<Set<string>>(new Set());
+  const [freshTabIds, setFreshTabIds] = useState<Set<string>>(() => new Set());
+  useEffect(() => {
+    const seen = seenTabIdsRef.current;
+    if (seen.size === 0) {
+      // First mount — initial tabs are NOT "fresh"; they should appear instantly.
+      tabs.forEach((t) => seen.add(t.id));
+      return;
+    }
+    const justAdded: string[] = [];
+    tabs.forEach((t) => {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        justAdded.push(t.id);
+      }
+    });
+    if (justAdded.length === 0) return;
+    setFreshTabIds((prev) => {
+      const next = new Set(prev);
+      justAdded.forEach((id) => next.add(id));
+      return next;
+    });
+    // Clear the marker after the entrance animation has played.
+    const timer = window.setTimeout(() => {
+      setFreshTabIds((prev) => {
+        if (prev.size === 0) return prev;
+        const next = new Set(prev);
+        justAdded.forEach((id) => next.delete(id));
+        return next;
+      });
+    }, 280);
+    return () => window.clearTimeout(timer);
+  }, [tabs]);
 
   const [tabTitleTip, setTabTitleTip] = useState<{ label: string; x: number; y: number } | null>(null);
 
@@ -141,6 +181,7 @@ export function Topbar({ tabs, activeId, onSelect, onClose, onAdd, homeOpen, onT
                 type="button"
                 role="tab"
                 data-tab-id={t.id}
+                data-tab-fresh={freshTabIds.has(t.id) ? "1" : undefined}
                 aria-selected={isActive}
                 className={className}
                 style={style}

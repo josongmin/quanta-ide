@@ -114,9 +114,16 @@
   font-weight: var(--fw-medium);
   white-space: nowrap;
   position: relative;
-  /* Do NOT transition flex/min/max on normal tabs — any re-render or subpixel
-     flex reflow animates and reads as "shrink then grow" on hover-out. */
-  transition: color 0.12s ease, background 0.12s ease, box-shadow 0.18s ease;
+  transform: translateZ(0);
+  will-change: background, box-shadow, transform;
+  /* Chrome-style: smooth cubic-bezier (Material standard) for activation lift.
+     Do NOT transition flex/min/max on normal tabs — subpixel flex reflow
+     reads as "shrink then grow" on hover-out. */
+  transition:
+    color 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 160ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
   /* Content-sized; cap at max; shrink when the strip overflows */
   flex: 0 1 auto;
   max-width: var(--topbar-tab-max, 200px);
@@ -131,12 +138,17 @@
   color: var(--fg-muted);
 }
 
-/* Active tab — "lifted chip" (Linear/Arc-style):
-   hairline outer border + soft drop shadow. Reads as gently elevated off
-   the chrome rather than outlined. */
+.topbar__tab:not(.is-active):active {
+  transform: translateY(0.5px) scale(0.985);
+  transition-duration: 80ms;
+}
+
+/* Active tab — Chrome-style "lifted chip" with subtle vertical translate.
+   The translateY gives the activation a tactile rise, like a key being pressed up. */
 .topbar__tab.is-active {
   background: var(--bg);
   color: var(--fg);
+  transform: translateY(-0.5px);
   box-shadow:
     0 0 0 1px var(--border-strong),
     var(--shadow-sm);
@@ -147,25 +159,52 @@
     var(--shadow-md);
 }
 
-/* Width transitions only while a tab is animating closed (inline flex on that button) */
+/* Width transitions while a tab is animating closed (Chrome's emphasized-decel curve) */
 .topbar__tab.is-tab-exiting {
-  transition: color 0.12s ease, background 0.12s ease,
-    flex-basis calc(var(--topbar-tab-flex-ms) * 1ms) ease,
-    min-width calc(var(--topbar-tab-flex-ms) * 1ms) ease,
-    max-width calc(var(--topbar-tab-flex-ms) * 1ms) ease;
+  transition:
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    flex-basis calc(var(--topbar-tab-flex-ms) * 1ms) cubic-bezier(0.2, 0, 0, 1),
+    min-width calc(var(--topbar-tab-flex-ms) * 1ms) cubic-bezier(0.2, 0, 0, 1),
+    max-width calc(var(--topbar-tab-flex-ms) * 1ms) cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* Previous tab expanding to fill gap when the rightmost tab closes (rapid-close UX) */
 .topbar__tab.is-expanding-fill {
-  transition: color 0.12s ease, background 0.12s ease,
-    flex-basis calc(var(--topbar-tab-flex-ms) * 1ms) ease,
-    min-width calc(var(--topbar-tab-flex-ms) * 1ms) ease,
-    max-width calc(var(--topbar-tab-flex-ms) * 1ms) ease;
+  transition:
+    color 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    background 120ms cubic-bezier(0.4, 0, 0.2, 1),
+    flex-basis calc(var(--topbar-tab-flex-ms) * 1ms) cubic-bezier(0.2, 0, 0, 1),
+    min-width calc(var(--topbar-tab-flex-ms) * 1ms) cubic-bezier(0.2, 0, 0, 1),
+    max-width calc(var(--topbar-tab-flex-ms) * 1ms) cubic-bezier(0.2, 0, 0, 1);
 }
 
 /* Avoid flex "catch-up" transitions while widths are held for close / strip leave */
 .topbar__tab.is-width-frozen {
   transition: color 0.12s ease, background 0.12s ease;
+}
+
+/* Chrome-style new-tab entrance: width grows from 0 + content fades up.
+   Only applied to freshly-opened tabs via [data-tab-fresh="1"], removed
+   after the animation so future state changes (activation/hover lift) are
+   not overridden by lingering keyframe transform. */
+@keyframes topbar-tab-enter {
+  0% {
+    max-width: 0;
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  60% {
+    opacity: 0.9;
+  }
+  100% {
+    max-width: var(--topbar-tab-max, 200px);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.topbar__tab[data-tab-fresh="1"] {
+  animation: topbar-tab-enter 240ms cubic-bezier(0.2, 0, 0, 1) both;
 }
 
 /* Kill ghost hover after tab close — browser :hover sticks until real mouse movement */
@@ -189,7 +228,17 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  transition: opacity 0.18s ease;
+  transition:
+    opacity 140ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 180ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Closing tab: fade + slight lift, runs alongside the width collapse */
+.topbar__tab.is-tab-exiting .topbar__tab-inner {
+  transform: translateY(-2px);
+  transition:
+    opacity calc(var(--topbar-tab-flex-ms) * 0.65 * 1ms) cubic-bezier(0.4, 0, 1, 1),
+    transform calc(var(--topbar-tab-flex-ms) * 1ms) cubic-bezier(0.2, 0, 0, 1);
 }
 
 .topbar__tab-icon {

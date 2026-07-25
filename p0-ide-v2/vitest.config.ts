@@ -31,6 +31,8 @@ export default defineConfig({
       "@quanta/app-home": path.resolve(__dirname, "packages/app-home/src"),
       "@quanta/app-demo": path.resolve(__dirname, "packages/app-demo/src"),
       "@quanta/app-policy": path.resolve(__dirname, "packages/app-policy/src"),
+      "@quanta/app-token-radar": path.resolve(__dirname, "packages/app-token-radar/src"),
+      "@quanta/app-ai-ops": path.resolve(__dirname, "packages/app-ai-ops/src"),
     },
   },
   test: {

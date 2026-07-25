@@ -1,0 +1,390 @@
+/* ── Cross-Service Mesh Map — BEM prefix `mesh-pane__` ── */
+
+.mesh-pane {
+  --mesh-ok: var(--ok, #3ba55c);
+  --mesh-neutral: var(--accent, #7aa2ff);
+  --mesh-warn: var(--warn, #d08700);
+  --mesh-danger: var(--danger, #d64545);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+}
+
+.mesh-pane--empty {
+  padding: var(--space-3);
+}
+.mesh-pane__empty {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+/* ── Head stats ── */
+.mesh-pane__head {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2h);
+}
+.mesh-pane__stat {
+  padding: var(--space-2h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.mesh-pane__stat-v {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-1);
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+}
+.mesh-pane__stat-v--ok { color: var(--mesh-ok); }
+.mesh-pane__stat-v--neutral { color: var(--mesh-neutral); }
+.mesh-pane__stat-v--warn { color: var(--mesh-warn); }
+.mesh-pane__stat-v--danger,
+.mesh-pane__stat-v--bad { color: var(--mesh-danger); }
+.mesh-pane__stat-sep {
+  color: var(--fg-subtle);
+  font-weight: var(--fw-normal);
+  margin: 0 2px;
+}
+.mesh-pane__stat-unit {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-normal);
+  color: var(--fg-subtle);
+}
+.mesh-pane__stat-k {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Toggle chips ── */
+.mesh-pane__toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1h);
+}
+.mesh-pane__chip {
+  appearance: none;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: var(--space-0h) var(--space-2);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.mesh-pane__chip:hover {
+  background: var(--bg-hover);
+  color: var(--fg);
+}
+.mesh-pane__chip.is-on {
+  background: var(--bg-accent-subtle, color-mix(in srgb, var(--mesh-neutral) 18%, transparent));
+  border-color: color-mix(in srgb, var(--mesh-neutral) 50%, var(--border));
+  color: var(--fg);
+}
+
+/* ── Graph ── */
+.mesh-pane__graph {
+  position: relative;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  overflow: hidden;
+}
+.mesh-pane__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 440 / 320;
+  font-family: var(--font-sans);
+}
+
+/* Failure-domain hulls */
+.mesh-pane__domain rect {
+  fill: var(--mesh-neutral);
+  fill-opacity: 0.08;
+  stroke: color-mix(in srgb, var(--mesh-neutral) 50%, transparent);
+  stroke-width: 0.6;
+  stroke-dasharray: 3 3;
+}
+.mesh-pane__domain--info rect { fill: var(--mesh-neutral); stroke: color-mix(in srgb, var(--mesh-neutral) 55%, transparent); }
+.mesh-pane__domain--warn rect { fill: var(--mesh-warn); stroke: color-mix(in srgb, var(--mesh-warn) 55%, transparent); }
+.mesh-pane__domain--danger rect { fill: var(--mesh-danger); stroke: color-mix(in srgb, var(--mesh-danger) 55%, transparent); }
+.mesh-pane__domain-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  fill: var(--fg-subtle);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Edges */
+.mesh-pane__edges { fill: none; }
+.mesh-pane__edge { cursor: pointer; }
+.mesh-pane__edge-line {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-opacity 0.12s ease;
+  stroke-opacity: 0.85;
+}
+.mesh-pane__edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-linecap: round;
+  pointer-events: stroke;
+}
+.mesh-pane__edge-glow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-opacity: 0.55;
+}
+.mesh-pane__edge--ok      .mesh-pane__edge-line  { stroke: var(--mesh-ok); }
+.mesh-pane__edge--ok      .mesh-pane__edge-glow  { stroke: var(--mesh-ok); }
+.mesh-pane__edge--neutral .mesh-pane__edge-line  { stroke: var(--mesh-neutral); }
+.mesh-pane__edge--neutral .mesh-pane__edge-glow  { stroke: var(--mesh-neutral); }
+.mesh-pane__edge--warn    .mesh-pane__edge-line  { stroke: var(--mesh-warn); }
+.mesh-pane__edge--warn    .mesh-pane__edge-glow  { stroke: var(--mesh-warn); }
+.mesh-pane__edge--danger  .mesh-pane__edge-line  { stroke: var(--mesh-danger); }
+.mesh-pane__edge--danger  .mesh-pane__edge-glow  { stroke: var(--mesh-danger); }
+.mesh-pane__edge.is-active .mesh-pane__edge-line { stroke-opacity: 1; stroke-width: 2.4; }
+.mesh-pane__edge:hover .mesh-pane__edge-line     { stroke-opacity: 1; }
+.mesh-pane__edge.is-critical .mesh-pane__edge-line { stroke-opacity: 1; }
+
+/* Nodes */
+.mesh-pane__node-bg {
+  fill: var(--bg);
+  stroke: var(--border);
+  stroke-width: 0.6;
+}
+.mesh-pane__node-ring {
+  fill: none;
+  stroke-width: 2;
+}
+.mesh-pane__node--ok      .mesh-pane__node-ring { stroke: var(--mesh-ok); }
+.mesh-pane__node--warn    .mesh-pane__node-ring { stroke: var(--mesh-warn); }
+.mesh-pane__node--danger  .mesh-pane__node-ring { stroke: var(--mesh-danger); }
+.mesh-pane__node--datastore .mesh-pane__node-bg { fill: color-mix(in srgb, var(--mesh-neutral) 8%, var(--bg)); }
+.mesh-pane__node--queue    .mesh-pane__node-bg { fill: color-mix(in srgb, var(--mesh-warn) 8%, var(--bg)); }
+.mesh-pane__node--external .mesh-pane__node-bg { fill: color-mix(in srgb, var(--fg-subtle) 10%, var(--bg)); stroke-dasharray: 2 2; }
+.mesh-pane__node-focus {
+  fill: none;
+  stroke: var(--mesh-neutral);
+  stroke-width: 1;
+  stroke-dasharray: 3 2;
+  opacity: 0.7;
+}
+.mesh-pane__node.is-focus .mesh-pane__node-ring { stroke-width: 2.6; }
+.mesh-pane__node-label {
+  font-family: var(--font-sans);
+  font-size: 8px;
+  font-weight: var(--fw-semibold);
+  fill: var(--fg);
+  text-anchor: middle;
+  dominant-baseline: alphabetic;
+}
+.mesh-pane__node-rps {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  fill: var(--fg-muted);
+  text-anchor: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Legend */
+.mesh-pane__legend {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0h);
+  padding: var(--space-1) var(--space-1h);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  pointer-events: none;
+}
+.mesh-pane__legend-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg-muted);
+}
+.mesh-pane__legend-swatch {
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+}
+.mesh-pane__legend-swatch--ok      { background: var(--mesh-ok); }
+.mesh-pane__legend-swatch--neutral { background: var(--mesh-neutral); }
+.mesh-pane__legend-swatch--warn    { background: var(--mesh-warn); }
+.mesh-pane__legend-swatch--danger  { background: var(--mesh-danger); }
+.mesh-pane__legend-line {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 1.5px solid var(--fg-muted);
+}
+.mesh-pane__legend-line--http  { border-top-style: solid; }
+.mesh-pane__legend-line--grpc  { border-top-style: dashed; }
+.mesh-pane__legend-line--event { border-top-style: dotted; }
+.mesh-pane__legend-line--db    { border-top-style: solid; border-image: repeating-linear-gradient(90deg, var(--fg-muted) 0 8px, transparent 8px 10px) 1; }
+
+/* ── Edge inspector ── */
+.mesh-pane__inspector {
+  min-height: 56px;
+}
+.mesh-pane__inspector-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-2h);
+  font-size: var(--fs-xs);
+  color: var(--fg-subtle);
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+.mesh-pane__edge-card {
+  padding: var(--space-2) var(--space-2h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--mesh-neutral);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+.mesh-pane__edge-card--ok      { border-left-color: var(--mesh-ok); }
+.mesh-pane__edge-card--neutral { border-left-color: var(--mesh-neutral); }
+.mesh-pane__edge-card--warn    { border-left-color: var(--mesh-warn); }
+.mesh-pane__edge-card--danger  { border-left-color: var(--mesh-danger); }
+.mesh-pane__edge-card.is-pinned {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--mesh-neutral) 50%, transparent);
+}
+.mesh-pane__edge-card-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--fg);
+  flex-wrap: wrap;
+}
+.mesh-pane__edge-card-from,
+.mesh-pane__edge-card-to {
+  font-weight: var(--fw-semibold);
+}
+.mesh-pane__edge-card-arrow {
+  color: var(--fg-subtle);
+}
+.mesh-pane__edge-card-proto {
+  font-family: var(--font-sans);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-muted);
+  color: var(--fg-muted);
+}
+.mesh-pane__edge-card-proto--http  { background: color-mix(in srgb, var(--mesh-neutral) 18%, transparent); color: var(--fg); }
+.mesh-pane__edge-card-proto--grpc  { background: color-mix(in srgb, var(--mesh-neutral) 12%, transparent); color: var(--fg); }
+.mesh-pane__edge-card-proto--event { background: color-mix(in srgb, var(--mesh-warn) 16%, transparent); color: var(--fg); }
+.mesh-pane__edge-card-proto--db    { background: color-mix(in srgb, var(--fg-muted) 18%, transparent); color: var(--fg); }
+.mesh-pane__edge-card-pin {
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mesh-pane__edge-card-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2h);
+}
+
+.mesh-pane__metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+.mesh-pane__metric-k {
+  font-family: var(--font-sans);
+  font-size: var(--fs-9);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+}
+.mesh-pane__metric-v {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--fg);
+}
+.mesh-pane__metric--ok     .mesh-pane__metric-v { color: var(--mesh-ok); }
+.mesh-pane__metric--warn   .mesh-pane__metric-v { color: var(--mesh-warn); }
+.mesh-pane__metric--danger .mesh-pane__metric-v { color: var(--mesh-danger); }
+
+/* ── Failure-domain chips ── */
+.mesh-pane__domains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1h);
+}
+.mesh-pane__domain-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-1h);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--fg);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.mesh-pane__domain-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fg-subtle);
+}
+.mesh-pane__domain-chip--info   .mesh-pane__domain-dot { background: var(--mesh-neutral); }
+.mesh-pane__domain-chip--warn   .mesh-pane__domain-dot { background: var(--mesh-warn); }
+.mesh-pane__domain-chip--danger .mesh-pane__domain-dot { background: var(--mesh-danger); }
+.mesh-pane__domain-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Footer ── */
+.mesh-pane__foot {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  letter-spacing: 0.02em;
+}
+.mesh-pane__foot-file {
+  font-family: var(--font-mono);
+  color: var(--fg-muted);
+}

@@ -36,6 +36,8 @@ import { DEMO_FEATURES } from "@quanta/app-demo/seed";
 import { DASHBOARD_FEATURES } from "@quanta/app-dashboard/seed";
 import { HOME_FEATURES } from "@quanta/app-home/seed";
 import { AUTOPILOT_FEATURES } from "@quanta/app-autopilot/seed";
+import { TOKEN_RADAR_FEATURES } from "@quanta/app-token-radar/seed";
+import { AI_OPS_FEATURES } from "@quanta/app-ai-ops/seed";
 
 // ---------------------------------------------------------------------------
 // Lazy app registrations — each app's Component is code-split via dynamic
@@ -186,6 +188,22 @@ appRegistry.register({
   ),
 });
 
+appRegistry.register({
+  id: "token-radar",
+  label: "TokenRadar",
+  Component: lazy(() =>
+    import("@quanta/app-token-radar").then((m) => ({ default: m.TokenRadarApp })),
+  ),
+});
+
+appRegistry.register({
+  id: "ai-ops",
+  label: "AI Ops",
+  Component: lazy(() =>
+    import("@quanta/app-ai-ops").then((m) => ({ default: m.AiOpsApp })),
+  ),
+});
+
 // Register all app feature manifests eagerly.
 registerFeatureManifests(IDE_FEATURES);
 registerFeatureManifests(AGENT_FEATURES);
@@ -197,6 +215,8 @@ registerFeatureManifests(DEMO_FEATURES);
 registerFeatureManifests(DASHBOARD_FEATURES);
 registerFeatureManifests(HOME_FEATURES);
 registerFeatureManifests(AUTOPILOT_FEATURES);
+registerFeatureManifests(TOKEN_RADAR_FEATURES);
+registerFeatureManifests(AI_OPS_FEATURES);
 
 // Apply persisted feature enable/disable overrides onto the live registry.
 // Must run AFTER all manifests are registered.

@@ -16,7 +16,9 @@ export type TabApp =
   | "demo"
   | "code-city"
   | "analysis-catalog"
-  | "autopilot";
+  | "autopilot"
+  | "token-radar"
+  | "ai-ops";
 
 /** Superset: every surface the shell can render, including non-tab pages. */
 export type AppKind = TabApp | "home";

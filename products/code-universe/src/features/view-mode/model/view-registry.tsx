@@ -21,8 +21,32 @@ import {
 } from "react";
 import type { ViewContextValue, ViewDescriptor } from "./view-descriptor";
 import type { ViewMode } from "./store";
+import type { InsightScope } from "./taxonomy";
 import { viewModeStore } from "./store";
 import { recentModesStore } from "./recent-modes";
+
+/**
+ * Workspace scopes — descriptors with these primary scopes are surfaced
+ * inside Code Universe's view-mode picker (file/folder/repo-tree views).
+ * Anything else (agent-run / task / model / budget / policy / diff /
+ * team / org / workspace) is "runtime"-flavored and lives in its own
+ * top-level tab (`ai-ops`), NOT inside Code Universe.
+ *
+ * Untaxonomised descriptors default to workspace until they're tagged.
+ */
+const WORKSPACE_SCOPES = new Set<InsightScope>([
+  "repo",
+  "project",
+  "package",
+  "folder",
+  "module",
+  "file",
+  "symbol",
+]);
+
+function isWorkspaceScoped(d: ViewDescriptor): boolean {
+  return !d.taxonomy || WORKSPACE_SCOPES.has(d.taxonomy.primary.scope);
+}
 
 // Feature-side descriptors — each feature exposes a single exported
 // ViewDescriptor from its public barrel. Listed in picker + cycle order
@@ -369,20 +393,40 @@ const ALL: readonly ViewDescriptor[] = [
   redTeamViewDescriptor,
 ];
 
-export const VIEW_DESCRIPTORS: readonly ViewDescriptor[] = [...ALL].sort(
+export const ALL_VIEW_DESCRIPTORS: readonly ViewDescriptor[] = [...ALL].sort(
   (a, b) => a.order - b.order,
 );
 
+/**
+ * Workspace-scoped descriptors — what Code Universe's view-mode picker
+ * + cycle + ViewModePicker / ViewPalette enumerate. Non-workspace views
+ * (agent-run / task / budget / model / policy / diff / team / org /
+ * workspace) are intentionally excluded; they live in the `ai-ops`
+ * top-level tab.
+ */
+export const VIEW_DESCRIPTORS: readonly ViewDescriptor[] = ALL_VIEW_DESCRIPTORS.filter(
+  isWorkspaceScoped,
+);
+
+/**
+ * Runtime-scoped descriptors — feed the `ai-ops` top-level tab.
+ */
+export const RUNTIME_VIEW_DESCRIPTORS: readonly ViewDescriptor[] = ALL_VIEW_DESCRIPTORS.filter(
+  (d) => !isWorkspaceScoped(d),
+);
+
+// byId covers ALL descriptors so getViewDescriptor() works for both
+// workspace and runtime modes (the catalog still resolves every id).
 const byId = new Map<ViewMode, ViewDescriptor>(
-  VIEW_DESCRIPTORS.map(d => [d.id, d]),
+  ALL_VIEW_DESCRIPTORS.map(d => [d.id, d]),
 );
 
 // Duplicate-id guard — catches copy-paste mistakes at module load
 // instead of silently letting one descriptor shadow another.
-if (byId.size !== VIEW_DESCRIPTORS.length) {
+if (byId.size !== ALL_VIEW_DESCRIPTORS.length) {
   const seen = new Set<ViewMode>();
   const dupes: ViewMode[] = [];
-  for (const d of VIEW_DESCRIPTORS) {
+  for (const d of ALL_VIEW_DESCRIPTORS) {
     if (seen.has(d.id)) dupes.push(d.id);
     seen.add(d.id);
   }
@@ -397,8 +441,20 @@ export function getViewDescriptor(id: ViewMode): ViewDescriptor {
   return d;
 }
 
+/** Workspace-scoped picker list — what Code Universe surfaces. */
 export function listViewDescriptors(): readonly ViewDescriptor[] {
   return VIEW_DESCRIPTORS;
+}
+
+/** Runtime-scoped descriptors — what the AI Ops tab surfaces. */
+export function listRuntimeViewDescriptors(): readonly ViewDescriptor[] {
+  return RUNTIME_VIEW_DESCRIPTORS;
+}
+
+/** Every descriptor (workspace + runtime) — for the analysis catalog,
+ *  admission gates, agent planner: everywhere we need the full set. */
+export function listAllViewDescriptors(): readonly ViewDescriptor[] {
+  return ALL_VIEW_DESCRIPTORS;
 }
 
 export function isKnownViewMode(id: string): id is ViewMode {

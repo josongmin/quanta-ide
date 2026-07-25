@@ -14,8 +14,12 @@ export {
 } from "./model/store";
 export {
   VIEW_DESCRIPTORS,
+  ALL_VIEW_DESCRIPTORS,
+  RUNTIME_VIEW_DESCRIPTORS,
   getViewDescriptor,
   listViewDescriptors,
+  listAllViewDescriptors,
+  listRuntimeViewDescriptors,
   isKnownViewMode,
   switchMode,
   cycleMode,

@@ -8,6 +8,7 @@
 export { CodeUniverse, type CodeUniverseProps } from "./app/CodeUniverse";
 export { CodeCityTabApp, type CodeCityTabAppProps } from "./app/CodeCityTabApp";
 export { primeUniverseLaunch, type UniverseLaunchIntent } from "./app/universe-launch";
+export { primeAiOpsLaunch, consumeAiOpsLaunch, type AiOpsLaunchIntent } from "./app/ai-ops-launch";
 export { DashboardView, type DashboardViewProps } from "./features/dashboard";
 export {
   setWorkspaceGraph,
@@ -28,6 +29,15 @@ export {
   listLaunchableAnalysisRecords,
   queryAnalysisCatalog,
   type AnalysisCatalogQuery,
+} from "./features/view-mode";
+
+export {
+  listRuntimeViewDescriptors,
+  listAllViewDescriptors,
+  getViewDescriptor,
+  type ViewDescriptor,
+  type ViewContextValue,
+  type ViewMode,
 } from "./features/view-mode";
 export type {
   AnalysisCatalogRecord,

@@ -1,0 +1,520 @@
+/* ══════════════════════════════════════════════════════════════
+   eval-bench-pane.css — Continuous Evaluation Bench inspector
+   Tracks engine outputs against a golden task set, surfaces
+   regressions / flaky tasks per capability dimension.
+   Tokens-only; matches inspector-chrome vocabulary.
+   ══════════════════════════════════════════════════════════════ */
+
+.bench-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2h);
+  width: 100%;
+}
+
+.bench-pane__empty,
+.bench-pane__empty-row {
+  padding: var(--space-3);
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+  text-align: center;
+}
+.bench-pane__empty-row {
+  padding: var(--space-2);
+  background: var(--bg-subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* ── Header: 4 stat tiles ───────────────────────────── */
+.bench-pane__head {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr 1.4fr;
+  gap: var(--space-2h);
+}
+.bench-pane__stat {
+  padding: var(--space-2h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  justify-content: center;
+}
+.bench-pane__stat--gauge {
+  align-items: center;
+  gap: 0;
+}
+.bench-pane__stat-v {
+  font-family: var(--font-sans);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-1);
+}
+.bench-pane__stat-v--bad  { color: var(--danger); }
+.bench-pane__stat-v--warn { color: var(--warn, #d08700); }
+.bench-pane__stat-v--small {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+.bench-pane__stat-k {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: var(--space-1);
+}
+
+/* ── Semicircle gauge (overall score) ───────────────── */
+.bench-pane__semi {
+  display: block;
+}
+.bench-pane__semi-track {
+  fill: none;
+  stroke: var(--bg-muted);
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+.bench-pane__semi-arc {
+  fill: none;
+  stroke-width: 8;
+  stroke-linecap: round;
+}
+.bench-pane__semi-arc--ok   { stroke: var(--ok, #3ba55c); }
+.bench-pane__semi-arc--warn { stroke: var(--warn, #d08700); }
+.bench-pane__semi-arc--bad  { stroke: var(--danger); }
+.bench-pane__semi-text {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: var(--fw-bold);
+  fill: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.bench-pane__semi-sub {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  fill: var(--fg-subtle);
+  letter-spacing: 0.04em;
+}
+
+/* ── Section chrome ─────────────────────────────────── */
+.bench-pane__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+.bench-pane__section-title {
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-subtle);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.bench-pane__section-subtitle {
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-subtle);
+  margin-top: var(--space-2);
+}
+.bench-pane__section-count {
+  font-size: var(--fs-10);
+  font-weight: var(--fw-medium);
+  color: var(--fg-subtle);
+  text-transform: none;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Capability scoreboard row ──────────────────────── */
+.bench-pane__scoreboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+  gap: var(--space-1h);
+}
+.bench-pane__cap {
+  appearance: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-1h) var(--space-1);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  color: inherit;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.bench-pane__cap:hover { background: var(--bg-hover); }
+.bench-pane__cap.is-active {
+  background: color-mix(in srgb, var(--accent, #7aa2ff) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #7aa2ff) 60%, var(--border));
+}
+.bench-pane__cap-label {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+.bench-pane__cap-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-9);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bench-pane__cap-sep { color: var(--fg-subtle); opacity: 0.7; }
+.bench-pane__cap-frac,
+.bench-pane__cap-p95 { color: var(--fg-muted); }
+
+.bench-pane__delta {
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.bench-pane__delta--up   { color: var(--ok, #3ba55c); }
+.bench-pane__delta--down { color: var(--danger); }
+.bench-pane__delta--flat { color: var(--fg-subtle); }
+
+/* ── Mini gauge (60×60 ring) ────────────────────────── */
+.bench-pane__gauge {
+  display: block;
+}
+.bench-pane__gauge-track {
+  fill: none;
+  stroke: var(--bg-muted);
+}
+.bench-pane__gauge-arc {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.2s ease;
+}
+.bench-pane__gauge-arc--ok   { stroke: var(--ok, #3ba55c); }
+.bench-pane__gauge-arc--warn { stroke: var(--warn, #d08700); }
+.bench-pane__gauge-arc--bad  { stroke: var(--danger); }
+.bench-pane__gauge-text {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: var(--fw-bold);
+  fill: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Trend sparkline (60×16) ────────────────────────── */
+.bench-pane__trend {
+  display: block;
+}
+.bench-pane__trend-base {
+  stroke: var(--border);
+  stroke-width: 0.5;
+  opacity: 0.5;
+}
+.bench-pane__trend-line {
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.bench-pane__trend-line--ok   { stroke: var(--ok, #3ba55c); }
+.bench-pane__trend-line--warn { stroke: var(--warn, #d08700); }
+.bench-pane__trend-line--bad  { stroke: var(--danger); }
+
+/* ── Regressed tasks banner ─────────────────────────── */
+.bench-pane__regressions {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+.bench-pane__regressions-title {
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-bold);
+  color: var(--danger);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.bench-pane__reg-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+.bench-pane__reg-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: start;
+}
+.bench-pane__reg-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.bench-pane__reg-desc {
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  font-weight: var(--fw-medium);
+}
+
+/* ── Chips ──────────────────────────────────────────── */
+.bench-pane__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-semibold);
+  border-radius: var(--radius-xs);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.bench-pane__chip--cap {
+  color: var(--fg-muted);
+  background: var(--bg-muted);
+}
+.bench-pane__chip--outcome {
+  color: var(--bg);
+}
+.bench-pane__chip--pass    { background: var(--ok, #3ba55c); }
+.bench-pane__chip--fail    { background: var(--danger); }
+.bench-pane__chip--flaky   { background: var(--warn, #d08700); }
+.bench-pane__chip--skipped {
+  background: var(--bg-muted);
+  color: var(--fg-subtle);
+}
+
+/* ── Filter toolbar ─────────────────────────────────── */
+.bench-pane__filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.bench-pane__filter-group {
+  display: inline-flex;
+  gap: 1px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1px;
+}
+.bench-pane__filter {
+  appearance: none;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  padding: 2px var(--space-1h);
+  font-family: inherit;
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.02em;
+}
+.bench-pane__filter:hover { background: var(--bg-hover); color: var(--fg); }
+.bench-pane__filter.is-active {
+  background: color-mix(in srgb, var(--accent, #7aa2ff) 18%, transparent);
+  color: var(--fg);
+  font-weight: var(--fw-semibold);
+}
+.bench-pane__filter--clear {
+  background: var(--bg-muted);
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+}
+
+/* ── Main / aside grid ──────────────────────────────── */
+.bench-pane__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: var(--space-2h);
+  align-items: start;
+}
+@media (max-width: 760px) {
+  .bench-pane__grid { grid-template-columns: minmax(0, 1fr); }
+}
+.bench-pane__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+  min-width: 0;
+}
+
+/* ── Task list ──────────────────────────────────────── */
+.bench-pane__tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.bench-pane__task {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: var(--space-1h);
+  align-items: start;
+  padding: var(--space-1h);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-left-width: 1px;
+  border-radius: var(--radius-sm);
+}
+.bench-pane__task--fail.is-regression {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+}
+.bench-pane__task-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.bench-pane__task-desc {
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  font-weight: var(--fw-medium);
+}
+.bench-pane__task-expected {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+}
+.bench-pane__task-flaky {
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+.bench-pane__task-lat {
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+  white-space: nowrap;
+}
+
+/* ── Diff snippet (monospace) ───────────────────────── */
+.bench-pane__diff {
+  margin: 0;
+  padding: var(--space-1) var(--space-1h);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg);
+  background: var(--bg-muted);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+  overflow-x: auto;
+  line-height: var(--lh-2, 1.4);
+}
+
+/* ── Flaky watch list (right column) ────────────────── */
+.bench-pane__flaky-watch {
+  padding: var(--space-2);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+.bench-pane__flaky-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1h);
+}
+.bench-pane__flaky-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bench-pane__flaky-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.bench-pane__flaky-desc {
+  font-size: var(--fs-xs);
+  color: var(--fg);
+}
+.bench-pane__flaky-bar {
+  position: relative;
+  height: 4px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+.bench-pane__flaky-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--warn, #d08700);
+}
+.bench-pane__flaky-pct {
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── Capability quick-jump pills (in flaky-watch) ───── */
+.bench-pane__cap-jump {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bench-pane__cap-jump-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bench-pane__cap-pill {
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg-muted);
+  font-family: inherit;
+  font-size: var(--fs-9);
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.02em;
+}
+.bench-pane__cap-pill:hover { background: var(--bg-hover); color: var(--fg); }
+.bench-pane__cap-pill.is-active {
+  background: color-mix(in srgb, var(--accent, #7aa2ff) 18%, transparent);
+  border-color: color-mix(in srgb, var(--accent, #7aa2ff) 60%, var(--border));
+  color: var(--fg);
+  font-weight: var(--fw-semibold);
+}
+
+/* ── Footer ─────────────────────────────────────────── */
+.bench-pane__foot {
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}

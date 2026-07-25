@@ -1,0 +1,427 @@
+/* ══════════════════════════════════════════════════════════════
+   refactor-sim-pane.css — Refactor Safety Simulator inspector
+   Tokens only; BEM prefix rfsim-pane__.
+   ══════════════════════════════════════════════════════════════ */
+
+.rfsim-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-3);
+  font-family: var(--font-sans);
+  color: var(--fg);
+  min-width: 0;
+}
+
+/* ── Section frame ─────────────────────────────────────────── */
+.rfsim-pane__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.rfsim-pane__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.rfsim-pane__section-title {
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+  margin: 0;
+}
+.rfsim-pane__section-sub {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Candidate selector row ───────────────────────────────── */
+.rfsim-pane__cands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1h);
+}
+.rfsim-pane__cand {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: var(--space-1h) var(--space-2);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  color: var(--fg);
+  max-width: 100%;
+  text-align: left;
+  transition: background 100ms ease, border-color 100ms ease;
+}
+.rfsim-pane__cand:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+.rfsim-pane__cand.is-active {
+  background: var(--bg-selected);
+  border-color: var(--border-strong);
+}
+.rfsim-pane__cand-op {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-muted);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  flex-shrink: 0;
+}
+.rfsim-pane__cand-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 280px;
+}
+.rfsim-pane__cand-score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+}
+.rfsim-pane__cand-score--ok   { background: var(--bg-success-subtle); color: var(--success); }
+.rfsim-pane__cand-score--warn { background: var(--bg-warn-subtle);    color: var(--warn); }
+.rfsim-pane__cand-score--bad  { background: var(--bg-danger-subtle);  color: var(--danger); }
+
+/* ── Before/After flow graphs ──────────────────────────────── */
+.rfsim-pane__graphs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2h);
+}
+.rfsim-pane__graph {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2);
+  background: var(--bg);
+  min-width: 0;
+}
+.rfsim-pane__graph-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+.rfsim-pane__graph-label {
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+.rfsim-pane__graph-meta {
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+}
+.rfsim-pane__graph-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.rfsim-g__node-bg { fill: var(--bg); stroke: var(--border-strong); stroke-width: 1; }
+.rfsim-g__node-bg--external { fill: var(--bg-muted); }
+.rfsim-g__node-bg--module   { stroke: var(--accent); stroke-dasharray: 3 2; }
+.rfsim-g__node-bg--new      { stroke: var(--ok, #3ba55c); stroke-width: 2; }
+.rfsim-g__node-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  fill: var(--fg);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.rfsim-g__node-kind {
+  font-family: var(--font-sans);
+  font-size: 6.5px;
+  fill: var(--fg-subtle);
+  text-anchor: middle;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.rfsim-g__edge       { stroke: var(--fg-subtle); stroke-width: 1; fill: none; opacity: 0.7; }
+.rfsim-g__edge--add    { stroke: var(--ok, #3ba55c); stroke-width: 1.4; opacity: 1; }
+.rfsim-g__edge--remove { stroke: var(--danger); stroke-dasharray: 3 2; stroke-width: 1.2; opacity: 0.9; }
+.rfsim-g__edge-mark {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  font-weight: var(--fw-bold);
+  fill: var(--ok, #3ba55c);
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* ── Safety gauge + claims ─────────────────────────────────── */
+.rfsim-pane__safety {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-2h);
+  background: var(--bg);
+}
+.rfsim-pane__gauge {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.rfsim-pane__gauge-svg {
+  width: 100%;
+  max-width: 180px;
+  height: auto;
+  display: block;
+}
+.rfsim-pane__gauge-track  { stroke: var(--bg-muted); }
+.rfsim-pane__gauge-fill--ok   { stroke: var(--ok, #3ba55c); }
+.rfsim-pane__gauge-fill--warn { stroke: var(--warn, #d08700); }
+.rfsim-pane__gauge-fill--bad  { stroke: var(--danger); }
+.rfsim-pane__gauge-value {
+  position: absolute;
+  top: 55%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  transform: translateY(-50%);
+}
+.rfsim-pane__gauge-num {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  line-height: 1;
+}
+.rfsim-pane__gauge-label {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+
+/* Claims */
+.rfsim-pane__claims {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.rfsim-pane__claim {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: var(--space-2);
+  row-gap: 2px;
+  padding: var(--space-1) var(--space-1h);
+  border-radius: var(--radius-sm);
+}
+.rfsim-pane__claim:hover { background: var(--bg-hover); }
+.rfsim-pane__claim-glyph {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-muted);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  align-self: start;
+  margin-top: 1px;
+}
+.rfsim-pane__claim--pass .rfsim-pane__claim-glyph {
+  background: color-mix(in srgb, var(--ok, #3ba55c) 18%, transparent);
+  color: var(--ok, #3ba55c);
+}
+.rfsim-pane__claim--warn .rfsim-pane__claim-glyph {
+  background: var(--bg-warn-subtle);
+  color: var(--warn, #d08700);
+}
+.rfsim-pane__claim--fail .rfsim-pane__claim-glyph {
+  background: var(--bg-danger-subtle);
+  color: var(--danger);
+}
+.rfsim-pane__claim-label {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+}
+.rfsim-pane__claim-verifier {
+  grid-column: 3;
+  grid-row: 1;
+  padding: 1px 5px;
+  background: var(--bg-muted);
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  white-space: nowrap;
+}
+.rfsim-pane__claim-evidence {
+  grid-column: 2 / 4;
+  grid-row: 2;
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+  line-height: var(--lh-snug);
+}
+
+/* ── Impact dashboard ──────────────────────────────────────── */
+.rfsim-pane__impact {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1h);
+}
+.rfsim-pane__tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0h);
+  padding: var(--space-2) var(--space-2h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  min-width: 0;
+}
+.rfsim-pane__tile-label {
+  font-size: var(--fs-9);
+  font-weight: var(--fw-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+.rfsim-pane__tile-body {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1h);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  font-variant-numeric: tabular-nums;
+}
+.rfsim-pane__tile-sub {
+  font-family: var(--font-sans);
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rfsim-pane__delta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.rfsim-pane__delta--down { color: var(--ok, #3ba55c); }
+.rfsim-pane__delta--up   { color: var(--danger); }
+.rfsim-pane__delta--flat { color: var(--fg-subtle); }
+
+.rfsim-pane__op-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-1h);
+  border-radius: var(--radius-pill);
+  background: var(--bg-accent-subtle);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0.02em;
+}
+
+/* Ownership bar (two-row) */
+.rfsim-pane__own {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 2px;
+}
+.rfsim-pane__own-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: var(--space-1h);
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rfsim-pane__own-tag {
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.rfsim-pane__own-bar {
+  position: relative;
+  height: 4px;
+  background: var(--bg-muted);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+.rfsim-pane__own-fill {
+  display: block;
+  height: 100%;
+  background: var(--fg-subtle);
+}
+.rfsim-pane__own-row--after .rfsim-pane__own-fill {
+  background: var(--accent);
+}
+.rfsim-pane__own-pct {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+}
+.rfsim-pane__own-owner {
+  font-family: var(--font-mono);
+  font-size: var(--fs-9);
+  color: var(--fg);
+  margin-bottom: 2px;
+}
+
+/* ── Footer description ───────────────────────────────────── */
+.rfsim-pane__footer {
+  padding: var(--space-2) var(--space-2h);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  line-height: var(--lh-normal);
+}

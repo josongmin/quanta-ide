@@ -1,0 +1,309 @@
+/* ══════════════════════════════════════════════════════════════
+   knowledge-pane.css — heterogeneous knowledge graph inspector
+   Egocentric radial layout: 4 concentric rings, one per layer.
+   ══════════════════════════════════════════════════════════════ */
+
+.kgraph-pane {
+  /* Layer palette */
+  --kg-code: #6e8cff;
+  --kg-service: #57c787;
+  --kg-people: #e5b949;
+  --kg-data: #c26ee5;
+
+  --kg-ring-stroke: var(--border-subtle, rgba(255, 255, 255, 0.06));
+
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: var(--fg);
+}
+
+/* ── Header stats row (layer toggles) ─────────────────────── */
+.kgraph-pane__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1h);
+  padding: var(--space-2) var(--space-2h);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.kgraph-pane__chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 3px var(--space-1h) 3px var(--space-1);
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: var(--radius-pill, 999px);
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  font-variant-numeric: tabular-nums;
+}
+.kgraph-pane__chip:hover { background: var(--bg-hover); color: var(--fg); }
+.kgraph-pane__chip.is-on { color: var(--fg); border-color: color-mix(in srgb, currentColor 40%, var(--border)); }
+.kgraph-pane__chip.is-off { opacity: 0.48; text-decoration: line-through; }
+
+.kgraph-pane__chip-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  background: currentColor;
+}
+.kgraph-pane__chip.is-off .kgraph-pane__chip-dot { opacity: 0.4; }
+.kgraph-pane__chip-label { font-weight: var(--fw-medium); }
+.kgraph-pane__chip-count {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  color: var(--fg-muted);
+  margin-left: 2px;
+}
+
+.kgraph-pane__chip--code { color: var(--kg-code); }
+.kgraph-pane__chip--service { color: var(--kg-service); }
+.kgraph-pane__chip--people { color: var(--kg-people); }
+.kgraph-pane__chip--data { color: var(--kg-data); }
+
+/* ── Main body: graph + insights side-by-side on wide ─────── */
+.kgraph-pane__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: var(--space-2);
+  padding: var(--space-2);
+  overflow: auto;
+}
+@media (max-width: 860px) {
+  .kgraph-pane__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ── Radial graph ─────────────────────────────────────────── */
+.kgraph-pane__graph {
+  position: relative;
+  min-height: 360px;
+  border-radius: var(--radius-md);
+  background: var(--bg-subtle, rgba(255, 255, 255, 0.015));
+  border: 1px solid var(--border);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.kgraph-pane__svg {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  display: block;
+}
+
+.kgraph-pane__ring {
+  stroke: var(--kg-ring-stroke);
+  stroke-width: 1;
+  fill: none;
+  stroke-dasharray: 2 3;
+}
+.kgraph-pane__edge {
+  fill: none;
+  stroke-linecap: round;
+  transition: opacity 0.12s ease;
+}
+.kgraph-pane__edge--calls { stroke: var(--kg-code); }
+.kgraph-pane__edge--routes { stroke: var(--kg-service); }
+.kgraph-pane__edge--owns { stroke: var(--kg-people); }
+.kgraph-pane__edge--reads,
+.kgraph-pane__edge--writes,
+.kgraph-pane__edge--stores { stroke: var(--kg-data); }
+
+.kgraph-pane__node-hit {
+  cursor: pointer;
+  fill: transparent;
+}
+.kgraph-pane__node {
+  transition: opacity 0.12s ease, r 0.12s ease;
+  pointer-events: none;
+}
+.kgraph-pane__node--code { fill: var(--kg-code); }
+.kgraph-pane__node--service { fill: var(--kg-service); }
+.kgraph-pane__node--people { fill: var(--kg-people); }
+.kgraph-pane__node--data { fill: var(--kg-data); }
+
+.kgraph-pane__node-label {
+  font-family: var(--font-sans);
+  font-size: 8px;
+  fill: var(--fg-muted);
+  pointer-events: none;
+  transition: fill 0.12s ease;
+}
+.kgraph-pane__node-label.is-hovered { fill: var(--fg); }
+
+/* Center focus pill (rendered inside SVG as foreignObject — use plain SVG here) */
+.kgraph-pane__focus {
+  pointer-events: none;
+}
+.kgraph-pane__focus-pill {
+  fill: var(--bg);
+  stroke: currentColor;
+  stroke-width: 1;
+}
+.kgraph-pane__focus-dot {
+  fill: currentColor;
+}
+.kgraph-pane__focus-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  fill: var(--fg);
+}
+.kgraph-pane__focus-sub {
+  font-family: var(--font-sans);
+  font-size: 8px;
+  fill: var(--fg-muted);
+}
+
+/* ── Breadcrumb strip ─────────────────────────────────────── */
+.kgraph-pane__crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1h) var(--space-1);
+  margin-top: var(--space-1);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+}
+.kgraph-pane__crumbs-label {
+  font-size: var(--fs-9);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-subtle);
+  font-weight: var(--fw-bold);
+  margin-right: var(--space-1);
+}
+.kgraph-pane__crumb {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0h);
+  padding: 2px var(--space-1);
+  border: 1px solid var(--border);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.kgraph-pane__crumb:hover { background: var(--bg-hover); color: var(--fg); }
+.kgraph-pane__crumb.is-current { color: var(--fg); border-color: color-mix(in srgb, currentColor 30%, var(--border)); }
+.kgraph-pane__crumb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.kgraph-pane__crumb-sep {
+  color: var(--fg-subtle);
+  user-select: none;
+}
+
+/* ── Insights "Why this matters" ──────────────────────────── */
+.kgraph-pane__insights {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.kgraph-pane__insights-title {
+  font-size: var(--fs-9);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--fg-subtle);
+  font-weight: var(--fw-bold);
+  margin-bottom: var(--space-1);
+}
+.kgraph-pane__insight {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  column-gap: var(--space-1h);
+  row-gap: 2px;
+  padding: var(--space-1h) var(--space-1h);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+.kgraph-pane__insight-glyph {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--fs-10);
+  font-weight: var(--fw-bold);
+  align-self: start;
+  margin-top: 1px;
+}
+.kgraph-pane__insight--info .kgraph-pane__insight-glyph { color: var(--fg-muted); }
+.kgraph-pane__insight--warn .kgraph-pane__insight-glyph { color: var(--warn); }
+.kgraph-pane__insight--danger .kgraph-pane__insight-glyph { color: var(--danger); }
+.kgraph-pane__insight--danger { border-color: var(--border-danger-subtle, var(--border)); background: var(--bg-danger-subtle); }
+.kgraph-pane__insight-title {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  line-height: var(--lh-tight);
+}
+.kgraph-pane__insight-detail {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--fs-xs);
+  color: var(--fg-muted);
+  line-height: var(--lh-normal);
+}
+
+/* ── Empty state ──────────────────────────────────────────── */
+.kgraph-pane__empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  color: var(--fg-muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.kgraph-pane__foot {
+  flex-shrink: 0;
+  padding: var(--space-1h) var(--space-2h);
+  border-top: 1px solid var(--border);
+  font-size: var(--fs-10);
+  color: var(--fg-subtle);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+.kgraph-pane__foot-sep { opacity: 0.5; }
+.kgraph-pane__foot-focus { color: var(--fg-muted); font-family: var(--font-mono); }

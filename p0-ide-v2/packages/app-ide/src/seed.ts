@@ -4,13 +4,43 @@ import { tabBus } from "@quanta/shell/stores/tab-bus";
 import {
   listLaunchableAnalysisRecords,
   primeUniverseLaunch,
+  primeAiOpsLaunch,
   type AnalysisCatalogRecord,
+  type InsightScope,
 } from "@quanta/code-universe";
 
+const WORKSPACE_SCOPES = new Set<InsightScope>([
+  "repo",
+  "project",
+  "package",
+  "folder",
+  "module",
+  "file",
+  "symbol",
+]);
 
-function openUniverseView(mode: AnalysisCatalogRecord["id"], label: string): void {
-  primeUniverseLaunch({ mode });
-  tabBus.open("universe", label);
+function isWorkspaceRecord(record: AnalysisCatalogRecord): boolean {
+  return WORKSPACE_SCOPES.has(record.taxonomy.primary.scope);
+}
+
+/**
+ * Route a catalog launch to the right top-level tab kind:
+ *   - workspace-scoped views → Code Universe canvas (`universe` tab)
+ *   - runtime-scoped views   → AI Ops launcher (`ai-ops` tab)
+ *
+ * Both tabs use the same prime/consume pattern; the difference is just
+ * which kind of tab gets opened so the view doesn't render inside an
+ * unrelated chrome (e.g. a budget-console rendering inside Code Universe
+ * canvas with the file inspector half-eating the layout).
+ */
+function openCatalogView(record: AnalysisCatalogRecord, label: string): void {
+  if (isWorkspaceRecord(record)) {
+    primeUniverseLaunch({ mode: record.id });
+    tabBus.open("universe", label);
+  } else {
+    primeAiOpsLaunch({ mode: record.id });
+    tabBus.open("ai-ops", label);
+  }
 }
 
 function domainTitle(domain: string): string {
@@ -53,7 +83,7 @@ function analysisFeatureFromRecord(record: AnalysisCatalogRecord): FeatureManife
         id: commandId,
         title: `Open ${record.title}`,
         description: record.usecase,
-        run: () => openUniverseView(record.id, tabTitle),
+        run: () => openCatalogView(record, tabTitle),
       },
     ],
   };
