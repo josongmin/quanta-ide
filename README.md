@@ -2,18 +2,18 @@
 
 # Quanta IDE
 
-A modular IDE workspace that assembles shared libraries and mountable product interfaces into a Vite, React, and TypeScript shell. An optional Tauri application provides the desktop host.
+<p align="center"><a href="#engineering-highlights">Engineering</a> · <a href="#architecture-at-a-glance">Architecture</a> · <a href="#run-locally">Get started</a> · <a href="#documentation">Reference</a></p>
 
+A modular IDE workspace that assembles shared libraries and mountable product interfaces into a Vite, React, and TypeScript shell. An optional Tauri application provides the desktop host.
 
 ## Engineering highlights
 
-| Mechanism | Engineering purpose |
-| :--- | :--- |
-| **Three-tier workspace** | Reusable libraries, independently composed product packages, and the runnable editor host have different dependency roles. |
-| **Canvas specialization** | Canvas engine, Pixi rendering, and worker packages separate graph/layout work from rendering and host integration. |
-| **Software-intelligence surfaces** | Editor overlays and inspectors present engine-shaped signals through typed state and product contracts. |
-| **Platform boundary** | The browser host and Tauri shell share UI-facing libraries while native commands remain in the desktop boundary. |
-
+| Mechanism | Engineering purpose | Source |
+| :--- | :--- | :--- |
+| **Three-tier workspace** | Reusable libraries, independently composed product packages, and the runnable editor host have different dependency roles. | [Workspace](pnpm-workspace.yaml) |
+| **Canvas specialization** | Canvas engine, Pixi rendering, and worker packages separate graph/layout work from rendering and host integration. | [Canvas engine](libs/canvas-engine/) |
+| **Software-intelligence surfaces** | Editor overlays and inspectors present engine-shaped signals through typed state and product contracts. | [IDE host](p0-ide-v2/) |
+| **Platform boundary** | The browser host and Tauri shell share UI-facing libraries while native commands remain in the desktop boundary. | [Native host](desktop/src-tauri/) |
 
 ## Architecture at a glance
 
@@ -79,3 +79,5 @@ The repository combines reusable infrastructure and product UI. Demo policies an
 - [Information architecture](docs/ia.md)
 - [Architecture decisions](docs/adr)
 - [Script reference](package.json)
+
+<p align="center"><sub><a href="https://github.com/josongmin">Project map</a> · <a href="#engineering-highlights">Back to overview</a></sub></p>
