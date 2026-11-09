@@ -1,6 +1,30 @@
+<p align="center"><img src="readme-banner.svg" alt="Quanta IDE — Reusable libraries, product surfaces, and a shared editor host." width="100%"></p>
+
 # Quanta IDE
 
 A modular IDE workspace that assembles shared libraries and mountable product interfaces into a Vite, React, and TypeScript shell. An optional Tauri application provides the desktop host.
+
+
+## Engineering highlights
+
+| Mechanism | Engineering purpose |
+| :--- | :--- |
+| **Three-tier workspace** | Reusable libraries, independently composed product packages, and the runnable editor host have different dependency roles. |
+| **Canvas specialization** | Canvas engine, Pixi rendering, and worker packages separate graph/layout work from rendering and host integration. |
+| **Software-intelligence surfaces** | Editor overlays and inspectors present engine-shaped signals through typed state and product contracts. |
+| **Platform boundary** | The browser host and Tauri shell share UI-facing libraries while native commands remain in the desktop boundary. |
+
+
+## Architecture at a glance
+
+```mermaid
+flowchart TB
+    L["libs: types, shell, canvas, UI"] --> P["products: code-universe"]
+    L --> H["p0-ide-v2: runnable host"]
+    P --> H
+    H --> W["Browser application"]
+    H --> D["Tauri desktop shell"]
+```
 
 ## What it does
 
